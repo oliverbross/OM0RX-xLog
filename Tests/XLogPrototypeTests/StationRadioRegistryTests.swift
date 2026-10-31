@@ -5,10 +5,49 @@ import XCatIntegrationCore
 @testable import XLogPrototypeSupport
 
 final class StationRadioRegistryTests: XCTestCase {
+    func testProcessFactoryGrantsSharedLifetimeWithoutGivingOfflineWorkersSharedServices() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("registry-factory-\(UUID())")
+        let profile = AppRuntimeProfile.contestingTest(supportRoot: root)
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false, runtimeProfile: profile)
+        defer { try? logbook.openedDatabase().close(); try? FileManager.default.removeItem(at: root) }
+        let fixture = LiveWorker(logbook: logbook, ownsProcessSessions: true, runtimeProfile: profile)
+        let process = LiveWorker.processWorker(operatingModule: .contesting, runtimeProfile: profile, logbook: logbook)
+        let fixtureOwnership = await fixture.processSessionOwnershipForTesting()
+        let processOwnership = await process.processSessionOwnershipForTesting()
+        XCTAssertTrue(fixtureOwnership.permission)
+        XCTAssertFalse(fixtureOwnership.lifetime)
+        XCTAssertFalse(fixtureOwnership.stationRegistry)
+        XCTAssertTrue(processOwnership.permission)
+        XCTAssertTrue(processOwnership.lifetime)
+        XCTAssertFalse(processOwnership.stationRegistry, "Offline process construction cannot acquire global station owners")
+        let fixtureOutcome = await fixture.shutdownOutcome(), processOutcome = await process.shutdownOutcome()
+        XCTAssertEqual(fixtureOutcome, .clean)
+        XCTAssertEqual(processOutcome, .clean)
+    }
+
+    func testLocalAcceptanceStillRetiresAnExplicitPrivateRegistry() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("registry-local-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let registry = StationRadioRegistry()
+        let worker = LiveWorker(logbook: LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false),
+            localAcceptance: true, stationRegistry: registry)
+        let outcome = await worker.shutdownOutcome()
+        XCTAssertEqual(outcome, .clean)
+        for radio in ["radio1", "radio2"] {
+            do {
+                _ = try await LiveStationMethods.handle("station_disconnect", params: ["provider": "direct_agent", "radio_id": radio], registry: registry)
+                XCTFail("The injected local owner survived EOF")
+            } catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "worker_stopping") }
+        }
+    }
+
     func testWorkerRegistersBothRoutedAgentsAndRetiresEverySlotWithoutGlobalServices() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("registry-worker-\(UUID())")
         defer { try? FileManager.default.removeItem(at: root) }
-        let registry = StationRadioRegistry(), gate = NativeDraftPowerGate()
+        let socket = TCIFixtureSocket(), connector = TCIFixtureConnector([socket, socket])
+        let registry = StationRadioRegistry(tciFactory: { claim in LiveTCISession(claim: claim, factory: {
+            TCIReadOnlyWebSocketSession(endpoint: $0.endpoint, configuredAddress: $0.address, connector: connector)
+        }) }), gate = NativeDraftPowerGate()
         let worker = LiveWorker(logbook: LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false),
             powerCapture: gate, runtimeProfile: .contestingTest(supportRoot: root), stationRegistry: registry)
         await worker.startPowerCapture()

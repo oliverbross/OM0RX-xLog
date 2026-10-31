@@ -24,6 +24,12 @@ final class CWCallsignAdmissionTests:XCTestCase {
             let after=try XCTUnwrap(service.handle(method:"logbook_operator_draft",params:[:])["draft"] as? [String:Any])
             XCTAssertEqual(NSDictionary(dictionary:before),NSDictionary(dictionary:after))
             _ = await worker.shutdown()
+            // Admission-owner permission does not confer the lifetime of the
+            // process's shared independent rotor or either radio slot.
+            let rotor = try await LiveStationMethods.handle("station_rotor_snapshot", params:["provider":"direct_agent"])
+            XCTAssertEqual(rotor["connected"] as? Bool, false)
+            let station = try await LiveStationMethods.handle("station_snapshot", params:["provider":"direct_agent","radio_id":"radio1"])
+            XCTAssertEqual(station["radio_id"] as? String, "radio1")
         }
     }
 }

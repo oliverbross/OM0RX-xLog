@@ -50,14 +50,18 @@ public enum LiveWorkerShutdownOutcome: Int32, Sendable {
 /// echoed into diagnostics. Creating a worker does not connect hardware or open
 /// the original application's database.
 public actor LiveWorker {
-    public static let shared = LiveWorker(ownsProcessSessions: true,
+    public static let shared = LiveWorker(ownsProcessSessions: true, ownsProcessSingletons: true,
         runtimeProfile: AppRuntimeProfile.current,
         // Invalid native metadata must never enable Normal Logging background work.
         operatingModule: (try? WorkerOperatingModule.resolve(
             environment: ProcessInfo.processInfo.environment)) ?? .contesting)
     public static func processWorker(operatingModule: WorkerOperatingModule,
                                      runtimeProfile: AppRuntimeProfile) -> LiveWorker {
-        LiveWorker(ownsProcessSessions: true, runtimeProfile: runtimeProfile,
+        processWorker(operatingModule: operatingModule, runtimeProfile: runtimeProfile, logbook: .shared)
+    }
+    static func processWorker(operatingModule: WorkerOperatingModule,
+                              runtimeProfile: AppRuntimeProfile, logbook: LiveLogbookMethods) -> LiveWorker {
+        LiveWorker(logbook: logbook, ownsProcessSessions: true, ownsProcessSingletons: true, runtimeProfile: runtimeProfile,
                    operatingModule: operatingModule)
     }
     private let diagnostics = PrototypeWorker()
@@ -174,9 +178,11 @@ public actor LiveWorker {
     private let localAcceptance: Bool
     private let runtimeProfile: AppRuntimeProfile
     private let operatingModule: WorkerOperatingModule
-    /// Only the process singleton owns hardware/service singletons. Disposable
-    /// workers used by acceptance and unit tests must never terminate them.
+    /// Owner permission is also exercised by disposable admission fixtures.
     private let ownsProcessSessions: Bool
+    /// Only process factories own the lifetime of shared hardware/services.
+    /// A fixture's owner permission must not retire another worker's owners.
+    private let ownsProcessSingletons: Bool
     private let stationRegistry: StationRadioRegistry?
     private let contactRefresher: @Sendable () async throws -> Void
     private var contactRefreshPending = false
@@ -196,6 +202,7 @@ public actor LiveWorker {
          onlineLogs: LiveOnlineLogDeliveryService? = nil,
           contactRefresher: (@Sendable () async throws -> Void)? = nil,
           ownsProcessSessions: Bool = false,
+          ownsProcessSingletons: Bool = false,
           runtimeProfile: AppRuntimeProfile = .production,
           operatingModule: WorkerOperatingModule = .normalLogging,
           contestDeclarativeDefinitions: [ContestDeclarativeDefinition]? = nil,
@@ -280,11 +287,11 @@ public actor LiveWorker {
         #if os(macOS)
         references = LiveReferenceMethods(logbook: logbook)
         #endif
-        let cluster = cluster ?? (runtimeProfile.externalIOAllowed && !localAcceptance
+        let cluster = cluster ?? (ownsProcessSingletons && runtimeProfile.externalIOAllowed && !localAcceptance
             && logbook === LiveLogbookMethods.shared && operatingModule == .normalLogging
             ? .shared : LiveClusterMethods(logbook: logbook,
                                            forwardClassifiedIngressSpots: operatingModule == .normalLogging,
-                                           radioSideEffectsAllowed: runtimeProfile.externalIOAllowed && !localAcceptance))
+                                           radioSideEffectsAllowed: ownsProcessSingletons && runtimeProfile.externalIOAllowed && !localAcceptance))
         self.cluster = cluster
         #if os(macOS)
         cwDecode = LiveCWDecodeMethods(logbook:logbook,prepareListener:{try await cluster.prepareLocalCWListener()},
@@ -301,7 +308,8 @@ public actor LiveWorker {
         self.runtimeProfile = runtimeProfile
         self.operatingModule = operatingModule
         self.ownsProcessSessions = ownsProcessSessions
-        self.stationRegistry = stationRegistry ?? (ownsProcessSessions && !localAcceptance && runtimeProfile.externalIOAllowed ? .shared : nil)
+        self.ownsProcessSingletons = ownsProcessSingletons
+        self.stationRegistry = stationRegistry ?? (ownsProcessSingletons && !localAcceptance && runtimeProfile.externalIOAllowed ? .shared : nil)
     }
 
     func beginTerminalShutdown() async {
@@ -387,7 +395,7 @@ public actor LiveWorker {
         await onlineLogs.startAutomaticDelivery()
         #if os(macOS)
         guard !terminalShutdown, !Task.isCancelled else { return }
-        if ownsProcessSessions {
+        if ownsProcessSingletons {
             await LiveWSJTXBridge.shared.install { [weak self] in
                 Task { await self?.externalContactChanged() }
             }
@@ -424,6 +432,10 @@ public actor LiveWorker {
 
     func drainPowerCapture() async { await powerDelivery.drain() }
 
+    func processSessionOwnershipForTesting() -> (permission: Bool, lifetime: Bool, stationRegistry: Bool) {
+        (ownsProcessSessions, ownsProcessSingletons, stationRegistry != nil)
+    }
+
     @discardableResult public func shutdown() async -> Bool {
         await shutdownOutcome().permitsRestart
     }
@@ -436,7 +448,7 @@ public actor LiveWorker {
         await services.beginTermination()
         #if os(macOS)
         await references.terminate()
-        if ownsProcessSessions && runtimeProfile.externalIOAllowed && !localAcceptance {
+        if ownsProcessSingletons && runtimeProfile.externalIOAllowed && !localAcceptance {
             await LiveWSJTXBridge.shared.stopForShutdown()
             await LiveFldigiBridge.shared.stopForShutdown()
         }
@@ -444,14 +456,16 @@ public actor LiveWorker {
         await publicServices.terminate()
         await opportunities.terminate()
         if localAcceptance {
-            // Only the injected local cluster/archive owner is retired here;
+            // Only private or explicitly injected owners retire here;
             // process-wide station singletons remain outside acceptance scope.
             contestSpotsRetired = await cluster.terminate(deferRadioSpotCleanup: true, permitRadioSpotCleanup: runtimeProfile.externalIOAllowed && !localAcceptance)
+            let stationRetired = await retireStationOwners()
             await services.terminate()
-            return .resolve(onlineLogsRetired: onlineLogsRetired, contestSpotsRetired: contestSpotsRetired)
+            return .resolve(onlineLogsRetired: onlineLogsRetired, contestSpotsRetired: contestSpotsRetired,
+                            stationRetired: stationRetired)
         }
         #if os(macOS)
-        if ownsProcessSessions && runtimeProfile.externalIOAllowed {
+        if ownsProcessSingletons && runtimeProfile.externalIOAllowed {
             await LiveSpotBridge.shared.stopForShutdown()
             // Seal/drain accepted publications, but leave cosmetic removal on
             // its durable queue so station ownership can retire promptly.
@@ -463,17 +477,21 @@ public actor LiveWorker {
         #else
         contestSpotsRetired = await cluster.terminate(deferRadioSpotCleanup: true, permitRadioSpotCleanup: runtimeProfile.externalIOAllowed && !localAcceptance)
         #endif
-        #if os(macOS)
-        let stationRetirement: StationRetirementResult?
-        if runtimeProfile.externalIOAllowed { stationRetirement = await stationRegistry?.terminate() }
-        else { stationRetirement = nil }
-        #endif
+        let stationRetired = await retireStationOwners()
         await services.terminate()
-        #if os(macOS)
         return .resolve(onlineLogsRetired: onlineLogsRetired, contestSpotsRetired: contestSpotsRetired,
-                        stationRetired: stationRetirement?.unconfirmedRadioIDs.isEmpty ?? true)
+                        stationRetired: stationRetired)
+    }
+
+    private func retireStationOwners() async -> Bool {
+        #if os(macOS)
+        // Shared owners are installed only for an eligible process factory.
+        // An explicitly injected private registry still owns its fixture cleanup
+        // when the worker profile correctly prohibits external station I/O.
+        let stationRetirement = await stationRegistry?.terminate()
+        return stationRetirement?.unconfirmedRadioIDs.isEmpty ?? true
         #else
-        return .resolve(onlineLogsRetired: onlineLogsRetired, contestSpotsRetired: contestSpotsRetired)
+        return true
         #endif
     }
 
@@ -695,8 +713,10 @@ public actor LiveWorker {
                     await onlineLogs.suspendForOwnershipChange()
                     #if os(macOS)
                     await references.suspendForWorkspaceChange()
-                    await LiveWSJTXBridge.shared.suspendForWorkspaceChange()
-                    await LiveFldigiBridge.shared.suspendForWorkspaceChange()
+                    if ownsProcessSingletons {
+                        await LiveWSJTXBridge.shared.suspendForWorkspaceChange()
+                        await LiveFldigiBridge.shared.suspendForWorkspaceChange()
+                    }
                     #endif
                     await cluster.invalidateContactsForWorkspaceChange()
                 }
@@ -714,7 +734,7 @@ public actor LiveWorker {
                     if changingWorkspace {
                         #if os(macOS)
                         await references.finishWorkspaceChange()
-                        if normalBackgroundEnabled {
+                        if ownsProcessSingletons && normalBackgroundEnabled {
                             await LiveWSJTXBridge.shared.finishWorkspaceChange()
                         }
                         #endif
@@ -734,7 +754,7 @@ public actor LiveWorker {
                 if changingWorkspace {
                     #if os(macOS)
                     await references.finishWorkspaceChange()
-                    if normalBackgroundEnabled {
+                    if ownsProcessSingletons && normalBackgroundEnabled {
                         await LiveWSJTXBridge.shared.finishWorkspaceChange()
                     }
                     #endif
