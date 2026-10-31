@@ -8,7 +8,7 @@ import type {AnalyticsExport} from './contestAnalyticsExport';
 import {flushUnfinishedEditors} from './unfinishedEditors';
 afterEach(()=>{vi.restoreAllMocks();flushUnfinishedEditors();cleanup();localStorage.clear();});
 it('opens contributing candidate evidence without output and exports only reviewed normalized learning claims',async()=>{
- const dataset=prepareAnalytics(analyticsFixtureMeta,analyticsFixtureRows),before=JSON.stringify(dataset),onDrill=vi.fn(),save=vi.fn(async()=>{});
+ const dataset=prepareAnalytics(analyticsFixtureMeta,analyticsFixtureRows),before=JSON.stringify(dataset),onDrill=vi.fn(),save=vi.fn<AnalyticsExport['save']>(async()=>undefined);
  const exporter={pending:false,save} as unknown as AnalyticsExport;
  render(<><AnalyticsCandidateEvidence dataset={dataset} onDrill={onDrill}/><AnalyticsLearningEvidence dataset={dataset} onDrill={onDrill} exportState={exporter}/></>);
  fireEvent.change(screen.getByLabelText('Analytical candidate source'),{target:{value:'a'}});
