@@ -116,8 +116,12 @@ public final class CTYResolver: @unchecked Sendable {
         if let exact = rules.first(where: { rule in
             rule.exact && call == rule[keyPath: token] && Self.isActive(rule, at: date)
         }) { return exact }
-        let components = call.split(separator: "/").map(String.init).filter {
-            !ignoredSuffixes.contains($0) && $0.contains(where: { $0.isLetter })
+        let components = call.split(separator: "/").map(String.init).enumerated().compactMap { index, part in
+            // MM/LY3X/P operates in Scotland; LY3X/MM has a maritime-mobile
+            // suffix. A leading operating prefix must survive suffix filtering.
+            guard (index == 0 || !ignoredSuffixes.contains(part)),
+                  part.contains(where: { $0.isLetter }) else { return nil as String? }
+            return part
         }
         let candidates = components.sorted {
             $0.count == $1.count ? $0 < $1 : $0.count < $1.count

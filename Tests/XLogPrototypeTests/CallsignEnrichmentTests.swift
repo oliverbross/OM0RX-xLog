@@ -1,8 +1,29 @@
 #if os(macOS)
 import XCTest
+import XLogCore
 @testable import XLogPrototypeSupport
 
 final class CallsignEnrichmentTests: XCTestCase {
+    func testScottishPortableLookupRetainsOperatingEntityInsteadOfLithuanianHomeProfile() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        let base = try LocalCallsignProfile.base("MM/LY3X/P", logbook: logbook)
+        let result = await CallsignEnrichment.resolve(base: base) {
+            ["call": "MM/LY3X/P", "name": "Portable Operator", "country": "Lithuania", "dxcc": 146,
+             "gridSquare": "KO24nt", "latitude": 55.6, "longitude": 24.1, "cqZone": "15", "ituZone": "29"]
+        }
+        XCTAssertEqual(result["name"] as? String, "Portable Operator")
+        XCTAssertEqual(result["country"] as? String, "SCOTLAND")
+        XCTAssertEqual(result["dxcc"] as? Int, 279)
+        XCTAssertEqual(result["cqZone"] as? String, "14")
+        XCTAssertEqual(result["ituZone"] as? String, "27")
+        XCTAssertNil(result["gridSquare"])
+        XCTAssertEqual(result["latitude"] as? Double, base["latitude"] as? Double)
+        XCTAssertEqual(result["location_source"] as? String, "CTY approximate")
+        XCTAssertNotNil(result["lookup_warning"])
+    }
+
     private var base: [String: Any] { ["call": "EA7EU", "country": "Spain", "dxcc": 281, "latitude": 40.0, "longitude": -4.0, "source": "CTY approximate"] }
 
     func testProviderFailureKeepsOfflineCountryAndLocationWithoutLeakingError() async {

@@ -4,6 +4,18 @@ import Testing
 
 @Suite("CTY source authority")
 struct CTYResolverTests {
+    @Test("Leading MM is Scotland while trailing MM remains a mobile suffix")
+    func scottishPortablePrefix() throws {
+        let resolver = try CTYResolver.bundled()
+        for call in ["MM/LY3X/P", "MM/LY3X", "mm/ly3x/p"] {
+            #expect(resolver.resolve(call)?.adif == 279)
+            #expect(resolver.resolveCountryEndpoint(call)?.adif == 279)
+            #expect(resolver.resolveCountryEndpointWithPrimaryPrefix(call)?.country.adif == 279)
+        }
+        #expect(resolver.resolve("LY3X/MM")?.adif == 146)
+        #expect(resolver.resolve("LY3X/P")?.adif == 146)
+    }
+
     @Test("Bundled PJ prefixes retain their distinct modern entities")
     func modernPJEntities() throws {
         let resolver = try CTYResolver.bundled()
