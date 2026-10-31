@@ -1,5 +1,12 @@
 {
   "schema": 1,
+  "windows-python-licenses": {
+    "version": "20261026",
+    "url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261026/python-licenses.rst",
+    "sha256": "e43fb936c6655d7996dba480d7ebdea492d6040ec388eb8ed9d1000f72de8cab",
+    "suffix": ".rst",
+    "source": "https://github.com/astral-sh/python-build-standalone/blob/20261026/python-licenses.rst"
+  },
   "windows-python": {
     "version": "3.12.16",
     "build": "20261026",

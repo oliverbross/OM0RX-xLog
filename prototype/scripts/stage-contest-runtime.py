@@ -55,12 +55,18 @@ def stage_windows(destination):
     notices = list(runtime.rglob('*LICENSE*')) + list(runtime.rglob('*license*'))
     if not any(path.is_file() for path in notices):
         raise ValueError('Pinned Python archive has no license notices')
+    # Install-only archives omit the full distribution's build metadata. Carry
+    # the matching upstream component-license collection as well as LICENSE.txt.
+    notice = download('windows-python-licenses')
+    notice_target = destination / 'notices/python-build-standalone-20261026-licenses.rst'
+    notice_target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(notice, notice_target)
     verification = None
     if os.name == 'nt':
         verification = json.loads(subprocess.check_output([
             str(runtime / 'python.exe'), '-I', '-B', str(Path(__file__).with_name('verify-python-runtime.py')),
             '--expected-version', sources()['windows-python']['version']], text=True))
-    return {'source': sources()['windows-python'], 'verification': verification,
+    return {'source': sources()['windows-python'], 'licenses': sources()['windows-python-licenses'], 'verification': verification,
             'executables': {name: digest(runtime / name) for name in ['python.exe', 'python312.dll']}}
 
 
