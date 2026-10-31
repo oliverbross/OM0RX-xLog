@@ -310,6 +310,43 @@ try {
     }
     if (-not $origins.ContainsKey('sqlite3.dll') -or -not $origins.ContainsKey('swiftcore.dll')) { throw 'Audit did not stage expected SQLite and Swift core runtimes.' }
 
+    # Contesting owns an app-relative interpreter. Never depend on a developer
+    # Python installation or let its bundled SQLite/OpenSSL shadow Swift's DLLs.
+    $null = Invoke-Checked python @((Join-Path $PSScriptRoot 'stage-contest-runtime.py'), '--platform', 'windows', '--destination', $package)
+    $pythonRoot = Join-Path $package 'Python'
+    foreach ($crtFile in Get-ChildItem -LiteralPath $VCRedistDirectory -Filter '*.dll' -File) {
+        $target = Join-Path $pythonRoot $crtFile.Name
+        if (-not (Test-Path -LiteralPath $target)) { Copy-Item -LiteralPath $crtFile.FullName -Destination $target }
+    }
+    $pythonEdges = [Collections.Generic.List[object]]::new()
+    foreach ($binary in Get-ChildItem -LiteralPath $pythonRoot -File -Recurse | Where-Object Extension -In @('.exe', '.dll', '.pyd')) {
+        $headers = (Invoke-Checked $DumpbinPath @('/NOLOGO', '/HEADERS', $binary.FullName)) -join "`n"
+        if ($headers -notmatch '(?im)^\s*8664 machine \(x64\)') { throw "Python payload is not x64 PE: $($binary.Name)" }
+        $imports = (Invoke-Checked $DumpbinPath @('/NOLOGO', '/DEPENDENTS', $binary.FullName)) -join "`n"
+        $dependencies = @([regex]::Matches($imports, '(?im)^\s+([^\s]+\.dll)\s*$') | ForEach-Object { $_.Groups[1].Value.ToLowerInvariant() } | Sort-Object -Unique)
+        foreach ($dependency in $dependencies) {
+            $resolution = $null
+            if ($dependency -match '^(api-ms-win-|ext-ms-win-)') { $resolution = 'windows-api-set' }
+            else {
+                foreach ($directory in @($binary.DirectoryName, $pythonRoot, (Join-Path $pythonRoot 'DLLs'))) {
+                    $local = Join-Path $directory $dependency
+                    if (Test-Path -LiteralPath $local -PathType Leaf) { $resolution = [IO.Path]::GetRelativePath($package, $local); break }
+                }
+                if (-not $resolution) {
+                    if ($dependency -match '^(python|sqlite|libssl|libcrypto|vcruntime|msvcp|concrt|vcomp)') { throw "Python redistributable missing: $dependency, needed by $($binary.Name)" }
+                    $system = Join-Path ([Environment]::GetFolderPath('System')) $dependency
+                    if (-not (Test-Path -LiteralPath $system -PathType Leaf)) { throw "Unresolved Python import: $dependency" }
+                    $signature = Get-AuthenticodeSignature -FilePath $system
+                    if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'Microsoft') { throw "Untrusted Python system import: $dependency" }
+                    $resolution = 'windows-system'
+                }
+            }
+            $pythonEdges.Add([pscustomobject]@{ from = [IO.Path]::GetRelativePath($package, $binary.FullName); import = $dependency; resolution = $resolution })
+        }
+    }
+    Write-Json (Join-Path $package 'evidence/python-imports.json') ([ordered]@{ schema = 1; inspector = 'native Visual Studio dumpbin'; edges = $pythonEdges.ToArray() })
+    $null = Invoke-Checked (Join-Path $pythonRoot 'python.exe') @('-I', '-B', (Join-Path $PSScriptRoot 'verify-python-runtime.py'), '--expected-version', '3.12.16')
+
     # Keep complete primary-source notices with retrieval hashes. Installed
     # vcpkg's copyright accompanies the exact SQLite build as well.
     Copy-Item -LiteralPath $hamlibNotices -Destination (Join-Path $package 'notices/hamlib-4.7.2') -Recurse
@@ -375,6 +412,8 @@ Run acceptance in PowerShell 7: ./accept-windows.ps1 -PackageDirectory .
 The acceptance report distinguishes toolchain absence, restricted PATH,
 module origins and isolated local-logbook UI tests. Local logging, Wavelog
 synchronization and the Hamlib 4.7.2 rigctld/rotctld helpers are included.
+Contesting includes a private Python 3.12 runtime and the pinned Not1MM engine;
+keep the Python and Not1MM subdirectories with the application.
 Accounts and station services require explicit configuration; native provider
 support varies by platform. Acceptance uses synthetic local data and does not
 contact a station or external account. A GitHub Windows Server runner is not a

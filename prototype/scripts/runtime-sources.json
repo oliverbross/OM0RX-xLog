@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "windows-python": {
+    "version": "3.12.16",
+    "build": "20261026",
+    "platform": "x86_64-pc-windows-msvc",
+    "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.12.16%2B20261026-x86_64-pc-windows-msvc-install_only_stripped.tar.gz",
+    "sha256": "1f2ab53880fc67ea323398c6388e05af28addc99a8e389209f08a51fdff4b149",
+    "bytes": 22014416,
+    "source": "https://github.com/astral-sh/python-build-standalone/releases/tag/20261026"
+  },
+  "macos-python-source": {
+    "version": "3.12.16",
+    "url": "https://www.python.org/ftp/python/3.12.16/Python-3.12.16.tar.xz",
+    "sha256": "b5796915dc45ff745cfb4e990a7e7c93d6f546328a102ce31448d69ebc37575c",
+    "source": "https://www.python.org/downloads/release/python-31216/"
+  },
+  "mozilla-ca": {
+    "version": "2026-10-20",
+    "url": "https://curl.se/ca/cacert-2026-10-20.pem",
+    "sha256": "796f1389bfea13c0ed78f663b765baaff54a508e5483786bd6ece73c5e3e3cbe",
+    "suffix": ".pem",
+    "source": "https://curl.se/docs/caextract.html",
+    "license": "MPL-2.0",
+    "licenseURL": "https://www.mozilla.org/en-US/MPL/2.0/"
+  },
+  "macos-openssl-source": {
+    "version": "3.6.4",
+    "url": "https://github.com/openssl/openssl/releases/download/openssl-3.6.4/openssl-3.6.4.tar.gz",
+    "sha256": "9bffaa1ad1e07b354c21bd3324ec02fa15579f45a7d0494b3e74bc449b7333ef",
+    "bytes": 55003802,
+    "source": "https://github.com/openssl/openssl/releases/tag/openssl-3.6.4"
+  }
+}
