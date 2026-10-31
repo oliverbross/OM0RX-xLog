@@ -29,6 +29,7 @@ struct PythonContestHostConfiguration: Sendable, Equatable {
 
     static func bundled(applicationSupport: URL, bundle: Bundle = .main,
                         fileManager: FileManager = .default) throws -> Self {
+        #if os(macOS)
         guard let resources = bundle.resourceURL else {
             throw ContestLaneError.confirmed("contest_host_unavailable", "The bundled contest resources are unavailable.")
         }
@@ -48,6 +49,57 @@ struct PythonContestHostConfiguration: Sendable, Equatable {
         }
         return Self(executableURL: executable, launcherURL: launcher, dataRootURL: dataRoot,
                     sslCertificateFileURL: certificate)
+        #elseif os(Windows) || os(Linux)
+        guard let workerExecutable = bundle.executableURL else {
+            throw ContestLaneError.confirmed("contest_host_unavailable", "The bundled contest worker is unavailable.")
+        }
+        #if os(Windows)
+        let platform = PortablePlatform.windows
+        #else
+        let platform = PortablePlatform.linux
+        #endif
+        return try portablePaths(applicationSupport: applicationSupport, workerExecutableURL: workerExecutable,
+                                 platform: platform).validatedPortableFiles(fileManager: fileManager)
+        #else
+        throw ContestLaneError.confirmed("contest_host_unavailable", "The bundled contest runtime is unavailable on this platform.")
+        #endif
+    }
+
+    enum PortablePlatform { case windows, linux }
+
+    /// Pure package-layout contract, shared by the platform locators and fixture tests.
+    /// Windows carries CPython beside the worker. Linux requires the declared OS
+    /// Python 3.12 package; neither platform searches PATH or an ambient Python home.
+    static func portablePaths(applicationSupport: URL, workerExecutableURL: URL,
+                              platform: PortablePlatform) throws -> Self {
+        guard applicationSupport.isFileURL, workerExecutableURL.isFileURL,
+              !workerExecutableURL.hasDirectoryPath else {
+            throw ContestLaneError.confirmed("contest_host_unavailable", "The bundled contest paths are invalid.")
+        }
+        let workerDirectory = workerExecutableURL.deletingLastPathComponent()
+        let executable = platform == .windows
+            ? workerDirectory.appendingPathComponent("Python/python.exe")
+            : URL(fileURLWithPath: "/usr/bin/python3.12")
+        let certificate: URL? = platform == .windows
+            ? nil // CPython's default SSL context loads the native Windows trust store.
+            : URL(fileURLWithPath: "/etc/ssl/certs/ca-certificates.crt")
+        return Self(executableURL: executable,
+                    launcherURL: workerDirectory.appendingPathComponent("Not1MM/python/contest_host/launcher.py"),
+                    dataRootURL: applicationSupport.appendingPathComponent("Contesting/Python", isDirectory: true),
+                    sslCertificateFileURL: certificate)
+    }
+
+    func validatedPortableFiles(fileManager: FileManager = .default) throws -> Self {
+        func regularFile(_ url: URL) -> Bool {
+            let attributes = try? fileManager.attributesOfItem(atPath: url.path)
+            return fileManager.isReadableFile(atPath: url.path)
+                && attributes?[.type] as? FileAttributeType == .typeRegular
+        }
+        guard fileManager.isExecutableFile(atPath: executableURL.path), regularFile(executableURL),
+              regularFile(launcherURL), sslCertificateFileURL.map(regularFile) ?? true else {
+            throw ContestLaneError.confirmed("contest_host_unavailable", "The bundled contest runtime is incomplete.")
+        }
+        return self
     }
 }
 
