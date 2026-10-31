@@ -699,6 +699,9 @@ actor PythonContestLane {
             "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8",
             "PYTHONNOUSERSITE": "1", "PYTHONDONTWRITEBYTECODE": "1",
         ]
+        #if os(Windows)
+        if let root = WindowsContestHostEnvironment.systemRoot() { environment["SystemRoot"] = root }
+        #endif
         if let sslCertificateFileURL { environment["SSL_CERT_FILE"] = sslCertificateFileURL.path }
         if n1mmUDPAllowed { environment["XLOG_CONTEST_N1MM_UDP_ALLOWED"] = "1" }
         if AppRuntimeProfile.current.connectedLoopbackAcceptance { environment["XLOG_CONTEST_N1MM_LOOPBACK_ONLY"] = "1" }

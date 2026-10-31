@@ -35,8 +35,12 @@ public enum ContestRuntimeSelfTest {
             stage = "sanitized_environment"
             let environment = PythonContestLane.childEnvironment(n1mmUDPAllowed: false,
                 sslCertificateFileURL: host.sslCertificateFileURL)
-            try check(Set(environment.keys).isSubset(of: ["LANG", "LC_ALL", "PYTHONNOUSERSITE",
-                "PYTHONDONTWRITEBYTECODE", "SSL_CERT_FILE"]))
+            var allowedKeys: Set<String> = ["LANG", "LC_ALL", "PYTHONNOUSERSITE", "PYTHONDONTWRITEBYTECODE", "SSL_CERT_FILE"]
+            #if os(Windows)
+            allowedKeys.insert("SystemRoot")
+            try check(environment["SystemRoot"]?.isEmpty == false)
+            #endif
+            try check(Set(environment.keys).isSubset(of: allowedKeys))
             try check(environment["PYTHONNOUSERSITE"] == "1" && environment["PYTHONDONTWRITEBYTECODE"] == "1")
             let initial = try PythonContestLane(configuration: host, n1mmUDPAllowed: false)
             lane = initial
