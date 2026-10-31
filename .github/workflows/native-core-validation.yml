@@ -83,6 +83,7 @@ jobs:
         shell: pwsh
         run: ./prototype/scripts/test-installer-syntax.ps1
       - name: Linux C vault in a private Secret Service session
+        id: linux_c_vault
         if: runner.os == 'Linux'
         run: python3 prototype/scripts/test-linux-vault.py
       - name: Complete portable Swift core (Unix)
@@ -102,10 +103,12 @@ jobs:
           swift test --scratch-path .build/prototype-tests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
           exit $LASTEXITCODE
       - name: Linux Swift vault in a private Secret Service session
-        if: runner.os == 'Linux'
+        if: ${{ always() && !cancelled() && runner.os == 'Linux' && steps.linux_c_vault.outcome == 'success' }}
         env:
           XLOG_PORTABLE_ONLY: '1'
-        run: python3 prototype/scripts/test-linux-vault.py --swift-tests --swift-scratch-path .build/prototype-tests
+        run: |
+          swift build --build-tests --scratch-path .build/prototype-tests
+          python3 prototype/scripts/test-linux-vault.py --swift-tests --swift-scratch-path .build/prototype-tests
       - name: Save Swift test build cache
         if: always()
         uses: actions/cache/save@v4
