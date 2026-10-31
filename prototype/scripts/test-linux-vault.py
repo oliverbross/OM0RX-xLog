@@ -4,7 +4,7 @@
 Requires cc, pkg-config, libsecret-1-dev, dbus and gnome-keyring. Optionally run
 already-built Swift credential tests inside the same unlocked fixture keyring:
   XLOG_PORTABLE_ONLY=1 python3 prototype/scripts/test-linux-vault.py --swift-tests
-Never connects to the invoking user's session bus or changes their HOME.
+Never connects to the invoking user's session bus or changes their process HOME.
 """
 
 import argparse
@@ -20,6 +20,29 @@ import time
 
 REPO = Path(__file__).resolve().parents[2]
 PASSWORD = b"xlog-disposable-keyring-fixture-password"
+DIAGNOSTIC_BYTES = 2048
+
+
+def bounded_diagnostic(data):
+    return data.replace(PASSWORD, b"[fixture-password-redacted]")[-DIAGNOSTIC_BYTES:] \
+        .decode("utf-8", errors="replace")
+
+
+def private_environment(root, inherited):
+    env = inherited.copy()
+    for key in list(env):
+        if (key.startswith("GNOME_KEYRING_") or key in ["DBUS_SESSION_BUS_ADDRESS", "DBUS_STARTER_ADDRESS",
+                "DBUS_STARTER_BUS_TYPE", "XDG_SESSION_ID", "DISPLAY", "WAYLAND_DISPLAY",
+                "G_MESSAGES_DEBUG", "G_DEBUG", "LD_PRELOAD"]):
+            env.pop(key, None)
+    env["XLOG_TEST_LINUX_VAULT_ROOT"] = str(root)
+    for name, directory in [("HOME", "home"), ("XDG_DATA_HOME", "data"), ("XDG_CONFIG_HOME", "config"),
+                            ("XDG_CACHE_HOME", "cache"), ("XDG_RUNTIME_DIR", "runtime")]:
+        path = root / directory
+        path.mkdir(mode=0o700)
+        env[name] = str(path)
+    env["DBUS_SYSTEM_BUS_ADDRESS"] = "unix:path=" + str(root / "absent-system-bus")
+    return env
 
 
 def run(command, *, env, timeout=15, **kwargs):
@@ -45,8 +68,10 @@ def start_daemon(root, env, sequence):
     process = subprocess.Popen([
         "gnome-keyring-daemon", "--foreground", "--components=secrets",
         "--control-directory=" + str(control), "--unlock",
-    ], cwd=REPO, env=env, stdin=subprocess.PIPE, stdout=log, stderr=log)
+    ], cwd=REPO, env=env, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=log)
     log.close()
+    bus_owned = False
+    probe = None
     try:
         process.stdin.write(PASSWORD)
         process.stdin.close()
@@ -59,21 +84,31 @@ def start_daemon(root, env, sequence):
                 "/org/freedesktop/DBus", "org.freedesktop.DBus.NameHasOwner",
                 "string:org.freedesktop.secrets",
             ], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=2)
-            if b"boolean true" in status.stdout:
+            bus_owned = b"boolean true" in status.stdout
+            if bus_owned:
                 probe = subprocess.run([str(root / "vault-smoke"), "probe"], cwd=REPO, env=env,
                                        timeout=2, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 if probe.returncode == 0:
                     return process
             time.sleep(0.05)
-        raise RuntimeError("Disposable keyring daemon did not acquire its private bus name")
-    except BaseException:
+        raise RuntimeError("Disposable keyring did not become ready")
+    except BaseException as error:
         stop_daemon(process)
-        raise
+        if not isinstance(error, Exception):
+            raise
+        with (root / f"keyring-{sequence}.log").open("rb") as diagnostics:
+            diagnostics.seek(max(0, diagnostics.seek(0, os.SEEK_END) - DIAGNOSTIC_BYTES))
+            daemon_stderr = bounded_diagnostic(diagnostics.read(DIAGNOSTIC_BYTES))
+        probe_stderr = bounded_diagnostic(probe.stderr) if probe is not None else ""
+        raise RuntimeError(f"{error}; private bus_owned={bus_owned} "
+                           f"probe_exit={probe.returncode if probe is not None else 'not-run'}; "
+                           f"probe_stderr={probe_stderr!r}; daemon_stderr={daemon_stderr!r}") from error
 
 
 def isolated_session(root, swift_tests, swift_scratch_path):
     env = os.environ.copy()
     if (env.get("XLOG_TEST_LINUX_VAULT_ROOT") != str(root)
+            or env.get("HOME") != str(root / "home")
             or env.get("XDG_DATA_HOME") != str(root / "data")
             or not env.get("DBUS_SESSION_BUS_ADDRESS")
             or (root / "fixture-owner").read_text() != "xlog-linux-vault-fixture\n"):
@@ -143,15 +178,7 @@ def main():
         if not shutil.which(executable):
             parser.error("Missing Linux fixture dependency: " + executable)
     root = Path(tempfile.mkdtemp(prefix="xlog-linux-vault-"))
-    env = os.environ.copy()
-    for key in ["GNOME_KEYRING_CONTROL", "DBUS_SESSION_BUS_ADDRESS", "DBUS_STARTER_ADDRESS", "DBUS_STARTER_BUS_TYPE"]:
-        env.pop(key, None)
-    env["XLOG_TEST_LINUX_VAULT_ROOT"] = str(root)
-    for name, directory in [("XDG_DATA_HOME", "data"), ("XDG_CONFIG_HOME", "config"),
-                            ("XDG_CACHE_HOME", "cache"), ("XDG_RUNTIME_DIR", "runtime")]:
-        path = root / directory
-        path.mkdir(mode=0o700)
-        env[name] = str(path)
+    env = private_environment(root, os.environ)
     (root / "fixture-owner").write_text("xlog-linux-vault-fixture\n")
     try:
         flags = run(["pkg-config", "--cflags", "--libs", "libsecret-1"], env=env,

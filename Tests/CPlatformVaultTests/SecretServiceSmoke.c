@@ -60,16 +60,27 @@ int main(int argc, char **argv) {
     size_t account_count = sizeof(accounts) / sizeof(accounts[0]);
     if (!strcmp(mode, "probe")) {
         GError *error = NULL;
-        SecretCollection *collection = secret_collection_for_alias_sync(NULL, SECRET_COLLECTION_DEFAULT,
-            SECRET_COLLECTION_NONE, NULL, &error);
+        /* libsecret 0.21.4 documents NULL here but its synchronous alias
+         * lookup passes it to an internal method requiring a service proxy. */
+        SecretService *vault = secret_service_get_sync(SECRET_SERVICE_NONE, NULL, &error);
+        SecretCollection *collection = vault && !error
+            ? secret_collection_for_alias_sync(vault, SECRET_COLLECTION_DEFAULT,
+                SECRET_COLLECTION_NONE, NULL, &error) : NULL;
         int ready = collection && !error && !secret_collection_get_locked(collection);
+        if (!ready) fprintf(stderr, "Linux vault fixture readiness: service=%d collection=%d locked=%d error=%d\n",
+                            vault != NULL, collection != NULL,
+                            collection ? secret_collection_get_locked(collection) : -1,
+                            error ? error->code : 0);
         if (error) g_error_free(error);
         if (collection) g_object_unref(collection);
+        if (vault) g_object_unref(vault);
         if (!ready) return 1;
         uint8_t *bytes = NULL;
         size_t count = 0;
         int result = xlog_vault_load(service, "ready", &bytes, &count, &native_code);
         xlog_vault_value_destroy(bytes, count);
+        if (result != XLOG_VAULT_NOT_FOUND)
+            fprintf(stderr, "Linux vault fixture readiness: load=%d native=%u\n", result, native_code);
         return result == XLOG_VAULT_NOT_FOUND ? 0 : 1;
     }
     if (!strcmp(mode, "write")) {

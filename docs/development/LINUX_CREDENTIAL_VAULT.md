@@ -1,6 +1,6 @@
 # Linux credential vault
 
-The prototype worker stores Wavelog and other integration credentials through
+The Linux worker stores Wavelog and other integration credentials through
 libsecret's Secret Service API, using the exact service/account identity and an
 application-specific schema. Values are binary blobs with a 2560-byte limit;
 UTF-8 and embedded NUL bytes retain their exact byte lengths. Credential values
@@ -29,13 +29,25 @@ python3 prototype/scripts/test-linux-vault.py
 ```
 
 It requires a C compiler, pkg-config, libsecret development headers, `dbus`, and
-`gnome-keyring`. It creates private XDG directories, starts a new D-Bus session,
+`gnome-keyring`. It creates a private child HOME and XDG directories, starts a new D-Bus session,
 feeds a synthetic keyring password through stdin, and starts its own foreground
 keyring process. It verifies exact case/Unicode/service-account identities,
 embedded NUL and size boundaries, replacement and idempotent deletion, unavailable
 service errors, persistence across a daemon restart, and locked reads completing
 without Unlock or Prompt method calls. On failure it retains fixture evidence
-and prints its directory; successful synthetic fixtures are removed.
+and prints its directory; successful synthetic fixtures are removed. Startup
+failures distinguish D-Bus ownership from a failed default-collection probe and
+include bounded private probe/daemon stderr, without printing the inherited
+environment or daemon environment assignments. The readiness probe passes an
+explicit service proxy to avoid libsecret 0.21.4's synchronous alias lookup
+passing a null proxy into an internal method that requires one.
+
+The runner's isolation and readiness/error diagnostics can also be checked
+without a live keyring on any development platform:
+
+```sh
+python3 prototype/scripts/test-linux-vault-harness.py
+```
 
 After building the portable Swift tests, add `--swift-tests` to run the existing
 credential-store round trip tests inside that same isolated unlocked keyring:
@@ -60,4 +72,5 @@ Manager and its existing dedicated fixture opt-in.
 
 API references: [search flags and locked items](https://gnome.pages.gitlab.gnome.org/libsecret/method.Service.search_sync.html),
 [binary value lengths](https://gnome.pages.gitlab.gnome.org/libsecret/method.Value.get.html),
-[default-collection storage](https://gnome.pages.gitlab.gnome.org/libsecret/method.Service.store_sync.html).
+[default-collection storage](https://gnome.pages.gitlab.gnome.org/libsecret/method.Service.store_sync.html),
+[synchronous alias implementation](https://github.com/GNOME/libsecret/blob/0.21.4/libsecret/secret-collection.c#L2055).
