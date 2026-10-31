@@ -40,11 +40,13 @@ struct Track {
   uint64_t last_peak=0,next_job=19200;
   std::vector<float> audio;
   double peak_envelope=0,envelope_sum=0;
+  double speed_peak=0,speed_sum=0;
   size_t envelope_samples=0,rises=0,falls=0;
+  size_t speed_samples=0;
   size_t ambiguity_hits=0;
   size_t separated_hits=0;
   bool keyed=false,ambiguous=false,spectral_ambiguity=false,association_conflict=false;
-  KeyingSpeed speed;
+  KeyingSpeed speed{8};
   std::optional<double> snr{};
   std::deque<CarrierObservation> rf_history;
   std::deque<CarrierObservation> rf_candidates;
@@ -74,12 +76,23 @@ struct Track {
     audio.insert(audio.end(),samples.begin(),samples.end());
     if(audio.size()>32000) audio.erase(audio.begin(),audio.begin()+std::ptrdiff_t(audio.size()-32000));
     for(float f:samples) {
-      envelope_sum+=double(f)*f;
+      const double square=double(f)*f;
+      // Two complete 800-Hz cycles resolve fast elements without changing the
+      // existing 40-sample CW eligibility, job cadence or model input. Preserve
+      // the same peak-decay time constant at the finer measurement clock.
+      speed_sum+=square;
+      if(++speed_samples==8) {
+        static const double decay=std::pow(0.999,8.0/40);
+        const double power=speed_sum/8;
+        speed_peak=std::max(speed_peak*decay,power);
+        speed.tick(power>1e-10 && power>speed_peak*0.2);
+        speed_sum=0;speed_samples=0;
+      }
+      envelope_sum+=square;
       if(++envelope_samples==40) {
         const double power=envelope_sum/40;
         peak_envelope=std::max(peak_envelope*0.999,power);
         const bool on=power>1e-10 && power>peak_envelope*0.2;
-        speed.tick(on);
         if(on && !keyed) rises=std::min(size_t(100),rises+1);
         if(!on && keyed) falls=std::min(size_t(100),falls+1);
         keyed=on; envelope_sum=0; envelope_samples=0;

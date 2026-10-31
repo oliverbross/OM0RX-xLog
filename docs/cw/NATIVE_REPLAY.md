@@ -305,7 +305,8 @@ radio, DAX-driver and Windows-audio causes are not distinguished. The Mac has
 verified the supplied IQ, not independently inspected the absent original WAV
 or Windows source. All originals remain preserved; DAX is reported stopped.
 
-Existing supervisor/native-child replay passes (`8940ea289817f96a`): all 709,200
+Before the WPM resolution repair, supervisor/native-child replay passes
+(`8940ea289817f96a`): all 709,200
 frames delivered, **70 provisional windows**, nine decoded track IDs / ten track
 revisions, zero coalesced/dropped work and an empty final inference queue.
 Flow-controlled elapsed time is 23.003748 s; it is not real-rate throughput or
@@ -318,3 +319,12 @@ Raw provisional text does not establish transmitting-station identity or RF
 accuracy. No live source, action, spot sink, listener or production admission is
 opened. This recording is retained as a harder-condition diagnostic, not removed
 because of its impaired capture.
+
+The subsequent WPM-only repair passes known-speed IQ controls and five native
+Skimmer alignments, with the model input and original eligibility detector
+unchanged. Its post-fix supervisor replay stops at 528,000 frames / 42 windows
+with `staleInput`, rather than completing this file (`c703ea25916168dd`). The
+250-ms guard remains intact and the failed receipt is preserved. This later
+source therefore has no completed post-fix real-file acceptance from that attempt;
+[WPM diagnostics](SIGNAL_DIAGNOSTICS.md#wpm-envelope-resolution--31-october-2026)
+record the exact positive and incomplete evidence separately.

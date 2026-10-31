@@ -21,17 +21,20 @@ std::optional<double> Carrier::estimated_snr_db(int rate,double reference) const
   const double db=10*std::log10(signal*rate/(8192*mean*reference));
   return std::isfinite(db)?std::optional<double>(db):std::nullopt;
 }
+KeyingSpeed::KeyingSpeed(size_t samples_per_tick):tick_seconds(double(samples_per_tick)/3200) {
+  if(samples_per_tick!=8 && samples_per_tick!=40) throw std::invalid_argument("Unsupported keying-clock resolution");
+}
 void KeyingSpeed::tick(bool next) {
   if(ticks<UINT64_MAX) ++ticks;
   if(next==down) {run=std::min(size_t(10000),run+1);return;}
-  if(down && run>=1 && run<=64) {
-    durations.push_back(run*0.0125);last_fall=ticks;
+  if(down && run>=1 && run*tick_seconds<=0.8) {
+    durations.push_back(run*tick_seconds);last_fall=ticks;
     if(durations.size()>64) durations.erase(durations.begin());
   }
   down=next;run=1;
 }
 std::optional<double> KeyingSpeed::estimate() const {
-  if(durations.size()<12 || ticks-last_fall>160) return {};
+  if(durations.size()<12 || double(ticks-last_fall)*tick_seconds>2) return {};
   double best_error=1e9,best=0;
   for(double wpm=5;wpm<=80;wpm+=0.5) {
     const double unit=1.2/wpm;

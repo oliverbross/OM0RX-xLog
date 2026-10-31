@@ -1,6 +1,7 @@
 // Copyright © 2026 Oliver Bross OM0RX. SPDX-License-Identifier: GPL-3.0-only
 #pragma once
 #include <complex>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 #include <optional>
@@ -13,13 +14,16 @@ struct Carrier {
   std::optional<double> estimated_snr_db(int rate,double reference_hz=2500) const;
 };
 /// PARIS speed fitted to observed key-down runs, not inferred from model scores.
-/// One tick is the track envelope's 40 samples / 3200 Hz. Unknown/poor fits stay absent.
+/// Tick resolution is fixed at construction (8 or 40 samples / 3200 Hz).
+/// Unknown/poor fits stay absent at either resolution.
 class KeyingSpeed {
  public:
+  explicit KeyingSpeed(size_t samples_per_tick=40);
   void tick(bool down);
   std::optional<double> estimate() const;
  private:
   bool down=false;
+  double tick_seconds;
   uint64_t ticks=0,last_fall=0;
   size_t run=0;
   std::vector<double> durations;

@@ -87,6 +87,14 @@ remains unresolved. It is retained as an unannotated harder-condition diagnostic
 outside the ordinary no-clipping subset. [Exact provenance and replay](docs/cw/NATIVE_REPLAY.md)
 remain separate from native live acquisition and RF/quality acceptance.
 
+The 35-WPM measurement follow-up repairs envelope timing resolution while keeping
+CW eligibility, model inputs and fit thresholds unchanged. Identical-IQ controls
+measure all 46 eligible snapshots within 0.5 WPM, and native CTest passes 2/2.
+The post-fix real-file supervisor replay is incomplete: freshness fails after
+528,000 frames; the failed receipt and unchanged 250-ms guard are retained in
+[CW diagnostics](docs/cw/SIGNAL_DIAGNOSTICS.md). No source/capacity/quality admission
+or installed acceptance is promoted from the measurement repair.
+
 31 October CW source progress: durable original draft-action reconciliation,
 actual slow-client isolation and offline relocated component-payload checks pass.
 CPU, bounded static-CoreML, GPU and tensor-preserving attention-fusion candidates

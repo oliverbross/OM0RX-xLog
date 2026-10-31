@@ -12,15 +12,15 @@
 #include <stdexcept>
 
 void require(bool v,const char* what) { if(!v) throw std::runtime_error(what); }
-std::vector<float> morse(int wpm,const std::string& text="CQ OM0RX",bool envelope=false) {
+std::vector<float> morse(int wpm,const std::string& text="CQ OM0RX",bool envelope=false,bool tapered=true,int rate=3200) {
   const std::map<char,std::string> codes{{'C',"-.-."},{'Q',"--.-"},{'O',"---"},{'M',"--"},{'0',"-----"},{'R',".-."},{'X',"-..-"},
-    {'D',"-.."},{'L',".-.."},{'1',".----"},{'A',".-"},{'B',"-..."}};
-  std::vector<float> out(1600,0);
+    {'D',"-.."},{'L',".-.."},{'1',".----"},{'7',"--..."},{'A',".-"},{'B',"-..."}};
+  std::vector<float> out(size_t(rate/2),0);
   const auto add=[&](int units,bool keyed) {
-    const size_t count=size_t(std::round(3200.0*1.2/wpm*units)), first=out.size();
+    const size_t count=size_t(std::round(rate*1.2/wpm*units)), first=out.size();
     for(size_t i=0;i<count;++i) {
-      double ramp=std::min(1.0,double(std::min(i,count-1-i))/16.0);
-      out.push_back(keyed?(envelope?float(0.6*ramp):float(0.6*ramp*std::sin(2*3.141592653589793*800*(first+i)/3200))):0);
+      double ramp=tapered?std::min(1.0,double(std::min(i,count-1-i))/(rate/200.0)):1;
+      out.push_back(keyed?(envelope?float(0.6*ramp):float(0.6*ramp*std::sin(2*3.141592653589793*800*(first+i)/rate))):0);
     }
   };
   for(size_t c=0;c<text.size();++c) {
@@ -29,7 +29,7 @@ std::vector<float> morse(int wpm,const std::string& text="CQ OM0RX",bool envelop
     for(size_t i=0;i<code.size();++i) { add(code[i]=='-'?3:1,true); if(i+1<code.size()) add(1,false); }
     add(3,false);
   }
-  out.resize(std::max(size_t(19200),out.size()+1600),0); return out;
+  out.resize(std::max(size_t(rate*6),out.size()+size_t(rate/2)),0); return out;
 }
 int main(int argc,char** argv) {
   try {
@@ -89,20 +89,30 @@ int main(int argc,char** argv) {
       require(std::abs(floor_limited[0].offset_hz-6000)<2,"Strong carrier remains independently attributed");
       if(floor_limited.size()==2)require(std::abs(floor_limited[1].offset_hz-9000)<2,"Above-floor weak carrier is not suppressed");
     }
-    for(int speed:{10,20,30,40}) {
-      cw::KeyingSpeed measured;
-      for(int repeat=0;repeat<12;++repeat) {
-        const int ticks=int(std::round((repeat%2?3:1)*1.2/speed/0.0125));
-        for(int tick=0;tick<ticks;++tick) measured.tick(true);
-        for(int tick=0;tick<8;++tick) measured.tick(false);
+    for(int samples_per_tick:{8,40}) {
+      const double interval=double(samples_per_tick)/3200;
+      for(int speed:{10,15,20,25,30,35,40}) {
+        cw::KeyingSpeed measured{size_t(samples_per_tick)};
+        for(int repeat=0;repeat<12;++repeat) {
+          const int ticks=int(std::round((repeat%2?3:1)*1.2/speed/interval));
+          for(int tick=0;tick<ticks;++tick) measured.tick(true);
+          for(int tick=0;tick<8;++tick) measured.tick(false);
+        }
+        const auto estimate=measured.estimate();
+        require(estimate && std::abs(*estimate-speed)<=2,"Observed dot/dash speed estimate");
+        for(int tick=0;tick<8000/samples_per_tick;++tick) measured.tick(false);
+        require(!measured.estimate(),"Stale keying speed expires in physical seconds");
       }
-      const auto estimate=measured.estimate();
-      require(estimate && std::abs(*estimate-speed)<=2,"Observed dot/dash speed estimate");
-      for(int tick=0;tick<200;++tick) measured.tick(false);
-      require(!measured.estimate(),"Stale keying speed expires");
+      cw::KeyingSpeed carrier_speed{size_t(samples_per_tick)};
+      for(int tick=0;tick<10000;++tick)carrier_speed.tick(true);
+      require(!carrier_speed.estimate(),"Unmodulated carrier has no invented WPM");
+      cw::KeyingSpeed irregular{size_t(samples_per_tick)};
+      for(double duration:{.017,.113,.032,.067,.193,.025,.301,.047,.137,.091,.263,.011,.167,.053,.401,.079}) {
+        for(int tick=0;tick<int(std::round(duration/interval));++tick)irregular.tick(true);
+        for(int tick=0;tick<8;++tick)irregular.tick(false);
+      }
+      require(!irregular.estimate(),"Inconsistent key-down durations stay unknown");
     }
-    cw::KeyingSpeed carrier_speed;for(int tick=0;tick<1000;++tick) carrier_speed.tick(true);
-    require(!carrier_speed.estimate(),"Unmodulated carrier has no invented WPM");
     for(int rate:{24000,48000,96000,192000,384000}) {
       cw::Channelizer channel(rate,6200);
       cw::Channelizer reference_channel(rate,6200,false);
@@ -196,6 +206,36 @@ int main(int argc,char** argv) {
       std::cout<<speed<<" WPM: ["<<result.text<<"] "<<result.inference_ms<<" ms\n";
       require(result.text.find("CQ OM0RX")!=std::string::npos,"Synthetic Morse decoding");
       for(auto t:result.tokens) require(t.first_sample>=3200 && t.end_sample>=t.first_sample,"Absolute sample alignment");
+    }
+    // Known-speed waveform through the actual channelizer/track envelope.
+    // Rounded boolean ticks alone hide the 35-WPM timing-resolution failure.
+    for(size_t alignment:{0,8,16,24,32}) {
+      cw::Skimmer speed_track(engine,1);
+      const std::string speed_source="99887766554433221100ffeeddccbbaa";
+      speed_track.open(speed_source,1,48000,-21000,21000,true);
+      auto key=morse(35,"CQ AB7DXQ AB7DXQ",true,false,48000);
+      key.insert(key.begin(),alignment*15,0);
+      const double final_key=double(key.size()-24000)/48000-3*1.2/35;
+      size_t eligible=0,known=0;uint64_t sequence=0;
+      for(size_t first=0;first<key.size();first+=4096) {
+        const size_t count=std::min(size_t(4096),key.size()-first);
+        std::vector<std::complex<float>> iq(count);
+        for(size_t i=0;i<count;++i) {
+          const size_t n=first+i;
+          iq[i]=std::complex<float>(std::polar(0.05*key[n],2*pi*(-10700.6)*n/48000));
+        }
+        speed_track.feed(speed_source,1,sequence++,first,48000,iq);
+        require(speed_track.wait_idle(10),"Known-speed IQ drains every required job");
+        for(const auto& event:speed_track.events()) if(event.kind=="decode") {
+          const double capture_end=double(event.source_first_sample)/48000+double(event.end_sample)/3200-event.filter_delay_seconds;
+          if(capture_end>=6 && capture_end<=final_key) {
+            ++eligible;
+            std::cout<<"35 WPM IQ alignment "<<alignment<<": "<<(event.estimated_wpm?std::to_string(*event.estimated_wpm):"unknown")<<"\n";
+            if(event.estimated_wpm) {++known;require(std::abs(*event.estimated_wpm-35)<=2,"Measured 35-WPM IQ remains within two WPM");}
+          }
+        }
+      }
+      require(eligible>=1 && known*5>=eligible*4,"Clean 35-WPM IQ has measured speed on at least 80 percent of eligible windows");
     }
     // Two independent CW signals in IQ, extracted and decoded through the
     // actual tracker/scheduler. Offline draining proves function, not capacity.

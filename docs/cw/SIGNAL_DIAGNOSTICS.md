@@ -833,3 +833,48 @@ After removing that experiment, a complete native rebuild and CTest pass 2/2
 (`05be1a70f7291cc8`), including original-model decode, DSP/tracking/overload and
 process lifetime checks. This validates the remaining opt-in timing change,
 not the failed standard load or complete application qualification.
+
+## WPM envelope resolution — 31 October 2026
+
+The second operator recording emits no WPM values, including on a strong stable
+track. Its native/Swift field contract matches; absence is not a parser mismatch.
+A separately frozen control uses the exact existing private `Track` implementation
+and independently generated IQ at 15/20/25/30/35 WPM, amplitudes 0.003/0.03,
+48 ksample/s and −10,700.6-Hz offset. There is no noise, model execution or station
+access. Eligibility is fixed at source time ≥6 s through the final generated key
+end, with ≥80% known estimates and maximum two-WPM error per case.
+
+The original 40-sample/12.5-ms envelope passes 15–30 WPM (maximum error 1.5 WPM)
+but withholds both 35-WPM cases (`a92840d853468e1d`). A ramped native 35-WPM case
+passes; the defect depends on waveform and timing alignment. An actual Skimmer
+regression using the rectangular generator waveform then fails at alignment zero
+with unknown WPM (`311317d35557c6b7`). This reproduces a measurement defect without
+using the unannotated RF output as truth.
+
+WPM now measures two complete 800-Hz cycles per tick: **eight samples / 2.5 ms**.
+It retains the same physical peak-decay constant, 64-element history, 12-run
+minimum, three-dot/three-dash requirement, 0.18 normalized residual threshold and
+two-second expiry. The existing 40-sample eligibility detector and its rise/fall
+counters are unchanged, as are channelization, model features/windows, job cadence
+and loss accounting. Neither text nor WPM is inferred from callsign dictionaries.
+Continuous carriers, inconsistent durations and expired observations stay unknown.
+
+The identical ten IQ waveforms now yield known estimates at all **46 eligible
+snapshots**, with maximum **0.5-WPM** error (`d7037270d3d76328`). Their hashes and
+independent labels match the baseline automatically. The real track's coarse
+rise/fall/peak observations are identical, and its WPM still remains unknown.
+Full native CTest passes 2/2 (`9c40969ac8910c36`), including the actual 35-WPM
+Skimmer regression at five alignments: 0/8/16/24/32 channel samples all report
+34.5 WPM. Both supported tick clocks also reject irregular/constant input and
+expire observations in physical seconds. These are synthetic measurement controls,
+not held-out RF WPM or decoder-quality qualification.
+
+The post-fix real-child replay is **incomplete** (`c703ea25916168dd`): 528,000 of
+709,200 frames reach admission, 42 provisional windows emit, then `staleInput`
+fails the unchanged freshness guard. Last metrics report zero coalesced/dropped
+events but three in-flight jobs; that is not a drained or qualified run. Actual
+failure age/stage is not measured by this receipt. Native SHA-256 is
+`73cad3fc54f5d29d9cdd506cc367ba976805d1fb1bbad27d0976c091136d9682`.
+The failed receipt remains in `lan-iq-20261031-02/native-replay-02.json`; neither
+the deadline nor its timestamps are relaxed and no identical retry is counted as
+a pass. Reference-Mac headroom and full source-path acceptance remain open.
