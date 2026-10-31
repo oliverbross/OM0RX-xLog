@@ -351,7 +351,9 @@ development input, not an ordinary no-clipping qualification file. The short
 preflight is not padded into a six-second decode window. The Windows receipt
 reports no tuning/transmission/settings change; sample continuity, clock accuracy
 and RF orientation are not independently established by WASAPI files. No Morse
-transcript is supplied, and this recording/session stays outside held-out data.
+transcript is supplied; the operator subsequently confirms transcription is
+unavailable. This recording/session stays outside held-out data, without using
+the decoder's output as reference truth.
 
 Before the WPM-history repair, the completed diagnostic receipt contains all
 frames and 276 provisional windows. Source `f598e1f98d20c4e51bbb5dee3b710ccc0ee96c2a`
@@ -373,3 +375,16 @@ SHA-256 `83ff4874dc3b66bad299f70cbd21186830fe02a1bfd33a2fee834e834502287b`.
 Fixed first-ten-second listening derivatives use constant gain only, retain their
 derivation/hashes, and never replace the original decoder input. No live source,
 action, spot sink, listener or production admission is opened.
+
+A bounded public-corpus lead check does not admit replacement truth:
+
+| Primary source checked | Observed boundary |
+| --- | --- |
+| [KC2LRC wideband IQ publisher record](https://zenodo.org/records/858422) | Real IQ WAVs are listed, but independent Morse transcripts are not listed in the inspected record. Annotations and intended-use data terms remain to verify before corpus admission. No audio is downloaded. |
+| [morseformer bench manifest](https://github.com/sderhy/morseformer/blob/cbfd1416a762e3c4f781fef6ea85f1e12512ca16/data/bench/manifest.jsonl) | Local audio paths and text references are present; the complete inspected Git tree has none of the referenced WAV files. A published real-OTA benchmark claim is not an acquired, licensed IQ/transcript pair. |
+| [airwave-ml real-world data notes](https://github.com/DomCritchlow/airwave-ml/blob/3aa37839f47a7d60931c9e868b8e1669f588beff/data/real_world/README.md) | The instructions point to Morse podcast audio and explicitly lack exact word timestamps; they do not provide an annotated over-air IQ corpus. |
+
+This is a lead inspection, not a claim that no eligible public corpus exists.
+No third-party decoder/model is installed or executed, and no held-out evaluation
+starts. Private inspection receipts, source pins and the preserved metadata-label
+correction remain in `current-cpu-workers-4-vs-3-01`.

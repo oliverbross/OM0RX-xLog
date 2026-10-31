@@ -928,3 +928,44 @@ Private plans, labels, input hashes and outputs remain under
 `real-background-injection-01`. This is calibration of known synthetic targets
 against one observed background, not independently transcribed on-air copy,
 precision/recall, negative band-hours, accepted spots, or real-time capacity.
+
+## Current-source worker-budget comparison — 31 October 2026
+
+Clean canonical source `35a7d10f94af6e9308994d12ca4d092570723b7c` runs the same
+two-span, 96-ksample/s, 16-track/span, 15-second workload using the unchanged model,
+one intra-op thread, CPU arena and dynamic shape. The plan is frozen before the
+four-worker control. A three-worker candidate is allowed only if that control
+delivers all input, starts inference and fails strict capacity; a control input
+failure or strict pass ends the experiment without a retry. No model, window,
+cadence, source support, production thread budget or strict limit is changed.
+
+Both runs deliver all 15 seconds and service all 32 tracks, with zero dropped
+output events, faults or invalidated jobs. Both **fail** the existing predicate:
+
+| Fixed inference workers | Completed/submitted | Coalesced | Max input lateness ms | P95 decode age ms | Peak profiler RSS MiB |
+| --- | --- | --- | --- | --- | --- |
+| 4 control | 132/288 | 156 | 101.183 | 2655.348 | 291.031 |
+| 3 candidate | 144/288 | 144 | 39.162 | 3118.004 | 283.594 |
+
+Emitted-job model Run mean/p95 is 317.303/598.692 ms for four workers and
+228.835/357.763 ms for three. Calling-thread CPU mean/p95 is 144.521/190.956 ms
+and 136.351/173.254 ms respectively. Queue-wait mean/p95 is 692.031/1889.167 ms
+and 719.825/2095.365 ms. The three-worker observation has lower Run elapsed time
+but worse p95 decode age; it does not justify promotion. Requested worker QoS is
+21 in both, input-thread QoS 33. These clocks do not establish effective core
+placement, whole-process-tree headroom or the cause of wall/CPU differences.
+
+Runs span 07:44:47–07:45:23 UTC. Recorded one-minute host load ranges
+43.73–47.11; no compiler/test/other decoder is detected before either launch.
+`pmset` has no recorded thermal/performance warning or CPU power status; actual
+thermal state is not measured by that output. No unrelated app/service is stopped
+or changed. This is local replay, with no radio/network/listener/UI action.
+It confirms a current-source capacity failure, without attributing all loss to
+the decoder or treating a noisy-host comparison as normal deployment evidence.
+
+Receipt `423cc3bc47eeefdd` and private `current-cpu-workers-4-vs-3-01` preserve
+complete work ledgers, per-stage clocks, process/thermal snapshots and source/
+binary/model/runtime hashes. Frozen-plan SHA-256 is
+`828c9368611fdf258848d3c8f049b05d35dccbe52e6256b0e69e9d6d21ba6876`.
+Four production workers are retained. Controlled reference-Mac headroom, strict
+zero-loss throughput and full-application responsiveness remain unqualified.

@@ -107,7 +107,13 @@ Known synthetic targets over its fixed background yield 1/65 character errors at
 0 dB and 0/65 at +10 dB signal/background in 2,500 Hz; this is not on-air truth or
 spot qualification. [Replay provenance](docs/cw/NATIVE_REPLAY.md#operator-20-m-recording--31-october-2026)
 and [CW diagnostics](docs/cw/SIGNAL_DIAGNOSTICS.md) retain exact hashes and limits.
-Strict 32-track capacity, independently annotated RF, actual one/two/mixed sources,
+The current-source standard load also fails: four workers complete 132/288 jobs
+with 156 coalesced and 2655.348-ms p95 age; the predeclared three-worker comparison
+fails with 144/288, 144 coalesced and 3118.004-ms p95 age. Both deliver all 15 s,
+service all 32 tracks and meet input lateness, so neither is promoted. High host
+load and unchanged gates are retained in CW diagnostics. The operator confirms
+that transcription is unavailable; the 20 m file remains unannotated development
+input. Strict capacity, independently annotated RF, actual one/two/mixed sources,
 elapsed 8h/24h and exact-package acceptance remain open. No package, installation
 or production capability change is authorized by these diagnostic results alone.
 
