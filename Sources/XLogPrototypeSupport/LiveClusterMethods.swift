@@ -132,6 +132,14 @@ public actor LiveClusterMethods {
     private var tciForwardStatus = "Off"
     private var flexForwardRetryAfter = Date.distantPast
     private var tciForwardRetryAfter = Date.distantPast
+    private struct PendingNormalSpot {
+        let spot: ClassifiedClusterSpot
+        let generation: UUID
+        let provider: String
+    }
+    private var normalSpotQueue: [String: PendingNormalSpot] = [:]
+    private var normalSpotDrain: Task<Void, Never>?
+    private let normalSpotRetryDelay: TimeInterval
     private var configurationMutationBusy = false
     private var configurationMutationWaiters: [CheckedContinuation<Void, Never>] = []
     private var terminated = false
@@ -183,6 +191,7 @@ public actor LiveClusterMethods {
                                      requestSkimmer: skimmer, onState: state, onLine: line)
          }, beforeContactPublication: (@Sendable () async throws -> Void)? = nil,
          forwardClassifiedIngressSpots: Bool = true,
+         normalSpotRetryDelay: TimeInterval = 5,
          spotForward: @escaping @Sendable (ClusterRadioSpotPayload, String, Bool) async throws -> Bool = { payload, provider, replacing in
              #if os(macOS)
              return try await SpotForwardBroker.shared.forward(try payload.flexSpot(), provider: provider,
@@ -206,6 +215,7 @@ public actor LiveClusterMethods {
         self.transportFactory = transportFactory
         self.beforeContactPublication = beforeContactPublication
         self.forwardClassifiedIngressSpots = forwardClassifiedIngressSpots
+        self.normalSpotRetryDelay = max(0.01, normalSpotRetryDelay)
         self.spotForward = spotForward
         self.spotRemove = spotRemove
         self.contestRadioClock = contestRadioClock
@@ -262,6 +272,8 @@ public actor LiveClusterMethods {
 
     @discardableResult func terminate(deferRadioSpotCleanup: Bool = false) async -> Bool {
         terminated = true
+        normalSpotDrain?.cancel()
+        normalSpotQueue.removeAll()
         let cleanup = priorRadioSpotCleanupTask
         cleanup?.cancel()
         if !deferRadioSpotCleanup { await cleanup?.value }
@@ -478,6 +490,11 @@ public actor LiveClusterMethods {
             await service.clearConsole()
         default:
             throw WorkerFailure("method_not_allowed", "Unknown live cluster method.")
+        }
+        if ["cluster_configure", "cluster_radio_spots_configure", "cluster_filter"].contains(method),
+           forwardClassifiedIngressSpots {
+            let replay = await service.forwardingSnapshot()
+            for spot in replay.spots { await forwardSpotIfEnabled(spot, generation: replay.generation) }
         }
         let (snapshot, truncated) = try await boundedSnapshot(service)
         let contestSpots = await service.contestSpots()
@@ -707,27 +724,61 @@ public actor LiveClusterMethods {
     }
 
     private func forwardSpotIfEnabled(_ spot: ClassifiedClusterSpot, generation: UUID) async {
-        #if os(macOS)
-        guard forwardClassifiedIngressSpots,
-              let config = configuration,
-              config.forwardSpotsToFlex || config.forwardSpotsToTCI,
-              let service,
-              await service.isVisibleSpot(spot.id, in: generation) else { return }
-        let now = Date()
-        let frequencyHz = Int64((spot.frequencyKHz * 1_000).rounded())
-        guard (100_000...60_000_000).contains(frequencyHz),
-              abs(now.timeIntervalSince(spot.receivedAt)) < 86_400 else { return }
-        let payload = ClusterRadioSpotPayload(frequencyHz: frequencyHz, callsign: spot.callsign,
-                                              mode: spot.mode, source: "xLog xCluster", spotter: spot.spotter,
-                                              comment: spot.comment,
-                                              timestamp: Int64(spot.receivedAt.timeIntervalSince1970),
-                                              lifetimeSeconds: 600, priority: 3,
-                                              colorHex: radioSpotColor(for: spot))
-        guard !payload.mode.isEmpty else { return }
-        let destinations = [(config.forwardSpotsToFlex, "direct_agent"), (config.forwardSpotsToTCI, "direct_tci")]
-        for (enabled, provider) in destinations where enabled {
-            let retryAfter = provider == "direct_agent" ? flexForwardRetryAfter : tciForwardRetryAfter
-            guard now >= retryAfter else { continue }
+        guard !terminated, forwardClassifiedIngressSpots, let config = configuration else { return }
+        for (enabled, provider) in [(config.forwardSpotsToFlex, "direct_agent"), (config.forwardSpotsToTCI, "direct_tci")] where enabled {
+            let key = "\(provider)|\(spot.id)"
+            normalSpotQueue[key] = PendingNormalSpot(spot: spot, generation: generation, provider: provider)
+        }
+        trimNormalSpotQueue()
+        guard normalSpotDrain == nil, !normalSpotQueue.isEmpty else { return }
+        normalSpotDrain = Task { [weak self] in await self?.drainNormalSpots() }
+    }
+
+    private func trimNormalSpotQueue() {
+        // Bound retained ingress during an outage. Newer spots take precedence.
+        if normalSpotQueue.count > 256 {
+            for entry in normalSpotQueue.sorted(by: { $0.value.spot.receivedAt < $1.value.spot.receivedAt })
+                .prefix(normalSpotQueue.count - 256) {
+                normalSpotQueue.removeValue(forKey: entry.key)
+            }
+        }
+    }
+
+    private func drainNormalSpots() async {
+        defer { normalSpotDrain = nil }
+        while !terminated, !Task.isCancelled, !normalSpotQueue.isEmpty {
+            let now = Date()
+            let eligible = normalSpotQueue.filter {
+                now >= ($0.value.provider == "direct_agent" ? flexForwardRetryAfter : tciForwardRetryAfter)
+            }
+            guard let entry = eligible.max(by: { $0.value.spot.receivedAt < $1.value.spot.receivedAt }) else {
+                let next = normalSpotQueue.values.map {
+                    $0.provider == "direct_agent" ? flexForwardRetryAfter : tciForwardRetryAfter
+                }.min() ?? now
+                // A newly enabled/queued second provider should not inherit
+                // the first provider's full outage backoff.
+                do { try await Task.sleep(for: .seconds(min(0.25, max(0.01, next.timeIntervalSinceNow)))) }
+                catch { return }
+                continue
+            }
+            normalSpotQueue.removeValue(forKey: entry.key)
+            let item = entry.value, spot = item.spot, provider = item.provider
+            guard let config = configuration,
+                  provider == "direct_agent" ? config.forwardSpotsToFlex : config.forwardSpotsToTCI,
+                  let service, await service.isVisibleSpot(spot.id, in: item.generation),
+                  !terminated, !Task.isCancelled else { continue }
+            // Recheck configuration after the actor suspension as well. A queued
+            // retry must never escape an operator's forwarding-off decision.
+            guard let latest = configuration,
+                  provider == "direct_agent" ? latest.forwardSpotsToFlex : latest.forwardSpotsToTCI else { continue }
+            let frequencyHz = Int64((spot.frequencyKHz * 1_000).rounded())
+            guard (100_000...60_000_000).contains(frequencyHz),
+                  abs(Date().timeIntervalSince(spot.receivedAt)) < 600 else { continue }
+            let payload = ClusterRadioSpotPayload(frequencyHz: frequencyHz, callsign: spot.callsign,
+                mode: spot.mode, source: "xLog xCluster", spotter: spot.spotter, comment: spot.comment,
+                timestamp: Int64(spot.receivedAt.timeIntervalSince1970), lifetimeSeconds: 600,
+                priority: 3, colorHex: radioSpotColor(for: spot))
+            guard !payload.mode.isEmpty else { continue }
             do {
                 if try await spotForward(payload, provider, false) {
                     forwardAcceptedCount += 1
@@ -738,16 +789,20 @@ public actor LiveClusterMethods {
                     }
                 }
             } catch {
+                guard !terminated, !Task.isCancelled else { return }
+                // Retain the failed spot and those arriving during backoff. A
+                // timer retries them even if the cluster sends no further lines.
+                normalSpotQueue[entry.key] = item
+                trimNormalSpotQueue()
                 if provider == "direct_agent" {
-                    flexForwardStatus = "FLEX forwarding failed: \(error.localizedDescription)"
-                    flexForwardRetryAfter = now.addingTimeInterval(60)
+                    flexForwardStatus = "FLEX forwarding failed: \(error.localizedDescription). Retrying current visible spots."
+                    flexForwardRetryAfter = Date().addingTimeInterval(normalSpotRetryDelay)
                 } else {
-                    tciForwardStatus = "TCI forwarding failed: \(error.localizedDescription)"
-                    tciForwardRetryAfter = now.addingTimeInterval(60)
+                    tciForwardStatus = "TCI forwarding failed: \(error.localizedDescription). Retrying current visible spots."
+                    tciForwardRetryAfter = Date().addingTimeInterval(normalSpotRetryDelay)
                 }
             }
         }
-        #endif
     }
 
     private func publishContestRadioSpots(_ params: [String: Any]) async throws -> [String: Any] {

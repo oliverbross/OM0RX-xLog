@@ -373,6 +373,14 @@ public actor ClusterSessionService {
     private var contacts = ClusterClassificationIndex.empty
     private var countries = ClusterCountryDirectory.empty
     private var spots: [ClassifiedClusterSpot] = []
+    private struct ModeInput: Equatable {
+        let comment: String
+        let band: String
+        let frequency: Double
+        init(_ spot: ClassifiedClusterSpot) { comment = spot.comment; band = spot.band; frequency = spot.frequencyKHz }
+    }
+    private var inferredModeInputs: [UUID: ModeInput] = [:]
+    private var visibleSpotsCache: [ClassifiedClusterSpot]?
     private var statuses: [UUID: ClusterConnectionStatus] = [:]
     private var console: [ClusterConsoleEntry] = []
     private var transports: [UUID: any ClusterConnectionTransport] = [:]
@@ -619,9 +627,33 @@ public actor ClusterSessionService {
         // A worker can outlive a renderer/package replacement. Repair stale
         // in-memory derived modes before either normal xLog or Contest Cluster
         // filters and displays the shared projection.
-        for index in spots.indices where spots[index].refreshInferredMode(palette: configuration.palette) {
-            reclassifySpot(at: index)
+        let visible: [ClassifiedClusterSpot]
+        if let cached = visibleSpotsCache { visible = cached }
+        else { visible = makeVisibleSpots(); visibleSpotsCache = visible }
+        return ClusterSessionSnapshot(generatedAt: Date(), connectedClusters: statuses.values.filter { $0.phase == .connected }.count,
+                                      loadedSpots: spots.count, contactCount: contacts.recordCount,
+                                      contactRevision: contactRevision,
+                                      logbookDataLoaded: hasContactSnapshot,
+                                      countryDataLoaded: !countries.isEmpty,
+                                      connections: statuses.values.sorted { $0.serverName < $1.serverName },
+                                      spots: visible, console: console)
+    }
+
+    private func refreshLiveModes() {
+        for index in spots.indices {
+            let input = ModeInput(spots[index]), id = spots[index].id
+            guard inferredModeInputs[id] != input else { continue }
+            if spots[index].refreshInferredMode(palette: configuration.palette) { reclassifySpot(at: index) }
+            inferredModeInputs[id] = input
         }
+        if inferredModeInputs.count > spots.count {
+            let retained = Set(spots.map(\.id))
+            inferredModeInputs = inferredModeInputs.filter { retained.contains($0.key) }
+        }
+    }
+
+    private func makeVisibleSpots() -> [ClassifiedClusterSpot] {
+        refreshLiveModes()
         let filter = configuration.filter
         var visible = spots.filter { spot in
             (filter.query.isEmpty || spot.callsign.localizedCaseInsensitiveContains(filter.query)
@@ -644,13 +676,7 @@ public actor ClusterSessionService {
         case .frequency: visible.sort { $0.frequencyKHz < $1.frequencyKHz }
         case .callsign: visible.sort { $0.callsign < $1.callsign }
         }
-        return ClusterSessionSnapshot(generatedAt: Date(), connectedClusters: statuses.values.filter { $0.phase == .connected }.count,
-                                      loadedSpots: spots.count, contactCount: contacts.recordCount,
-                                      contactRevision: contactRevision,
-                                      logbookDataLoaded: hasContactSnapshot,
-                                      countryDataLoaded: !countries.isEmpty,
-                                      connections: statuses.values.sorted { $0.serverName < $1.serverName },
-                                      spots: Array(visible.prefix(max(1, min(configuration.maximumSpots, 500)))), console: console)
+        return Array(visible.prefix(max(1, min(configuration.maximumSpots, 500))))
     }
 
     /// Contest windows share the live cluster transport and classified spot store,
@@ -658,11 +684,14 @@ public actor ClusterSessionService {
     /// workspace applies its own configured band, mode, age, worked and multiplier
     /// rules to this bounded newest-first projection.
     public func contestSpots(limit: Int = 500) -> [ClassifiedClusterSpot] {
-        for index in spots.indices where spots[index].refreshInferredMode(palette: configuration.palette) {
-            reclassifySpot(at: index)
-        }
+        refreshLiveModes()
         return Array(spots.sorted { $0.receivedAt > $1.receivedAt }
             .prefix(max(1, min(limit, 500))))
+    }
+
+    /// Replay uses the same connection identity and visibility projection as ingress.
+    public func forwardingSnapshot() -> (spots: [ClassifiedClusterSpot], generation: UUID) {
+        (snapshot().spots, connectionGeneration)
     }
 
     /// FLEX forwarding follows the exact currently visible filtered/sorted/max-count snapshot.
@@ -886,5 +915,8 @@ public actor ClusterSessionService {
         return contacts.classify(call: call, band: band, mode: mode, adif: adif)
     }
 
-    private func publish() { onUpdate?(snapshot()) }
+    private func publish() {
+        visibleSpotsCache = nil
+        onUpdate?(snapshot())
+    }
 }

@@ -94,6 +94,20 @@ private final class ContestSpotTestClock: @unchecked Sendable {
     func advance(_ seconds: TimeInterval) { lock.withLock { value.addTimeInterval(seconds) } }
 }
 
+private actor RecoveringNormalSpotTransport {
+    private var available = false
+    private var attempts = 0
+    private var delivered: [String] = []
+    func setAvailable(_ value: Bool) { available = value }
+    func send(_ payload: ClusterRadioSpotPayload) throws -> Bool {
+        attempts += 1
+        guard available else { throw WorkerFailure("station_unavailable", "Fixture agent offline") }
+        delivered.append(payload.callsign)
+        return true
+    }
+    func counts() -> (attempts: Int, delivered: [String]) { (attempts, delivered) }
+}
+
 private actor SlowPriorSpotCleanup {
     private(set) var starts = 0
     private(set) var cancelled = false
@@ -806,6 +820,115 @@ struct LiveClusterMethodsTests {
         try await Task.sleep(for: .milliseconds(50))
         let delivered = await recorder.snapshot()
         #expect(delivered.isEmpty)
+        await cluster.terminate()
+    }
+
+    @Test("Normal radio forwarding retries retained spots without another cluster line")
+    func normalForwardingRecoversAfterAgentOutage() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let url = root.appendingPathComponent("cluster.json")
+        try JSONEncoder().encode(ClusterSessionConfiguration(servers: [
+            .init(name: "Fixture", host: "cluster.example.invalid", port: 7300, callsign: "OM0RX")
+        ], requestRecentSpotsOnConnect: false, forwardSpotsToFlex: true)).write(to: url)
+        let fixture = WorkerClusterFixture(), transport = RecoveringNormalSpotTransport()
+        let cluster = LiveClusterMethods(logbook: LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false),
+            configurationURL: url, vault: UnavailableClusterTestVault(),
+            transportFactory: { _, _, _, _, state, line in
+                fixture.callbacks(state: state, line: line); return fixture
+            }, normalSpotRetryDelay: 0.1, spotForward: { payload, _, _ in try await transport.send(payload) })
+        _ = try await cluster.handle(method: "cluster_connect", params: [:])
+        fixture.emit("DX de W1AW: 7125.0 DL1AAA SSB CQ")
+        for _ in 0..<200 {
+            if await transport.counts().attempts > 0 { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(await transport.counts().attempts > 0)
+        fixture.emit("DX de W1AW: 7126.0 DL1BBB SSB CQ")
+        await transport.setAvailable(true)
+        for _ in 0..<200 {
+            if await transport.counts().delivered.count == 2 { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        let accepted = await transport.counts()
+        #expect(Set(accepted.delivered) == ["DL1AAA", "DL1BBB"])
+        let status = try await cluster.handle(method: "cluster_snapshot", params: [:])
+        #expect((status["forwarding"] as? [String: Any])?["accepted_count"] as? Int == 2)
+        await cluster.terminate()
+    }
+
+    @Test("Enabling normal radio forwarding replays current visible spots")
+    func normalForwardingEnableReplaysVisibleSpots() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let url = root.appendingPathComponent("cluster.json")
+        try JSONEncoder().encode(ClusterSessionConfiguration(servers: [
+            .init(name: "Fixture", host: "cluster.example.invalid", port: 7300, callsign: "OM0RX")
+        ], requestRecentSpotsOnConnect: false, forwardSpotsToFlex: false)).write(to: url)
+        let fixture = WorkerClusterFixture(), transport = RecoveringNormalSpotTransport()
+        await transport.setAvailable(true)
+        let cluster = LiveClusterMethods(logbook: LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false),
+            configurationURL: url, vault: UnavailableClusterTestVault(),
+            transportFactory: { _, _, _, _, state, line in
+                fixture.callbacks(state: state, line: line); return fixture
+            }, spotForward: { payload, _, _ in try await transport.send(payload) })
+        _ = try await cluster.handle(method: "cluster_connect", params: [:])
+        fixture.emit("DX de W1AW: 7125.0 DL1AAA SSB CQ")
+        for _ in 0..<200 {
+            let response = try await cluster.handle(method: "cluster_snapshot", params: [:])
+            if (response["snapshot"] as? [String: Any])?["loadedSpots"] as? Int == 1 { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        let loaded = try await cluster.handle(method: "cluster_snapshot", params: [:])
+        #expect((loaded["snapshot"] as? [String: Any])?["loadedSpots"] as? Int == 1)
+        #expect(await transport.counts().attempts == 0)
+        _ = try await cluster.handle(method: "cluster_radio_spots_configure", params: ["flex_enabled": true, "flex_expected": false])
+        for _ in 0..<200 {
+            if await transport.counts().delivered.count == 1 { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(await transport.counts().delivered == ["DL1AAA"])
+        await cluster.terminate()
+    }
+
+    @Test("A queued normal radio spot cannot escape disable, hidden-filter, disconnect or termination", arguments: ["disable", "filter", "disconnect", "terminate"])
+    func normalForwardingRetryHonorsLifecycle(action: String) async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let url = root.appendingPathComponent("cluster.json")
+        try JSONEncoder().encode(ClusterSessionConfiguration(servers: [
+            .init(name: "Fixture", host: "cluster.example.invalid", port: 7300, callsign: "OM0RX")
+        ], requestRecentSpotsOnConnect: false, forwardSpotsToFlex: true)).write(to: url)
+        let fixture = WorkerClusterFixture(), transport = RecoveringNormalSpotTransport()
+        let cluster = LiveClusterMethods(logbook: LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false),
+            configurationURL: url, vault: UnavailableClusterTestVault(),
+            transportFactory: { _, _, _, _, state, line in
+                fixture.callbacks(state: state, line: line); return fixture
+            }, normalSpotRetryDelay: 0.2, spotForward: { payload, _, _ in try await transport.send(payload) })
+        _ = try await cluster.handle(method: "cluster_connect", params: [:])
+        fixture.emit("DX de W1AW: 7125.0 DL1AAA SSB CQ")
+        for _ in 0..<200 {
+            if await transport.counts().attempts > 0 { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(await transport.counts().attempts > 0)
+        switch action {
+        case "disable":
+            _ = try await cluster.handle(method: "cluster_radio_spots_configure", params: ["flex_enabled": false, "flex_expected": true])
+        case "filter":
+            let response = try await cluster.handle(method: "cluster_snapshot", params: [:])
+            var filter = try #require((response["configuration"] as? [String: Any])?["filter"] as? [String: Any])
+            filter["modes"] = ["CW"]
+            _ = try await cluster.handle(method: "cluster_filter", params: ["filter": filter])
+        case "disconnect": _ = try await cluster.handle(method: "cluster_disconnect", params: [:])
+        default: await cluster.terminate()
+        }
+        await transport.setAvailable(true)
+        try await Task.sleep(for: .milliseconds(350))
+        #expect(await transport.counts().delivered.isEmpty)
         await cluster.terminate()
     }
 

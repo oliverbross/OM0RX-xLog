@@ -7,6 +7,18 @@ public enum SpotLogic {
     private static let ft8 = [1840.0, 3573.0, 5357.0, 7074.0, 10136.0, 14074.0, 18100.0, 21074.0, 24915.0, 28074.0, 50313.0]
     private static let ft4 = [3575.0, 7047.5, 10140.0, 14080.0, 18104.0, 21140.0, 24919.0, 28180.0]
     private static let ft2 = [1843.0, 3578.0, 5357.0, 7052.0, 10144.0, 14084.0, 18108.0, 21144.0, 24923.0, 28184.0, 50320.0, 144177.0]
+    // Foundation's String regex path rebuilds a Swift regex executor for each
+    // search on current macOS. Compile these fixed rules once, outside snapshots.
+    private static let digitalExpressions: [(expression: NSRegularExpression, mode: String)] = [
+        (#"\bFT-?8\b"#, "FT8"), (#"\bFT-?4\b"#, "FT4"), (#"\bFT-?2\b"#, "FT2"),
+        (#"\bRTTY\b"#, "RTTY"), (#"\bJTTY\b"#, "JTTY"), (#"\bOLIVIA\b"#, "OLIVIA"),
+        (#"\bPSK(?:-?\d+)?\b"#, "PSK"), (#"\bJT-?65\b"#, "JT65"), (#"\bJT-?9\b"#, "JT9"),
+        (#"\bHELL\b"#, "HELL"), (#"\bMFSK\b"#, "MFSK"), (#"\bSSTV\b"#, "SSTV"),
+        (#"\b(?:DIGI|DIGITAL)\b"#, "DIGI"),
+    ].map { (try! NSRegularExpression(pattern: $0.0), $0.1) }
+    private static let amExpression = try! NSRegularExpression(pattern: #"(^|\s)AM($|\s)"#)
+    private static let fmExpression = try! NSRegularExpression(pattern: #"(^|\s)FM($|\s)"#)
+    private static let phoneExpression = try! NSRegularExpression(pattern: #"\b(SSB|USB|LSB|PHONE|PH)\b"#)
 
     public static func band(for khz: Double) -> String {
         let ranges: [(ClosedRange<Double>, String)] = [
@@ -25,20 +37,14 @@ public enum SpotLogic {
 
     public static func mode(comment: String, band: String, khz: Double) -> String {
         let text = comment.uppercased()
-        let explicitDigitalModes: [(pattern: String, mode: String)] = [
-            (#"\bFT-?8\b"#, "FT8"), (#"\bFT-?4\b"#, "FT4"), (#"\bFT-?2\b"#, "FT2"),
-            (#"\bRTTY\b"#, "RTTY"), (#"\bJTTY\b"#, "JTTY"), (#"\bOLIVIA\b"#, "OLIVIA"),
-            (#"\bPSK(?:-?\d+)?\b"#, "PSK"), (#"\bJT-?65\b"#, "JT65"), (#"\bJT-?9\b"#, "JT9"),
-            (#"\bHELL\b"#, "HELL"), (#"\bMFSK\b"#, "MFSK"), (#"\bSSTV\b"#, "SSTV"),
-            (#"\b(?:DIGI|DIGITAL)\b"#, "DIGI"),
-        ]
-        for candidate in explicitDigitalModes
-            where text.range(of: candidate.pattern, options: .regularExpression) != nil {
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        for candidate in digitalExpressions
+            where candidate.expression.firstMatch(in: text, range: range) != nil {
             return candidate.mode
         }
-        if text.range(of: #"(^|\s)AM($|\s)"#, options: .regularExpression) != nil { return "AM" }
-        if text.range(of: #"(^|\s)FM($|\s)"#, options: .regularExpression) != nil { return "FM" }
-        if text.range(of: #"\b(SSB|USB|LSB|PHONE|PH)\b"#, options: .regularExpression) != nil { return "SSB" }
+        if amExpression.firstMatch(in: text, range: range) != nil { return "AM" }
+        if fmExpression.firstMatch(in: text, range: range) != nil { return "FM" }
+        if phoneExpression.firstMatch(in: text, range: range) != nil { return "SSB" }
         if text.contains("CW") || text.contains("CWT") { return "CW" }
         if ft8.contains(where: { abs(khz - $0) <= 1.6 }) { return "FT8" }
         if ft4.contains(where: { abs(khz - $0) <= 1.6 }) { return "FT4" }
