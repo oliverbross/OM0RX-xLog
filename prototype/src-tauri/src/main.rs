@@ -722,8 +722,9 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     )?)?;
     windows.append(&PredefinedMenuItem::separator(app)?)?;
     let modes = Submenu::with_id(app, "workspace_mode_menu", "Workspace Mode", true)?;
-    modes.append(&CheckMenuItem::with_id(app, "workspace_mode_canvas", "Canvas", true, true, None::<&str>)?)?;
-    modes.append(&CheckMenuItem::with_id(app, "workspace_mode_windows", "Separate Windows", true, false, None::<&str>)?)?;
+    let separate_windows = *recover_presentation_hint(&WORKSPACE_PRESENTATION);
+    modes.append(&CheckMenuItem::with_id(app, "workspace_mode_canvas", "Canvas", true, !separate_windows, None::<&str>)?)?;
+    modes.append(&CheckMenuItem::with_id(app, "workspace_mode_windows", "Separate Windows", true, separate_windows, None::<&str>)?)?;
     windows.append(&modes)?;
     windows.append(&PredefinedMenuItem::separator(app)?)?;
     for window in workspace_windows::SUPPORTED_WINDOWS.iter().filter(|window| window_menu_includes(window.id) && experimental_menu_includes(window.id)) {
