@@ -33,6 +33,13 @@ test('Mac packaging resolves Xcode products and retains the strict-signing resou
   ]);
   assert.match(script, /node --test prototype\/scripts\/mac-worker-packaging\.check\.mjs/);
   assert.match(script, /cargo clean --manifest-path "\$root\/prototype\/src-tauri\/Cargo\.toml" -p xlog-prototype/);
+  assert.match(script, /npm run build/);
+  assert.ok(script.indexOf('npm run build') < script.indexOf('cargo clean --manifest-path'));
+  assert.match(script, /MACOSX_DEPLOYMENT_TARGET=14\.0 cargo build/);
+  assert.match(script, /--release --locked --features tauri\/custom-protocol --message-format=json-render-diagnostics/);
+  assert.match(script, /stage-macos-app\.py" --cargo-receipt/);
+  assert.match(script, /python3 -B prototype\/scripts\/test-macos-app-staging\.py/);
+  assert.doesNotMatch(script, /\b(?:npx\s+)?tauri\s+(?:build|bundle)\b/);
   assert.match(script, /bash "\$root\/prototype\/scripts\/stage-contest-python-macos\.sh" "\$bundle"/);
   assert.match(script, /find "\$bundle\/Contents\/Frameworks\/Python\.framework" -type f -print0/);
   assert.match(script, /\*\.a\|\*\.o\) continue ;;/);

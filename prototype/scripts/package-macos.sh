@@ -9,16 +9,22 @@ git diff --cached --quiet
 test -z "$(git ls-files --others --exclude-standard)"
 export XLOG_SOURCE_COMMIT="$(git rev-parse HEAD)"
 node --test prototype/scripts/mac-worker-packaging.check.mjs
+python3 -B prototype/scripts/test-macos-app-staging.py
 python3 prototype/scripts/cw-macos.py prepare
 bash prototype/scripts/build-worker.sh
 node prototype/scripts/stage-worker.mjs
 bash prototype/scripts/stage-hamlib-macos.sh
 node prototype/scripts/distribution-metadata.mjs
-# Tauri embeds the built frontend in the application crate. Cargo can otherwise
-# reuse a release executable when a content-changed chunk keeps the same name.
-cargo clean --manifest-path "$root/prototype/src-tauri/Cargo.toml" -p xlog-prototype
 cd prototype
-npx tauri build --bundles app
+npm run build
+# Recompile the application after embedding the newly built frontend. The
+# dependency feature selects production context generation and the custom protocol.
+cargo clean --manifest-path "$root/prototype/src-tauri/Cargo.toml" -p xlog-prototype
+mkdir -p "$root/.build"
+MACOSX_DEPLOYMENT_TARGET=14.0 cargo build --manifest-path "$root/prototype/src-tauri/Cargo.toml" \
+  --release --locked --features tauri/custom-protocol --message-format=json-render-diagnostics \
+  > "$root/.build/macos-app-cargo.jsonl"
+python3 "$root/prototype/scripts/stage-macos-app.py" --cargo-receipt "$root/.build/macos-app-cargo.jsonl"
 
 # Prefer a stable Developer ID requirement when this Mac has one. Keychain ACLs
 # otherwise bind saved workspace credentials to each changing ad-hoc CDHash and
