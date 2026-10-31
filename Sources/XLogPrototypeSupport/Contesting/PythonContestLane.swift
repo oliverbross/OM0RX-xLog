@@ -1,4 +1,5 @@
 import Foundation
+import Dispatch
 import XContestCore
 #if canImport(CryptoKit)
 import CryptoKit
@@ -119,8 +120,8 @@ actor PythonContestLane {
     private var input: FileHandle?
     private var output: FileHandle?
     private var errorOutput: FileHandle?
-    private var outputReader: Task<Void, Never>?
-    private var errorReader: Task<Void, Never>?
+    private var outputReader: Thread?
+    private var errorReader: Thread?
     private var processGeneration: UInt64 = 0
     private var outputBuffer = Data()
     private var pending: Pending?
@@ -678,20 +679,35 @@ actor PythonContestLane {
         errorOutput = standardError.fileHandleForReading
         outputBuffer.removeAll(keepingCapacity: true)
         let outputHandle = standardOutput.fileHandleForReading
-        outputReader = Task.detached { [weak self] in
-            while !Task.isCancelled {
+        let reader = Thread { [weak self] in
+            defer { try? outputHandle.close() }
+            while !Thread.current.isCancelled {
                 let data = outputHandle.availableData
                 guard !data.isEmpty else { break }
-                await self?.consume(data, generation: generation)
+                // Only this dedicated I/O thread waits. One acknowledged chunk
+                // bounds actor admission and preserves the pipe's backpressure.
+                let consumed = DispatchSemaphore(value: 0)
+                Task { [weak self] in
+                    await self?.consume(data, generation: generation)
+                    consumed.signal()
+                }
+                consumed.wait()
             }
-            await self?.observeChildTermination(generation: generation)
+            Task { [weak self] in await self?.observeChildTermination(generation: generation) }
         }
+        reader.name = "xlog.contest.stdout"
+        outputReader = reader
+        reader.start()
         let errorHandle = standardError.fileHandleForReading
         // Drain and discard diagnostics. They can contain contact data and must
         // never cross the renderer or normal application log boundary.
-        errorReader = Task.detached {
-            while !Task.isCancelled, !errorHandle.availableData.isEmpty {}
+        let diagnostics = Thread {
+            defer { try? errorHandle.close() }
+            while !Thread.current.isCancelled, !errorHandle.availableData.isEmpty {}
         }
+        diagnostics.name = "xlog.contest.stderr"
+        errorReader = diagnostics
+        diagnostics.start()
     }
 
     static func childEnvironment(n1mmUDPAllowed: Bool, sslCertificateFileURL: URL? = nil) -> [String: String] {
@@ -757,12 +773,12 @@ actor PythonContestLane {
 
     private func stopProcess(terminate: Bool = true) {
         processGeneration &+= 1
+        // End only our child before its reader threads close their handles.
+        // Blocking read/close operations must never occupy the Swift executor.
+        if terminate, let process, process.isRunning { process.terminate() }
         outputReader?.cancel()
         errorReader?.cancel()
         try? input?.close()
-        try? output?.close()
-        try? errorOutput?.close()
-        if terminate, let process, process.isRunning { process.terminate() }
         process = nil
         input = nil
         output = nil
