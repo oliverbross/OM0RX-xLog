@@ -1,0 +1,64 @@
+import gzip
+import importlib.util
+import json
+from pathlib import Path
+import sqlite3
+import tempfile
+import unittest
+import zipfile
+
+spec = importlib.util.spec_from_file_location('payload', Path(__file__).with_name('verify-release-payload.py'))
+payload = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(payload)
+
+
+class ReleasePayloadTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name)
+
+    def test_public_resources_and_author_credit_are_allowed(self):
+        (self.root / 'country.json').write_text(json.dumps({'name': 'Scotland', 'adif': 279}))
+        (self.root / 'author.json').write_text(json.dumps({'name': 'Oliver Bross', 'email': 'oliver@bross.eu'}))
+        (self.root / 'program').write_bytes(b'Executable fixture, not a user database')
+        self.assertTrue(payload.scan(self.root)['passed'])
+
+    def test_saved_operator_state_is_rejected_even_under_an_unexpected_name(self):
+        (self.root / 'innocent.json').write_text(json.dumps({'account': {'operatorCall': 'TEST1'}}))
+        self.assertFalse(payload.scan(self.root)['passed'])
+
+    def test_renamed_database_magic_is_rejected(self):
+        database = self.root / 'innocent.cache'
+        with sqlite3.connect(database) as connection:
+            connection.execute('CREATE TABLE qsos(call TEXT)')
+        self.assertFalse(payload.scan(self.root)['passed'])
+
+    def test_compressed_database_is_rejected(self):
+        with gzip.open(self.root / 'innocent.cache.gz', 'wb') as stream:
+            stream.write(b'SQLite format 3\x00' + b'\x00' * 64)
+        self.assertFalse(payload.scan(self.root)['passed'])
+
+    def test_archive_cannot_hide_a_logbook_or_escape(self):
+        with zipfile.ZipFile(self.root / 'resources.zip', 'w') as archive:
+            archive.writestr('../elsewhere.txt', b'fixture')
+            archive.writestr('contacts.adi', '<CALL:5>TEST1<EOR>')
+        report = payload.scan(self.root)
+        self.assertFalse(report['passed'])
+        self.assertEqual(len(report['findings']), 2)
+
+    def test_private_state_filename_is_rejected_without_parsing(self):
+        (self.root / 'workspace.json').write_bytes(b'not valid JSON')
+        self.assertFalse(payload.scan(self.root)['passed'])
+
+    @unittest.skipIf(__import__('os').name == 'nt', 'Windows CI symlink privilege is not assumed')
+    def test_internal_framework_link_allowed_external_link_rejected(self):
+        (self.root / 'actual').write_text('fixture')
+        (self.root / 'current').symlink_to('actual')
+        self.assertTrue(payload.scan(self.root)['passed'])
+        (self.root / 'outside').symlink_to(self.root.parent)
+        self.assertFalse(payload.scan(self.root)['passed'])
+
+
+if __name__ == '__main__':
+    unittest.main()
