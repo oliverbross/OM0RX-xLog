@@ -5,8 +5,8 @@ on:
   pull_request:
 
 jobs:
-  test-and-package:
-    runs-on: macos-14
+  test-and-build:
+    runs-on: macos-15
     env:
       DEVELOPER_DIR: /Applications/Xcode_16.2.app/Contents/Developer
     steps:
@@ -15,11 +15,11 @@ jobs:
         run: swift --version
       - name: Test
         run: swift test
-      - name: Package app
-        run: ./scripts/package-app.sh
-      - name: Verify packaged resources
+      - name: Build application targets without minting a release candidate
+        run: swift build
+      - name: Verify built resources
         run: |
-          bundle=dist/OM0RX-xLog.app/Contents/Resources/OM0RXXLog_XLogCore.bundle
+          bundle="$(swift build --show-bin-path)/OM0RXXLog_XLogCore.bundle"
           for resource in \
             cty.csv \
             ham-award-jarl-entities.json \

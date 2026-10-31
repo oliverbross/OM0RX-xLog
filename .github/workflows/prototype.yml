@@ -1,13 +1,21 @@
-name: Cross-platform prototype
+name: Cross-platform beta qualification
 
 on:
   workflow_dispatch:
     inputs:
       build_platforms:
-        description: 'Build Mac first; select all only after operator preview testing'
+        description: 'Native build and test targets'
         type: choice
         options: [macos, all]
         default: macos
+      validation_only:
+        description: 'Run native tests without producing application packages'
+        type: boolean
+        default: true
+      package_macos:
+        description: 'Produce a CI Mac bundle (public signed Mac releases are packaged separately)'
+        type: boolean
+        default: false
       runtime_run_id:
         description: 'Optional completed package run ID for runtime-only recheck (no rebuild)'
         required: false
@@ -31,15 +39,19 @@ permissions:
   contents: read
   actions: read
 
+concurrency:
+  group: beta-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
 jobs:
   prototype:
     if: ${{ inputs.runtime_run_id == '' }}
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(inputs.build_platforms == 'all' && '["macos-14", "ubuntu-24.04", "windows-2022"]' || '["macos-14"]') }}
+        os: ${{ fromJSON(inputs.build_platforms == 'all' && '["macos-15", "ubuntu-24.04", "windows-2022"]' || '["macos-15"]') }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 40
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - name: Select macOS Swift toolchain
@@ -69,7 +81,7 @@ jobs:
             xlog-p1b-${{ runner.os }}-${{ hashFiles('prototype/src-tauri/Cargo.lock', 'Package.swift') }}-
       - name: Linux build dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libcurl4-openssl-dev libxml2-dev libicu-dev libssl-dev libudev-dev
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libcurl4-openssl-dev libxml2-dev libicu-dev libssl-dev libudev-dev libsecret-1-dev pkg-config dbus-x11 gnome-keyring
       - name: Swift toolchain (Linux)
         if: runner.os == 'Linux'
         shell: bash
@@ -103,6 +115,12 @@ jobs:
       - name: Install frontend dependencies
         working-directory: prototype
         run: npm ci
+      - name: Release payload guard tests
+        run: python3 prototype/scripts/test-release-payload.py
+      - name: Parse Windows installer scripts
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./prototype/scripts/test-installer-syntax.ps1
       - name: Frontend tests and build
         working-directory: prototype
         env:
@@ -132,6 +150,12 @@ jobs:
         run: |
           swift test --scratch-path .build/prototype-tests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
           exit $LASTEXITCODE
+      - name: Linux credential vault in a private Secret Service session
+        if: runner.os == 'Linux'
+        env:
+          XLOG_PORTABLE_ONLY: '1'
+          XLOG_CONTEST_PYTHON: ${{ steps.contest-python.outputs.python-path }}
+        run: python3 prototype/scripts/test-linux-vault.py --swift-tests --swift-scratch-path .build/prototype-tests
       - name: Build Swift worker (Unix)
         if: runner.os != 'Windows'
         run: bash prototype/scripts/build-worker.sh
@@ -189,31 +213,35 @@ jobs:
       - name: Package macOS application
         # PR/main gates build and test without minting another application
         # candidate under an already released version. Releases are explicit.
-        if: runner.os == 'macOS' && github.event_name == 'workflow_dispatch'
+        if: runner.os == 'macOS' && github.event_name == 'workflow_dispatch' && !inputs.validation_only && inputs.package_macos
         env:
           XLOG_PYTHON_FRAMEWORK: /Library/Frameworks/Python.framework
         run: |
           bash prototype/scripts/package-macos.sh
           ditto -c -k --sequesterRsrc --keepParent "prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app" prototype/OM0RX-xLog-macOS.zip
       - name: Upload macOS package
-        if: runner.os == 'macOS' && github.event_name == 'workflow_dispatch'
+        if: runner.os == 'macOS' && github.event_name == 'workflow_dispatch' && !inputs.validation_only && inputs.package_macos
         uses: actions/upload-artifact@v4
         with:
           name: om0rx-xlog-macos-${{ github.sha }}
           if-no-files-found: error
           path: prototype/OM0RX-xLog-macOS.zip
       - name: Package Linux runtime and Debian application
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && github.event_name == 'workflow_dispatch' && !inputs.validation_only
         run: |
           python3 prototype/scripts/test-linux-runtime-permissions.py
           python3 prototype/scripts/test-linux-worker-framing.py
           bash prototype/scripts/package-linux.sh
       - name: Package Windows portable runtime
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && github.event_name == 'workflow_dispatch' && !inputs.validation_only
         shell: pwsh
         run: ./prototype/scripts/package-windows.ps1 -SkipBuild -OutputRoot "$env:RUNNER_TEMP/xlog-windows-package"
+      - name: Package Windows EXE installer from audited runtime
+        if: runner.os == 'Windows' && github.event_name == 'workflow_dispatch' && !inputs.validation_only
+        shell: pwsh
+        run: ./prototype/scripts/package-windows-installer.ps1 -PackageDirectory "$env:RUNNER_TEMP/xlog-windows-package/OM0RX-xLog-Prototype-windows-x86_64" -OutputDirectory "$env:RUNNER_TEMP/xlog-windows-installer"
       - name: Upload Linux runtime packages
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && github.event_name == 'workflow_dispatch' && !inputs.validation_only
         uses: actions/upload-artifact@v4
         with:
           name: xlog-runtime-linux-${{ github.sha }}
@@ -221,7 +249,7 @@ jobs:
           retention-days: 30
           path: prototype/dist-linux/
       - name: Upload Windows runtime package
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && github.event_name == 'workflow_dispatch' && !inputs.validation_only
         uses: actions/upload-artifact@v4
         with:
           name: xlog-runtime-windows-${{ github.sha }}
@@ -230,6 +258,7 @@ jobs:
           path: |
             ${{ runner.temp }}/xlog-windows-package/*.zip
             ${{ runner.temp }}/xlog-windows-package/*.zip.sha256
+            ${{ runner.temp }}/xlog-windows-installer/*
       - name: Upload development executables and evidence inputs
         if: always()
         uses: actions/upload-artifact@v4
@@ -257,7 +286,7 @@ jobs:
   linux-runtime:
     name: Linux runtime-only container acceptance
     needs: prototype
-    if: ${{ always() && !cancelled() && (inputs.build_platforms == 'all' || inputs.runtime_run_id != '') && inputs.runtime_platform != 'windows' }}
+    if: ${{ always() && !cancelled() && (inputs.runtime_run_id != '' || (needs.prototype.result == 'success' && inputs.build_platforms == 'all' && !inputs.validation_only)) && inputs.runtime_platform != 'windows' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -276,6 +305,7 @@ jobs:
           chmod 777 prototype/packaging-evidence/linux
           docker image inspect xlog-prototype-runtime > prototype/packaging-evidence/linux/container-image.json
           docker run --rm --network none --cap-drop ALL -v "$PWD/prototype/packaging-evidence/linux:/evidence" xlog-prototype-runtime
+          docker run --rm --network none --cap-drop ALL --entrypoint cat xlog-prototype-runtime /qa/installed-payload-scan.json > prototype/packaging-evidence/linux/installed-payload-scan.json
       - name: Upload native Linux reports and screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -287,10 +317,11 @@ jobs:
   windows-runtime:
     name: Windows fresh-runner runtime acceptance
     needs: prototype
-    if: ${{ always() && !cancelled() && (inputs.build_platforms == 'all' || inputs.runtime_run_id != '') && inputs.runtime_platform != 'linux' }}
+    if: ${{ always() && !cancelled() && (inputs.runtime_run_id != '' || (needs.prototype.result == 'success' && inputs.build_platforms == 'all' && !inputs.validation_only)) && inputs.runtime_platform != 'linux' }}
     runs-on: windows-2022
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: xlog-runtime-windows-${{ inputs.runtime_source_sha || github.sha }}
@@ -309,6 +340,15 @@ jobs:
         run: |
           $package = "$env:RUNNER_TEMP/xlog-windows-accept/OM0RX-xLog-Prototype-windows-x86_64"
           & "$package/accept-windows.ps1" -PackageDirectory $package -EvidenceDirectory "$env:RUNNER_TEMP/xlog-windows-evidence" -RequireNoSwiftToolchain
+      - name: EXE silent install, isolated application acceptance and uninstall
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem "$env:RUNNER_TEMP/xlog-runtime-download" -Filter '*-setup.exe' -File)
+          if ($installers.Count -ne 1) { throw 'Expected exactly one versioned Windows EXE installer' }
+          $installer = $installers[0].FullName
+          $expected = (Get-Content "$installer.sha256").Split(' ')[0].ToLowerInvariant()
+          if ((Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'EXE checksum mismatch' }
+          ./prototype/scripts/accept-windows-installer.ps1 -Installer $installer -EvidenceDirectory "$env:RUNNER_TEMP/xlog-windows-installer-evidence"
       - name: Upload native Windows reports and screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -316,4 +356,6 @@ jobs:
           name: xlog-acceptance-windows-${{ github.sha }}
           retention-days: 30
           if-no-files-found: warn
-          path: ${{ runner.temp }}/xlog-windows-evidence/
+          path: |
+            ${{ runner.temp }}/xlog-windows-evidence/
+            ${{ runner.temp }}/xlog-windows-installer-evidence/
