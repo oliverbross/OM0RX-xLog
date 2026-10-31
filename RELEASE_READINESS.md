@@ -79,6 +79,14 @@ and [diagnostic populations](docs/cw/SIGNAL_DIAGNOSTICS.md) retain exact limits.
 This adds real development input without closing held-out quality, strict capacity,
 live LAN hardware, soak or exact-package gates. Installed 1.3.63 remains untouched.
 
+A second 14.775-second/48-kHz recording at 1.840 MHz is hash-verified and replayed:
+all 709,200 frames, 70 provisional windows, zero coalesced/dropped work and a
+drained queue. Its 9.455% rail-hit frames are already present in the original WAV
+according to the Windows owner's byte-comparison/source audit; the upstream stage
+remains unresolved. It is retained as an unannotated harder-condition diagnostic,
+outside the ordinary no-clipping subset. [Exact provenance and replay](docs/cw/NATIVE_REPLAY.md)
+remain separate from native live acquisition and RF/quality acceptance.
+
 31 October CW source progress: durable original draft-action reconciliation,
 actual slow-client isolation and offline relocated component-payload checks pass.
 CPU, bounded static-CoreML, GPU and tensor-preserving attention-fusion candidates

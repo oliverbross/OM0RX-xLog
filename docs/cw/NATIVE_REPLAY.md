@@ -273,3 +273,48 @@ The final bounded-manifest harness also passes on the original input
 (`2cfbf3b7f644839e`): all 950,400 frames, 126 windows, zero coalesced/dropped work
 and a drained queue, with 26.708-s flow-controlled elapsed time. No production
 DSP/model changes or repeat-run performance improvement are inferred.
+
+## Operator 160 m recording — 31 October 2026
+
+A second supplied archive is pinned to capture-branch commit
+`67a460a7d8ef636fae5a7879cb589a9e20d869d1`; that branch remains separate from main.
+Archive SHA-256
+`b73759a55c6a3b0ea3a1fac32ee4ac557dbce1f46cf682d0f23a96f19db57dbe`
+and CF32 IQ SHA-256
+`f33425b962437db176c019b2255af522eb55c8a56f6d2f5abb7bef601543b613`
+verify. Metadata specifies **1,840,000 Hz**, 48 ksample/s and UTC start
+2026-10-31T03:51:30.4562367Z. All 709,200 complex frames (14.775 s) are finite.
+The same bounded import checks preserve it privately in `lan-iq-20261031-02`.
+It remains unannotated development/calibration input, excluded from held-out
+evaluation and from the ordinary no-clipping subset before decoder evaluation.
+
+Actual I/Q RMS is 0.434678477/0.434992527. Rail counts are **35,550 I / 35,795 Q**,
+with **67,055 frames (9.4550%)** containing either rail and 4,290 containing both.
+Rails are -1.0 and +0.99999994; no sample exceeds that range. The longest
+consecutive run with either component at a rail is 73 frames. These observations
+show a substantial overload signature without identifying its physical stage.
+
+The Windows capture owner subsequently verifies the original WAV hash
+`a3f2e4e20d7c09c1eaeeb5519c868d9f82f5b677eaad0490fcd9a61c66cb02b5`
+and reports its Float32 stereo payload byte-identical to SigMF. Their inspected
+NAudio 2.2.1 helper copies WASAPI buffers to WAV and WAV payload to SigMF without
+gain, normalization, resampling or clamping. Reported source SHA-256 is
+`16ce006c28cc7ae5754ab6f9f4fa9259bac04784fd0e88dab7ccb90fe3f36949`.
+The rail values therefore precede the helper's WAV write according to that audit;
+radio, DAX-driver and Windows-audio causes are not distinguished. The Mac has
+verified the supplied IQ, not independently inspected the absent original WAV
+or Windows source. All originals remain preserved; DAX is reported stopped.
+
+Existing supervisor/native-child replay passes (`8940ea289817f96a`): all 709,200
+frames delivered, **70 provisional windows**, nine decoded track IDs / ten track
+revisions, zero coalesced/dropped work and an empty final inference queue.
+Flow-controlled elapsed time is 23.003748 s; it is not real-rate throughput or
+committed-text latency. WPM is absent in every emitted window and remains unknown.
+Native SHA-256 is
+`e3ea55936df1e65801fddeeccc5249d37a6f44bef682ee4213ee51399464fbd7`;
+full replay receipt SHA-256 is
+`8cceca19a01a8027d96c2f1afb8bf209c1c5e519b827de3cc09d64bc15ae8f83`.
+Raw provisional text does not establish transmitting-station identity or RF
+accuracy. No live source, action, spot sink, listener or production admission is
+opened. This recording is retained as a harder-condition diagnostic, not removed
+because of its impaired capture.
