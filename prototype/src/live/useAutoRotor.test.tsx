@@ -44,3 +44,18 @@ it("disarms explicitly without owner redirection and discards disposed pending r
   view.unmount(); await act(async () => { held.resolve(state(true, 2)); });
   expect(view.result.current.state).toMatchObject({ armed: false, epoch: 1 }); bridge.stops.forEach(stop => expect(stop).toHaveBeenCalledOnce());
 });
+it("retains enabled intent on a safety pause and never resumes from passive status or telemetry", async () => {
+  bridge.call.mockResolvedValue({ ...state(true, 1), enabled: true });
+  const view = renderHook(() => useAutoRotor()); await settle();
+  bridge.call.mockResolvedValue({ ...state(false, 2), enabled: true });
+  await act(async () => { await view.result.current.set(false, undefined, true); });
+  expect(bridge.call).toHaveBeenLastCalledWith("auto_rotor_set", { armed: false, retainIntent: true });
+  expect(view.result.current.state).toMatchObject({ enabled: true, armed: false });
+  act(() => bridge.events.get("xlog:rotor-telemetry")?.()); await settle();
+  await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+  expect(bridge.call.mock.calls.filter(([command]) => command === "auto_rotor_set")).toHaveLength(1);
+  bridge.call.mockResolvedValue({ ...state(false, 3), enabled: false });
+  await act(async () => { await view.result.current.set(false); });
+  expect(bridge.call).toHaveBeenLastCalledWith("auto_rotor_set", { armed: false });
+  expect(view.result.current.state).toMatchObject({ enabled: false, armed: false });
+});

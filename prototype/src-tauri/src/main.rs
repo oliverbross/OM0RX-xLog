@@ -573,10 +573,13 @@ impl AutomaticRotorCommands {
 static AUTOMATIC_ROTOR_COMMANDS: AutomaticRotorCommands = AutomaticRotorCommands(Mutex::new(0));
 #[tauri::command]
 async fn auto_rotor_set(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>,
-    armed: bool, owner: Option<String>, generation: Option<u64>) -> Result<serde_json::Value, String> {
+    armed: bool, owner: Option<String>, generation: Option<u64>, retain_intent: Option<bool>) -> Result<serde_json::Value, String> {
     validate_auto_rotor_set(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
+    let retain_intent = retain_intent.unwrap_or(false);
+    if armed && retain_intent { return Err("Retaining automatic rotor intent cannot arm motion.".into()); }
     let module_admission = armed.then(|| operating_module::owner()?.admit_current()).transpose()?;
-    let command = AUTOMATIC_ROTOR_COMMANDS.begin(armed, || auto_rotor::snapshot()?["epoch"].as_u64().ok_or_else(|| "Automatic rotor epoch unavailable".into()), auto_rotor::revoke)?;
+    let command = AUTOMATIC_ROTOR_COMMANDS.begin(armed, || auto_rotor::snapshot()?["epoch"].as_u64().ok_or_else(|| "Automatic rotor epoch unavailable".into()),
+        || if retain_intent { auto_rotor::revoke() } else { auto_rotor::disable() })?;
     let result = tauri::async_runtime::spawn_blocking(move || {
         let _module_admission = module_admission;
         // Read the persisted band policy outside the command-ordering lock so
@@ -585,7 +588,8 @@ async fn auto_rotor_set(window: tauri::WebviewWindow, app: tauri::AppHandle, sta
             rotor_session::automatic_policy_saved().map(|policy| policy.bands))? } else { Vec::new() };
         AUTOMATIC_ROTOR_COMMANDS.apply(command, |epoch| {
             if APP_EXITING.load(Ordering::Acquire) { return Err("Automatic rotor settings are unavailable during shutdown.".into()); }
-            auto_rotor::set_armed(armed, owner.as_deref(), generation, epoch, &bands)
+            if !armed && retain_intent { auto_rotor::revoke(); auto_rotor::snapshot() }
+            else { auto_rotor::set_armed(armed, owner.as_deref(), generation, epoch, &bands) }
         })
     })
         .await.map_err(|_| "Automatic rotor task failed".to_string())?;

@@ -190,6 +190,15 @@ it("arms through native authority using the retained exact owner/generation with
   act(() => { automatic.state = { ...automatic.state, armed: true, epoch: 1, owner: "native_dcu1", generation: 4 }; automatic.changed?.(); });
   expect(checkbox.checked).toBe(true);
 });
+it("retains enabled intent without rearming when fresh monitor observations arrive after a safety pause", async () => {
+  automatic.state = { ...automatic.state, enabled: true, armed: false };
+  setup();
+  expect(screen.getByRole("checkbox", { name: "Auto rotor" })).toHaveProperty("checked", true);
+  act(() => changed(syntheticMonitorContext()));
+  expect(automatic.set).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Resume Auto rotor" })); await act(async () => {});
+  expect(automatic.set).toHaveBeenCalledExactlyOnceWith(true, expect.objectContaining({ owner: "native_dcu1", generation: 4 }));
+});
 it.each(["stale", "failed", "disconnected", "uncertain"])("keeps Off and Stop while %s rotor context prevents Arm", async kind => {
   const value = syntheticMonitorContext();
   if (kind === "stale") value.rotor.received_at_ms -= 6000;

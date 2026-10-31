@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { RotorSnapshot } from "./rotorControl";
-export type AutomaticRotorState = { armed: boolean; epoch: number; owner: string | null; generation: number | null;
+export type AutomaticRotorState = { enabled?: boolean; armed: boolean; epoch: number; owner: string | null; generation: number | null;
   target: unknown; activation_pending: boolean; canonical_pending: boolean; error: string };
 function valid(value: any): value is AutomaticRotorState {
   return value && typeof value.armed === "boolean" && Number.isSafeInteger(value.epoch) && value.epoch >= 0 &&
+    (value.enabled === undefined || typeof value.enabled === "boolean") &&
     (value.owner === null || ["hamlib", "native_dcu1"].includes(value.owner)) &&
     (value.generation === null || Number.isSafeInteger(value.generation) && value.generation >= 0) &&
     typeof value.activation_pending === "boolean" && typeof value.canonical_pending === "boolean" && typeof value.error === "string";
@@ -43,11 +44,12 @@ export function useAutoRotor() {
     window.addEventListener("focus", wake); const timer = setInterval(() => void refresh(), 1500);
     return () => { mounted = false; if (mount === lifecycle.current) { active.current = false; lifecycle.current++; } stops.forEach(stop => stop()); clearInterval(timer); window.removeEventListener("focus", wake); };
   }, []);
-  return { state, error, refresh, async set(armed: boolean, rotor?: RotorSnapshot | null) {
+  return { state, error, refresh, async set(armed: boolean, rotor?: RotorSnapshot | null, retainIntent = false) {
     if (!isTauri()) throw new Error("Automatic rotor control requires the native station owner.");
     if (armed && (!rotor?.owner || !Number.isSafeInteger(rotor.generation))) throw new Error("Observe the current rotor owner before arming automatic motion.");
     const mount = lifecycle.current;
-    const value = await invoke("auto_rotor_set", armed ? { armed, owner: rotor!.owner, generation: rotor!.generation } : { armed });
+    const value = await invoke("auto_rotor_set", armed ? { armed, owner: rotor!.owner, generation: rotor!.generation }
+      : retainIntent ? { armed, retainIntent: true } : { armed });
     if (active.current && mount === lifecycle.current) adopt(value);
   } };
 }

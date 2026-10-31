@@ -69,6 +69,22 @@ describe("independent rotor panel", () => {
     fireEvent.click(toggle);
     expect(changeAutomatic).not.toHaveBeenCalled();
   });
+  it("retains the enabled choice while paused and resumes only after an explicit action with an available rotor", async () => {
+    const configuration = await configuredSession(), changeAutomatic = vi.fn(async () => {}), request = vi.fn();
+    const view = render(<RotorPanel snapshot={{ ...initial, state: "uncertain" }} request={request}
+      configurationSession={configuration.session} automaticRotorEnabled automaticRotorArmed={false}
+      onAutomaticRotorChange={changeAutomatic} />);
+    expect(screen.getByRole("checkbox", { name: "Auto rotor" })).toHaveProperty("checked", true);
+    expect(screen.getByRole("button", { name: "Resume Auto rotor" })).toHaveProperty("disabled", true);
+    expect(changeAutomatic).not.toHaveBeenCalled();
+    view.rerender(<RotorPanel snapshot={initial} request={request} configurationSession={configuration.session}
+      automaticRotorEnabled automaticRotorArmed={false} automaticRotorAvailable onAutomaticRotorChange={changeAutomatic} />);
+    expect(changeAutomatic).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Resume Auto rotor" }));
+    await waitFor(() => expect(changeAutomatic).toHaveBeenCalledExactlyOnceWith(true));
+    expect(configuration.request).toHaveBeenCalledTimes(1);
+    expect(request).not.toHaveBeenCalled();
+  });
   it("shows the native actionable failure when a manual Auto rotor arm is rejected", async () => {
     const configuration = await configuredSession();
     const changeAutomatic = vi.fn(async () => { throw "No fresh rotor bearing is available. Wait for a current bearing or reconnect before enabling Auto rotor."; });

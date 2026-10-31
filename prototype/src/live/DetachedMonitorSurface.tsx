@@ -58,14 +58,16 @@ export function MonitorSurface({ connectCore = connectMonitorContext, connectMap
   const synthetic = !!context?.acceptance, mapStale = !!mapError || !mapClusterFresh(map, clock);
   const tci = context?.selection?.provider === "direct_tci";
   const armed = automatic.state?.armed === true;
+  const enabled = automatic.state?.enabled ?? armed;
+  const statusAvailable = !!automatic.state && (!automatic.error || automatic.error === automatic.state.error);
   const retainedRotor = validRotorSnapshot(context?.rotor?.snapshot) ? context!.rotor.snapshot : null;
-  const canArm = !synthetic && !!automatic.state && !automatic.error && freshRotor &&
+  const canArm = !synthetic && statusAvailable && freshRotor &&
     !!retainedRotor?.owner && rotorProjection(retainedRotor).connected === true;
   const changeAutomatic = async (enabled: boolean) => {
     if (synthetic || latest.current?.acceptance) return;
     // Check the retained identity again at the event boundary, not only render.
     const current = latest.current, rotor = current?.rotor?.snapshot;
-    if (enabled && (!automatic.state || automatic.error || armingRef.current || !authority.current || !freshMonitorProjection(current?.rotor) ||
+    if (enabled && (!statusAvailable || armingRef.current || !authority.current || !freshMonitorProjection(current?.rotor) ||
       !validRotorSnapshot(rotor) || !rotor.owner || !rotorProjection(rotor).connected)) return;
     if (enabled) { armingRef.current = true; setArming(true); }
     setAutoError("");
@@ -94,10 +96,12 @@ export function MonitorSurface({ connectCore = connectMonitorContext, connectMap
     {synthetic && <p className="secondary" role="status">Synthetic isolated observation · read only</p>}
     {!synthetic && <div className="live-actions detached-monitor-actions">
       {!synthetic && <><label title={canArm ? "Follow the canonical QSO target using the observed native rotor." : "Refresh a connected rotor observation before arming. Off remains available."}>
-        <input type="checkbox" aria-label="Auto rotor" checked={armed} disabled={!armed && (!canArm || arming)}
+        <input type="checkbox" aria-label="Auto rotor" checked={enabled} disabled={!enabled && (!canArm || arming)}
           onChange={event => { void changeAutomatic(event.target.checked); }} />{automatic.state ? "Auto rotor" : "Auto rotor unavailable"}</label>
         <button type="button" aria-label="Turn automatic rotor off" title="Disarm automatic turns. Use Stop to stop the current move."
-          onClick={() => { void changeAutomatic(false); }}>Off</button></>}
+          onClick={() => { void changeAutomatic(false); }}>Off</button>
+        {enabled && !armed && <><span role="status">Auto rotor is paused after a stop or operating context change.</span>
+          <button type="button" disabled={!canArm || arming} onClick={() => { void changeAutomatic(true); }}>Resume Auto rotor</button></>}</>}
       </div>}
     {!synthetic && (autoError || automatic.error) && <p className="live-error" role="alert">{autoError || automatic.error}</p>}
     {!synthetic && <ManualRotorStatus session={rotorSession} onResolved={setResolvedCommandOperation} />}

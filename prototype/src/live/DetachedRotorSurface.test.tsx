@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 const taskStyles = readFileSync("src/live/DetachedTaskSurface.css", "utf8");
 
 const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), dispose: vi.fn() }));
-const automatic = vi.hoisted(() => ({ state: null as { armed: boolean } | null, error: "", set: vi.fn() }));
+const automatic = vi.hoisted(() => ({ state: null as { armed: boolean; enabled?: boolean; error?: string } | null, error: "", set: vi.fn() }));
 vi.mock("./useAutoRotor", () => ({ useAutoRotor: () => automatic }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke, isTauri: () => true }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: native.listen }));
@@ -95,6 +95,18 @@ it("arms only through the existing automatic controller with the current observe
   await act(async () => { fireEvent.click(toggle); });
   expect(automatic.set).toHaveBeenCalledExactlyOnceWith(true, retained.snapshot);
   expect(native.invoke.mock.calls).toEqual([["rotor_telemetry_snapshot"]]);
+});
+
+it("keeps enabled intent paused across fresh telemetry and requires explicit Resume", async () => {
+  const retained = observation(); native.invoke.mockResolvedValue(retained);
+  automatic.state = { enabled: true, armed: false };
+  render(<DetachedRotorSurface />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect(screen.getByRole("checkbox", { name: "Auto rotor" })).toHaveProperty("checked", true);
+  await act(async () => { event({ payload: observation(2) }); });
+  expect(automatic.set).not.toHaveBeenCalled();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Resume Auto rotor" })); });
+  expect(automatic.set).toHaveBeenCalledExactlyOnceWith(true, expect.objectContaining({ owner: "native_dcu1", generation: 7 }));
 });
 
 it("rechecks freshness at the event boundary and leaves Off available with unavailable telemetry", async () => {

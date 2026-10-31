@@ -47,6 +47,9 @@ pub(crate) fn normalize_bands(bands: &[String]) -> Result<Vec<String>, String> {
 
 #[derive(Default)]
 struct State {
+    // Session intent survives a safety revocation. Only explicit Off clears it;
+    // retaining it never grants a permit or resumes motion.
+    enabled: bool,
     canonical_pending: usize,
     sequence: u64,
     target: Option<Target>,
@@ -125,7 +128,7 @@ impl AutomaticRotor {
     fn snapshot(&self) -> Result<Value, String> {
         let state = self.state.lock().map_err(|_| "Automatic rotor state unavailable")?;
         let authority = self.authority.load(Ordering::Acquire);
-        Ok(json!({"armed":authority & 1 != 0,"epoch":authority >> 1,
+        Ok(json!({"enabled":state.enabled,"armed":authority & 1 != 0,"epoch":authority >> 1,
             "owner":state.owner,"generation":state.generation,"target":state.target,
             "activation_pending":state.activation && !state.confirmed,"canonical_pending":state.canonical_pending > 0,"error":state.error}))
     }
@@ -133,6 +136,7 @@ impl AutomaticRotor {
         let bands = normalize_bands(bands)?;
         let mut state = self.state.lock().map_err(|_| "Automatic rotor state unavailable")?;
         self.admit_arm(expected_epoch, || {})?;
+        state.enabled = true;
         state.owner = Some(owner.into()); state.generation = Some(generation);
         state.allowed_bands = bands;
         state.attempted = None; state.attempted_target = None; state.error.clear();
@@ -169,6 +173,12 @@ impl AutomaticRotor {
         // valid while a manual Stop waits behind an already-admitted driver RPC.
         self.revoke_authority();
         if let Ok(mut state) = self.state.lock() { state.attempted = None; state.error.clear(); }
+    }
+    fn disable(&self) {
+        self.revoke_authority();
+        if let Ok(mut state) = self.state.lock() {
+            state.enabled = false; state.attempted = None; state.error.clear();
+        }
     }
     fn revoke_authority(&self) {
         self.advance_epoch(true);
@@ -305,7 +315,7 @@ pub(crate) fn owner() -> &'static Arc<AutomaticRotor> {
 pub fn snapshot() -> Result<Value, String> { owner().snapshot() }
 pub fn set_armed(armed: bool, expected_owner: Option<&str>, expected_generation: Option<u64>, expected_epoch: u64,
     bands: &[String]) -> Result<Value, String> {
-    if !armed { revoke(); return snapshot(); }
+    if !armed { disable(); return snapshot(); }
     let expected_owner = expected_owner.ok_or("Observe a connected rotor before enabling automatic turns.")?;
     let expected_generation = expected_generation.ok_or("Observe the rotor generation before enabling automatic turns.")?;
     crate::rotor::with_automatic_owner(expected_owner, expected_generation, || {
@@ -313,6 +323,7 @@ pub fn set_armed(armed: bool, expected_owner: Option<&str>, expected_generation:
     })
 }
 pub fn revoke() { owner().revoke(); }
+pub fn disable() { owner().disable(); }
 pub(crate) fn rebase_disarmed_epoch(expected_epoch: u64) -> Option<u64> {
     owner().rebase_disarmed_epoch(expected_epoch)
 }
@@ -422,6 +433,27 @@ mod tests {
         let current = owner.epoch(); assert!(owner.armed());
         assert!(owner.arm_at_epoch("native_dcu1", 7, old_epoch, &["20m".into()]).is_err());
         assert!(owner.armed()); assert_eq!(owner.epoch(), current);
+    }
+    #[test]
+    fn safety_revocation_retains_enabled_intent_but_only_explicit_arm_resumes_motion() {
+        let owner = armed(); let before = begin(&owner, "OM0RX", false);
+        owner.revoke();
+        assert_eq!(owner.snapshot().unwrap()["enabled"], true);
+        assert_eq!(owner.snapshot().unwrap()["armed"], false);
+        assert!(!before.admits());
+        // Neither a fresh canonical target nor passive reconciliation grants
+        // permission after Stop/ownership retirement.
+        let after = begin(&owner, "K1ABC", false);
+        assert_eq!(owner.turn(&after, || panic!("paused read"), |_| panic!("paused lookup"),
+            |_, _| panic!("paused dispatch")).unwrap()["requested"], false);
+        owner.arm("native_dcu1", 7).unwrap();
+        assert_eq!(owner.snapshot().unwrap()["enabled"], true);
+        assert!(owner.armed());
+        owner.disable();
+        assert_eq!(owner.snapshot().unwrap()["enabled"], false);
+        assert!(!owner.armed());
+        owner.revoke();
+        assert_eq!(owner.snapshot().unwrap()["enabled"], false);
     }
     #[test]
     fn exhausted_epoch_stays_off_without_wrapping_or_revalidating_old_permits() {
@@ -552,6 +584,7 @@ mod tests {
         let owner = armed(); let permit = begin(&owner, "OM0RX", false);
         assert!(owner.turn(&permit, || Ok(target("OM0RX")), |_| Ok(json!({"call":"OM0RX","bearing":90})), |_, _| Err("lost reply".into())).is_err());
         assert_eq!(owner.snapshot().unwrap()["armed"], false);
+        assert_eq!(owner.snapshot().unwrap()["enabled"], true);
         assert_eq!(owner.turn(&permit, || panic!("read"), |_| panic!("lookup"), |_, _| panic!("retry")).unwrap()["requested"], false);
     }
     fn coordinator_fixture() -> (Arc<AutomaticRotor>, crate::rotor::RotorCoordinator, u64) {
@@ -665,6 +698,17 @@ mod tests {
         }).unwrap()["result"]["admission"] == "not_admitted");
         assert_eq!(motion.load(Ordering::SeqCst), 0);
         assert_eq!(owner.snapshot().unwrap()["armed"], true);
+        coordinator.handle(json!({"id":"recovered","method":"rotor_snapshot","params":{}}), |request|
+            Ok(json!({"id":request["id"],"ok":true,"result":{"connected":true,"azimuth":123}}))).unwrap();
+        let recovered = owner.begin(target("K1ABC"), false, coordinator.automatic_owner().unwrap()).unwrap();
+        let result = owner.turn(&recovered, || Ok(target("K1ABC")), |_| Ok(json!({"call":"K1ABC","bearing":90})),
+            |permit, bearing| coordinator.handle_automatic(permit.request(bearing)?, permit, |request| {
+                motion.fetch_add(1, Ordering::SeqCst);
+                Ok(json!({"id":request["id"],"ok":true,"result":{"accepted":true}}))
+            }).map(|reply| reply["result"].clone())).unwrap();
+        assert_eq!(result["requested"], true);
+        assert_eq!(motion.load(Ordering::SeqCst), 1);
+        assert_eq!(owner.snapshot().unwrap()["enabled"], true);
     }
     #[test]
     fn revocation_does_not_wait_for_admitted_driver_and_stop_stays_after_goto() {

@@ -62,11 +62,13 @@ export function DetachedRotorSurface() {
   const age = typeof rotor.observed_at === "number" ? clock / 1000 - rotor.observed_at : Infinity;
   const current = available && rotor.connected === true && validBearing && age >= -1 && age <= 5;
   const armed = automatic.state?.armed === true;
-  const canArm = current && !!snapshot?.owner && !!automatic.state && !automatic.error;
+  const enabled = automatic.state?.enabled ?? armed;
+  const statusAvailable = !!automatic.state && (!automatic.error || automatic.error === automatic.state.error);
+  const canArm = current && !!snapshot?.owner && statusAvailable;
   const changeAutomatic = async (enabled: boolean) => {
     const retained = latest.current, observed = rotorProjection(retained.snapshot);
     const observedAge = typeof observed.observed_at === "number" ? Date.now() / 1000 - observed.observed_at : Infinity;
-    if (enabled && (armingRef.current || !automatic.state || automatic.error || !retained.available || !retained.snapshot?.owner ||
+    if (enabled && (armingRef.current || !statusAvailable || !retained.available || !retained.snapshot?.owner ||
       !observed.connected || !Number.isFinite(observed.azimuth) || observed.azimuth < 0 || observed.azimuth > 360 || !Number.isFinite(observedAge) || observedAge < -1 || observedAge > 5)) return;
     if (enabled) { armingRef.current = true; setArming(true); }
     setAutoError("");
@@ -90,7 +92,7 @@ export function DetachedRotorSurface() {
     }
     setCompassError("");
     try {
-      if (automatic.state?.armed) await changeAutomatic(false);
+      if (automatic.state?.armed) await automatic.set(false, undefined, true);
       await manualSession.goto(retained.snapshot.owner, retained.snapshot.generation, bearing, `Compass ${Math.round(bearing)} deg`);
     } catch (cause) {
       setCompassError(serviceErrorMessage(cause) || "Compass rotor outcome is unknown. Check the retained receipt and observed bearing.");
@@ -100,16 +102,18 @@ export function DetachedRotorSurface() {
     callsign: contestTarget.callsign, shortPathBearing: contestTarget.shortPathBearing, longPathBearing: contestTarget.longPathBearing,
   } : null;
   const automaticControls = <><div className="live-actions detached-rotor-actions">
-      <label title={automatic.state ? "Follow the resolved callsign using the native rotor. Selected spots wait for confirmed radio tuning. Stop or reconnect disables automatic turns."
+      <label title={automatic.state ? "Follow the resolved callsign using the native rotor. Selected spots wait for confirmed radio tuning. Stop or reconnect pauses automatic turns until explicitly resumed."
         : "Auto rotor requires an available retained controller and current connected rotor observation."}>
-        <input type="checkbox" aria-label="Auto rotor" checked={armed} disabled={!armed && (!canArm || arming)}
+        <input type="checkbox" aria-label="Auto rotor" checked={enabled} disabled={!enabled && (!canArm || arming)}
           onChange={event => { void changeAutomatic(event.target.checked); }} />Auto rotor</label>
       <button type="button" aria-label="Turn automatic rotor off" title="Disarm future automatic turns."
         onClick={() => { void changeAutomatic(false); }}>Off</button>
+      {enabled && !armed && <><span role="status">Auto rotor is paused after a stop or operating context change.</span>
+        <button type="button" disabled={!canArm || arming} onClick={() => { void changeAutomatic(true); }}>Resume Auto rotor</button></>}
     </div>
     {!contestContext && (autoError || automatic.error) && <p className="live-error" role="alert">{autoError || automatic.error}</p>}</>;
   const manualControls = <ManualRotorControl observation={{ available: current, snapshot }} target={target} session={manualSession}
-      onManual={() => automatic.state?.armed ? changeAutomatic(false) : undefined}
+      onManual={() => automatic.state?.armed ? automatic.set(false, undefined, true) : undefined}
       onPark={parkCurrent} hideHeading contestLayout={!!contestContext} onFeedback={contestContext ? reportContestMessage : undefined} />;
   const visual = <div className="detached-rotor-visual"><RotorCompass connected={current} azimuth={rotor.azimuth}
     target={contestContext ? target?.shortPathBearing : undefined} path="SP"

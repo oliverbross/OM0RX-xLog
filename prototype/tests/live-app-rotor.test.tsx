@@ -637,6 +637,21 @@ it("hydrates the native radio choice before polling and leaves handover with the
   rendered.unmount(); expect(dispose).toHaveBeenCalledOnce();
 });
 
+it("keeps native Auto rotor armed while passively hydrating a radio choice that differs from the browser hint", async () => {
+  bridge.nativeSelection = true; bridge.nativeStop = true;
+  bridge.autoState = { ...bridge.autoState, enabled: true, armed: true, epoch: 4 };
+  let selected!: (value: any) => void;
+  bridge.selection.mockImplementation((_radioId, _legacy, changed) => { selected = changed; return vi.fn(); });
+  localStorage.setItem("xlog.integration.provider", "direct_agent");
+  render(<LiveApp />); await waitForDesk();
+  await waitFor(() => expect(selected).toBeTypeOf("function"));
+  await act(async () => selected({ provider: "direct_flex_lan", generation: 7 }));
+  await act(async () => selected({ provider: "direct_flex_lan", generation: 7 }));
+  await act(async () => selected({ provider: "direct_flex_lan", generation: 7 }));
+  expect(bridge.autoState).toMatchObject({ enabled: true, armed: true, epoch: 4 });
+  expect(bridge.native.mock.calls.filter(([command]) => command === "auto_rotor_set")).toHaveLength(0);
+});
+
 it("routes selection, telemetry and explicit radio reads through persisted Radio 2", async () => {
   bridge.nativeSelection = true; bridge.activeRadio = "radio2";
   bridge.selection.mockImplementation((_radioId, _legacy, changed) => {

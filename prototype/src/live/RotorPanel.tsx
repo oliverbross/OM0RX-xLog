@@ -13,12 +13,12 @@ type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<Data>;
 type Props = { snapshot: RotorSnapshot | null; request: Request; onManual?: () => void;
   configurationSession: RotorConfigurationSession; configurationOnly?: boolean; rotorSession?: ManualRotorGotoSession;
-  automaticRotorArmed?: boolean; automaticRotorAvailable?: boolean; automaticRotorError?: string;
+  automaticRotorArmed?: boolean; automaticRotorEnabled?: boolean; automaticRotorAvailable?: boolean; automaticRotorError?: string;
   onAutomaticRotorChange?: (enabled: boolean) => Promise<void> };
 
 export default function RotorPanel({ snapshot, request, onManual = () => {}, configurationSession, configurationOnly = false,
   rotorSession = manualRotorGotoSession(), automaticRotorArmed = false, automaticRotorAvailable = false,
-  automaticRotorError = "", onAutomaticRotorChange }: Props) {
+  automaticRotorEnabled = automaticRotorArmed, automaticRotorError = "", onAutomaticRotorChange }: Props) {
   const configurationState = useSyncExternalStore(configurationSession.subscribe, configurationSession.getSnapshot);
   const configuration = configurationState.draft;
   const owner = configuration?.owner ?? "native_dcu1";
@@ -134,10 +134,15 @@ export default function RotorPanel({ snapshot, request, onManual = () => {}, con
     <section className="live-station-card rotor-auto-settings" aria-labelledby="rotor-auto-settings-title">
       <h3 id="rotor-auto-settings-title">Automatic rotor</h3>
       <label className="rotor-auto-start"><input type="checkbox" aria-describedby="rotor-auto-live-help"
-        checked={automaticRotorArmed} disabled={automaticBusy || !onAutomaticRotorChange || !automaticRotorArmed && !automaticRotorAvailable}
+        checked={automaticRotorEnabled} disabled={automaticBusy || !onAutomaticRotorChange || !automaticRotorEnabled && !automaticRotorAvailable}
         onChange={event => { void changeAutomaticRotor(event.target.checked); }} /> Auto rotor</label>
+      {automaticRotorEnabled && !automaticRotorArmed && <><p className="live-station-helper amber" role="status">Auto rotor is paused after a stop or operating context change. Review the rotor connection, then resume explicitly.</p>
+        <button type="button" disabled={automaticBusy || !onAutomaticRotorChange || !automaticRotorAvailable}
+          onClick={() => { void changeAutomaticRotor(true); }}>Resume Auto rotor</button></>}
       <p id="rotor-auto-live-help" className="live-station-helper">{onAutomaticRotorChange
-        ? automaticRotorArmed && !automaticRotorAvailable
+        ? automaticRotorEnabled && !automaticRotorArmed
+          ? "Automatic turns remain blocked until Resume is accepted. Turning Auto rotor off clears the current enabled choice."
+          : automaticRotorArmed && !automaticRotorAvailable
           ? "Auto rotor remains armed but is blocked until the selected rotor has a fresh connected bearing."
           : automaticRotorAvailable
           ? "Controls automatic turns now. A connected rotor, resolved target and allowed band are still required."
