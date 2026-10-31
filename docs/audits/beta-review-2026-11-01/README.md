@@ -25,6 +25,8 @@ Installer work adds audited payload maps, privacy gates and native install/unins
 
 Additional native review found older SQLite JSON extraction truncating embedded NUL strings, Linux JSON bridge comparisons rejecting unchanged state, incorrect private station-owner retirement, and a Windows Python launch missing its OS-derived system directory. Focused regressions cover these cases. The packaged contest self-test exercises the shipping bundled locator, sanitized subprocess, synthetic save/read and restart/reopen path.
 
+A private concurrency regression reproduced executor starvation with blocking Python pipe readers: nine actual hosts stalled within a 15-second external deadline. Dedicated reader threads preserve one-chunk stdout backpressure, discard diagnostics and keep the existing generation/response guards. The unchanged regression then passed normally in 8.018 seconds and in strict executor mode in 5.013 seconds; four existing bridge/runtime checks also passed. This establishes that fix, and does not establish the cause of earlier Windows job time limits.
+
 All platforms stage only tracked contest host/vendor source. The Mac lane now shares the same source-only staging policy, so tests, fixtures and untracked local files are ineligible. Four staging privacy tests passed, including a synthetic private file and a changed-parent symlink; seven native bundle fixture tests and twelve Mac packaging/refusal checks passed. macOS packaging uses production Cargo artifacts, retains strict resource/provenance checks, and preserves the existing signing/notarization gates.
 
 ## Release gates
