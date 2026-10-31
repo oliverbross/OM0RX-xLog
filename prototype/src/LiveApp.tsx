@@ -1262,7 +1262,7 @@ function MainLiveApp() {
     typeof lookup?.latitude === "number" && typeof lookup?.longitude === "number"
       ? { call: draft.call, lat: lookup.latitude, lon: lookup.longitude, country: lookup.country, locationSource: lookup.location_source || lookup.source } : undefined,
     [draft?.call, lookup?.call, lookup?.latitude, lookup?.longitude, lookup?.country, lookup?.location_source, lookup?.source]);
-  const stationWithRotor = { ...(station || { source: provider.current, radio: null }), rotor: rotorProjection(rotorState),
+  const stationWithRotor = { ...(station || { radio: null }), rotor: rotorProjection(rotorState),
     rotor_control: rotorState, projection_received_at: Date.now() / 1000 };
   useEffect(() => {
     if (monitor) return;

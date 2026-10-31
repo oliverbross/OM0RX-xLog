@@ -8,7 +8,7 @@ import { defaultRotorConfiguration } from "../src/live/rotorConfigurationSession
 
 const bridge = vi.hoisted(() => ({ request: vi.fn(), native: vi.fn(), tune: null as null | ((value: any) => void), rejectActivation: null as null | ((cause: Error) => void), rotorGeneration: 4,
   autoState: null as any, autoChanged: null as null | ((value: any) => void),
-  nativeSelection: false, selection: vi.fn(), applySelection: vi.fn(),
+  nativeSelection: false, selection: vi.fn(), applySelection: vi.fn(), slotProvider: "direct_agent" as "direct_agent" | null,
   nativeStop: false, canvasStop: false,
   rotorConfiguration: null as any,
   preferenceView: null as any, preferenceChange: null as null | ((value: any) => void),
@@ -18,7 +18,8 @@ vi.mock("@tauri-apps/api/core", async original => ({ ...await original<typeof im
     : command === "station_session_request" && params?.params?.action === "serial_ports" ? Promise.resolve({ ports: [] })
     : command === "station_session_request" && params?.params?.action === "hamlib_catalogue" ? Promise.resolve({ models: [] })
     : command === "station_session_request" && params?.params?.action === "snapshot" ? Promise.resolve({ radio_id: params.params.radio_id, active_radio: bridge.activeRadio, tx_owner: null,
-      generation: `${params.params.radio_id}-fixture`, revision: 1, base_url: "", last_receipt: null, selection: { provider: "direct_agent", generation: 1, selection_id: "fixture" } }) : Promise.resolve({}) }));
+      generation: `${params.params.radio_id}-fixture`, revision: 1, base_url: "", profile: null, last_receipt: null,
+      selection: { provider: bridge.slotProvider, generation: 1, selection_id: bridge.slotProvider ? "fixture" : null } }) : Promise.resolve({}) }));
 vi.mock("@tauri-apps/api/event", async original => {
   const actual = await original<typeof import("@tauri-apps/api/event")>();
   return { ...actual, listen: (event: string, handler: any, options?: any) => event === "xlog:station-session"
@@ -133,7 +134,7 @@ beforeEach(() => {
   bridge.nativeStop = false; bridge.canvasStop = false;
   bridge.preferenceView = null; bridge.preferenceChange = null;
   bridge.telemetry.mockReset(); bridge.telemetry.mockReturnValue(null);
-  bridge.nativeSelection = false; bridge.selection.mockReset(); bridge.selection.mockReturnValue(null); bridge.applySelection.mockReset();
+  bridge.nativeSelection = false; bridge.slotProvider = "direct_agent"; bridge.selection.mockReset(); bridge.selection.mockReturnValue(null); bridge.applySelection.mockReset();
   bridge.stationTelemetry.mockReset(); bridge.stationTelemetry.mockReturnValue(null); bridge.selectTelemetry.mockReset(); bridge.selectTelemetry.mockResolvedValue(undefined);
   const sharedDraft = operatorDraftFixture({ id: "draft", call: "", start: "2026-10-12T00:00:00Z", frequencyHz: 14074000, mode: "FT8", band: "20m" });
   const loggedContact = { id: "logged-contact", call: "7P8GE", start: "2026-10-21T12:27:17Z", frequencyHz: 28030000, mode: "CW", band: "10m" };
@@ -612,6 +613,34 @@ it("preserves rotor ownership while browsing radio settings", async () => {
   await openRotorSettings();
   expect(screen.getByRole("region", { name: "Independent rotor" })).toBeTruthy();
   expect(screen.getByText("053°")).toBeTruthy();
+});
+
+it("keeps a completed setup with skipped radio free of Agent hardware while independent rotor telemetry arrives", async () => {
+  bridge.nativeSelection = true; bridge.slotProvider = null;
+  bridge.selection.mockImplementation((radioId, _legacy, changed) => {
+    changed({ radio_id: radioId, provider: null, generation: 0, selection_id: null }); return vi.fn();
+  });
+  let observeRotor!: (value: any) => void;
+  bridge.telemetry.mockImplementation(changed => { observeRotor = changed; return vi.fn(); });
+  const original = bridge.request.getMockImplementation()!;
+  bridge.request.mockImplementation(async (method, params) => method === "settings_load"
+    ? { result: { generation: testWorkspaceGeneration, revision: 1, settings: {
+      operatorCall: "K1TEST", stationCall: "K1TEST/P", gridSquare: "FN31PR", onboardingCompleted: true,
+    } } } : original(method, params));
+  render(<LiveApp />);
+  await waitForDesk();
+  await waitFor(() => expect(bridge.selection).toHaveBeenCalled());
+  const sidebar = within(document.querySelector<HTMLElement>(".sidebar")!);
+  expect(sidebar.getByText("NO RADIO SELECTED")).toBeTruthy();
+  await act(async () => observeRotor({ owner: "native_dcu1", generation: 4, state: "active", backend_available: true,
+    backend: { connected: true, name: "Independent fixture rotor", azimuth: 53 } }));
+  expect(screen.getByRole("region", { name: "Rotor" })).toBeTruthy();
+  expect(sidebar.getByText("NO RADIO SELECTED")).toBeTruthy();
+  expect(sidebar.queryByText(/KPA|KAT/)).toBeNull();
+  expect(sidebar.queryByRole("button", { name: /Switch to (operate|standby)/ })).toBeNull();
+  expect(bridge.stationTelemetry).not.toHaveBeenCalled();
+  expect(bridge.request.mock.calls.some(([method]) => ["station_snapshot", "station_connect", "station_action"].includes(method))).toBe(false);
+  expect(bridge.native.mock.calls.some(([command]) => command === "auto_rotor_set")).toBe(false);
 });
 
 it("hydrates the native radio choice before polling and leaves handover with the shared station session", async () => {
