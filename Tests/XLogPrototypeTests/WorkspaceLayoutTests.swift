@@ -436,7 +436,7 @@ struct WorkspaceLayoutTests {
         #expect(staleContest["scope"] as? String == "contesting")
         #expect(try apply(service, before, "windowed")["status"] as? String == "applied")
         #expect(try apply(service, before, "traditional")["status"] as? String == "conflict")
-        #expect(NSDictionary(dictionary: try service.handle(method: "workspace_preferences_load", params: [:])).isEqual(to: preferences))
+        #expect(jsonObjectsEqual(try service.handle(method: "workspace_preferences_load", params: [:]), preferences))
         for generation: Any in [true, "invalid", NSNull()] {
             #expect(throws: Error.self) { try service.handle(method: "workspace_layout_apply", params: ["generation": generation,
                 "expectedRevision": 1, "action": "activatePreset", "presetID": "traditional"]) }

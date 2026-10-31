@@ -119,8 +119,8 @@ struct RestoreAtomicityTests {
         contest.close()
         #expect(try String(contentsOf: reference, encoding: .utf8) == "current reference")
         let afterPreferences = try service.handle(method: "workspace_preferences_load", params: [:])
-        #expect(NSDictionary(dictionary: beforePreferences["preferences"] as! [String: Any])
-            .isEqual(to: afterPreferences["preferences"] as! [String: Any]))
+        #expect(jsonObjectsEqual(beforePreferences["preferences"] as! [String: Any],
+                                afterPreferences["preferences"] as! [String: Any]))
         #expect(try service.handle(method: "workspace_status", params: [:])["generation"] as? String != oldGeneration)
         #expect(try LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false).openedDatabase().count() == 2)
     }

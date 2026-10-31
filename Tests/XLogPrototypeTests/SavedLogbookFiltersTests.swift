@@ -64,7 +64,7 @@ struct SavedLogbookFiltersTests {
             try apply(service, current, action: "save", extra: ["name": "Empty search", "query": ""])
         }
         let after = try service.handle(method: "workspace_preferences_load", params: [:])
-        #expect(NSDictionary(dictionary: after).isEqual(to: stable))
+        #expect(jsonObjectsEqual(after, stable))
     }
 
     @Test("Rename and delete preserve unrelated workspace preferences and stale lists conflict")
@@ -104,16 +104,16 @@ struct SavedLogbookFiltersTests {
         #expect(updated["status"] as? String == "applied")
         #expect(updated["revision"] as? Int == (current["revision"] as! Int) + 1)
         #expect(updated["generation"] as? String == current["generation"] as? String)
-        #expect(NSDictionary(dictionary: updated["preferences"] as! [String: Any]).isEqual(to: expectedPreferences))
-        #expect(NSDictionary(dictionary: try service.handle(method: "logbook_list", params: [:])).isEqual(to: contacts))
+        #expect(jsonObjectsEqual(updated["preferences"] as! [String: Any], expectedPreferences))
+        #expect(jsonObjectsEqual(try service.handle(method: "logbook_list", params: [:]), contacts))
         let unchanged = try apply(service, updated, action: "update", extra: ["source": "Worked", "query": "Pacific"])
-        #expect(NSDictionary(dictionary: unchanged).isEqual(to: updated))
+        #expect(jsonObjectsEqual(unchanged, updated))
 
         try service.openedDatabase().close()
         let reopened = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
         defer { try? reopened.openedDatabase().close() }
         let persisted = try reopened.handle(method: "workspace_preferences_load", params: [:])
-        #expect(NSDictionary(dictionary: persisted["preferences"] as! [String: Any]).isEqual(to: expectedPreferences))
+        #expect(jsonObjectsEqual(persisted["preferences"] as! [String: Any], expectedPreferences))
         #expect(persisted["revision"] as? Int == updated["revision"] as? Int)
     }
 
@@ -157,9 +157,9 @@ struct SavedLogbookFiltersTests {
         }
         let conflict = try apply(service, initial, action: "update", extra: ["source": "Worked", "query": "Pacific"])
         #expect(conflict["status"] as? String == "conflict")
-        #expect(NSDictionary(dictionary: conflict["preferences"] as! [String: Any]).isEqual(to: stable["preferences"] as! [String: Any]))
+        #expect(jsonObjectsEqual(conflict["preferences"] as! [String: Any], stable["preferences"] as! [String: Any]))
         let changed = try apply(service, current, action: "update", extra: ["source": "Worked", "query": "Pacific", "generation": UUID().uuidString])
         #expect(changed["status"] as? String == "workspace_changed")
-        #expect(NSDictionary(dictionary: try service.handle(method: "workspace_preferences_load", params: [:])).isEqual(to: stable))
+        #expect(jsonObjectsEqual(try service.handle(method: "workspace_preferences_load", params: [:]), stable))
     }
 }

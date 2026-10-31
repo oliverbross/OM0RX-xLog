@@ -115,7 +115,7 @@ struct SpotDraftActivationTests {
             #expect(result["reservationActive"] as? Bool == false)
             #expect(result["draftOnly"] as? Bool == true);#expect(result["tuneConfirmed"] as? Bool == false)
             #expect(result["rotor"] as? String == "not_requested");#expect(result["draft"]==nil)
-            #expect(NSDictionary(dictionary:before).isEqual(to:try snapshot(replacement)))
+            #expect(jsonObjectsEqual(before, try snapshot(replacement)))
             #expect((before["qso"] as? [String:Any])?["call"] as? String == "K2XYZ")
             try JSONEncoder().encode(UUID()).write(to:replacement.workspaceDirectoryURL.appendingPathComponent("edit-generation.json"),options:.atomic)
             #expect(throws:WorkerFailure.self){try replacement.handle(method:"spot_draft_cw_status",params:["operationID":try #require(request["operationID"])])}
@@ -145,9 +145,9 @@ struct SpotDraftActivationTests {
             let reconciled=try replacement.handle(method:"spot_draft_cw_reconcile",params:params)
             #expect(reconciled["phase"] as? String == "confirmed");#expect(reconciled["reservationActive"] as? Bool == false)
             #expect(reconciled["draft"] == nil)
-            #expect(NSDictionary(dictionary:before).isEqual(to:try snapshot(replacement)))
+            #expect(jsonObjectsEqual(before, try snapshot(replacement)))
             #expect((try replacement.handle(method:"spot_draft_cw_pending",params:[:]))["operationIds"] as? [String] == [])
-            #expect(NSDictionary(dictionary:reconciled).isEqual(to:try replacement.handle(method:"spot_draft_cw_reconcile",params:params)))
+            #expect(jsonObjectsEqual(reconciled, try replacement.handle(method:"spot_draft_cw_reconcile",params:params)))
             #expect((try replacement.handle(method:"spot_draft_cw_reconcile",params:["operationID":UUID().uuidString]))["phase"] as? String == "uncertain")
             #expect(throws:WorkerFailure.self){try replacement.handle(method:"spot_draft_cw_reconcile",params:["operationID":try #require(request["operationID"]),"clear":true])}
             try JSONEncoder().encode(UUID()).write(to:replacement.workspaceDirectoryURL.appendingPathComponent("edit-generation.json"),options:.atomic)
@@ -192,7 +192,7 @@ struct SpotDraftActivationTests {
             _ = try service.handle(method:"spot_draft_apply",params:cw)
             let original=try #require(cw["operationID"] as? String),before=try snapshot(service)
             #expect((try service.handle(method:"spot_draft_cw_pending",params:[:]))["operationIds"] as? [String] == [original])
-            #expect(NSDictionary(dictionary:before).isEqual(to:try snapshot(service)))
+            #expect(jsonObjectsEqual(before, try snapshot(service)))
             try service.openedDatabase().close()
             let replacement=LiveLogbookMethods(supportDirectory:root,inheritNativePreferences:false)
             defer {try? replacement.openedDatabase().close()}
@@ -238,7 +238,7 @@ struct SpotDraftActivationTests {
             #expect(result["replay"] as? Bool == false)
             let repeated = try service.handle(method: "spot_draft_apply", params: request)
             #expect(repeated["replay"] as? Bool == true)
-            #expect(NSDictionary(dictionary: try scopedReceiptDraft(result)).isEqual(to: try scopedReceiptDraft(repeated)))
+            #expect(jsonObjectsEqual(try scopedReceiptDraft(result), try scopedReceiptDraft(repeated)))
             #expect(try scopedReceiptDraft(result)["generation"] as? String == initial["generation"] as? String)
             var stage = try control(request, result); stage["stage"] = "tune_started"
             #expect(try service.handle(method: "spot_draft_stage", params: stage)["status"] as? String == "staged")
@@ -377,7 +377,7 @@ struct SpotDraftActivationTests {
             }
             #expect(throws: (any Error).self) { try service.handle(method: "logbook_save", params: ["qso": qso]) }
             #expect(throws: WorkerFailure.self) { try service.handle(method: "backup_restore", params: [:]) }
-            #expect(NSDictionary(dictionary: try snapshot(service)).isEqual(to: draft))
+            #expect(jsonObjectsEqual(try snapshot(service), draft))
             let another = try command(draft)
             #expect(throws: WorkerFailure.self) { try service.handle(method: "spot_draft_apply", params: another) }
             #expect(try service.openedDatabase().count() == 0)
@@ -529,7 +529,7 @@ struct SpotDraftActivationTests {
             var request = try command(before), spot = try #require(request["spot"] as? [String: Any])
             spot["comment"] = String(repeating: "y", count: 8_000); request["spot"] = spot
             #expect(throws: (any Error).self) { try service.handle(method: "spot_draft_apply", params: request) }
-            #expect(NSDictionary(dictionary: try snapshot(service)).isEqual(to: before))
+            #expect(jsonObjectsEqual(try snapshot(service), before))
             let status = try service.handle(method: "spot_draft_status", params: ["operationID": try #require(request["operationID"]), "generation": try #require(request["generation"])])
             #expect(status["status"] as? String == "not_found")
             #expect(try !service.openedDatabase().spotDraftActivationActive)
@@ -546,7 +546,7 @@ struct SpotDraftActivationTests {
             #expect(abandoned["status"] as? String == "abandoned")
             #expect(abandoned["leaseID"] == nil)
             #expect(try service.handle(method: "spot_draft_apply", params: request)["status"] as? String == "abandoned")
-            #expect(NSDictionary(dictionary: try snapshot(service)).isEqual(to: before))
+            #expect(jsonObjectsEqual(try snapshot(service), before))
             let replacement = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
             defer { try? replacement.openedDatabase().close() }
             #expect(try replacement.handle(method: "spot_draft_apply", params: request)["status"] as? String == "abandoned")
@@ -587,7 +587,7 @@ struct SpotDraftActivationTests {
             #expect(try service.handle(method: "spot_draft_apply", params: request)["status"] as? String == "workspace_changed")
             let reused = try command(restored, operationID: try #require(UUID(uuidString: request["operationID"] as! String)))
             #expect(throws: WorkerFailure.self) { try service.handle(method: "spot_draft_apply", params: reused) }
-            #expect(NSDictionary(dictionary: try snapshot(service)).isEqual(to: restored))
+            #expect(jsonObjectsEqual(try snapshot(service), restored))
             #expect(try !service.openedDatabase().spotDraftActivationActive)
         }
     }
