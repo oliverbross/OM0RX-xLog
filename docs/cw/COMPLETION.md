@@ -16,6 +16,14 @@ adapters are not substituted for current owners. The original plan's engineering
 targets are frozen in [QUALITY_CONTRACT.json](QUALITY_CONTRACT.json), before any
 held-out evaluation. AC30/P8/P9 remain outside this Mac launch.
 
+Operator clarification, 31 October: xLog and its decoder will normally run on the
+radios' LAN. Australia–Slovakia WAN arrival timing is diagnostic capture evidence,
+not the normal performance baseline. LAN timing acceptance waits for relocation;
+local replay capacity, decoder quality, source/RF correctness and continuity
+requirements remain unchanged. Consented LAN-recorded IQ is the preferred next
+input for local decoder evaluation. No further WAN timing qualification loop is
+required.
+
 | Owner | Core acceptance | Current evidence / unclosed gate |
 | --- | --- | --- |
 | NL-06 | AC01–02 native features/model | Pinned model/runtime retained; native feature, silence, 20/30-WPM and generated unseen-sequence checks pass. Transformed candidates stay separate/unqualified. Real RF and exact-package validation remain. |

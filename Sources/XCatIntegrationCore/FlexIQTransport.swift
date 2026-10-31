@@ -66,6 +66,10 @@ public struct FlexIQPacket: Equatable, Sendable {
 /// Strict no-reorder policy. A four-bit counter cannot prove continuity after
 /// a long stall or 16-packet loss: the monotonic elapsed-time gate also fences it.
 public struct FlexIQContinuity: Sendable {
+    public private(set) var counterBreaks:UInt64=0
+    public private(set) var arrivalGaps:UInt64=0
+    public private(set) var receiptRegressions:UInt64=0
+    public private(set) var maximumReceiptGapNS:UInt64?
     private var previous: UInt8?
     private var previousReceipt: UInt64?
     private var previousDurationNS: UInt64 = 0
@@ -74,6 +78,13 @@ public struct FlexIQContinuity: Sendable {
     public mutating func accept(_ packet: FlexIQPacket, receivedNS: UInt64) -> Bool {
         let clean: Bool
         if let previous, let last = previousReceipt {
+            if packet.packetCounter != (previous+1)%16,counterBreaks<UInt64.max{counterBreaks+=1}
+            if receivedNS<last {
+                if receiptRegressions<UInt64.max{receiptRegressions+=1}
+            } else {
+                maximumReceiptGapNS=max(maximumReceiptGapNS ?? 0,receivedNS-last)
+                if receivedNS-last>previousDurationNS*3,arrivalGaps<UInt64.max{arrivalGaps+=1}
+            }
             clean = packet.packetCounter == (previous + 1) % 16 && receivedNS >= last &&
                 receivedNS - last <= previousDurationNS * 3
         } else { clean = false }

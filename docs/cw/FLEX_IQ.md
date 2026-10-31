@@ -201,7 +201,8 @@ without matching local discovery have no acceptance claim.
 
 The owned UDP destination accepts only the connected radio's numeric peer and
 pins one actual sender endpoint. Unrelated peers are rejected before Task allocation; one
-receive and eight queued datagrams bound delivery. Each flow checks the create
+receive and 128 queued datagrams (2 MiB worst case), with a separate hard 250-ms
+reader-age limit, bound delivery. Each flow checks the create
 reply, matching owner/channel/panadapter/rate/active status, VITA class and actual
 sample arrival. A successful command alone cannot establish Running. Startup,
 stall, malformed packets, overflow and sequence discontinuities fail or withdraw
@@ -308,3 +309,39 @@ panadapter 40000000, DAX IQ 1, ANT1, centre 24.915 MHz, pre +16 dB, WIDE/loopa/l
 actual messages. It does not yet prove discovery identity, native sample arrival,
 RF orientation, usable width or one/two-span acceptance. No stream was created
 by those passive inspections; each closed only its own transport.
+
+## Admitted UDP, bounded reader and intended LAN deployment
+
+Capture `flex-native-iq-04`, **00:34:42–00:34:53 UTC**, is inside the reported
+00:34:03.0776125–00:39:03.0776125 relay window. It pins the real radio at source
+port **50001** and receives **387 datagrams / 557,280 UDP payload bytes**, with
+one candidate connection and no peer/port refusals. It fails the former eight-
+datagram queue before capture admission, producing zero capture blocks/samples.
+Both exact owned removal status and ACK pass; the receipt now reports
+`stationSideCleanupVerified=true`. This is UDP transport evidence, not a useful
+IQ recording, Running state or decoder-quality result. The binary was a debug
+developer inspector, not the shipped application's performance candidate.
+
+A real 32-packet burst reproduces the eight-entry overflow
+(`e83fb1519e74d7da`). The bounded raw queue is now **128 datagrams / at most
+2 MiB**; callback-to-owner reader age above **250 ms** fails the source and
+invalidates continuity. This admits bounded bursts without hiding sustained
+backlog or dropped work. The stopped-input snapshot records maximum reader age
+and its measured packet population; it excludes network transit, DSP and model
+time. First-four valid-packet header/counter/timestamp/sample-count metadata and
+per-flow counter/gap/regression summaries aid diagnosis without retaining IQ
+payload in JSON. Continuity predicates are unchanged.
+
+All **28 input/lifecycle and six provider cases** pass
+(`e9a3392ecf98ad9d`), including the bounded burst and an injected 350-ms isolated
+reader stall that fails as `stalled`, releases the owned stream and records its
+age. Eight parser/continuity cases pass (`e622eb30b5950b46`), including diagnostic
+attribution of duplicate/reordered counters, long arrival gaps and receipt-clock
+regression. These are source/isolated tests, not actual native-IQ qualification.
+
+The operator clarifies that the normal Mac application/decoder will be co-located
+with the radios on their LAN. WAN-specific timing is kept separate and deferred;
+it is not a local deployment failure or a reason to relax sample-gap evidence.
+Further decoder quality/capacity work uses local replay and consented LAN captures.
+Actual LAN one/two/mixed-provider and RF acceptance remain future evidence; no
+production capability or quality gate is enabled here.

@@ -46,7 +46,9 @@ actor FlexIQDatagramReceiver {
     private let continuation:AsyncThrowingStream<Datagram,Error>.Continuation
     init(peer:NWEndpoint.Host,sourcePort:UInt16?) {
         self.peer=peer;self.sourcePort=sourcePort.map{NWEndpoint.Port(rawValue:$0)!}
-        let pair=AsyncThrowingStream<Datagram,Error>.makeStream(bufferingPolicy:.bufferingOldest(8))
+        // At most 2 MiB at the 16-KiB packet ceiling. The owner separately
+        // rejects reader age over 250 ms; a larger burst is not stale admission.
+        let pair=AsyncThrowingStream<Datagram,Error>.makeStream(bufferingPolicy:.bufferingOldest(128))
         output=pair.stream;continuation=pair.continuation
     }
     func start(port:UInt16=0,reuse:Bool=false) async throws -> (UInt16,AsyncThrowingStream<Datagram,Error>) {

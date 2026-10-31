@@ -103,6 +103,7 @@ struct FlexIQFlow {
     var nextSample:UInt64=0
     var sequence:UInt64=0
     var lastReceipt:UInt64=0
+    var packetDiagnosticCount=0
     var cleanAfter:UInt64
     let startedNS:UInt64
 }
@@ -374,6 +375,7 @@ extension FlexRadioClient {
         // current owned stream/VITA/rate/RX/continuity still gate every IQ block.
         let receiver=FlexIQDatagramReceiver(peer:context.peer,sourcePort:nil);iqState.receiver=receiver
         iqLastInputDiagnostics=nil
+        iqMaximumReaderQueueAgeNS=nil;iqMeasuredReaderPackets=0
         do {
             let (port,packets)=try await receiver.start(port:iqState.destinationPort ?? 0)
             iqState.destinationPort=port
@@ -395,6 +397,15 @@ extension FlexRadioClient {
     }
     private func iqReceive(_ datagram:FlexIQDatagramReceiver.Datagram,generation:Int) async {
         guard let context=iqControlContext(),context.generation==generation,datagram.data.count>=8 else{return}
+        let now=DispatchTime.now().uptimeNanoseconds
+        guard now>=datagram.receivedNS else{await iqFailInput(FlexIQSubscriptionError.invalidPacket,generation:generation);return}
+        let readerAge=now-datagram.receivedNS
+        iqMaximumReaderQueueAgeNS=max(iqMaximumReaderQueueAgeNS ?? 0,readerAge)
+        if iqMeasuredReaderPackets<UInt64.max{iqMeasuredReaderPackets+=1}
+        guard readerAge<=250_000_000 else {
+            iqTrace("reader_late","age_ns=\(readerAge) limit_ns=250000000")
+            await iqFailInput(FlexIQSubscriptionError.stalled,generation:generation);return
+        }
         let bytes=[UInt8](datagram.data.prefix(8))
         let streamID=UInt32(bytes[4])<<24|UInt32(bytes[5])<<16|UInt32(bytes[6])<<8|UInt32(bytes[7])
         guard let id=iqState.flows.first(where:{$0.value.streamID==streamID})?.key else{return}
@@ -404,6 +415,11 @@ extension FlexRadioClient {
               metadata.panadapter==id,metadata.channel==flow.pan.channel,metadata.sampleRate==flow.rate,metadata.active==true else{return}
         do {
             let packet=try FlexIQPacket.parse(datagram.data,expectedStreamID:streamID)
+            if flow.packetDiagnosticCount<4 {
+                let header=UInt32(bytes[0])<<24|UInt32(bytes[1])<<16|UInt32(bytes[2])<<8|UInt32(bytes[3])
+                iqTrace("packet_contract","header=\(String(format:"%08x",header)) counter=\(packet.packetCounter) tsi=\(header>>22&3) tsf=\(header>>20&3) integer=\(packet.integerTimestamp.map(String.init) ?? "absent") fraction=\(packet.fractionalTimestamp.map(String.init) ?? "absent") complex_samples=\(packet.samples.count/2) rate=\(packet.sampleRate)")
+                flow.packetDiagnosticCount+=1
+            }
             guard packet.sampleRate==flow.rate else{throw FlexIQSubscriptionError.rateConflict}
             let clean=flow.continuity.accept(packet,receivedNS:datagram.receivedNS)
             flow.lastReceipt=datagram.receivedNS
@@ -449,6 +465,7 @@ extension FlexRadioClient {
         if let expected,let cleanup=iqCleanups[expected]{await cleanup.task.value;return}
         guard let flow=iqState.flows[id],expected==nil || expected==flow.id else{return}
         iqTrace("flow_end","pan=\(flow.pan.id) flow=\(flow.id) stream=\(flow.streamID.map(FlexIQResourceInventory.identifier) ?? "none") error=\(error)")
+        iqTrace("continuity_summary","pan=\(flow.pan.id) counter_breaks=\(flow.continuity.counterBreaks) arrival_gaps=\(flow.continuity.arrivalGaps) receipt_regressions=\(flow.continuity.receiptRegressions) max_receipt_gap_ns=\(flow.continuity.maximumReceiptGapNS.map(String.init) ?? "unknown")")
         iqState.flows.removeValue(forKey:id)
         if iqState.terminalErrors.count>=32,let key=iqState.terminalErrors.keys.first{iqState.terminalErrors.removeValue(forKey:key)}
         iqState.terminalErrors[flow.id]=error
@@ -474,7 +491,9 @@ extension FlexRadioClient {
         await task.value
         iqCleanups.removeValue(forKey:flow.id)
     }
-    private func iqRecordInputDiagnostics(_ value:FlexIQInputDiagnostics) {
+    private func iqRecordInputDiagnostics(_ input:FlexIQInputDiagnostics) {
+        var value=input
+        value.maximumReaderQueueAgeNS=iqMaximumReaderQueueAgeNS;value.measuredReaderPackets=iqMeasuredReaderPackets
         iqLastInputDiagnostics=value
         iqTrace("udp_summary","port=\(value.destinationPort.map(String.init) ?? "unknown") sender_port=\(value.acceptedSourcePort.map(String.init) ?? "unknown") candidates=\(value.candidateConnections) peer_rejected=\(value.rejectedPeerConnections) port_rejected=\(value.rejectedPortConnections) datagrams=\(value.acceptedPeerDatagrams) bytes=\(value.acceptedPeerBytes) first_rejected=\(value.firstRejectedEndpoint ?? "none")")
     }

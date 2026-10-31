@@ -6,6 +6,22 @@ import XCTest
 import Darwin
 
 final class FlexIQSubscriptionTests:XCTestCase {
+    func testReaderBacklogOver250MillisecondsFailsInsteadOfAdmittingOldIQ() async throws {
+        let (radio,wire)=try await setup();try await authorize(radio)
+        let lease=UUID(),subscription=try await radio.startIQ(panadapterID:"40000000",sampleRate:96000,leaseID:lease)
+        let drain=Task{for try await _ in subscription.blocks{}}
+        await radio.fixtureBlockIQReader()
+        for _ in 0..<100 {if await wire.commands.contains(where:{$0.hasPrefix("stream remove ")}){break};try await Task.sleep(for:.milliseconds(5))}
+        let commands=await wire.commands
+        XCTAssertEqual(commands.filter{$0.hasPrefix("stream remove ")}.count,1)
+        await radio.stopIQ(leaseID:lease);drain.cancel()
+        switch await drain.result {
+        case .failure(let error):XCTAssertEqual(error as? FlexIQSubscriptionError,.stalled)
+        case .success:XCTFail("Stale buffered input must terminate the original capture")
+        }
+        let evidence=await radio.iqInputDiagnostics()
+        XCTAssertGreaterThan(evidence?.maximumReaderQueueAgeNS ?? 0,250_000_000)
+    }
     func testNativeIQAcceptsVerifiedPeerWithEphemeralSenderPort() async throws {
         let (radio,wire)=try await setup(sourcePort:0);try await authorize(radio)
         let lease=UUID(),subscription=try await radio.startIQ(panadapterID:"40000000",sampleRate:96000,leaseID:lease)
@@ -424,6 +440,7 @@ final class FlexIQSubscriptionTests:XCTestCase {
     }
 }
 private extension FlexRadioClient {
+    func fixtureBlockIQReader(){Darwin.usleep(350_000)} // this disposable actor only
     func fixtureIQDiagnostics() -> String {
         let context=iqControlContext()
         let flows=iqState.flows.mapValues { "last=\($0.lastReceipt) cleanAfter=\($0.cleanAfter) capture=\($0.capture != nil) admitted=\($0.admitted)" }

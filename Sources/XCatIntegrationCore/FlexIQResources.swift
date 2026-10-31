@@ -29,6 +29,8 @@ public struct FlexIQInputDiagnostics: Encodable, Sendable {
     public let firstPacketByteCount:Int?
     public let overflow:Bool
     public let readFailed:Bool
+    public var maximumReaderQueueAgeNS:UInt64?=nil
+    public var measuredReaderPackets:UInt64=0
 }
 public struct FlexIQPanadapter: Encodable, Equatable, Sendable {
     public let id:String

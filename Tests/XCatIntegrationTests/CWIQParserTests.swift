@@ -85,5 +85,9 @@ final class CWIQParserTests: XCTestCase {
         XCTAssertFalse(gate.accept(try packet(0),receivedNS:40000))
         XCTAssertFalse(gate.accept(try packet(15),receivedNS:60000))
         XCTAssertFalse(gate.accept(try packet(0),receivedNS:1_000_000_000))
+        XCTAssertEqual(gate.counterBreaks,2);XCTAssertEqual(gate.arrivalGaps,1)
+        XCTAssertEqual(gate.maximumReceiptGapNS,999_940_000)
+        XCTAssertFalse(gate.accept(try packet(1),receivedNS:500_000_000))
+        XCTAssertEqual(gate.receiptRegressions,1)
     }
 }

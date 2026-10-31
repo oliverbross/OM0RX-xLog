@@ -61,6 +61,14 @@ assumption is corrected and 26 Flex plus six provider cases pass; actual admitte
 IQ remains pending. Production capability, RF and spot-quality gates
 stay separate; no one/two/mixed-radio IQ acceptance is claimed.
 
+The next WAN diagnostic pins source port 50001 and receives 387 datagrams, then
+fails the old eight-packet queue before IQ admission; exact owned cleanup passes.
+A bounded 128-datagram/2-MiB queue plus hard 250-ms reader-age fence passes 28
+lifecycle/input, six provider and eight parser cases. The operator confirms the
+normal deployment is on the radios' LAN: WAN timing is diagnostic/deferred, while
+local replay capacity and decoder/RF quality requirements remain. These source
+repairs do not qualify live LAN IQ or change production/quality admission.
+
 31 October CW source progress: durable original draft-action reconciliation,
 actual slow-client isolation and offline relocated component-payload checks pass.
 CPU, bounded static-CoreML, GPU and tensor-preserving attention-fusion candidates

@@ -116,6 +116,8 @@ public actor FlexRadioClient: RadioControlling {
     var iqEvents:[FlexIQDiagnosticEvent]=[]
     var iqCleanups:[UUID:FlexIQCleanup]=[:]
     var iqLastInputDiagnostics:FlexIQInputDiagnostics?
+    var iqMaximumReaderQueueAgeNS:UInt64?
+    var iqMeasuredReaderPackets:UInt64=0
     private var ownClientHandle:UInt32?
     private var iqBoundClientID:String?
 

@@ -6,6 +6,26 @@ import XCTest
 import Darwin
 
 final class FlexIQDatagramReceiverTests:XCTestCase {
+    func testBoundedBurstCanBeQueuedWithoutDroppingTheNinthPacket() async throws {
+        let good=try sender();defer{Darwin.close(good.0)}
+        let receiver=FlexIQDatagramReceiver(peer:.ipv4(.loopback),sourcePort:good.1)
+        let (port,packets)=try await receiver.start();addTeardownBlock{await receiver.stop()}
+        for _ in 0..<32{try send(good.0,to:port)}
+        for _ in 0..<100 {
+            let value=await receiver.diagnostics()
+            if value.acceptedPeerDatagrams>=32 || value.overflow{break}
+            try await Task.sleep(for:.milliseconds(10))
+        }
+        let evidence=await receiver.diagnostics()
+        XCTAssertFalse(evidence.overflow,"Normal bounded bursts must not be mistaken for sustained overload")
+        guard !evidence.overflow else{return}
+        let count=try await withThrowingTaskGroup(of:Int.self){group in
+            group.addTask{var count=0;for try await _ in packets{count+=1;if count==32{return count}};return count}
+            group.addTask{try await Task.sleep(for:.seconds(2));throw FlexIQSubscriptionError.noData}
+            defer{group.cancelAll()};return try await group.next()!
+        }
+        XCTAssertEqual(count,32)
+    }
     private func sender() throws -> (Int32,UInt16) {
         let fd=Darwin.socket(AF_INET,SOCK_DGRAM,0)
         guard fd>=0 else{throw FlexIQSubscriptionError.unavailable}

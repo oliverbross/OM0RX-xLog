@@ -117,3 +117,12 @@ The focused regression passes (`72ce4a3ec47cccc5`), then all **19 Flex lifecycle
 cases** pass (`534b6b6390a75bd9`), including concurrent Stop/transport close held
 until exactly one owned remove ACK. These tests establish the source repair;
 actual ACK/stream disappearance and UDP delivery remain live gates.
+
+Later actual radio evidence confirms the exact owned removal notification and
+ACK. The first correctly pinned UDP input then exposes the eight-packet raw queue
+limit. The queue now holds at most 128×16 KiB, with an independent 250-ms reader-age
+fence; stale input ends the original source/continuity rather than publishing.
+Twenty-eight lifecycle/input and six provider cases pass; eight parser cases
+preserve the original sample-gap predicates and report counter/gap/clock causes.
+Normal deployment is on the radio LAN, as clarified by the operator; WAN arrival
+timing is a separate diagnostic scenario, not the local performance baseline.
