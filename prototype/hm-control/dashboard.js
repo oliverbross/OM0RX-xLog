@@ -778,7 +778,7 @@ function showRig(r) {
   const card = $("rigCard"), on = !!(r && r.freq);
   card.classList.toggle("off", !on);
   $("onAir").classList.toggle("tx", !!(on && r.tx));
-  if (!on) { $("rigFreq").innerHTML = "&mdash;.&mdash;&mdash;&mdash;<span>.&mdash;&mdash;&mdash;</span>"; $("rigMode").textContent = "RIG OFF"; $("rigSrc").textContent = "waiting for WSJT-X"; return; }
+  if (!on) { $("rigFreq").innerHTML = "&mdash;.&mdash;&mdash;&mdash;<span>.&mdash;&mdash;&mdash;</span>"; $("rigMode").textContent = "RIG OFF"; $("rigSrc").textContent = "waiting for xLog radio"; return; }
   const hz = String(Math.round(r.freq)).padStart(7, "0"), mhz = hz.slice(0, -6), khz = hz.slice(-6, -3), h = hz.slice(-3);
   $("rigFreq").innerHTML = `${mhz}.${khz}<span>.${h}</span>`;
   $("rigMode").textContent = `${r.mode || ""} · ${r.band || ""}${r.tx && r.dx ? " · calling " + r.dx : ""}`;

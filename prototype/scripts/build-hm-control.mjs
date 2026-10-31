@@ -34,6 +34,7 @@ replace("  qsoGroup.clear();", "  qsoGroup.traverse(object => { if (object !== q
 section("// ---------- ADIF import:", "// ---------- Weather", "// Contacts come only from the authoritative xLog logbook.");
 section("// ---------- DX cluster (HamQTH)", "// =====================================================================\n// RELAY", `// Shared xLog cluster, with the same report coordinates and freshness.\nlet tickerHtml = '';\nfunction loadSpots() {\n  updateCluster(LINK.current.context, { $, blips, blipXY, esc });\n}`);
 section("async function pollRelay()", "// =====================================================================\n// RENDER LOOP", `// xLog owns the rig and all contact writes. There is no relay or demo rig.\nshowRig(null);\nlet priorLog = LINK.initial.log;\nLINK.subscribe(value => {\n  const next = value.log;\n  if (next.generation !== priorLog.generation || next.logbook.revision !== priorLog.logbook.revision) {\n    QSOS = next.logbook.points; drawQsos(); refreshQsoBlips();\n    announceLogChanges(priorLog, next, handleEvent); priorLog = next;\n  }\n  showRig(value.rig);\n  $('onAir').textContent = value.rig?.tx === true ? 'ON AIR' : value.rig?.tx === false ? 'RX' : 'PTT UNKNOWN';\n  loadSpots();\n});\naddEventListener('keydown', e => {\n  if (e.code === 'Space' && !e.target.closest('button, input, select, textarea')) { e.preventDefault(); toggleSpin(); }\n});`);
+replace('"waiting for WSJT-X"', '"waiting for xLog radio"');
 replace("startPsk();", "if (!LINK.offline) startPsk(); else { $('pskNote').textContent = 'Offline acceptance · external feeds disabled'; }");
 replace('  let m; try { m = JSON.parse(payload); } catch (e) { return; }', `  let m; try { m = JSON.parse(payload); } catch (e) { return; }\n  if (!m || !/^[A-Z0-9/]{1,32}$/.test(m.sc) || !/^[A-Z0-9/]{1,32}$/.test(m.rc) ||\n      typeof m.sl !== 'string' || typeof m.rl !== 'string' || !gridToLatLon(m.sl) || !gridToLatLon(m.rl) ||\n      !Number.isFinite(m.rp) || Math.abs(m.rp) > 200 || !/^[0-9]{1,3}m$/.test(m.b) || !/^[A-Z0-9-]{1,16}$/.test(m.md)) return;`);
 replace('  requestAnimationFrame(frame);', '  setTimeout(() => requestAnimationFrame(frame), document.hidden ? 1000 : 16);');
@@ -43,6 +44,8 @@ let html = source.slice(0, source.indexOf('<script type="module">')) + '</body>\
 html = html.replace(/<script[\s\S]*?<\/script>/g, '').replace(/<link[^>]*>/g, '')
   .replace(/<style>[\s\S]*?<\/style>/, '<link rel="stylesheet" href="./dashboard.css">')
   .replace('<title>Ham Mission Control</title>', '<title>OM0RX-xLog — HM Control</title>')
+  .replaceAll('waiting for WSJT-X', 'waiting for xLog radio')
+  .replace('<span class="onair" id="onAir">ON AIR</span>', '<span class="onair" id="onAir">PTT UNKNOWN</span>')
   .replace(/  <button class="chip" id="setupBtn">.*?<\/button>\n/, '')
   .replace(/<div id="setup">[\s\S]*$/, '</body>\n</html>\n');
 html = html.replace('</body>', `<div id="xlog-link" role="status">Connecting to xLog…</div><button id="xlog-retry" hidden>Reconnect</button>\n<div id="xlog-credit">Ham Mission Control · Billy NZ3C · MIT · Integrated with OM0RX-xLog</div>\n<script type="module" src="./boot.js"></script>\n</body>`);
