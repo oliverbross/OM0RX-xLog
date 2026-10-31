@@ -10,6 +10,50 @@ import XLogPortableCore
 
 /// Current native bridge -> isolated Python JSONL host, never the retired Swift engine.
 final class PythonCatalogueReadinessTests: XCTestCase {
+    private func isolatedHost(repository: URL, prefix: String) throws
+        -> (root: URL, configuration: PythonContestHostConfiguration) {
+        let candidates = [ProcessInfo.processInfo.environment["XLOG_CONTEST_PYTHON"],
+                          "/usr/bin/python3.12", "/opt/local/bin/python3.12", "/opt/homebrew/bin/python3.12"]
+        let interpreter = try XCTUnwrap(candidates.compactMap { $0 }.first {
+            FileManager.default.isExecutableFile(atPath: $0)
+        }, "Python 3.12 is required for current-host qualification")
+        let temporary = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(prefix)-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: true)
+        do {
+            // Python rejects symlink traversal. Foundation retains /var aliases
+            // on macOS, so reuse the acceptance boundary's physical resolver.
+            let root = URL(fileURLWithPath: try AppRuntimeProfile.canonicalFilesystemPath(temporary), isDirectory: true)
+            let home = root.appendingPathComponent("home", isDirectory: true)
+            let roaming = home.appendingPathComponent("AppData/Roaming", isDirectory: true)
+            let local = home.appendingPathComponent("AppData/Local", isDirectory: true)
+            for directory in [home, roaming, local] {
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            }
+            // Only this disposable child receives private home/profile roots.
+            // A Python entry script preserves the actual interpreter on Windows
+            // as well as Unix, without a shell or process-wide env mutation.
+            let wrapper = root.appendingPathComponent("isolated-host.py")
+            let environment = ["HOME": home.path, "CFFIXED_USER_HOME": home.path,
+                               "USERPROFILE": home.path, "APPDATA": roaming.path, "LOCALAPPDATA": local.path]
+            try JSONSerialization.data(withJSONObject: ["environment": environment,
+                "launcher": repository.appendingPathComponent("python/contest_host/launcher.py").path])
+                .write(to: wrapper.deletingPathExtension().appendingPathExtension("json"))
+            try """
+            import json, os, runpy
+            from pathlib import Path
+            configuration = json.loads(Path(__file__).with_suffix(".json").read_text(encoding="utf-8"))
+            os.environ.update(configuration["environment"])
+            runpy.run_path(configuration["launcher"], run_name="__main__")
+            """.write(to: wrapper, atomically: true, encoding: .utf8)
+            return (root, PythonContestHostConfiguration(executableURL: URL(fileURLWithPath: interpreter),
+                launcherURL: wrapper, dataRootURL: root.appendingPathComponent("support", isDirectory: true)))
+        } catch {
+            try? FileManager.default.removeItem(at: temporary)
+            throw error
+        }
+    }
+
     func testMultiplierUniverseProducerBindsTheCompletePrimaryMapping() throws {
         let reference = try ContestReferenceData.bundled()
         let csv = try CTYResolver.bundledCSV()
@@ -44,25 +88,10 @@ final class PythonCatalogueReadinessTests: XCTestCase {
         let fixture = try XCTUnwrap(fixtures["cq_ww_cw"])
         let state = try XCTUnwrap(fixture["state"] as? [String: Any])
         let draft = try XCTUnwrap(state["draft"] as? [String: Any])
-        let interpreter = try XCTUnwrap([ProcessInfo.processInfo.environment["XLOG_CONTEST_PYTHON"],
-            "/opt/local/bin/python3.12", "/opt/homebrew/bin/python3.12"].compactMap { $0 }.first {
-                FileManager.default.isExecutableFile(atPath: $0)
-            })
-        let root = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
-            .appendingPathComponent("xlog-native-universe-\(UUID().uuidString)", isDirectory: true)
-        let home = root.appendingPathComponent("home", isDirectory: true)
-        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+        let isolated = try isolatedHost(repository: repository, prefix: "xlog-native-universe")
+        let root = isolated.root
         defer { try? FileManager.default.removeItem(at: root) }
-        // Only this disposable test process changes HOME; production launch
-        // policy and the user's support/preferences/cache roots are untouched.
-        func quoted(_ text: String) -> String { "'" + text.replacingOccurrences(of: "'", with: "'\\''") + "'" }
-        let wrapper = root.appendingPathComponent("isolated-python")
-        try ("#!/bin/sh\nexport HOME=\(quoted(home.path))\nexport CFFIXED_USER_HOME=\(quoted(home.path))\nexec \(quoted(interpreter)) \"$@\"\n")
-            .write(to: wrapper, atomically: true, encoding: .utf8)
-        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: wrapper.path)
-        let lane = try PythonContestLane(configuration: PythonContestHostConfiguration(executableURL: wrapper,
-            launcherURL: repository.appendingPathComponent("python/contest_host/launcher.py"),
-            dataRootURL: root.appendingPathComponent("support", isDirectory: true)))
+        let lane = try PythonContestLane(configuration: isolated.configuration)
         func storedReference(_ session: String) throws -> [String: Any] {
             let url = root.appendingPathComponent("support/\(session)/contest.sqlite")
             var database: OpaquePointer?, statement: OpaquePointer?
@@ -129,17 +158,10 @@ final class PythonCatalogueReadinessTests: XCTestCase {
             .deletingLastPathComponent().deletingLastPathComponent()
         let fixtureURL = repository.appendingPathComponent("python/tests/fixtures/all_contests_lifecycle.json")
         let fixtures = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixtureURL)) as? [String: [String: Any]])
-        let candidates = [ProcessInfo.processInfo.environment["XLOG_CONTEST_PYTHON"],
-                          "/opt/local/bin/python3.12", "/opt/homebrew/bin/python3.12"]
-        let interpreter = try XCTUnwrap(candidates.compactMap { $0 }.first {
-            FileManager.default.isExecutableFile(atPath: $0)
-        }, "Python 3.12 is required for current-host qualification")
-        let root = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
-            .appendingPathComponent("xlog-native-catalogue-\(UUID().uuidString)", isDirectory: true)
+        let isolated = try isolatedHost(repository: repository, prefix: "xlog-native-catalogue")
+        let root = isolated.root
         defer { try? FileManager.default.removeItem(at: root) }
-        let lane = try PythonContestLane(configuration: PythonContestHostConfiguration(
-            executableURL: URL(fileURLWithPath: interpreter),
-            launcherURL: repository.appendingPathComponent("python/contest_host/launcher.py"), dataRootURL: root))
+        let lane = try PythonContestLane(configuration: isolated.configuration)
         do {
             let catalog = try await lane.handle(method: "contest_catalog", params: [:])
             let plugins = try XCTUnwrap(catalog["plugins"] as? [[String: Any]])
