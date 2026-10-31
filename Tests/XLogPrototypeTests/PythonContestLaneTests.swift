@@ -429,14 +429,40 @@ for line in sys.stdin:
         XCTAssertFalse(FileManager.default.fileExists(atPath: try XCTUnwrap(privateRoot).path))
     }
 
+    func testExplicitInterpreterSelectionUsesCanonicalCISettingAndRejectsMissingPaths() throws {
+        let executable = try python3ForBridgeTest()
+        let missing = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).path
+        XCTAssertEqual(try configuredInterpreter(["XLOG_CONTEST_PYTHON": executable.path,
+            "XLOG_TEST_PYTHON312": missing]), executable)
+        XCTAssertEqual(try configuredInterpreter(["XLOG_TEST_PYTHON312": executable.path]), executable)
+        for environment in [["XLOG_CONTEST_PYTHON": missing, "XLOG_TEST_PYTHON312": executable.path],
+                            ["XLOG_TEST_PYTHON312": missing], ["XLOG_CONTEST_PYTHON": ""]] {
+            XCTAssertThrowsError(try configuredInterpreter(environment)) { error in
+                XCTAssertEqual(error as? InterpreterSelectionFailure, .configuredInterpreterUnavailable)
+            }
+        }
+        XCTAssertNil(try configuredInterpreter([:]))
+    }
+
+    private enum InterpreterSelectionFailure: Error, Equatable { case configuredInterpreterUnavailable }
+
+    private func configuredInterpreter(_ environment: [String: String]) throws -> URL? {
+        guard let path = environment["XLOG_CONTEST_PYTHON"] ?? environment["XLOG_TEST_PYTHON312"] else { return nil }
+        guard !path.isEmpty, FileManager.default.isExecutableFile(atPath: path) else {
+            throw InterpreterSelectionFailure.configuredInterpreterUnavailable
+        }
+        return URL(fileURLWithPath: path)
+    }
+
     private func python312() throws -> URL {
+        if let configured = try configuredInterpreter(ProcessInfo.processInfo.environment) { return configured }
         let fileManager = FileManager.default
         let candidates = [
-            ProcessInfo.processInfo.environment["XLOG_TEST_PYTHON312"],
+            "/usr/bin/python3.12",
             "/opt/local/bin/python3.12",
             "/opt/homebrew/bin/python3.12",
             "/usr/local/bin/python3.12",
-        ].compactMap { $0 }
+        ]
         guard let path = candidates.first(where: fileManager.isExecutableFile(atPath:)) else {
             throw XCTSkip("Python 3.12 was not provided for the actual-plugin bridge test.")
         }
@@ -444,8 +470,8 @@ for line in sys.stdin:
     }
 
     private func python3ForBridgeTest() throws -> URL {
+        if let configured = try configuredInterpreter(ProcessInfo.processInfo.environment) { return configured }
         let fileManager = FileManager.default
-        let configured = ProcessInfo.processInfo.environment["XLOG_TEST_PYTHON312"]
         #if os(Windows)
         let executableNames = ["python.exe", "python3.exe"]
         let pathListSeparator: Character = ";"
@@ -459,8 +485,8 @@ for line in sys.stdin:
             .split(separator: pathListSeparator).flatMap { directory in
                 executableNames.map { String(directory) + pathSeparator + $0 }
             }
-        let candidates = [configured, "/usr/bin/python3"] + pathCandidates.map(Optional.some)
-        guard let path = candidates.compactMap({ $0 }).first(where: fileManager.isExecutableFile(atPath:)) else {
+        let candidates = ["/usr/bin/python3"] + pathCandidates
+        guard let path = candidates.first(where: fileManager.isExecutableFile(atPath:)) else {
             throw XCTSkip("Python 3 was not available for the isolated pipe-drain bridge test.")
         }
         return URL(fileURLWithPath: path)
