@@ -173,9 +173,13 @@ async function qualifyCurrentDesk(plugin: string, raw: any, partialScore = false
       if(plugin==="john_moyle_field_day")expect(scopes.some(scope=>String(scope).includes(" / CW / UTC block"))).toBe(true);
     }
     if (partialScore) {
-      expect(owner.current.projections["active-qso"].manual.scoringComplete).toBe(false);
-      expect(owner.current.projections.propagation.score.scoringComplete).toBe(false);
-      expect(owner.current.projections["score-reporting"].availability).toBe("unavailable");
+      // The commit receipt/manual count precedes the independent score read.
+      // Require that read to settle; an old empty score is not partial evidence.
+      await waitFor(() => {
+        expect(owner.current.projections["active-qso"].manual.scoringComplete).toBe(false);
+        expect(owner.current.projections.propagation.score.scoringComplete).toBe(false);
+        expect(owner.current.projections["score-reporting"].availability).toBe("unavailable");
+      }, { timeout: 5000 });
       await screen.findByText("Score (partial)", {}, {timeout:5000});
       expect(owner.current.projections["active-qso"].draft.validation.warnings.length).toBeGreaterThan(0);
     }
