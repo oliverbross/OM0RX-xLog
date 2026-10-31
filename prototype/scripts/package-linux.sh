@@ -6,7 +6,11 @@ root="$(cd "$(dirname "$0")/../.." && pwd)"
 source /etc/os-release
 [[ "$ID" == ubuntu && "$VERSION_ID" == 24.04 ]] || { echo 'Ubuntu 24.04 required' >&2; exit 1; }
 for tool in python3 ldd readelf dpkg-deb swift sha256sum git tar; do command -v "$tool" >/dev/null; done
-[[ -z "$(git -C "$root" status --porcelain --untracked-files=normal)" ]] || { echo 'Release packaging requires a clean source checkout' >&2; exit 1; }
+[[ -z "$(git -C "$root" status --porcelain --untracked-files=normal)" ]] || {
+  echo 'Release packaging requires a clean source checkout' >&2
+  git -C "$root" status --porcelain=v1 --untracked-files=all >&2
+  exit 1
+}
 sha="$(git -C "$root" rev-parse HEAD)"
 version="$(python3 "$root/prototype/scripts/linux-runtime.py" version "$root")"
 out="$root/prototype/dist-linux/$sha"
