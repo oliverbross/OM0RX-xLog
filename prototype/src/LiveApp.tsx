@@ -1186,13 +1186,18 @@ function MainLiveApp() {
   const selectSpot = (spot: Data) => {
     if (monitor || moduleTransitioning.current) return;
     const draftState = draftSession.getSnapshot(), contactState = contactSession.getSnapshot();
-    if (activationStarted.current || spotActivation.requesting || spotActivation.status && spotActivation.status.phase !== "idle" && spotActivation.status.reservationActive !== false) {
+    if (activationStarted.current || spotActivation.rotorStopBlocked || spotActivation.requesting || spotActivation.status && spotActivation.status.phase !== "idle" && spotActivation.status.reservationActive !== false) {
       selection.current++;
       spotAwaitingActivation.current = spot;
       pendingTune.current = true;
       setSelected(spot.id);
       setMessage("");
       setError("");
+      // Cancel old motion immediately; retain its draft lease until native
+      // completion. Latest QSY waits for the correlated Stop acknowledgement.
+      void spotActivation.supersedeRotor().then(drainLatestSpot).catch(cause => {
+        setError(cause instanceof Error ? cause.message : "Rotor Stop is unconfirmed; queued spot retained.");
+      });
       return;
     }
     // The lookup/draft side of a spot activation can outlive its preparation
@@ -1271,7 +1276,10 @@ function MainLiveApp() {
         if (draftSession.dirty) await draftSession.useShared();
       })().finally(() => { spotPreparation.current = null; });
     }
-    const preparation = spotPreparation.current;
+    // A completed activation may still have a rotor traveling. Stop its exact
+    // retained intent before the next QSY while preserving Auto for the new spot.
+    const preparation = Promise.all([spotPreparation.current, spotActivation.supersedeRotor()]);
+    void preparation.catch(() => {}); // The delayed selection handler reports this exact failure.
     window.clearTimeout(spotActivationDelay.current);
     spotActivationDelay.current = window.setTimeout(() => {
       void preparation.then(() => {

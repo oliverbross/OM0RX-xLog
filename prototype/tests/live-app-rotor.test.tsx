@@ -60,7 +60,8 @@ vi.mock("../src/live/useSpotActivation", async () => {
     client.current ??= new SpotActivationClient(bridge.native);
     const current = client.current, [state, update] = useState(current.getSnapshot());
     useEffect(() => { const stop = current.subscribe(() => update(current.getSnapshot())); return () => { stop(); current.dispose(); }; }, [current]);
-    return { ...state, activate: (spot: any) => current.activate(spot), reconcile: () => current.reconcile() };
+    return { ...state, activate: (spot: any) => current.activate(spot), canActivate: () => current.canActivate(),
+      supersedeRotor: () => current.supersedeRotor(), reconcile: () => current.reconcile(), retire: () => current.retire() };
   } };
 });
 vi.mock("../src/live/rotorTelemetry", () => ({ connectRotorTelemetry: bridge.telemetry }));
@@ -141,6 +142,10 @@ beforeEach(() => {
     if (command === "auto_rotor_set") {
       const state = { ...bridge.autoState, armed: params.armed, epoch: bridge.autoState.epoch + 1, generation: bridge.rotorGeneration };
       bridge.autoChanged?.(state); return state;
+    }
+    if (command === "supersede_spot_rotor") {
+      bridge.rotorGeneration++; bridge.intentId = null;
+      return { operationId: params.operationId, superseded: true, stopAcknowledged: true };
     }
     if (command === "activate_spot") {
       // Synthetic native backend resolves this retained identity. The renderer

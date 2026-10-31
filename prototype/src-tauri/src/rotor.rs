@@ -86,7 +86,8 @@ impl RotorCoordinator {
         let id = id.as_str();
         let requested_method = request["method"].as_str().ok_or("Method is required")?;
         // Internal native-only Stop ingress; worker_request never allowlists it.
-        let monitor_stop = requested_method == "monitor_rotor_stop";
+        let selection_stop = requested_method == "selection_rotor_stop";
+        let monitor_stop = requested_method == "monitor_rotor_stop" || selection_stop;
         let method = if monitor_stop { "rotor_stop" } else { requested_method };
         let params = request["params"]
             .as_object()
@@ -96,11 +97,15 @@ impl RotorCoordinator {
         }
         // Bootstrap connect is part of the saved startup Arm transaction. It
         // cannot move and must not revoke the epoch reserved before webviews.
-        let manual = !startup && automatic.is_none() && matches!(method, "rotor_connect" | "rotor_disconnect" | "rotor_goto" | "rotor_park" | "rotor_stop");
+        let manual = !startup && !selection_stop && automatic.is_none() && matches!(method, "rotor_connect" | "rotor_disconnect" | "rotor_goto" | "rotor_park" | "rotor_stop");
         // Revoke queued automatic work before waiting behind driver transport.
         // A turn already admitted under the lock remains ordered before Stop.
         if manual { self.automatic.revoke(); }
         let mut state = self.state.lock().map_err(|_| "Rotor owner lock failed")?;
+        if automatic.is_some_and(|permit| !permit.admits() || !automatic_observation(&state)) {
+            return Ok(success(id, json!({"admission":"not_admitted",
+                "skipped":"Automatic rotor target or observation changed before driver admission."})));
+        }
         if startup && (method != "rotor_connect" || state.owner.is_some()) {
             return Err("Rotor owner changed; startup connection was not sent.".into());
         }
@@ -211,7 +216,8 @@ impl RotorCoordinator {
             // This is automatic motion's linearization point. It never holds
             // the authority mutex while waiting for this serialized driver.
             if automatic.is_some_and(|permit| !permit.admits() || !automatic_observation(&state)) {
-                return Err("Automatic rotor permission changed before driver admission.".into());
+                return Ok(success(id, json!({"admission":"not_admitted",
+                    "skipped":"Automatic rotor target or observation changed before driver admission."})));
             }
             if method == "rotor_disconnect" {
                 state.phase = Some(Phase::Uncertain);
@@ -296,6 +302,22 @@ impl RotorCoordinator {
         Err("Legacy rotor mutation is unavailable; use rotor_connect, rotor_disconnect, rotor_goto, rotor_stop or rotor_park with the current generation".into())
     }
 
+    fn stop_for_qsy(&self, preserve_auto: bool, backend: impl FnOnce(Value) -> Result<Value, String>) -> Result<(), String> {
+        let _change = if preserve_auto { Some(self.automatic.supersede_target()) }
+            else { self.automatic.revoke(); None };
+        let owner = self.state.lock().map_err(|_| "Rotor owner lock failed")?.owner;
+        let Some(owner) = owner else { return Ok(()); };
+        self.handle(envelope(&uuid::Uuid::new_v4().to_string(), if preserve_auto { "selection_rotor_stop" } else { "monitor_rotor_stop" },
+            json!({"owner":owner.name()})), |request| {
+            let reply = backend(request)?;
+            let ack = &reply["result"];
+            if ack["accepted"] != true && ack["state"] != "accepted" {
+                return Err("Rotor Stop was not acknowledged; radio QSY was not sent.".into());
+            }
+            Ok(reply)
+        })?;
+        Ok(())
+    }
     pub(crate) fn automatic_owner(&self) -> Result<Option<(String, u64)>, String> {
         let state = self.state.try_lock().map_err(|_| "Rotor is busy; automatic turn was not queued.")?;
         Ok(state.owner.filter(|_| automatic_observation(&state)).map(|owner| (owner.name().to_owned(), state.generation)))
@@ -540,6 +562,18 @@ fn dispatch_manual_generation(request: Value, expected: u64, current: impl FnOnc
     native(request, expected)
 }
 
+/// Stop uses the existing owner and transport, never reconnects a worker.
+/// Its acknowledgement orders QSY; it does not claim physical travel ceased.
+pub(crate) fn stop_before_qsy() -> Result<(), String> {
+    let worker = worker::generation();
+    coordinator().stop_for_qsy(false, |request| dispatch_manual_generation(request, worker,
+        || Ok(worker::generation()), worker::request_existing_generation, hamlib::request))
+}
+pub(crate) fn supersede_spot_turn() -> Result<(), String> {
+    let worker = worker::generation();
+    coordinator().stop_for_qsy(true, |request| dispatch_manual_generation(request, worker,
+        || Ok(worker::generation()), worker::request_existing_generation, hamlib::request))
+}
 pub fn monitor_stop(owner: &str) -> Result<Value, String> {
     request(envelope(&uuid::Uuid::new_v4().to_string(), "monitor_rotor_stop", json!({"owner":owner})))
 }
@@ -549,6 +583,24 @@ mod tests {
     use super::*;
     use std::sync::{mpsc, Arc};
     use std::time::Duration;
+
+    #[test]
+    fn qsy_stops_existing_owner_without_requiring_fresh_telemetry_and_blocks_on_lost_stop() {
+        let owner = Arc::new(crate::auto_rotor::AutomaticRotor::testing());
+        let coordinator = RotorCoordinator::with_authority(owner.clone());
+        coordinator.handle(envelope("connect", "rotor_connect", json!({"owner":"native_dcu1"})),
+            |request| Ok(success(request["id"].as_str().unwrap(), json!({"connected":true})))).unwrap();
+        let mut methods = Vec::new();
+        coordinator.stop_for_qsy(false, |request| {
+            methods.push(request["method"].as_str().unwrap().to_owned());
+            Ok(success(request["id"].as_str().unwrap(), json!({"accepted":true})))
+        }).unwrap();
+        methods.push("radio_qsy".into());
+        assert_eq!(methods, ["station_rotor_stop", "radio_qsy"]);
+        assert!(!owner.test_armed());
+        assert!(coordinator.stop_for_qsy(false, |_| Err("lost Stop acknowledgement".into())).is_err());
+        assert_eq!(coordinator.state.lock().unwrap().phase, Some(Phase::Uncertain));
+    }
 
     #[test]
     fn startup_connection_is_fenced_by_an_owner_and_cannot_be_motion() {

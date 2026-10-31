@@ -141,3 +141,28 @@ it("recovers a lost durable tune-review acknowledgement without retuning",async(
   f.request.mockResolvedValueOnce({operation_id:operation,status:"reviewed",request:{action:"manual_tune"}});
   await f.session.check();expect(f.pending).toBeNull();expect(f.request.mock.calls.at(-1)?.[0]).toEqual({action:"receipt",operation_id:operation});
 });
+
+it("coalesces rapid absolute QSY choices and reads fresh epochs for the latest target", async () => {
+  const f=fixture(); let finish!: (r:StationReceipt)=>void;
+  f.request.mockImplementationOnce(() => new Promise(resolve=>{finish=resolve;}));
+  const first=f.session.tune("direct_flex_lan",14074000,"USB"); await Promise.resolve();
+  const skipped=f.session.tune("direct_flex_lan",7100000,"LSB");
+  const latest=f.session.tune("direct_flex_lan",21074000,"USB");
+  await expect(skipped).resolves.toMatchObject({accepted:false,superseded:true});
+  expect(f.request).toHaveBeenCalledOnce();
+  f.state.selection.control_revision=12; f.state.revision=4;
+  finish({operation_id:f.pending!,status:"confirmed",request:{action:"manual_tune"}});
+  await first; await expect(latest).resolves.toMatchObject({confirmed:true});
+  expect(f.request).toHaveBeenCalledTimes(2);
+  expect(f.request.mock.calls[1][0]).toMatchObject({frequency_hz:21074000,control_revision:12,revision:4});
+});
+it("does not send a queued QSY after a lost acknowledgement or queue a relative step", async () => {
+  const f=fixture(); let fail!: (reason:Error)=>void;
+  f.request.mockImplementationOnce(() => new Promise((_,reject)=>{fail=reject;}));
+  const first=f.session.tune("direct_flex_lan",14074000,"USB"); await Promise.resolve();
+  const latest=f.session.tune("direct_flex_lan",7100000,"LSB");
+  await expect(f.session.tune("direct_flex_lan",14074020,"USB",undefined,{frequencyHz:14074000,mode:"USB"})).rejects.toThrow(/existing manual tune/);
+  const rejected=expect(latest).rejects.toThrow(/queued QSY was not sent/);
+  fail(new Error("reply lost")); await expect(first).rejects.toThrow("reply lost"); await rejected;
+  expect(f.request).toHaveBeenCalledOnce(); expect(f.pending).toBeTruthy();
+});

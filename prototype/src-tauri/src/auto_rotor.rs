@@ -189,7 +189,17 @@ impl AutomaticRotor {
             }
         }
     }
-    fn canonical_will_change(self: &Arc<Self>) -> CanonicalChange {
+    pub(crate) fn supersede_target(self: &Arc<Self>) -> CanonicalChange {
+        // Invalidate first, independently of a driver RPC. Ordinary follow must
+        // not resurrect the old canonical call while the newest click waits
+        // for the existing draft lease; only a new activation confirms it.
+        self.advance_epoch(false);
+        if let Ok(mut state) = self.state.lock() {
+            if let Some(target) = state.target.clone() { state.unconfirmed = Some(target); }
+        }
+        self.canonical_will_change()
+    }
+    pub(crate) fn canonical_will_change(self: &Arc<Self>) -> CanonicalChange {
         self.advance_epoch(false);
         if let Ok(mut state) = self.state.lock() {
             state.canonical_pending += 1;
@@ -216,7 +226,7 @@ impl AutomaticRotor {
     }
     fn confirmed(&self, permit: &Permit) -> Result<(), String> {
         let mut state = self.state.lock().map_err(|_| "Automatic rotor state unavailable")?;
-        if state.sequence != permit.sequence || state.target.as_ref() != Some(&permit.target) {
+        if !self.permits_epoch(permit.epoch) || state.sequence != permit.sequence || state.target.as_ref() != Some(&permit.target) {
             return Err("Automatic rotor target changed before tune confirmation.".into());
         }
         state.confirmed = true; state.unconfirmed = None; Ok(())
@@ -240,18 +250,18 @@ impl AutomaticRotor {
             }
         }
         // No authority/coordinator mutex is held across caller-supplied work.
-        if read()?.normalized()? != permit.target { return Err("Canonical QSO changed before automatic lookup.".into()); }
+        if read()?.normalized()? != permit.target { return Ok(json!({"requested":false,"skipped":"Canonical QSO changed before automatic lookup."})); }
         let target = lookup(&permit.target.call)?;
         let bearing = target["bearing"].as_f64().filter(|value| value.is_finite() && (0.0..=360.0).contains(value));
         if target["call"].as_str().map(|call| call.trim().to_uppercase()).as_deref() != Some(&permit.target.call) || bearing.is_none() {
             return Err("Automatic rotor lookup did not match the current callsign and bearing.".into());
         }
-        if read()?.normalized()? != permit.target { return Err("Canonical QSO changed during automatic lookup.".into()); }
+        if read()?.normalized()? != permit.target { return Ok(json!({"requested":false,"skipped":"Canonical QSO changed during automatic lookup."})); }
         {
             let mut state = self.state.lock().map_err(|_| "Automatic rotor state unavailable")?;
             if !self.permits_epoch(permit.epoch) ||
                 state.canonical_pending != 0 || state.sequence != permit.sequence || state.target.as_ref() != Some(&permit.target) || !state.confirmed {
-                return Err("Automatic rotor permission was revoked during lookup.".into());
+                return Ok(json!({"requested":false,"skipped":"Automatic rotor permission was revoked during lookup."}));
             }
             if state.attempted.is_some() || state.attempted_target.as_ref() == Some(&permit.target) {
                 return Ok(json!({"requested":false,"skipped":"This target already has an automatic turn attempt."}));
@@ -261,6 +271,16 @@ impl AutomaticRotor {
             state.attempted_target = Some(permit.target.clone());
         }
         match dispatch(permit, bearing.unwrap()) {
+            Ok(result) if result["admission"] == "not_admitted" => {
+                // The coordinator positively proves transport was never entered.
+                // Supersession is a normal cancellation, not an uncertain turn.
+                if let Ok(mut state) = self.state.lock() {
+                    if state.sequence == permit.sequence && state.attempted.as_deref() == Some(&permit.intent) {
+                        state.attempted = None; state.attempted_target = None;
+                    }
+                }
+                Ok(json!({"requested":false,"skipped":result["skipped"]}))
+            }
             Ok(result) => {
                 if let Ok(mut state) = self.state.lock() {
                     if self.epoch() == permit.epoch && state.sequence == permit.sequence {
@@ -305,7 +325,17 @@ pub fn activation_started(target: Target) -> Result<Permit, String> {
     owner().begin(target, true, rotor)
 }
 pub fn activation_confirmed(permit: &Permit) -> Result<(), String> {
-    permit.authority.upgrade().ok_or("Automatic rotor owner retired")?.confirmed(permit)
+    confirm_activation(permit, |authority| authority.confirmed(permit))
+}
+fn confirm_activation(permit: &Permit, confirm: impl FnOnce(&AutomaticRotor) -> Result<(), String>) -> Result<(), String> {
+    let authority = permit.authority.upgrade().ok_or("Automatic rotor owner retired")?;
+    // A newer explicit selection may have retired this permit while the radio
+    // finished its confirmed tune. Retain that result and skip only old motion.
+    if !authority.permits_epoch(permit.epoch) { return Ok(()); }
+    match confirm(&authority) {
+        Err(_) if !authority.permits_epoch(permit.epoch) => Ok(()),
+        result => result,
+    }
 }
 /// Bind the effect to the same already-running worker which supplied the
 /// canonical draft/lease. Generation is checked again at driver dispatch.
@@ -473,7 +503,7 @@ mod tests {
         assert!(owner.confirmed(&old).is_err());
         let permit = begin(&owner, "OM0RX", false);
         let mut changed = target("OM0RX"); changed.generation = uuid::Uuid::new_v4().to_string();
-        assert!(owner.turn(&permit, || Ok(changed.clone()), |_| panic!("lookup"), |_, _| panic!("dispatch")).is_err());
+        assert_eq!(owner.turn(&permit, || Ok(changed.clone()), |_| panic!("lookup"), |_, _| panic!("dispatch")).unwrap()["requested"], false);
     }
     #[test]
     fn invalid_or_mismatched_lookup_and_changed_read_never_dispatch() {
@@ -484,7 +514,7 @@ mod tests {
         let owner = armed(); let permit = begin(&owner, "OM0RX", false);
         let reads = AtomicU64::new(0);
         assert!(owner.turn(&permit, || Ok(target(if reads.fetch_add(1, Ordering::AcqRel) == 0 { "OM0RX" } else { "K1ABC" })),
-            |_| Ok(json!({"call":"OM0RX","bearing":90})), |_, _| panic!("dispatch")).is_err());
+            |_| Ok(json!({"call":"OM0RX","bearing":90})), |_, _| panic!("dispatch")).unwrap()["requested"] == false);
     }
     #[test]
     fn manual_revoke_and_canonical_mutation_during_lookup_cancel_permission() {
@@ -493,7 +523,7 @@ mod tests {
             assert!(owner.turn(&permit, || Ok(target("OM0RX")), |_| {
                 if manual { owner.revoke(); } else { drop(owner.canonical_will_change()); }
                 Ok(json!({"call":"OM0RX","bearing":90}))
-            }, |_, _| panic!("dispatch")).is_err());
+            }, |_, _| panic!("dispatch")).unwrap()["requested"] == false);
         }
     }
     #[test]
@@ -543,10 +573,58 @@ mod tests {
         let permit = owner.begin(target("OM0RX"), false, Some(("native_dcu1".into(), generation))).unwrap();
         owner.turn(&permit, || Ok(target("OM0RX")), |_| Ok(json!({"call":"OM0RX","bearing":90})), |permit, bearing| {
             assert!(permit.admits()); owner.revoke();
-            assert!(coordinator.handle_automatic(permit.request(bearing).unwrap(), permit, |_| panic!("revoked driver call")).is_err());
+            assert_eq!(coordinator.handle_automatic(permit.request(bearing).unwrap(), permit, |_| panic!("revoked driver call")).unwrap()["result"]["admission"], "not_admitted");
             Err("revoked before admission".into())
         }).unwrap_err();
         assert_eq!(owner.snapshot().unwrap()["armed"], false);
+    }
+    #[test]
+    fn confirmation_crossed_by_supersession_skips_only_a_demonstrably_revoked_epoch() {
+        let owner = armed(); let old = begin(&owner, "OM0RX", true);
+        confirm_activation(&old, |authority| {
+            drop(owner.supersede_target());
+            assert!(authority.confirmed(&old).is_err());
+            authority.confirmed(&old)
+        }).unwrap();
+        assert!(owner.armed());
+        let stale = begin(&owner, "OM0RX", false);
+        assert_eq!(owner.turn(&stale, || panic!("superseded read"), |_| panic!("superseded lookup"),
+            |_, _| panic!("stale Goto")).unwrap()["requested"], false);
+        let latest = begin(&owner, "K1ABC", true);
+        assert_eq!(confirm_activation(&latest, |_| Err("confirmation storage failed".into())).unwrap_err(),
+            "confirmation storage failed");
+        let replaced = begin(&owner, "W1AW", true);
+        assert!(owner.permits_epoch(latest.epoch));
+        assert!(activation_confirmed(&latest).is_err()); // Sequence-only mismatch remains a real error.
+        activation_confirmed(&replaced).unwrap();
+    }
+    #[test]
+    fn superseded_spot_cannot_be_resurrected_by_ordinary_follow_before_latest_selection() {
+        let owner = armed(); let old = begin(&owner, "OM0RX", true);
+        owner.confirmed(&old).unwrap();
+        drop(owner.supersede_target());
+        assert!(owner.armed());
+        let stale = begin(&owner, "OM0RX", false);
+        assert_eq!(owner.turn(&stale, || panic!("superseded canonical target read"),
+            |_| panic!("superseded lookup"), |_, _| panic!("stale Goto after Stop")).unwrap()["requested"], false);
+        let latest = begin(&owner, "K1ABC", true); owner.confirmed(&latest).unwrap();
+        assert_eq!(owner.turn(&latest, || Ok(target("K1ABC")), |_| Ok(json!({"call":"K1ABC","bearing":45})),
+            |_, _| Ok(json!({}))).unwrap()["requested"], true);
+    }
+    #[test]
+    fn superseded_before_driver_admission_is_skipped_without_disarming_new_target() {
+        let (owner, coordinator, generation) = coordinator_fixture();
+        let permit = owner.begin(target("OM0RX"), false, Some(("native_dcu1".into(), generation))).unwrap();
+        let result = owner.turn(&permit, || Ok(target("OM0RX")), |_| Ok(json!({"call":"OM0RX","bearing":90})), |permit, bearing| {
+            drop(owner.canonical_will_change());
+            coordinator.handle_automatic(permit.request(bearing)?, permit, |_| panic!("stale Goto reached driver"))
+                .map(|reply| reply["result"].clone())
+        }).unwrap();
+        assert_eq!(result["requested"], false);
+        assert!(owner.armed()); assert_eq!(owner.snapshot().unwrap()["error"], "");
+        let latest = owner.begin(target("K1ABC"), false, Some(("native_dcu1".into(), generation))).unwrap();
+        assert_eq!(owner.turn(&latest, || Ok(target("K1ABC")), |_| Ok(json!({"call":"K1ABC","bearing":45})),
+            |_, _| Ok(json!({}))).unwrap()["requested"], true);
     }
     #[test]
     fn native_stop_revokes_and_automatic_backend_failure_stays_uncertain() {
@@ -584,7 +662,7 @@ mod tests {
         assert!(coordinator.handle_automatic(permit.request(90.0).unwrap(), &permit, |_| {
             motion.fetch_add(1, Ordering::SeqCst);
             panic!("stale telemetry reached rotor motion")
-        }).is_err());
+        }).unwrap()["result"]["admission"] == "not_admitted");
         assert_eq!(motion.load(Ordering::SeqCst), 0);
         assert_eq!(owner.snapshot().unwrap()["armed"], true);
     }

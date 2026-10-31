@@ -393,6 +393,15 @@ async fn activate_opportunity(window: tauri::WebviewWindow, app: tauri::AppHandl
         .map_err(|_| "Opportunity acknowledgement unavailable; inspect the existing operation before selecting again".to_string())?
 }
 #[tauri::command]
+async fn supersede_spot_rotor(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>,
+    operation_id: String) -> Result<serde_json::Value, String> {
+    validate_spot_effect(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
+    let module_admission = operating_module::owner()?.admit_selected(operating_module::OperatingModule::NormalLogging)?;
+    let owner = activation_owner(&app);
+    tauri::async_runtime::spawn_blocking(move || { let _admission = module_admission; owner.supersede_rotor(&operation_id) }).await
+        .map_err(|_| "Rotor handoff is unresolved; inspect the current operation before selecting again.".to_string())?
+}
+#[tauri::command]
 async fn cw_callsign_request(window:tauri::WebviewWindow,app:tauri::AppHandle,state:tauri::State<'_,acceptance::Acceptance>,params:serde_json::Value)->Result<serde_json::Value,String> {
     cw_callsign_bridge::validate_surface(window.label(),runtime_profile::isolated(state.path.is_some()),APP_EXITING.load(Ordering::Acquire))?;
     let action=cw_callsign_bridge::parse(params)?;let owner=activation_owner(&app);
@@ -4378,7 +4387,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![hide_prepared_contest_owner, close_learning_window, operating_module_status, operating_module_switch, operating_module_transition_ack, operating_module_transition_pending, worker_request, cw_session_request, contest_cw_speed_request, station_session_request, radio_release_request, carrier_tune_request, ptt_session_request, amplifier_transition_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
             spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
-            spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity, cw_callsign_request, cw_tune_request, cw_contest_callsign_resolve,
+            spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity, supersede_spot_rotor, cw_callsign_request, cw_tune_request, cw_contest_callsign_resolve,
             operator_draft_read_radio,
             operator_draft_read_radio_recover,
             operator_draft_follow_snapshot, operator_draft_follow_set, operator_draft_follow_settled,

@@ -44,7 +44,7 @@ vi.mock("../src/live/stationTelemetry", () => ({ connectStationTelemetry: (_radi
   host.telemetry = changed; return () => { host.telemetry = undefined; };
 } }));
 vi.mock("../src/live/useSpotActivation", () => ({ useSpotActivation: () => ({ status: null, error: "", requesting: false,
-  activate: host.activate, canActivate: () => host.activationReady, reconcile: vi.fn() }) }));
+  activate: host.activate, canActivate: () => host.activationReady, supersedeRotor: async () => {}, reconcile: vi.fn() }) }));
 vi.mock("../src/Map", () => ({ default: () => <div>Synthetic map</div> }));
 vi.mock("../src/live/Conditions", () => ({ default: () => <div>Synthetic conditions</div> }));
 vi.mock("../src/live/ClusterPanel", () => ({ ClusterPanel: ({ onSelect }: any) => <><button onClick={() => onSelect({ id: "retained-native-report" })}>Select synthetic report</button><button onClick={() => onSelect({ id: "newer-report" })}>Select newer report</button><button onClick={() => onSelect({ id: "newest-report" })}>Select newest report</button></> }));

@@ -26,7 +26,7 @@ vi.mock("../src/worker", async (importOriginal) => ({ ...await importOriginal<ty
 vi.mock("../src/live/operatorDraftTransport", () => ({ requestOperatorDraft: async (method: string, params: any = {}) => (await calls.request(method, params)).result }));
 vi.mock("../src/live/logbookContactTransport", () => ({ requestLogbookContact: async (method: string, params: any = {}) => (await calls.request(method, params)).result }));
 vi.mock("../src/live/useSpotActivation", () => ({ useSpotActivation: () => ({ status: null, error: "", requesting: false, checked: false,
-  activate: activation.activate, reconcile: activation.reconcile, retire: vi.fn() }) }));
+  activate: activation.activate, canActivate: () => true, supersedeRotor: async () => {}, reconcile: activation.reconcile, retire: vi.fn() }) }));
 vi.mock("../src/live/useSpotEditor", () => ({ nativeSpotEditor: () => false, useSpotEditor: () => ({
   status: null, error: "", initializing: false, reconcile: editor.reconcile,
 }) }));

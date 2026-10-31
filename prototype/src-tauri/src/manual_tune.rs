@@ -196,7 +196,7 @@ pub fn execute_guarded(
         .as_u64()
         .ok_or("Missing control epoch")?;
     crate::radio_follow::revoke("Manual simplex tuning disabled Follow Radio.");
-    crate::auto_rotor::revoke();
+    crate::rotor::stop_before_qsy()?;
     selection.manual_tune(
         request,
         generation,

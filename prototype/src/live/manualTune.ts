@@ -2,6 +2,7 @@ import { loadStationSession, stationSessionRequest, type RadioID, type StationRe
 import type { StationProvider } from "../worker";
 import type { MonitorContext } from "./monitorContext";
 
+type TuneResult = { accepted: boolean; confirmed: boolean; superseded?: boolean };
 type State = { pending: string | null; busy: boolean; message: string; reviewable: boolean };
 type Transport = { snapshot: () => Promise<StationSession>; request: (params: Record<string, unknown>) => Promise<StationReceipt | null> };
 export type ManualTuneSource = { frequencyHz: number; mode: string };
@@ -14,6 +15,9 @@ const storage = (radioId: RadioID) => { const key = `xlog.station-session.${radi
 /** One renderer intent journal; durable admission and deduplication are native. */
 export class ManualTuneSession {
   private state: State;
+  private activeTarget: { provider: StationProvider; frequencyHz: number; mode: string } | null = null;
+  private queued: { provider: StationProvider; frequencyHz: number; mode: string;
+    resolve: (result: TuneResult) => void; reject: (reason: unknown) => void } | null = null;
   private listeners = new Set<() => void>();
   constructor(private transport: Transport, private journal: {read:()=>string|null;write:(id:string|null)=>void}) {
     this.state = { pending: journal.read(), busy: false, message: "", reviewable: false };
@@ -21,7 +25,28 @@ export class ManualTuneSession {
   getSnapshot = () => this.state;
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   private update(change: Partial<State>) { this.state = { ...this.state, ...change }; this.listeners.forEach(listener => listener()); }
-  async tune(provider: StationProvider, frequencyHz: number, mode: string, context?: MonitorContext | null, source?: ManualTuneSource) {
+  async tune(provider: StationProvider, frequencyHz: number, mode: string, context?: MonitorContext | null, source?: ManualTuneSource): Promise<TuneResult> {
+    if (this.state.busy && this.activeTarget && !context && !source && provider === this.activeTarget.provider &&
+        (this.queued !== null || frequencyHz !== this.activeTarget.frequencyHz || mode !== this.activeTarget.mode) &&
+        Number.isSafeInteger(frequencyHz) && frequencyHz >= 100_000 && frequencyHz <= 1_000_000_000 && /^[A-Z0-9]{1,16}$/.test(mode)) {
+      // Keep only the newest explicit absolute target. Relative steps retain
+      // their exact observed-source fence and must never be queued this way.
+      this.queued?.resolve({ accepted: false, confirmed: false, superseded: true });
+      return new Promise((resolve, reject) => { this.queued = { provider, frequencyHz, mode, resolve, reject }; });
+    }
+    if (this.state.busy || this.state.pending) throw new Error("Check the existing manual tune receipt before another tune. No tune was repeated.");
+    this.activeTarget = { provider, frequencyHz, mode };
+    try { return await this.execute(provider, frequencyHz, mode, context, source); }
+    finally {
+      this.activeTarget = null;
+      const queued = this.queued; this.queued = null;
+      if (queued) {
+        if (this.state.pending) queued.reject(new Error("Previous tune is unresolved. The queued QSY was not sent; check its receipt."));
+        else void this.tune(queued.provider, queued.frequencyHz, queued.mode).then(queued.resolve, queued.reject);
+      }
+    }
+  }
+  private async execute(provider: StationProvider, frequencyHz: number, mode: string, context?: MonitorContext | null, source?: ManualTuneSource): Promise<TuneResult> {
     if (this.state.busy || this.state.pending) throw new Error("Check the existing manual tune receipt before another tune. No tune was repeated.");
     if (!Number.isSafeInteger(frequencyHz) || frequencyHz < 100_000 || frequencyHz > 1_000_000_000 || !/^[A-Z0-9]{1,16}$/.test(mode) || source &&
         (!Number.isSafeInteger(source.frequencyHz) || source.frequencyHz < 100_000 || source.frequencyHz > 1_000_000_000 || !/^[A-Z0-9]{1,16}$/.test(source.mode)))

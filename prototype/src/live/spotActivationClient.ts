@@ -1,7 +1,7 @@
 import { validSpotActivationSnapshot, type SpotActivationSnapshot } from "./spotActivation";
 import { validSpotOperation } from "./spotActivationBarrier";
 type Call = (command: string, params?: Record<string, unknown>) => Promise<any>;
-type State = { status: SpotActivationSnapshot | null; error: string; requesting: boolean; checked: boolean };
+type State = { status: SpotActivationSnapshot | null; error: string; requesting: boolean; checked: boolean; rotorStopBlocked?: boolean };
 const terminal = (status: SpotActivationSnapshot | null) => !!status && ["blocked", "confirmed", "failed", "uncertain"].includes(status.phase);
 export function activationMessage(status: SpotActivationSnapshot | null): string {
   if (!status || status.phase === "idle") return "";
@@ -22,11 +22,14 @@ export class SpotActivationClient {
   private active = true;
   private version = 0;
   private reading: Promise<void> | null = null;
+  private superseding: Promise<void> | null = null;
+  private stopBlocked = false;
+  private stopOperation: string | null = null;
   private retired = new Set<string>();
   constructor(private call: Call, private uuid: () => string = () => crypto.randomUUID(), private command: "activate_spot" | "activate_opportunity" = "activate_spot") {}
   getSnapshot = () => this.state;
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
-  canActivate = () => this.active && !this.state.requesting && (!this.operation || this.resolved());
+  canActivate = () => this.active && !this.stopBlocked && !this.state.requesting && (!this.operation || this.resolved());
   private update(change: Partial<State>) { if (this.active) { this.state = { ...this.state, ...change }; this.listeners.forEach(listener => listener()); } }
   private resolved() { const status = this.state.status; return !!status && status.phase !== "idle" && terminal(status) && status.reservationActive === false; }
   private accept(value: unknown, expected?: string) {
@@ -55,8 +58,29 @@ export class SpotActivationClient {
     if (this.active && version === this.version) this.accept(recovered, operationId);
     return recovered;
   }
+  supersedeRotor(): Promise<void> {
+    if (!this.active || !(this.stopOperation ?? this.operation) || this.command !== "activate_spot" ||
+        this.state.status?.phase !== "idle" && this.state.status?.draftOnly) return Promise.resolve();
+    if (this.superseding) return this.superseding;
+    const operationId = this.stopOperation ?? this.operation!;
+    this.stopOperation = operationId;
+    this.stopBlocked = true;
+    this.update({ rotorStopBlocked: true });
+    this.superseding = (async () => {
+      try {
+        const reply = await this.call("supersede_spot_rotor", { operationId });
+        if (!reply || reply.operationId !== operationId || reply.superseded !== true || reply.stopAcknowledged !== true)
+          throw new Error("Rotor Stop acknowledgement could not be verified. The queued spot remains protected.");
+        if (this.active) { this.stopOperation = null; this.stopBlocked = false; this.update({ error: "", rotorStopBlocked: false }); }
+      } catch (cause) {
+        this.update({ error: cause instanceof Error ? cause.message : "Rotor Stop is unconfirmed. Check its outcome before another spot." });
+        throw cause;
+      }
+    })().finally(() => { this.superseding = null; });
+    return this.superseding;
+  }
   async activate(spot: Record<string, any>) {
-    if (!this.active || this.state.requesting || this.operation && !this.resolved()) throw new Error("Check the existing spot activation before selecting another report.");
+    if (!this.canActivate()) throw new Error("Check the existing spot activation before selecting another report.");
     if (!validSpotOperation(spot.activation?.sourceEpoch) || !validSpotOperation(spot.activation?.spotVersion) ||
       typeof spot.id !== "string" || !spot.id || spot.id.length > 128 || spot.id.includes("\0"))
       throw new Error("Refresh the shared cluster before selecting this report. Its native activation identity is unavailable.");

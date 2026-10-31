@@ -103,3 +103,41 @@ it("keeps active reservations/miscorrelated replies fenced and discards disposed
   const held = deferred<any>(); call.mockReturnValue(held.promise); const refreshing = client.refresh(); client.dispose(); held.resolve(result()); await refreshing;
   expect(client.getSnapshot().status).toMatchObject({ phase: "uncertain", reservationActive: true });
 });
+
+it("holds the latest spot behind a correlated Stop while retaining the original operation", async () => {
+  const held=deferred<any>(), stopped=deferred<any>();
+  const call=vi.fn((command:string)=>command==="activate_spot"?held.promise:stopped.promise);
+  const client=new SpotActivationClient(call,()=>operationId);
+  const activating=client.activate(report);
+  const stopping=client.supersedeRotor();
+  expect(call).toHaveBeenLastCalledWith("supersede_spot_rotor",{operationId});
+  held.resolve(result()); await activating;
+  expect(client.canActivate()).toBe(false);
+  stopped.resolve({operationId,superseded:true,stopAcknowledged:true}); await stopping;
+  expect(client.canActivate()).toBe(true);
+  expect(call.mock.calls.filter(([command])=>command==="activate_spot")).toHaveLength(1);
+});
+it("a lost or miscorrelated Stop cannot release a queued spot", async () => {
+  const call=vi.fn(async(command:string)=>command==="activate_spot"?result():{operationId:"wrong",superseded:true,stopAcknowledged:true});
+  const client=new SpotActivationClient(call,()=>operationId); await client.activate(report);
+  await expect(client.supersedeRotor()).rejects.toThrow(/Stop acknowledgement/);
+  expect(client.canActivate()).toBe(false);
+  await expect(client.activate({...report,id:"latest"})).rejects.toThrow(/existing/);
+  expect(call.mock.calls.filter(([command])=>command==="activate_spot")).toHaveLength(1);
+});
+
+it("retains a failed Stop identity when the older uncertain activation retires", async () => {
+  const held=deferred<any>(); let stopped=false;
+  const call=vi.fn(async(command:string)=>{
+    if(command==="activate_spot") return held.promise;
+    if(!stopped) throw new Error("Stop reply lost");
+    return {operationId,superseded:true,stopAcknowledged:true};
+  });
+  const client=new SpotActivationClient(call,()=>operationId);
+  const activating=client.activate(report);
+  await expect(client.supersedeRotor()).rejects.toThrow("Stop reply lost");
+  held.resolve(result("uncertain")); await activating;
+  expect(client.getSnapshot().status?.phase).toBe("idle"); expect(client.canActivate()).toBe(false);
+  stopped=true; await client.supersedeRotor();
+  expect(call).toHaveBeenLastCalledWith("supersede_spot_rotor",{operationId}); expect(client.canActivate()).toBe(true);
+});

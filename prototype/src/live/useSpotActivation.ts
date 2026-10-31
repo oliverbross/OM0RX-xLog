@@ -22,5 +22,6 @@ export function useSpotActivation(command: "activate_spot" | "activate_opportuni
     if (!client.current) throw new Error("Wait for spot activation to initialize.");
     return client.current.activate(spot);
   }, canActivate: () => client.current?.canActivate() === true,
+    supersedeRotor: () => client.current?.supersedeRotor() ?? Promise.resolve(),
     reconcile: () => client.current?.reconcile(), retire: () => client.current?.retire() };
 }

@@ -226,6 +226,7 @@ fn tune_request(provider: &str, spot: &Value) -> Result<Value, String> {
     } else { Err("Native radio provider is unsupported".into()) }
 }
 impl Backend for NativeBackend {
+    fn supersede_rotor(&self) -> Result<(), String> { crate::rotor::supersede_spot_turn() }
     fn recover_missing(&self, operation_id: &str) -> Result<Value, String> {
         if crate::worker::local_acceptance() { return Err("Live activation recovery is unavailable in isolated acceptance".into()); }
         let worker = running_worker()?;

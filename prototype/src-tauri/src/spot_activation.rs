@@ -20,6 +20,7 @@ impl Request {
 }
 
 pub trait Backend: Send + Sync {
+    fn supersede_rotor(&self) -> Result<(), String> { Ok(()) }
     fn draft_only(&self, _request: &Request) -> bool { false }
     fn resolve(&self, request: &Request) -> Result<Value, String>;
     fn canonical(&self) -> Result<Value, String>;
@@ -37,9 +38,9 @@ pub trait Backend: Send + Sync {
     fn wake(&self);
 }
 
-struct Operation { request: Request, outcome: Value, generation: Option<String>, running: bool }
+struct Operation { request: Request, outcome: Value, generation: Option<String>, running: bool, superseded: bool }
 #[derive(Default)]
-struct State { active: Option<String>, latest: Option<String>, operations: BTreeMap<String, Operation>, retired: BTreeMap<String, Value>, recovering: bool }
+struct State { active: Option<String>, latest: Option<String>, operations: BTreeMap<String, Operation>, retired: BTreeMap<String, Value>, recovering: bool, rotor_stop_error: Option<String> }
 pub struct Coordinator { state: Mutex<State>, pub editors: Arc<EditorBarrier>, backend: Arc<dyn Backend> }
 impl Coordinator {
     pub fn new(backend: Arc<dyn Backend>) -> Self { Self { state:Mutex::new(State::default()), editors:Arc::new(EditorBarrier::default()), backend } }
@@ -53,6 +54,22 @@ impl Coordinator {
         let state = self.state.lock().map_err(|_| "Spot activation unavailable")?;
         state.operations.get(operation).map(|value| value.outcome.clone()).or_else(|| state.retired.get(operation).cloned())
             .ok_or_else(|| "This activation is not retained by this native session. Check the durable draft receipt; do not automatically tune again.".into())
+    }
+    pub fn supersede_rotor(&self, operation_id: &str) -> Result<Value, String> {
+        if uuid::Uuid::parse_str(operation_id).is_err() { return Err("Invalid activation identity".into()); }
+        // Keep the exact operation selected through Stop admission. The draft
+        // lease and editor barrier remain owned by the original transaction.
+        let mut state = self.state.lock().map_err(|_| "Spot activation unavailable")?;
+        if state.active.as_deref().or(state.latest.as_deref()) != Some(operation_id) {
+            return Err("Spot activation changed; no rotor cancellation was sent.".into());
+        }
+        let operation = state.operations.get_mut(operation_id).ok_or("Activation outcome missing")?;
+        operation.superseded = true;
+        if let Err(error) = self.backend.supersede_rotor() {
+            state.rotor_stop_error = Some(error.clone()); return Err(error);
+        }
+        state.rotor_stop_error = None;
+        Ok(json!({"operationId":operation_id,"superseded":true,"stopAcknowledged":true}))
     }
     pub fn source_epoch(&self,operation:&str)->Result<String,String> {
         let state=self.state.lock().map_err(|_|"Activation source unavailable.")?;
@@ -155,6 +172,9 @@ impl Coordinator {
         request.validate()?;
         {
             let mut state = self.state.lock().map_err(|_| "Spot activation unavailable")?;
+            if let Some(error) = &state.rotor_stop_error {
+                return Err(format!("Previous rotor Stop is unconfirmed. Retry the explicit spot cancellation before another QSY: {error}"));
+            }
             if state.retired.contains_key(&request.operation_id) { return Err("This activation identity was retired. Select a report with a new identity; no old effect was replayed.".into()); }
             if let Some(prior) = state.operations.get(&request.operation_id) {
                 return if prior.request == request { Ok(prior.outcome.clone()) } else { Err("This operation identity was already used for another spot.".into()) };
@@ -169,12 +189,12 @@ impl Coordinator {
                     "draftOnly":self.backend.draft_only(&request),
                     "tuneConfirmed":false,"rotor":"not_requested","reservationActive":false,
                     "error":"Wait for the current spot activation to finish."});
-                state.operations.insert(request.operation_id.clone(), Operation { request, outcome:outcome.clone(), generation:None, running:false });
+                state.operations.insert(request.operation_id.clone(), Operation { request, outcome:outcome.clone(), generation:None, running:false, superseded:false });
                 return Ok(outcome);
             }
             state.active = Some(request.operation_id.clone());
             state.latest = Some(request.operation_id.clone());
-            state.operations.insert(request.operation_id.clone(), Operation { request:request.clone(), generation:None, running:true,
+            state.operations.insert(request.operation_id.clone(), Operation { request:request.clone(), generation:None, running:true, superseded:false,
                 outcome:json!({"operationId":request.operation_id,"phase":"preparing","draftOnly":self.backend.draft_only(&request),"tuneConfirmed":false,"rotor":"not_requested","reservationActive":true}) });
         }
         let mut applied = None;
@@ -249,7 +269,10 @@ impl Coordinator {
                 return Err("Automatic rotor admission could not be recorded. No turn was requested; the confirmed radio tune is retained.".into());
             }
             rotor_outcome = "uncertain";
-            let rotor = self.backend.rotor(&request, &result)?;
+            let superseded = self.state.lock().map_err(|_| "Spot activation unavailable")?
+                .operations.get(&request.operation_id).is_some_and(|operation| operation.superseded);
+            let rotor = if superseded { json!({"requested":false,"skipped":"Newer spot selected."}) }
+                else { self.backend.rotor(&request, &result)? };
             rotor_outcome = if rotor["requested"] == true { "pending" } else { "not_requested" };
             self.backend.finish(&request, &result, "confirmed")?;
             reservation_active = false;
@@ -291,6 +314,7 @@ mod tests {
         fn call(&self, name: &str) { self.calls.lock().unwrap().push(name.into()); }
     }
     impl Backend for Fake {
+        fn supersede_rotor(&self) -> Result<(), String> { self.call("stop"); if self.mode.load(Ordering::SeqCst) == 18 { Err("Stop reply lost".into()) } else { Ok(()) } }
         fn recover_missing(&self, operation: &str) -> Result<Value, String> {
             self.call("recover_missing");
             Ok(json!({"operationId":operation,"phase":"uncertain","reservationActive":false,"tuneConfirmed":false,"rotor":"not_replayed"}))
@@ -346,6 +370,38 @@ mod tests {
     }
     fn request() -> Request { Request { operation_id:uuid::Uuid::new_v4().to_string(), source_epoch:uuid::Uuid::new_v4().to_string(),
         spot_id:"report".into(), spot_version:uuid::Uuid::new_v4().to_string() } }
+    #[test]
+    fn unknown_stop_blocks_new_native_activation_until_explicit_correlated_retry() {
+        let backend = Arc::new(Fake::new()); let owner = Coordinator::new(backend.clone()); let original = request();
+        owner.activate(original.clone()).unwrap();
+        backend.mode.store(18, Ordering::SeqCst);
+        assert!(owner.supersede_rotor(&original.operation_id).is_err());
+        let before = backend.calls.lock().unwrap().len();
+        assert!(owner.activate(request()).unwrap_err().contains("Previous rotor Stop is unconfirmed"));
+        assert_eq!(backend.calls.lock().unwrap().len(), before);
+        backend.mode.store(0, Ordering::SeqCst);
+        owner.supersede_rotor(&original.operation_id).unwrap();
+        assert_eq!(owner.activate(request()).unwrap()["phase"], "confirmed");
+    }
+    #[test]
+    fn superseding_spot_keeps_its_lease_until_confirmed_tune_finishes_and_skips_old_rotor() {
+        let backend = Arc::new(Fake::new()); let owner = Arc::new(Coordinator::new(backend.clone()));
+        let request = request(); let id = request.operation_id.clone();
+        let weak = Arc::downgrade(&owner); let once = Arc::new(AtomicUsize::new(0));
+        *backend.observer.lock().unwrap() = Some(Box::new(move || {
+            if once.fetch_add(1, Ordering::SeqCst) == 0 {
+                let owner = weak.upgrade().unwrap();
+                assert!(owner.supersede_rotor(&uuid::Uuid::new_v4().to_string()).is_err());
+                assert_eq!(owner.supersede_rotor(&id).unwrap()["stopAcknowledged"], true);
+                assert_eq!(owner.status(&id).unwrap()["reservationActive"], true);
+            }
+        }));
+        let outcome = owner.activate(request).unwrap();
+        assert_eq!(outcome["phase"], "confirmed"); assert_eq!(outcome["tuneConfirmed"], true);
+        assert_eq!(outcome["reservationActive"], false); assert_eq!(outcome["rotor"], "not_requested");
+        let calls = backend.calls.lock().unwrap();
+        assert!(calls.iter().any(|call| call == "stop")); assert!(!calls.iter().any(|call| call == "rotor"));
+    }
     #[test]
     fn draft_precedes_effect_and_same_operation_never_replays() {
         let backend = Arc::new(Fake::new()); let owner = Coordinator::new(backend.clone()); let request = request();
