@@ -316,7 +316,8 @@ try {
     $pythonRoot = Join-Path $package 'Python'
     foreach ($crtFile in Get-ChildItem -LiteralPath $VCRedistDirectory -Filter '*.dll' -File) {
         $target = Join-Path $pythonRoot $crtFile.Name
-        if (-not (Test-Path -LiteralPath $target)) { Copy-Item -LiteralPath $crtFile.FullName -Destination $target }
+        # Use the same licensed, audited VS REDIST source for both processes.
+        Copy-Item -LiteralPath $crtFile.FullName -Destination $target -Force
     }
     $pythonEdges = [Collections.Generic.List[object]]::new()
     foreach ($binary in Get-ChildItem -LiteralPath $pythonRoot -File -Recurse | Where-Object Extension -In @('.exe', '.dll', '.pyd')) {
@@ -398,6 +399,7 @@ try {
         if (Test-Path (Join-Path $repoRoot $name)) { Copy-Item (Join-Path $repoRoot $name) (Join-Path $package "evidence/$(Split-Path $name -Leaf)") }
     }
     Copy-Item (Join-Path $PSScriptRoot 'accept-windows.ps1') (Join-Path $package 'accept-windows.ps1')
+    Copy-Item (Join-Path $PSScriptRoot 'verify-python-runtime.py') (Join-Path $package 'verify-python-runtime.py')
     @"
 OM0RX-xLog $productVersion - Windows beta portable package
 Intended desktop target: x86_64 Windows 11, pending user desktop acceptance.

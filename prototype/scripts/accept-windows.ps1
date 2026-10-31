@@ -48,7 +48,7 @@ function Start-Isolated([string]$Name, [string[]]$Arguments = @()) {
     $info.CreateNoWindow = $false
     foreach ($argument in $Arguments) { $info.ArgumentList.Add($argument) }
     foreach ($name in @($info.Environment.Keys)) {
-        if ($name -match '^(SWIFT|SDKROOT$|DEVELOPER_DIR$|VCTools|VCINSTALL|VCPKG|XLOG_|CARGO|RUST|NODE|NPM|LIB$|LIBPATH$|INCLUDE$|WEBVIEW2_)') { $null = $info.Environment.Remove($name) }
+        if ($name -match '^(SWIFT|SDKROOT$|DEVELOPER_DIR$|VCTools|VCINSTALL|VCPKG|XLOG_|CARGO|RUST|NODE|NPM|LIB$|LIBPATH$|INCLUDE$|WEBVIEW2_|PYTHON|VIRTUAL_ENV$|CONDA|SSL_CERT_FILE$|SSL_CERT_DIR$)') { $null = $info.Environment.Remove($name) }
     }
     $info.Environment['PATH'] = "$PackageDirectory;$env:SystemRoot\System32;$env:SystemRoot"
     $info.Environment['USERPROFILE'] = $profileDirectory
@@ -66,8 +66,8 @@ function Wait-Task($Task, [int]$Seconds, [string]$Message) {
     if (-not $Task.Wait([TimeSpan]::FromSeconds($Seconds))) { throw $Message }
     return $Task.GetAwaiter().GetResult()
 }
-function Read-Response($Process) {
-    $line = Wait-Task ($Process.StandardOutput.ReadLineAsync()) $ResponseTimeoutSeconds 'Worker did not respond while stdin was open (or runtime loader failed).'
+function Read-Response($Process, [int]$TimeoutSeconds = $ResponseTimeoutSeconds) {
+    $line = Wait-Task ($Process.StandardOutput.ReadLineAsync()) $TimeoutSeconds 'Worker did not respond while stdin was open (or runtime loader failed).'
     Assert-That ($null -ne $line) 'Worker closed stdout unexpectedly.'
     Assert-That ([Text.Encoding]::UTF8.GetByteCount($line) + 1 -le 65536) 'Worker response exceeded byte limit.'
     return $line | ConvertFrom-Json -Depth 30
@@ -219,6 +219,32 @@ try {
         Record-Modules $worker 'worker-valid' -RequireWorkerRuntime
         Finish-Worker $worker $stderrTask
         Record-Check 'ndjson-open-stdin-fragment-correlation' @{ responses = 3; methods = @('health', 'parse_adif', 'self_test'); shutdown = 'EOF exit 0'; localLogbook = $true; stationIO = $false }
+    } finally { if (-not $worker.HasExited) { $worker.Kill($true) }; $worker.Dispose() }
+
+    $python = Start-Isolated 'Python/python.exe' @('-I', '-B', (Join-Path $PackageDirectory 'verify-python-runtime.py'), '--expected-version', '3.12.16')
+    try {
+        $stderrTask = $python.StandardError.ReadToEndAsync()
+        $verification = Read-Response $python
+        Assert-That ($verification.certificateVerification -eq $true -and $verification.certificateAuthorities -gt 0 -and $verification.python -like '3.12.16*') 'Bundled Python SSL, SQLite or hashing verification failed.'
+        Finish-Worker $python $stderrTask
+        Write-Json (Join-Path $EvidenceDirectory 'python-runtime.json') $verification
+        Record-Check 'bundled-python-standard-library' $verification
+    } finally { if (-not $python.HasExited) { $python.Kill($true) }; $python.Dispose() }
+
+    $worker = Start-Isolated 'xlog-prototype-worker.exe' @('--contest-runtime-self-test')
+    try {
+        $stderrTask = $worker.StandardError.ReadToEndAsync()
+        $response = Read-Response $worker -TimeoutSeconds 120
+        Assert-That ($response.id -eq 'contest-runtime-self-test' -and $response.ok -eq $true -and $response.result.engine -eq 'not1mm-python' -and $response.result.qso_count -eq 1) 'Bundled contest runtime response failed.'
+        foreach ($field in @('passed', 'synthetic_records', 'catalogue', 'save_read', 'reopened', 'shipping_shutdown', 'temporary_store_removed')) {
+            Assert-That ($response.result.$field -eq $true) "Contest runtime did not prove $field."
+        }
+        foreach ($field in @('station_io', 'network_contact', 'credentials_accessed')) {
+            Assert-That ($response.result.$field -eq $false) "Contest runtime used $field."
+        }
+        Finish-Worker $worker $stderrTask
+        Write-Json (Join-Path $EvidenceDirectory 'worker-contest-runtime.json') $response
+        Record-Check 'worker-contest-runtime-round-trip' @{ bundledLocator = $true; sanitizedChild = $true; syntheticRecords = $true; restartReopen = $true; stationIO = $false }
     } finally { if (-not $worker.HasExited) { $worker.Kill($true) }; $worker.Dispose() }
 
     $worker = Start-Isolated 'xlog-prototype-worker.exe'
