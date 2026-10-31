@@ -9,6 +9,26 @@ import XLogPortableCore
 
 @Suite("Live logbook isolated workspace")
 struct LiveLogbookMethodsTests {
+    @Test("Settings reads revalidate a redirected workspace on the next request")
+    func settingsLoadRejectsRootRedirectionBetweenRequests() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let service = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        _ = try service.handle(method: "workspace_create", params: ["mode": "empty"])
+        _ = try service.handle(method: "settings_load", params: [:])
+        let database = try service.openedDatabase()
+        defer { database.close() }
+        let moved = root.appendingPathComponent("held-workspace")
+        try FileManager.default.moveItem(at: service.workspaceDirectoryURL, to: moved)
+        try FileManager.default.createSymbolicLink(at: service.workspaceDirectoryURL, withDestinationURL: moved)
+        do {
+            _ = try service.handle(method: "settings_load", params: [:])
+            Issue.record("A later settings read accepted a redirected workspace")
+        } catch let failure as WorkerFailure {
+            #expect(failure.code == "unsafe_workspace")
+        }
+    }
+
     @Test("Fresh workspace is local and mode changes are explicit without clearing its outbox")
     func standaloneModePersistence() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

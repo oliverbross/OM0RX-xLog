@@ -11,6 +11,28 @@ import XLogPortableCore
 #endif
 
 final class AutomaticSyncTests: XCTestCase {
+    func testSettingsLoadFreshContextObservesRevisionAndGenerationChanges() throws {
+        let fixture = try SyncFixture()
+        defer { fixture.clean() }
+        try fixture.logbook.configureAutomaticSync(enabled: true, intervalMinutes: 5, confirmed: true)
+        let first = try fixture.logbook.handle(method: "settings_load", params: [:])
+        XCTAssertEqual(first["automatic_sync"] as? Bool, true)
+        let initialRevision = try XCTUnwrap(first["revision"] as? Int64)
+        var fields = try XCTUnwrap(first["settings"] as? [String: Any])
+        fields["wavelogStationID"] = 2
+        _ = try fixture.logbook.saveSettingsForTest(fields)
+        let changed = try fixture.logbook.handle(method: "settings_load", params: [:])
+        XCTAssertGreaterThan(try XCTUnwrap(changed["revision"] as? Int64), initialRevision)
+        XCTAssertEqual((changed["settings"] as? [String: Any])?["wavelogStationID"] as? Int, 2)
+        XCTAssertEqual(changed["automatic_sync"] as? Bool, false)
+        try fixture.logbook.configureAutomaticSync(enabled: true, intervalMinutes: 5, confirmed: true)
+        let generation = UUID()
+        try JSONEncoder().encode(generation).write(to: fixture.logbook.workspaceDirectoryURL.appendingPathComponent("edit-generation.json"), options: .atomic)
+        let replaced = try fixture.logbook.handle(method: "settings_load", params: [:])
+        XCTAssertEqual(replaced["generation"] as? String, generation.uuidString.lowercased())
+        XCTAssertEqual(replaced["automatic_sync"] as? Bool, false)
+    }
+
     func testOnlyUserStartedSyncMayPresentKeychainAuthorization() {
         XCTAssertFalse(LiveServiceMethods.syncCredentialAllowsInteraction(automatic: true))
         XCTAssertTrue(LiveServiceMethods.syncCredentialAllowsInteraction(automatic: false))

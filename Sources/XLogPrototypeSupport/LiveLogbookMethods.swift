@@ -54,6 +54,11 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
     private var manualSyncActive: Bool { syncLease != nil }
     private var spotRecoveryDatabase: LogbookDatabase?
     private let syncAuthorizationKey = "OM0RX-xLog.sync-authorization.v1"
+    private struct SettingsReadContext {
+        let generation: String
+        let keychainService: String
+        let syncTargetRevision: Int64
+    }
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
     private var adifExport: (token: String, generation: String, created: Date, snapshot: ADIFExportSnapshot)?
@@ -437,14 +442,15 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         }
     }
 
-    private func syncAuthorization(settings: XLogSettings, targetRevision: Int64? = nil) throws -> SyncAuthorization? {
+    private func syncAuthorization(settings: XLogSettings, targetRevision: Int64? = nil,
+                                   readContext: SettingsReadContext? = nil) throws -> SyncAuthorization? {
         guard settings.logbookMode == .wavelog,
               let defaults = workspace?.makeDefaults(), let data = defaults.data(forKey: syncAuthorizationKey),
               data.count <= 8192, let value = try? JSONDecoder().decode(SyncAuthorization.self, from: data),
-              value.matches(generation: try editGeneration(), service: try currentKeychainService(),
+              value.matches(generation: try readContext?.generation ?? editGeneration(), service: try readContext?.keychainService ?? currentKeychainService(),
                             workspacePath: workspaceURL.standardizedFileURL.resolvingSymlinksInPath().path,
                             endpoint: settings.wavelogURL, stationID: settings.wavelogStationID,
-                            targetRevision: try targetRevision ?? storedSettingsSnapshot().syncTargetRevision) else { return nil }
+                            targetRevision: try targetRevision ?? readContext?.syncTargetRevision ?? storedSettingsSnapshot().syncTargetRevision) else { return nil }
         return value
     }
 
@@ -1185,9 +1191,16 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                         "count": qsos.count, "offset": offset, "total": try db.stats().qsoCount, "fieldMetadata": metadata]
             case "settings_load":
                 try requireKeys(params, allowed: [])
-                let generation = try editGeneration()
-                let snapshot = try storedSettingsSnapshot()
-                let settings = try presentedSettings(snapshot.settings)
+                // All helpers run synchronously under this request's lock. Share
+                // its freshly validated workspace instead of walking the same
+                // filesystem ancestors repeatedly; the next request validates anew.
+                let db = try readyDatabase()
+                let generation = try editGeneration(validatedDatabase: db)
+                let snapshot = try storedSettingsSnapshot(validatedDatabase: db)
+                guard let workspace else { throw WorkerFailure("workspace_unavailable", "Isolated preferences are unavailable.") }
+                let context = SettingsReadContext(generation: generation, keychainService: workspace.keychainService,
+                                                  syncTargetRevision: snapshot.syncTargetRevision)
+                let settings = try presentedSettings(snapshot.settings, readContext: context)
                 return ["settings": try json(settings), "revision": snapshot.revision,
                         "generation": generation, "automatic_sync": settings.automaticSync]
             case "settings_receipt":
@@ -1719,8 +1732,11 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         catch OperatorDraftPowerError.invalid { throw invalid() }
     }
 
-    private func editGeneration(rotate: Bool = false, createIfMissing: Bool = true) throws -> String {
-        _ = try readyDatabase()
+    private func editGeneration(rotate: Bool = false, createIfMissing: Bool = true,
+                                validatedDatabase: LogbookDatabase? = nil) throws -> String {
+        if let validatedDatabase {
+            guard validatedDatabase === database else { throw WorkerFailure("workspace_changed", "The validated workspace changed.") }
+        } else { _ = try readyDatabase() }
         let url = workspaceURL.appendingPathComponent("edit-generation.json")
         let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
         if fileManager.fileExists(atPath: url.path) || values?.isSymbolicLink == true {
@@ -1889,15 +1905,19 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         return SettingsStore(defaults: defaults)
     }
 
-    private func storedSettingsSnapshot() throws -> IntegrationSettingsSnapshot {
-        let seed = IntegrationWorkspace.safeSettings(from: try settingsStore().load())
-        return try readyDatabase().integrationSettings(seed: seed)
+    private func storedSettingsSnapshot(validatedDatabase: LogbookDatabase? = nil) throws -> IntegrationSettingsSnapshot {
+        let db = try validatedDatabase ?? readyDatabase()
+        guard db === database, let defaults = workspace?.makeDefaults() else {
+            throw WorkerFailure("workspace_unavailable", "Isolated preferences are unavailable.")
+        }
+        let seed = IntegrationWorkspace.safeSettings(from: SettingsStore(defaults: defaults).load())
+        return try db.integrationSettings(seed: seed)
     }
 
-    private func presentedSettings(_ stored: XLogSettings) throws -> XLogSettings {
+    private func presentedSettings(_ stored: XLogSettings, readContext: SettingsReadContext? = nil) throws -> XLogSettings {
         var settings = stored
         settings.automaticSync = false
-        if let authorization = try syncAuthorization(settings: settings) {
+        if let authorization = try syncAuthorization(settings: settings, readContext: readContext) {
             settings.automaticSync = true
             settings.syncIntervalMinutes = authorization.intervalMinutes
         }
