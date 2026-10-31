@@ -2529,7 +2529,8 @@ public final class LogbookDatabase: @unchecked Sendable {
             return ["start", "dxcc", "deletedAt"].contains(field)
                 ? "CASE WHEN json_type(qsos.record_json,'$.\(field)') IN ('true','false') THEN '' ELSE \(value) END"
                 : value
-        }.joined(separator: ",") + ",json_valid(qsos.record_json)"
+        }.joined(separator: ",") + ",json_valid(qsos.record_json)," +
+        "CASE WHEN instr(qsos.record_json,'\\u0000') > 0 THEN qsos.record_json END"
 
     /// Avoid transferring/parsing unrelated comments and arbitrary ADIF fields
     /// for every contact in a country. Read Date doubles directly so projection
@@ -2557,6 +2558,19 @@ public final class LogbookDatabase: @unchecked Sendable {
             // json_extract accepts JSON5 on newer SQLite versions, whereas the
             // previous JSONDecoder path accepted only strict JSON records.
             guard sqlite3_column_int(statement, 14) == 1 else { throw LogbookDatabaseError.corruptRecord }
+            // Older SQLite JSON1 truncates extracted strings at U+0000. Only
+            // these rare records need JSON decoding; ordinary rows stay thin.
+            // A literal backslash-u0000 can also match and is safe to decode.
+            if sqlite3_column_type(statement, 15) != SQLITE_NULL {
+                guard let bytes = sqlite3_column_blob(statement, 15),
+                      let row = try? decoder.decode(ContactHistoryRow.self,
+                        from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 15)))) else {
+                    throw LogbookDatabaseError.corruptRecord
+                }
+                values.append(row)
+                step = sqlite3_step(statement)
+                continue
+            }
             guard let id = UUID(uuidString: try text(0)) else { throw LogbookDatabaseError.corruptRecord }
             let dxcc: Int?
             switch sqlite3_column_type(statement, 6) {

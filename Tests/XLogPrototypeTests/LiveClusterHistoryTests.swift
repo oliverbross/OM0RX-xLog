@@ -190,18 +190,44 @@ struct LiveClusterHistoryTests {
                 #expect(actual.dxcc == expected.dxcc && actual.gridSquare == expected.gridSquare)
                 #expect(actual.qslReceived == expected.qslReceived && actual.lotwReceived == expected.lotwReceived)
                 #expect(actual.lotwSent == expected.lotwSent && actual.rstSent == expected.rstSent)
-                #expect(actual.rstReceived == expected.rstReceived && actual.deletedAt == expected.deletedAt)
+                #expect(actual.rstReceived == expected.rstReceived)
+                #expect(actual.deletedAt == expected.deletedAt)
             }
         }
         #expect(try database.historyRows(call: "K1ABC", adif: nil).map(\.call) == ["K1ABC/P"])
     }
 
-    @Test("Thin history retains strict JSON numeric field validation")
-    func scalarHistoryRejectsMalformedNumbers() throws {
+    @Test("Thin history preserves NUL positions and literal escape text in every selected string",
+          arguments: ["\0é", "5\0é", "trailing\0", "literal\\u0000"])
+    func scalarHistoryNULStrings(value: String) throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let database = try LogbookDatabase(url: root.appendingPathComponent("history.sqlite"))
+        defer { try? database.close(); try? FileManager.default.removeItem(at: root) }
+        let contact = QSO(call: "K1ABC" + value, start: Date(timeIntervalSinceReferenceDate: 815_123_456.1234567),
+            band: "20m" + value, mode: "DATA" + value, submode: value,
+            rstSent: value, rstReceived: value, gridSquare: value, dxcc: 291,
+            qslReceived: value, lotwSent: value, lotwReceived: value)
+        try database.save(contact)
+        let actual = try #require(database.historyRows(call: "K1ABC", adif: 291).first)
+        let full = try #require(database.historyCandidates(call: "K1ABC", adif: 291).first)
+        let expected = ContactHistoryRow(full)
+        #expect(actual.id == expected.id)
+        #expect(actual.start == expected.start)
+        #expect(actual.deletedAt == expected.deletedAt)
+        #expect(actual.dxcc == expected.dxcc)
+        #expect([actual.call, actual.band, actual.mode, actual.submode, actual.gridSquare,
+                 actual.rstSent, actual.rstReceived, actual.qslReceived, actual.lotwSent, actual.lotwReceived]
+             == [expected.call, expected.band, expected.mode, expected.submode, expected.gridSquare,
+                 expected.rstSent, expected.rstReceived, expected.qslReceived, expected.lotwSent, expected.lotwReceived])
+        #expect(actual.rstReceived == value)
+    }
+
+    @Test("Thin history retains strict JSON numeric field validation", arguments: ["59", "5\0é"])
+    func scalarHistoryRejectsMalformedNumbers(rstReceived: String) throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         let database = try LogbookDatabase(url: root.appendingPathComponent("history.sqlite"))
-        let contact = QSO(call: "K1ABC", band: "20m", mode: "CW", dxcc: 291)
+        let contact = QSO(call: "K1ABC", band: "20m", mode: "CW", rstReceived: rstReceived, dxcc: 291)
         var raw: OpaquePointer?
         #expect(sqlite3_open(database.url.path, &raw) == SQLITE_OK)
         defer { sqlite3_close(raw) }
