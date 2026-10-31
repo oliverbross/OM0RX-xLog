@@ -9,7 +9,7 @@ import gzip
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import re
 import zipfile
 
@@ -17,25 +17,29 @@ FORBIDDEN_NAMES = {
     'workspace.json', 'settings.json', 'preferences.json',
     'forwarded-radio-spots.json', '.xlog-offline-acceptance.json',
     'operator-draft.json', 'contact-edit-journal.json',
+    'credentials.json', 'secrets.json', 'tokens.json', 'edit-generation.json',
 }
 FORBIDDEN_DIRECTORIES = {'application support', 'keychains', 'backups', 'recovery', 'recordings'}
 FORBIDDEN_SUFFIX = re.compile(r'\.(?:sqlite(?:3)?(?:-(?:wal|shm))?|db(?:-(?:wal|shm))?|adi|adif|xlogbackup|keychain(?:-db)?|p12|pfx)(?:\.gz)?$', re.I)
 PRIVATE_KEYS = {
     'stationcall', 'operatorcall', 'qrzusername', 'qrzpassword', 'hamqthusername',
     'hamqthpassword', 'wavelogurl', 'wavelogapikey', 'wavelogtoken',
-    'ftpbackuppassword', 'dropboxrefreshtoken',
+    'ftpbackuppassword', 'dropboxrefreshtoken', 'googledriverefreshtoken',
+    'onedriverefreshtoken', 'apikey', 'password', 'accesstoken', 'refreshtoken',
 }
 MAX_JSON = 4 * 1024 * 1024
 
 
 def private_json(value):
     if isinstance(value, dict):
+        normalized = {}
         for key, item in value.items():
             normal = re.sub(r'[^a-z0-9]', '', key.lower())
+            normalized[normal] = item
             if normal in PRIVATE_KEYS and isinstance(item, str) and item.strip():
                 return 'non-empty operator/account setting: ' + key
-        if isinstance(value.get('call'), str) and value['call'].strip() and any(
-                key in value for key in ['qsoDate', 'qsoStart', 'qso_start', 'timeOn']):
+        if isinstance(normalized.get('call'), str) and normalized['call'].strip() and any(
+                key in normalized for key in ['start', 'qsodate', 'qsostart', 'timeon']):
             return 'saved QSO record'
         for item in value.values():
             reason = private_json(item)
@@ -52,17 +56,21 @@ def private_json(value):
 def inspect_bytes(name, data):
     if data.startswith(b'SQLite format 3\x00'):
         return 'SQLite database payload'
-    if name.lower().endswith('.json') and len(data) <= MAX_JSON:
+    declared_json = name.lower().endswith('.json')
+    if declared_json and len(data) > MAX_JSON:
+        return 'JSON payload exceeds privacy inspection limit'
+    if (declared_json or data.lstrip().startswith((b'{', b'['))) and len(data) <= MAX_JSON:
         try:
             return private_json(json.loads(data))
         except (UnicodeDecodeError, json.JSONDecodeError):
-            pass
+            if declared_json:
+                return 'unreadable JSON payload'
     return None
 
 
 def path_reason(name):
     parts = Path(name.replace('\\', '/')).parts
-    if '..' in parts or name.startswith(('/', '\\')):
+    if '..' in parts or name.startswith(('/', '\\')) or PureWindowsPath(name).drive:
         return 'absolute or traversing archive path'
     if any(part.lower() in FORBIDDEN_DIRECTORIES for part in parts):
         return 'operator state directory'
@@ -121,11 +129,19 @@ def scan(root):
                         for entry in archive.infolist():
                             reason = path_reason(entry.filename)
                             if not reason and not entry.is_dir():
-                                with archive.open(entry) as stream:
-                                    reason = inspect_bytes(entry.filename, stream.read(MAX_JSON + 1))
+                                suffix = Path(entry.filename).suffix.lower()
+                                if suffix in {'.zip', '.whl'}:
+                                    reason = 'nested archive cannot be privacy-audited'
+                                else:
+                                    with archive.open(entry) as stream:
+                                        if suffix == '.gz':
+                                            with gzip.GzipFile(fileobj=stream) as compressed:
+                                                reason = inspect_bytes(entry.filename.removesuffix('.gz'), compressed.read(MAX_JSON + 1))
+                                        else:
+                                            reason = inspect_bytes(entry.filename, stream.read(MAX_JSON + 1))
                             if reason:
                                 findings.append({'path': relative + '!' + entry.filename, 'reason': reason})
-                except (OSError, ValueError, zipfile.BadZipFile):
+                except (OSError, EOFError, ValueError, RuntimeError, zipfile.BadZipFile):
                     findings.append({'path': relative, 'reason': 'unreadable archive payload'})
             files.append({'path': relative, 'bytes': path.stat().st_size, 'sha256': digest.hexdigest()})
     return {'schema': 1, 'payload': root.name, 'passed': not findings, 'filesChecked': len(files),

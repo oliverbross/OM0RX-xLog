@@ -1,5 +1,6 @@
 import gzip
 import importlib.util
+import io
 import json
 from pathlib import Path
 import sqlite3
@@ -28,6 +29,24 @@ class ReleasePayloadTests(unittest.TestCase):
         (self.root / 'innocent.json').write_text(json.dumps({'account': {'operatorCall': 'TEST1'}}))
         self.assertFalse(payload.scan(self.root)['passed'])
 
+    def test_canonical_qso_and_adif_json_shapes_are_rejected(self):
+        for record in [{'call': 'TEST1', 'start': 815123456.125},
+                       {'CALL': 'TEST1', 'QSO_DATE': '20260101'}]:
+            (self.root / 'innocent.json').write_text(json.dumps({'records': [record]}))
+            self.assertFalse(payload.scan(self.root)['passed'])
+
+    def test_renamed_json_and_generic_account_tokens_are_rejected(self):
+        (self.root / 'innocent.cache').write_text(json.dumps({'call': 'TEST1', 'start': 1}))
+        self.assertFalse(payload.scan(self.root)['passed'])
+        (self.root / 'innocent.cache').write_text(json.dumps({'refresh_token': 'private-fixture'}))
+        self.assertFalse(payload.scan(self.root)['passed'])
+
+    def test_oversized_or_invalid_json_fails_closed(self):
+        (self.root / 'innocent.json').write_text(json.dumps({'data': 'x' * payload.MAX_JSON}))
+        self.assertFalse(payload.scan(self.root)['passed'])
+        (self.root / 'innocent.json').write_text('{"operatorCall":')
+        self.assertFalse(payload.scan(self.root)['passed'])
+
     def test_renamed_database_magic_is_rejected(self):
         database = self.root / 'innocent.cache'
         with sqlite3.connect(database) as connection:
@@ -43,6 +62,23 @@ class ReleasePayloadTests(unittest.TestCase):
         with zipfile.ZipFile(self.root / 'resources.zip', 'w') as archive:
             archive.writestr('../elsewhere.txt', b'fixture')
             archive.writestr('contacts.adi', '<CALL:5>TEST1<EOR>')
+        report = payload.scan(self.root)
+        self.assertFalse(report['passed'])
+        self.assertEqual(len(report['findings']), 2)
+
+    def test_windows_absolute_archive_paths_are_rejected_on_every_host(self):
+        with zipfile.ZipFile(self.root / 'resources.zip', 'w') as archive:
+            archive.writestr('C:/Users/operator/innocent.txt', b'fixture')
+        self.assertFalse(payload.scan(self.root)['passed'])
+
+    def test_archives_cannot_hide_compressed_or_nested_operator_state(self):
+        private = json.dumps({'call': 'TEST1', 'start': 1}).encode()
+        nested = io.BytesIO()
+        with zipfile.ZipFile(nested, 'w') as archive:
+            archive.writestr('innocent.json', private)
+        with zipfile.ZipFile(self.root / 'resources.zip', 'w') as archive:
+            archive.writestr('innocent.json.gz', gzip.compress(private))
+            archive.writestr('nested.zip', nested.getvalue())
         report = payload.scan(self.root)
         self.assertFalse(report['passed'])
         self.assertEqual(len(report['findings']), 2)

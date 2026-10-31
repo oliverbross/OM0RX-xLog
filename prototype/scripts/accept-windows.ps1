@@ -4,6 +4,7 @@ param(
     [Parameter(Mandatory)][string]$PackageDirectory,
     [string]$EvidenceDirectory,
     [switch]$RequireNoSwiftToolchain,
+    [switch]$Installed,
     [int]$ResponseTimeoutSeconds = 10,
     [int]$GuiTimeoutSeconds = 100
 )
@@ -139,18 +140,38 @@ try {
     $manifest = Get-Content (Join-Path $PackageDirectory 'payload-manifest.json') -Raw | ConvertFrom-Json -Depth 30
     $provenance = Get-Content (Join-Path $PackageDirectory 'provenance.json') -Raw | ConvertFrom-Json -Depth 30
     Assert-That ($manifest.schema -eq 1 -and $provenance.schema -eq 1) 'Unknown package manifest schema.'
+    $payloadEntries = @((Get-Item -LiteralPath $PackageDirectory)) + @(Get-ChildItem -LiteralPath $PackageDirectory -Recurse -Force)
+    Assert-That (@($payloadEntries | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }).Count -eq 0) 'Payload contains a reparse point.'
     $report.commit = $provenance.commit
     $report.os = @{ description = [Runtime.InteropServices.RuntimeInformation]::OSDescription; version = [Environment]::OSVersion.VersionString; architecture = [Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString(); powershell = $PSVersionTable.PSVersion.ToString(); runnerImage = $env:ImageOS; runnerImageVersion = $env:ImageVersion }
+    $expected = @{}
     foreach ($file in $manifest.files) {
-        $path = [IO.Path]::GetFullPath((Join-Path $PackageDirectory $file.path))
+        $relative = [string]$file.path
+        Assert-That (-not [string]::IsNullOrWhiteSpace($relative) -and -not [IO.Path]::IsPathRooted($relative) -and
+            -not $relative.Contains(':') -and ($relative -split '[/\\]') -notcontains '..') 'Unsafe manifest payload path.'
+        $path = [IO.Path]::GetFullPath((Join-Path $PackageDirectory $relative))
+        $canonical = [IO.Path]::GetRelativePath($PackageDirectory, $path).Replace('\', '/')
+        Assert-That ($relative -ceq $canonical -and $relative -ine 'payload-manifest.json' -and -not $expected.ContainsKey($canonical)) 'Duplicate or noncanonical manifest payload path.'
+        $expected[$canonical] = $true
         Assert-That (Inside $path $PackageDirectory) 'Manifest path escapes package.'
         Assert-That (Test-Path -LiteralPath $path -PathType Leaf) "Manifest payload missing: $($file.path)"
         Assert-That ((Hash $path) -eq $file.sha256) "Manifest hash mismatch: $($file.path)"
         Assert-That ((Get-Item $path).Length -eq $file.bytes) "Manifest byte count mismatch: $($file.path)"
         if ($file.path -notmatch '[/\\]' -and $file.path -match '\.(exe|dll)$') { $script:bundledNames[$file.path.ToLowerInvariant()] = $file.sha256 }
     }
-    $actual = @(Get-ChildItem $PackageDirectory -Recurse -File | Where-Object Name -ne 'payload-manifest.json')
-    Assert-That ($actual.Count -eq @($manifest.files).Count) 'Unmanifested files are present in the package.'
+    $actual = @(Get-ChildItem -LiteralPath $PackageDirectory -Recurse -File -Force | Where-Object {
+        $relative = [IO.Path]::GetRelativePath($PackageDirectory, $_.FullName).Replace('\', '/')
+        $relative -ine 'payload-manifest.json' -and -not ($Installed -and $relative -ieq 'uninstall.exe')
+    })
+    Assert-That ($actual.Count -eq $expected.Count) 'Unmanifested files are present in the package.'
+    foreach ($file in $actual) {
+        $relative = [IO.Path]::GetRelativePath($PackageDirectory, $file.FullName).Replace('\', '/')
+        Assert-That ($expected.ContainsKey($relative)) "Unmanifested file is present in the package: $relative"
+    }
+    if ($Installed) {
+        Assert-That (Test-Path -LiteralPath (Join-Path $PackageDirectory 'uninstall.exe') -PathType Leaf) 'Installed package has no uninstaller.'
+        Record-Check 'installer-owned-uninstaller' @{ name = 'uninstall.exe'; excludedFromPortableManifest = $true }
+    }
     Record-Check 'payload-hashes' @{ files = @($manifest.files).Count; manifestSha256 = Hash (Join-Path $PackageDirectory 'payload-manifest.json') }
 
     # Probe before changing any child environment. PATH isolation is not a claim

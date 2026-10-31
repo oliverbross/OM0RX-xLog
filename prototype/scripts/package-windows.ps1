@@ -16,6 +16,9 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 if (-not $IsWindows) { throw 'Run this packaging audit on native Windows.' }
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
+$productVersion = [string](Get-Content (Join-Path $repoRoot 'prototype/package.json') -Raw | ConvertFrom-Json).version
+$bundleVersion = [string](Get-Content (Join-Path $repoRoot 'prototype/src-tauri/tauri.conf.json') -Raw | ConvertFrom-Json).version
+if ([string]::IsNullOrWhiteSpace($productVersion) -or $productVersion -ne $bundleVersion) { throw 'Package and Tauri versions must match.' }
 if (-not $OutputRoot) { $OutputRoot = Join-Path $repoRoot 'dist/prototype-windows' }
 $OutputRoot = [IO.Path]::GetFullPath($OutputRoot)
 $packageName = 'OM0RX-xLog-Prototype-windows-x86_64'
@@ -62,6 +65,10 @@ try {
     $sharedMetadata = Join-Path $repoRoot 'prototype/distribution-metadata'
     if (-not (Test-Path (Join-Path $sharedMetadata 'components.json'))) {
         throw 'Run node prototype/scripts/distribution-metadata.mjs before packaging; shared notices are required.'
+    }
+    $sharedComponents = Get-Content (Join-Path $sharedMetadata 'components.json') -Raw | ConvertFrom-Json -Depth 30
+    if ($sharedComponents.schema -ne 1 -or $sharedComponents.sourceCommit -ne $commit) {
+        throw 'Distribution notices are stale; regenerate distribution-metadata.mjs for this source commit.'
     }
     if (-not $env:XLOG_SQLITE_PREFIX) { throw 'XLOG_SQLITE_PREFIX must identify the vcpkg x64-windows SQLite used to build the worker.' }
     $sqlite = Join-Path $env:XLOG_SQLITE_PREFIX 'bin/sqlite3.dll'
@@ -354,8 +361,8 @@ try {
         if (Test-Path (Join-Path $repoRoot $name)) { Copy-Item (Join-Path $repoRoot $name) (Join-Path $package "evidence/$(Split-Path $name -Leaf)") }
     }
     Copy-Item (Join-Path $PSScriptRoot 'accept-windows.ps1') (Join-Path $package 'accept-windows.ps1')
-    @'
-OM0RX-xLog portable test package
+    @"
+OM0RX-xLog $productVersion - Windows beta portable package
 Intended desktop target: x86_64 Windows 11, pending user desktop acceptance.
 Native CI reference: Windows Server 2022. Windows 10 is not accepted here.
 Launch xlog-prototype.exe from this extracted directory. All four executables and
@@ -366,30 +373,38 @@ Official runtime setup: https://developer.microsoft.com/microsoft-edge/webview2/
 
 Run acceptance in PowerShell 7: ./accept-windows.ps1 -PackageDirectory .
 The acceptance report distinguishes toolchain absence, restricted PATH,
-module origins and isolated real local-logbook UI tests. Network services and
-credentials remain unavailable on this platform. A GitHub Windows Server
-runner is not a pristine Windows 11 consumer installation. Inspect evidence.
+module origins and isolated local-logbook UI tests. Local logging, Wavelog
+synchronization and the Hamlib 4.7.2 rigctld/rotctld helpers are included.
+Accounts and station services require explicit configuration; native provider
+support varies by platform. Acceptance uses synthetic local data and does not
+contact a station or external account. A GitHub Windows Server runner is not a
+pristine Windows 11 consumer installation. Inspect evidence.
 
-Unsigned internal test package. Not an installer, public release, hardware
-test, station migration, complete SBOM or license/signing approval. Runtime
+Unsigned beta portable archive; the Windows EXE installer is a separate artifact.
+This is not hardware acceptance, station migration, a complete SBOM or license/
+signing approval. Runtime
 updates require rebuilding the archive; app-local CRT is not centrally serviced.
 See provenance.json, dependencies.json, payload-manifest.json and notices/.
 Full build-source path and version details are intentionally recorded there.
-'@ | Set-Content (Join-Path $package 'README.txt') -Encoding utf8NoBOM
+"@ | Set-Content (Join-Path $package 'README.txt') -Encoding utf8NoBOM
     $payloads = @($origins.Keys | Sort-Object | ForEach-Object {
         $file = Get-Item (Join-Path $package $_)
         [pscustomobject]@{ path = $_; origin = $origins[$_].origin; source = $origins[$_].path; sha256 = Hash $file.FullName; bytes = $file.Length; fileVersion = $file.VersionInfo.FileVersion; productVersion = $file.VersionInfo.ProductVersion }
     })
     Write-Json (Join-Path $package 'dependencies.json') ([ordered]@{ schema = 1; audit = 'native Visual Studio dumpbin /DEPENDENTS, recursive app-local imports'; inspector = $DumpbinPath; inspectorSha256 = Hash $DumpbinPath; edges = $edges.ToArray(); limitation = 'Import closure does not enumerate runtime LoadLibrary paths; acceptance records loaded modules.' })
     Write-Json (Join-Path $package 'provenance.json') ([ordered]@{
-        schema = 1; product = 'OM0RX-xLog Prototype'; commit = $commit; platform = 'windows-x86_64'; sourceDateEpoch = $epoch
+        schema = 1; product = 'OM0RX-xLog'; version = $productVersion; channel = 'beta'; commit = $commit; platform = 'windows-x86_64'; sourceDateEpoch = $epoch
         swiftVersion = $swiftVersion; swiftTargetInfo = $targetInfo; swiftRuntimeDirectories = $runtimeDirectories; vcRedistDirectory = $VCRedistDirectory
         runtimeSelections = $runtimeSelections.ToArray(); runtimeSelectionPolicy = 'Official Swift 6.3.3 Runtimes component before explicit runtime directories, SDK runtime directories, then compiler-host fallback. Conflicting copies within a source tier fail. CRT and SQLite use their canonical selected sources.'
         webview = @{ mode = 'evergreen-prerequisite'; source = 'https://learn.microsoft.com/microsoft-edge/webview2/concepts/distribution'; bundled = $false }
         payloads = $payloads; notices = $noticeEvidence; noticeLimit = 'Non-Swift third-party upstream license snapshots must be checked against exact packaged versions before public distribution.'
-        signing = 'unsigned internal prototype'; hamlib = 'not included'; acceptance = 'pending native clean-job acceptance'
+        signing = 'unsigned beta; checksums provide integrity, not an authenticity signature'
+        hamlib = @{ version = '4.7.2'; helpers = @('rigctld.exe', 'rotctld.exe'); provenance = 'notices/hamlib-4.7.2/PROVENANCE.json'; archiveSHA256 = $hamlibProvenance.archiveSha256 }
+        acceptance = 'pending native clean-job acceptance; Windows 11 consumer desktop and configured hardware/provider qualification remain separate'
     })
-    $files = @(Get-ChildItem $package -File -Recurse | Sort-Object FullName | ForEach-Object {
+    $privacyReport = Join-Path $OutputRoot "$packageName-payload-privacy.json"
+    $null = Invoke-Checked python @((Join-Path $PSScriptRoot 'verify-release-payload.py'), $package, '--report', $privacyReport)
+    $files = @(Get-ChildItem -LiteralPath $package -File -Recurse -Force | Sort-Object FullName | ForEach-Object {
         [pscustomobject]@{ path = [IO.Path]::GetRelativePath($package, $_.FullName).Replace('\', '/'); bytes = $_.Length; sha256 = Hash $_.FullName }
     })
     Write-Json (Join-Path $package 'payload-manifest.json') ([ordered]@{ schema = 1; files = $files; excludes = @('payload-manifest.json'); purpose = 'Detect artifact payload corruption; this unsigned manifest is not an authenticity signature.' })
@@ -397,7 +412,7 @@ Full build-source path and version details are intentionally recorded there.
     $stream = [IO.File]::Open($archive, [IO.FileMode]::CreateNew)
     $zip = [IO.Compression.ZipArchive]::new($stream, [IO.Compression.ZipArchiveMode]::Create)
     try {
-        foreach ($file in Get-ChildItem $package -File -Recurse | Sort-Object FullName) {
+        foreach ($file in Get-ChildItem -LiteralPath $package -File -Recurse -Force | Sort-Object FullName) {
             $entryName = "$packageName/$([IO.Path]::GetRelativePath($package, $file.FullName).Replace('\', '/'))"
             $entry = $zip.CreateEntry($entryName, [IO.Compression.CompressionLevel]::Optimal)
             $entry.LastWriteTime = $timestamp
@@ -406,6 +421,6 @@ Full build-source path and version details are intentionally recorded there.
         }
     } finally { $zip.Dispose(); $stream.Dispose() }
     "$(Hash $archive)  $(Split-Path $archive -Leaf)" | Set-Content "$archive.sha256" -Encoding utf8NoBOM
-    Write-Host "Windows prototype package: $package"
+    Write-Host "Windows beta package: $package"
     Write-Host "Portable archive: $archive"
 } finally { Pop-Location }
