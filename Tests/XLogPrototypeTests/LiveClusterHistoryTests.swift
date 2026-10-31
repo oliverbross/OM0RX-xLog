@@ -1,5 +1,10 @@
 import Foundation
 import Testing
+#if canImport(SQLite3)
+import SQLite3
+#else
+import CSQLitePrototype
+#endif
 #if canImport(XLogCore)
 import XLogCore
 #else
@@ -157,5 +162,60 @@ struct LiveClusterHistoryTests {
         try database.softDelete(added)
         #expect(projection(try database.historyCandidates(call: "K1ABC", adif: 291))["previous_count"] as? Int == 30)
         try assertEquivalent()
+    }
+
+    @Test("Thin history preserves exact dates, Unicode, embedded NUL and all selected fields")
+    func scalarHistoryProjection() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let database = try LogbookDatabase(url: root.appendingPathComponent("history.sqlite"))
+        let date = Date(timeIntervalSinceReferenceDate: 815_123_456.1234567)
+        let contact = QSO(call: "K1ABC/P", start: date, band: "20m", mode: "DATA", submode: "FT8",
+            rstSent: "-07", rstReceived: "5\0é", gridSquare: "FN31", dxcc: 291,
+            comment: String(repeating: "Unrelated comment ä", count: 500),
+            qslReceived: "V", lotwSent: "Y", lotwReceived: "N",
+            extraFields: ["APP_ARBITRARY": String(repeating: "Retained unrelated ADIF", count: 500)])
+        try database.save(contact)
+        try database.save(QSO(call: "K1ABC/4", band: "40m", mode: "CW", dxcc: 230))
+        try database.save(QSO(call: "K2UNKNOWN", band: "15m", mode: "SSB"))
+        for adif in [nil, 291] as [Int?] {
+            let thin = try database.historyRows(call: "k1abc", adif: adif)
+            let full = try database.historyCandidates(call: "k1abc", adif: adif).map(ContactHistoryRow.init)
+            #expect(thin.count == full.count)
+            for (actual, expected) in zip(thin, full) {
+                #expect(actual.id == expected.id && actual.call == expected.call)
+                #expect(actual.start == expected.start)
+                if actual.id == contact.id { #expect(actual.start == date) }
+                #expect(actual.band == expected.band && actual.mode == expected.mode && actual.submode == expected.submode)
+                #expect(actual.dxcc == expected.dxcc && actual.gridSquare == expected.gridSquare)
+                #expect(actual.qslReceived == expected.qslReceived && actual.lotwReceived == expected.lotwReceived)
+                #expect(actual.lotwSent == expected.lotwSent && actual.rstSent == expected.rstSent)
+                #expect(actual.rstReceived == expected.rstReceived && actual.deletedAt == expected.deletedAt)
+            }
+        }
+        #expect(try database.historyRows(call: "K1ABC", adif: nil).map(\.call) == ["K1ABC/P"])
+    }
+
+    @Test("Thin history retains strict JSON numeric field validation")
+    func scalarHistoryRejectsMalformedNumbers() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let database = try LogbookDatabase(url: root.appendingPathComponent("history.sqlite"))
+        let contact = QSO(call: "K1ABC", band: "20m", mode: "CW", dxcc: 291)
+        var raw: OpaquePointer?
+        #expect(sqlite3_open(database.url.path, &raw) == SQLITE_OK)
+        defer { sqlite3_close(raw) }
+        for field in ["start", "dxcc", "deletedAt"] {
+            try database.save(contact)
+            var object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(contact)) as? [String: Any])
+            object[field] = true
+            let malformed = try JSONSerialization.data(withJSONObject: object)
+            #expect(throws: (any Error).self) { try JSONDecoder().decode(ContactHistoryRow.self, from: malformed) }
+            #expect(sqlite3_exec(raw, "UPDATE qsos SET record_json=json_set(record_json,'$.\(field)',json('true'));", nil, nil, nil) == SQLITE_OK)
+            #expect(throws: LogbookDatabaseError.self) { try database.historyRows(call: "K1ABC", adif: nil) }
+        }
+        try database.save(contact)
+        #expect(sqlite3_exec(raw, "UPDATE qsos SET record_json=json_set(record_json,'$.dxcc',291.0);", nil, nil, nil) == SQLITE_OK)
+        #expect(try database.historyRows(call: "K1ABC", adif: nil).first?.dxcc == 291)
     }
 }

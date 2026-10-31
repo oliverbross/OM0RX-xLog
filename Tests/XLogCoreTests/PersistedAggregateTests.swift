@@ -21,6 +21,47 @@ struct PersistedAggregateTests {
         return step == SQLITE_ROW ? sqlite3_column_int64(statement, 0) : 0
     }
 
+    @Test("A rolled-back provisional revision cannot authorize caches after an external commit reuses it")
+    func rolledBackRevisionReuse() throws {
+        enum FixtureFailure: Error { case rollback }
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appendingPathComponent("log.sqlite"), db = try LogbookDatabase(url: url)
+        let resolver = try CTYResolver.bundled()
+        let initialRevision = try db.currentRevision()
+        var provisionalRevision: Int64?
+        #expect(throws: FixtureFailure.self) {
+            try db.applyConfirmationChanges { _ in
+                try db.save(QSO(call: "BY1ROLLBACK", band: "20m", mode: "CW", dxcc: 318,
+                    state: "BJ", potaReference: "CN-0001", qslReceived: "Y"))
+                provisionalRevision = try db.currentRevision()
+                #expect(try db.stats().confirmedCount == 1)
+                _ = try db.awardProgress(); _ = try db.dxccMapStatuses()
+                _ = try db.awardCatalog(); _ = try db.opportunityReferenceHistory()
+                _ = try db.clusterContactRows()
+                _ = try db.hmControlLogbook(resolver: resolver)
+                throw FixtureFailure.rollback
+            }
+        }
+        #expect(try db.currentRevision() == initialRevision)
+        let other = try LogbookDatabase(url: url)
+        try other.save(QSO(call: "K1COMMITTED", band: "40m", mode: "SSB", dxcc: 291,
+            potaReference: "US-0001", qslReceived: "N"))
+        #expect(try db.currentRevision() == provisionalRevision)
+        let oracle = try LogbookDatabase(url: url)
+        #expect(try oracle.stats().confirmedCount == 0)
+        #expect(try db.stats() == oracle.stats())
+        #expect(try db.awardProgress() == oracle.awardProgress())
+        #expect(try db.dxccMapStatuses() == oracle.dxccMapStatuses())
+        #expect(try db.awardCatalog() == oracle.awardCatalog())
+        #expect(try db.opportunityReferenceHistory() == oracle.opportunityReferenceHistory())
+        #expect(try db.clusterContactRows() == oracle.clusterContactRows())
+        let snapshot = try db.hmControlLogbook(resolver: resolver)
+        let expected = try oracle.hmControlLogbook(resolver: resolver)
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        #expect(try encoder.encode(snapshot) == encoder.encode(expected))
+    }
+
     @Test("Reopening reuses valid aggregates without rewriting or decoding QSOs")
     func reopens() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

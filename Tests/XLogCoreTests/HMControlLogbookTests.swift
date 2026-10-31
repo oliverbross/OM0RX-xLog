@@ -55,6 +55,78 @@ struct HMControlLogbookTests {
         return try encoder.encode(lhs) == encoder.encode(rhs)
     }
 
+    @Test("External draft and aggregate writes preserve current projections and known local deltas")
+    func unrelatedExternalWrites() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appendingPathComponent("log.sqlite"), resolver = try CTYResolver.bundled()
+        let db = try LogbookDatabase(url: url), other = try LogbookDatabase(url: url)
+        var qso = QSO(call: "OM0RX", band: "20m", mode: "CW", gridSquare: "KN08", dxcc: 504)
+        try db.save(qso)
+        let first = try db.hmControlLogbook(resolver: resolver)
+        _ = try other.stats() // Persists a derived payload, without changing any QSO.
+        _ = try other.operatorDraft(initial: QSO(call: "K1DRAFT", band: "40m", mode: "CW"))
+        #expect(try equalProjection(db.hmControlLogbook(resolver: resolver), first))
+        #expect(db.hmControlFullProjectionBuilds == 1)
+        qso.lotwReceived = "Y"; try db.save(qso)
+        _ = try other.stats() // Interleave an unrelated commit with the local hint.
+        let changed = try db.hmControlLogbook(resolver: resolver)
+        #expect(changed.confirmedDXCC == [504]); #expect(changed.confirmations.count == 1)
+        #expect(db.hmControlFullProjectionBuilds == 1)
+        // Raw external QSO SQL still advances the trigger-owned durable revision.
+        var raw: OpaquePointer?
+        #expect(sqlite3_open(url.path, &raw) == SQLITE_OK)
+        defer { sqlite3_close(raw) }
+        #expect(sqlite3_exec(raw, "UPDATE qsos SET record_json=json_set(record_json,'$.lotwReceived','N');", nil, nil, nil) == SQLITE_OK)
+        #expect(try db.hmControlLogbook(resolver: resolver).confirmedDXCC.isEmpty)
+        #expect(db.hmControlFullProjectionBuilds == 2)
+    }
+
+    @Test("An external commit between revision and SELECT cannot change the tagged snapshot")
+    func coherentExternalWriterSnapshot() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appendingPathComponent("log.sqlite"), resolver = try CTYResolver.bundled()
+        let db = try LogbookDatabase(url: url), other = try LogbookDatabase(url: url)
+        try db.save(QSO(call: "OM0RX", band: "20m", mode: "CW", gridSquare: "KN08", dxcc: 504))
+        let revision = try db.currentRevision()
+        var interleavings = 0
+        db.beforeHMControlFullProjectionRead = {
+            interleavings += 1
+            try other.save(QSO(call: "K1LATER", band: "40m", mode: "CW", gridSquare: "FN31", dxcc: 291))
+        }
+        let snapshot = try db.hmControlLogbook(resolver: resolver)
+        db.beforeHMControlFullProjectionRead = nil
+        #expect(interleavings == 1)
+        #expect(snapshot.revision == revision && snapshot.total == 1)
+        #expect(snapshot.recent.map(\.call) == ["OM0RX"])
+        #expect(try db.currentRevision() == revision + 1)
+        let next = try db.hmControlLogbook(resolver: resolver)
+        #expect(next.revision == revision + 1 && next.total == 2)
+        #expect(next.baseRevision == snapshot.revision)
+        #expect(next.recent.map(\.call).sorted() == ["K1LATER", "OM0RX"])
+    }
+
+    @Test("A projection inside a caller-owned write transaction leaves its ownership intact")
+    func preservesOuterTransaction() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let db = try LogbookDatabase(url: root.appendingPathComponent("log.sqlite"))
+        let resolver = try CTYResolver.bundled()
+        try db.save(QSO(call: "OM0RX", band: "20m", mode: "CW", gridSquare: "KN08", dxcc: 504))
+        let revision = try db.currentRevision()
+        let changed = try db.applyConfirmationChanges { rows in
+            let snapshot = try db.hmControlLogbook(resolver: resolver)
+            #expect(snapshot.revision == revision && snapshot.confirmedDXCC.isEmpty)
+            return rows.map { .init(contactID: $0.qso.id, revision: $0.revision, changes: [
+                .init(field: .lotwReceived, retained: $0.qso.lotwReceived, proposed: "Y")]) }
+        }
+        #expect(changed == 1)
+        let snapshot = try db.hmControlLogbook(resolver: resolver)
+        #expect(snapshot.revision == revision + 1 && snapshot.confirmedDXCC == [504])
+        #expect(db.hmControlFullProjectionBuilds == 1)
+    }
+
     @Test("Known local edits patch only changed contacts and match authoritative full projections")
     func incrementalChanges() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -169,7 +241,7 @@ struct HMControlLogbookTests {
         defer { sqlite3_close(raw) }
         // The save inside acknowledgeSynced changes NULL baseline successfully;
         // its following direct baseline update fails and rolls that save back.
-        #expect(sqlite3_exec(raw, "CREATE TRIGGER hm_fail_ack BEFORE UPDATE OF baseline_json ON qsos WHEN OLD.baseline_json IS NOT NULL AND NEW.baseline_json = OLD.baseline_json BEGIN SELECT RAISE(\(behavior), 'forced HM rollback'); END;", nil, nil, nil) == SQLITE_OK)
+        #expect(sqlite3_exec(raw, "CREATE TRIGGER hm_fail_ack BEFORE UPDATE OF baseline_json ON qsos WHEN OLD.baseline_json IS NOT NULL BEGIN SELECT RAISE(\(behavior), 'forced HM rollback'); END;", nil, nil, nil) == SQLITE_OK)
         _ = try db.hmControlLogbook(resolver: resolver)
         do { try db.acknowledgeSynced(try #require(try db.lookup(localID: qso.id))); Issue.record("Expected fixture rollback") }
         catch { #expect(String(describing: error).contains("forced HM rollback")) }

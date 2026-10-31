@@ -89,6 +89,16 @@ public struct ContactHistoryRow: Decodable, Sendable {
         gridSquare = qso.gridSquare; rstSent = qso.rstSent; rstReceived = qso.rstReceived
         deletedAt = qso.deletedAt
     }
+
+    fileprivate init(id: UUID, call: String, start: Date, band: String, mode: String,
+                     submode: String, dxcc: Int?, qslReceived: String, lotwReceived: String,
+                     lotwSent: String, gridSquare: String, rstSent: String, rstReceived: String,
+                     deletedAt: Date?) {
+        self.id = id; self.call = call; self.start = start; self.band = band; self.mode = mode
+        self.submode = submode; self.dxcc = dxcc; self.qslReceived = qslReceived
+        self.lotwReceived = lotwReceived; self.lotwSent = lotwSent; self.gridSquare = gridSquare
+        self.rstSent = rstSent; self.rstReceived = rstReceived; self.deletedAt = deletedAt
+    }
 }
 
 public final class LogbookDatabase: @unchecked Sendable {
@@ -99,7 +109,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
     private static let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-    private var cachedDataVersion: Int?
+    private var cachedAggregateRevision: Int64?
     private var cachedStats: LogbookStats?
     private var cachedStatsYearStart: TimeInterval?
     private var cachedAwards: AwardProgressSnapshot?
@@ -120,6 +130,8 @@ public final class LogbookDatabase: @unchecked Sendable {
     private var hmControlDirtyIDs = Set<String>()
     private var hmControlKnownWrites: Int64 = 0
     private(set) var hmControlFullProjectionBuilds = 0
+    // Internal deterministic interleaving seam; ordinary callers leave this nil.
+    var beforeHMControlFullProjectionRead: (() throws -> Void)?
     // Eligibility is never restored from disk. A reopened/restored database
     // requires a new native arm before any persisted scope can receive samples.
     private var operatorPowerScopeID: UUID?
@@ -2490,23 +2502,91 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// before JSON decoding; nil-DXCC rows remain candidates because their
     /// historical entity may be resolved from CTY at the QSO date.
     public func historyCandidates(call: String, adif: Int?) throws -> [QSO] {
-        try historyCandidates(call: call, adif: adif, as: QSO.self, callOf: { $0.call })
+        try historyCandidates(call: call, adif: adif, readRows: { try decodeRows($0) }, callOf: { $0.call })
     }
 
     public func historyRows(call: String, adif: Int?) throws -> [ContactHistoryRow] {
-        try historyCandidates(call: call, adif: adif, as: ContactHistoryRow.self, callOf: { $0.call })
+        try historyCandidates(call: call, adif: adif, projection: Self.contactHistoryColumns,
+            readRows: decodeContactHistoryRows, callOf: { $0.call })
     }
 
-    private func historyCandidates<T: Decodable>(call: String, adif: Int?, as type: T.Type,
-                                                  callOf: (T) -> String) throws -> [T] {
+    // An OR under INDEXED BY scans the entire callsign index. Independent UNION
+    // arms keep both the exact call and portable prefix as bounded index seeks.
+    private static let normalLogCallCandidates = """
+        SELECT local_id FROM qsos INDEXED BY idx_qsos_call_live_nocase
+        WHERE deleted_at IS NULL AND call = ? COLLATE NOCASE
+        UNION
+        SELECT local_id FROM qsos INDEXED BY idx_qsos_call_live_nocase
+        WHERE deleted_at IS NULL AND call COLLATE NOCASE LIKE ? ESCAPE '\\'
+        """
+
+    private static let contactHistoryColumns = ["id", "call", "start", "band", "mode", "submode", "dxcc",
+        "qslReceived", "lotwReceived", "lotwSent", "gridSquare", "rstSent", "rstReceived", "deletedAt"]
+        .map { field in
+            let value = "json_extract(qsos.record_json,'$.\(field)')"
+            // JSON booleans become SQLite integers; retain the JSON decoder's
+            // rejection of Boolean values in numeric Date/DXCC fields.
+            return ["start", "dxcc", "deletedAt"].contains(field)
+                ? "CASE WHEN json_type(qsos.record_json,'$.\(field)') IN ('true','false') THEN '' ELSE \(value) END"
+                : value
+        }.joined(separator: ",") + ",json_valid(qsos.record_json)"
+
+    /// Avoid transferring/parsing unrelated comments and arbitrary ADIF fields
+    /// for every contact in a country. Read Date doubles directly so projection
+    /// does not round them through SQLite's JSON text serialization.
+    private func decodeContactHistoryRows(_ statement: OpaquePointer?) throws -> [ContactHistoryRow] {
+        func text(_ column: Int32) throws -> String {
+            guard sqlite3_column_type(statement, column) == SQLITE_TEXT,
+                  let value = sqlite3_column_text(statement, column),
+                  let text = String(bytes: UnsafeBufferPointer(start: value,
+                    count: Int(sqlite3_column_bytes(statement, column))), encoding: .utf8) else {
+                throw LogbookDatabaseError.corruptRecord
+            }
+            return text
+        }
+        func date(_ column: Int32) throws -> Date {
+            guard [SQLITE_INTEGER, SQLITE_FLOAT].contains(sqlite3_column_type(statement, column)) else {
+                throw LogbookDatabaseError.corruptRecord
+            }
+            let value = sqlite3_column_double(statement, column)
+            guard value.isFinite else { throw LogbookDatabaseError.corruptRecord }
+            return Date(timeIntervalSinceReferenceDate: value)
+        }
+        var values: [ContactHistoryRow] = [], step = sqlite3_step(statement)
+        while step == SQLITE_ROW {
+            // json_extract accepts JSON5 on newer SQLite versions, whereas the
+            // previous JSONDecoder path accepted only strict JSON records.
+            guard sqlite3_column_int(statement, 14) == 1 else { throw LogbookDatabaseError.corruptRecord }
+            guard let id = UUID(uuidString: try text(0)) else { throw LogbookDatabaseError.corruptRecord }
+            let dxcc: Int?
+            switch sqlite3_column_type(statement, 6) {
+            case SQLITE_NULL: dxcc = nil
+            case SQLITE_INTEGER: dxcc = Int(exactly: sqlite3_column_int64(statement, 6))
+                guard dxcc != nil else { throw LogbookDatabaseError.corruptRecord }
+            case SQLITE_FLOAT: dxcc = Int(exactly: sqlite3_column_double(statement, 6))
+                guard dxcc != nil else { throw LogbookDatabaseError.corruptRecord }
+            default: throw LogbookDatabaseError.corruptRecord
+            }
+            values.append(ContactHistoryRow(id: id, call: try text(1), start: try date(2),
+                band: try text(3), mode: try text(4), submode: try text(5), dxcc: dxcc,
+                qslReceived: try text(7), lotwReceived: try text(8), lotwSent: try text(9),
+                gridSquare: try text(10), rstSent: try text(11), rstReceived: try text(12),
+                deletedAt: sqlite3_column_type(statement, 13) == SQLITE_NULL ? nil : try date(13)))
+            step = sqlite3_step(statement)
+        }
+        guard step == SQLITE_DONE else { throw error() }
+        return values
+    }
+
+    private func historyCandidates<T>(call: String, adif: Int?, projection: String = "qsos.record_json",
+                                      readRows: (OpaquePointer?) throws -> [T], callOf: (T) -> String) throws -> [T] {
         let base = NormalLogCallsignIdentity.base(call)
         let prefix = normalLogCallPrefix(base)
         return try withDatabaseLock {
             if let adif {
                 return try withStatement("""
                     WITH candidates AS (
-                        SELECT local_id FROM qsos INDEXED BY idx_qsos_call_live_nocase
-                        WHERE deleted_at IS NULL AND (call = ? COLLATE NOCASE OR call COLLATE NOCASE LIKE ? ESCAPE '\\')
+                        \(Self.normalLogCallCandidates)
                         UNION
                         SELECT local_id FROM qsos INDEXED BY idx_qsos_dxcc_live
                         WHERE deleted_at IS NULL AND CAST(json_extract(record_json,'$.dxcc') AS INTEGER) = ?
@@ -2514,23 +2594,23 @@ public final class LogbookDatabase: @unchecked Sendable {
                         SELECT local_id FROM qsos INDEXED BY idx_qsos_dxcc_live
                         WHERE deleted_at IS NULL AND CAST(json_extract(record_json,'$.dxcc') AS INTEGER) IS NULL
                     )
-                    SELECT qsos.record_json FROM candidates JOIN qsos USING(local_id)
+                    SELECT \(projection) FROM candidates JOIN qsos USING(local_id)
                     ORDER BY qsos.qso_start DESC;
                     """) { statement in
                         bind(base, to: 1, in: statement)
                         bind(prefix, to: 2, in: statement)
                         sqlite3_bind_int(statement, 3, Int32(adif))
-                        return try decodeRows(statement, as: type)
+                        return try readRows(statement)
                     }
             }
             return try withStatement("""
-                SELECT record_json FROM qsos WHERE deleted_at IS NULL
-                    AND (call = ? COLLATE NOCASE OR call COLLATE NOCASE LIKE ? ESCAPE '\\')
-                ORDER BY qso_start DESC;
+                WITH candidates AS (\(Self.normalLogCallCandidates))
+                SELECT \(projection) FROM candidates JOIN qsos USING(local_id)
+                ORDER BY qsos.qso_start DESC;
                 """) { statement in
                     bind(base, to: 1, in: statement)
                     bind(prefix, to: 2, in: statement)
-                    return try decodeRows(statement, as: type).filter { NormalLogCallsignIdentity.matches(callOf($0), call) }
+                    return try readRows(statement).filter { NormalLogCallsignIdentity.matches(callOf($0), call) }
                 }
         }
     }
@@ -2574,7 +2654,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// One display projection of the live log. Known same-connection mutations
     /// patch retained contacts; external/unknown revisions rebuild authoritatively.
     public func hmControlLogbook(resolver: CTYResolver) throws -> HMControlLogbook {
-        try withDatabaseLock {
+        try withDatabaseReadSnapshot {
             try refreshAggregateCacheVersion()
             let revision = try qsoRevision(), currentEntities = resolver.entities
             let entities = Dictionary(currentEntities.map { ($0.adif, $0) }, uniquingKeysWith: { first, _ in first })
@@ -2597,6 +2677,7 @@ public final class LogbookDatabase: @unchecked Sendable {
             }
             // Preserve only announcement flags across an authoritative rebuild.
             invalidateHMControlProjection()
+            try beforeHMControlFullProjectionRead?()
             let result = try withStatement("SELECT \(Self.hmControlColumns) FROM qsos WHERE deleted_at IS NULL ORDER BY qso_start DESC, local_id;") { statement -> HMControlLogbook in
                 var total = 0, located = 0, approximate = 0
                 var contacts: [String: HMControlContact] = [:], cells: [String: Set<String>] = [:]
@@ -2788,8 +2869,7 @@ public final class LogbookDatabase: @unchecked Sendable {
         let base = NormalLogCallsignIdentity.base(call), prefix = normalLogCallPrefix(NormalLogCallsignIdentity.base(call))
         return try withDatabaseLock {
             try withStatement("""
-                SELECT record_json FROM qsos WHERE deleted_at IS NULL
-                    AND (call = ? COLLATE NOCASE OR call COLLATE NOCASE LIKE ? ESCAPE '\\')
+                SELECT record_json FROM qsos WHERE local_id IN (\(Self.normalLogCallCandidates))
                 ORDER BY qso_start DESC;
                 """) { statement in
                 bind(base, to: 1, in: statement); bind(prefix, to: 2, in: statement)
@@ -2804,8 +2884,8 @@ public final class LogbookDatabase: @unchecked Sendable {
         let base = NormalLogCallsignIdentity.base(call), prefix = normalLogCallPrefix(NormalLogCallsignIdentity.base(call))
         return try withDatabaseLock {
             try withStatement("""
-                SELECT record_json FROM qsos INDEXED BY idx_qsos_call_live_nocase
-                WHERE deleted_at IS NULL AND (call = ? COLLATE NOCASE OR call COLLATE NOCASE LIKE ? ESCAPE '\\')
+                SELECT record_json FROM qsos
+                WHERE local_id IN (\(Self.normalLogCallCandidates))
                   AND band = ? COLLATE NOCASE
                   AND CASE UPPER(TRIM(COALESCE(NULLIF(TRIM(json_extract(record_json,'$.submode')),''), mode)))
                     WHEN 'USB' THEN 'SSB' WHEN 'LSB' THEN 'SSB' WHEN 'CWR' THEN 'CW' WHEN 'RTTYR' THEN 'RTTY'
@@ -3168,17 +3248,17 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
-    /// SQLite's data_version changes for commits made by other connections;
-    /// this connection invalidates directly in save(), including sync merges.
+    /// SQLite triggers advance this token for every QSO insert/update/delete,
+    /// including raw external writers. Unrelated settings, draft or derived-cache
+    /// commits must not evict an otherwise current full-log read projection.
     private func refreshAggregateCacheVersion() throws {
-        let version = try withStatement("PRAGMA data_version;") { statement in
-            guard sqlite3_step(statement) == SQLITE_ROW else {
-                throw LogbookDatabaseError.sqlite(String(cString: sqlite3_errmsg(handle)))
-            }
-            return Int(sqlite3_column_int64(statement, 0))
+        let revision = try qsoRevision()
+        if let cachedAggregateRevision, cachedAggregateRevision != revision {
+            // HM validates its own durable revision and exact known-write delta
+            // before reusing these hints; unknown changes still force a rebuild.
+            invalidateQSOAggregates(hmChangedIDs: [])
         }
-        if let cachedDataVersion, cachedDataVersion != version { invalidateQSOAggregates() }
-        cachedDataVersion = version
+        cachedAggregateRevision = revision
     }
 
     private func invalidateQSOAggregates(hmChangedIDs: [UUID]? = nil) {
@@ -3212,8 +3292,7 @@ public final class LogbookDatabase: @unchecked Sendable {
             // A history page is not an award matrix: an older confirmation
             // must remain visible even after thousands of recent contacts.
             try withStatement("""
-                SELECT record_json FROM qsos WHERE deleted_at IS NULL
-                    AND (call = ? COLLATE NOCASE OR call COLLATE NOCASE LIKE ? ESCAPE '\\');
+                SELECT record_json FROM qsos WHERE local_id IN (\(Self.normalLogCallCandidates));
                 """) { statement in
                 bind(base, to: 1, in: statement); bind(prefix, to: 2, in: statement)
                 let qsos: [QSO] = try decodeRows(statement)
@@ -3718,6 +3797,24 @@ public final class LogbookDatabase: @unchecked Sendable {
         return try lock.withLock(body)
     }
 
+    /// Pin revision and projected rows to one WAL snapshot. A caller which
+    /// already owns a transaction retains its commit/rollback responsibility.
+    private func withDatabaseReadSnapshot<T>(_ body: () throws -> T) throws -> T {
+        try withDatabaseLock {
+            guard let handle else { throw LogbookDatabaseError.closed }
+            guard sqlite3_get_autocommit(handle) != 0 else { return try body() }
+            try execute("BEGIN DEFERRED;")
+            do {
+                let result = try body()
+                try execute("COMMIT;")
+                return result
+            } catch {
+                try? execute("ROLLBACK;")
+                throw error
+            }
+        }
+    }
+
     public func conflicts() throws -> [SyncConflict] {
         try withDatabaseLock {
             try withStatement("SELECT conflict_json FROM sync_conflicts ORDER BY detected_at DESC;") { statement in
@@ -4196,10 +4293,14 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     private func execute(_ sql: String) throws {
-        // Clear hints before attempting rollback: SQLite may have already
-        // auto-rolled back, in which case an explicit ROLLBACK itself fails.
+        // A rolled-back revision can be reused by a later commit. Discard every
+        // value computed inside that transaction, before even attempting rollback:
+        // SQLite may have auto-rolled back already, making this statement fail.
         if sql.trimmingCharacters(in: .whitespacesAndNewlines).uppercased().hasPrefix("ROLLBACK") {
-            invalidateHMControlProjection()
+            invalidateQSOAggregates()
+            cachedAggregateRevision = nil
+            hmControlFlags = nil
+            hmControlRevision = nil
         }
         guard sqlite3_exec(handle, sql, nil, nil, nil) == SQLITE_OK else { throw error() }
     }
