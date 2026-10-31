@@ -54,13 +54,17 @@ actor SpotForwardBroker {
         let version: Int
         var spots: [InventoryEntry]
     }
-    private struct PendingDelivery: Codable {
+    private struct PendingDelivery: Codable, Equatable {
         let id: UUID
         let provider: String
         let callsign: String
         let frequencyHz: Int64
         let owner: String
         var radioID: String?
+        var attemptedAt: TimeInterval?
+        var lifetimeSeconds: Int?
+        var attemptCount: Int?
+        var lastAttemptID: UUID?
     }
 
     private static let defaultInventoryURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -74,19 +78,12 @@ actor SpotForwardBroker {
             "lifetime_seconds": spot.lifetimeSeconds, "priority": spot.priority,
             "color_hex": spot.colorHex
         ]
-        var lastError: Error?
-        for radioID in preferredRadioID.map({ [$0] }) ?? ["radio1", "radio2"] {
-            do {
-                let result = try await LiveStationMethods.handle("station_add_spot", params: [
-                    "provider": provider, "radio_id": radioID, "spot": payload
-                ])
-                guard result["accepted"] as? Bool == true else {
-                    throw WorkerFailure("station_rejected", "The selected radio did not accept the spot.")
-                }
-                return radioID
-            } catch { lastError = error }
+        return try await SpotDeliveryAdmission.addSpot(provider: provider, preferredRadioID: preferredRadioID) { radioID in
+            let result = try await LiveStationMethods.handle("station_add_spot", params: [
+                "provider": provider, "radio_id": radioID, "spot": payload
+            ])
+            return result["accepted"] as? Bool == true
         }
-        throw lastError ?? WorkerFailure("station_rejected", "No configured radio accepted the spot.")
     }, targetedRemove: { spot, provider, acceptedRadioID in
         guard let radioID = acceptedRadioID else {
             throw WorkerFailure("station_rejected", "The accepted radio identity for this xLog spot is unavailable.")
@@ -109,6 +106,7 @@ actor SpotForwardBroker {
     private var pending: Set<String> = []
     private var pendingAcceptances: [String: (owner: String, at: Date)] = [:]
     private var unresolvedDeliveries: [UUID: PendingDelivery] = [:]
+    private var unsettledPersistence: [UUID: (intent: PendingDelivery, discard: Bool)] = [:]
     private var retiringOwners: Set<String> = []
     private var pendingWaiters: [String: [UUID: CheckedContinuation<Void, Error>]] = [:]
 
@@ -182,33 +180,60 @@ actor SpotForwardBroker {
         pendingAcceptances[pendingKey] = (owner, now)
         defer { finishPending(pendingKey) }
         var intent: PendingDelivery?
-        if let store = try durableInventory() {
-            let value = PendingDelivery(id: UUID(), provider: provider, callsign: spot.callsign,
-                frequencyHz: spot.frequencyHz, owner: owner, radioID: nil)
-            try store.beginDelivery(value.id.uuidString, payload: JSONEncoder().encode(value))
+        let store = try durableInventory()
+        if let store {
+            // A previous storage failure may have prevented release of a settled
+            // attempt. Retry that bookkeeping before admitting another wire call.
+            try settlePendingPersistence(store)
+            let identity = "\(owner)|\(provider)|\(spot.callsign)|\(spot.frequencyHz)"
+            var priorRadioPreference: String?
+            let reservation = try store.reserveDelivery(identity: identity, leaseIdentity: pendingKey) { key, prior in
+                let previous = try prior.map { try JSONDecoder().decode(PendingDelivery.self, from: $0) }
+                guard let id = UUID(uuidString: key), previous == nil ||
+                    (previous?.owner == owner && previous?.provider == provider &&
+                     previous?.callsign == spot.callsign && previous?.frequencyHz == spot.frequencyHz) else {
+                    throw WorkerFailure("spot_inventory_invalid", "The retained radio spot retry identity is invalid.")
+                }
+                priorRadioPreference = previous?.radioID
+                let value = PendingDelivery(id: id, provider: provider, callsign: spot.callsign,
+                    frequencyHz: spot.frequencyHz, owner: owner, radioID: nil,
+                    attemptedAt: now.timeIntervalSince1970,
+                    lifetimeSeconds: spot.lifetimeSeconds, attemptCount: 1, lastAttemptID: id)
+                return try JSONEncoder().encode(value)
+            }
+            let value = try JSONDecoder().decode(PendingDelivery.self, from: reservation.payload)
             unresolvedDeliveries[value.id] = value
             intent = value
+            preferredRadioID = preferredRadioID ?? priorRadioPreference
         }
-        let radioID = try await deliver(spot, provider, preferredRadioID)
-        accepted[key] = (now, spot.priority, radioID)
-        if let radioID {
-            intent?.radioID = radioID
-            if let intent { unresolvedDeliveries[intent.id] = intent }
-            do {
+        do {
+            let radioID = try await deliver(spot, provider, preferredRadioID)
+            accepted[key] = (now, spot.priority, radioID)
+            if let radioID {
+                intent?.radioID = radioID
+                if let intent { unresolvedDeliveries[intent.id] = intent }
                 try persistAccepted(spot, provider: provider, radioID: radioID, acceptedAt: now,
                                     finishingDelivery: intent?.id.uuidString)
                 if let intent { unresolvedDeliveries.removeValue(forKey: intent.id) }
             }
-            catch {
-                accepted.removeValue(forKey: key)
-                // A failed accepted-receipt write must not erase the pre-wire
-                // uncertainty. Retain the ACK's exact radio when storage works.
-                if let intent { try? durableInventory()?.retainDelivery(intent.id.uuidString, payload: JSONEncoder().encode(intent)) }
-                // Cosmetic compensation is deferred too: an inline remove
-                // could stall this add's settlement and the module switch.
-                // Later exact cleanup owns the retained intent and its ACK.
-                throw error
+        } catch {
+            accepted.removeValue(forKey: key)
+            if let store, let intent {
+                // Only the transport's typed proof that no radio attempt was
+                // admitted can discard this exact new attempt. Older quarantined
+                // uncertainty has a different ID and is never removed by it.
+                let discard = error is ConfirmedSpotDeliveryNotAdmitted
+                unsettledPersistence[intent.id] = (intent, discard)
+                if discard {
+                    try store.removeDelivery(intent.id.uuidString)
+                    unresolvedDeliveries.removeValue(forKey: intent.id)
+                } else {
+                    try store.quarantineDelivery(intent.id.uuidString, payload: JSONEncoder().encode(intent))
+                    unresolvedDeliveries.removeValue(forKey: intent.id)
+                }
+                unsettledPersistence.removeValue(forKey: intent.id)
             }
+            throw error
         }
         if accepted.count > 4_096 {
             for old in accepted.sorted(by: { $0.value.at < $1.value.at }).prefix(1_024) {
@@ -227,11 +252,14 @@ actor SpotForwardBroker {
         }
         guard pending.insert(pendingKey).inserted else { return false }
         defer { finishPending(pendingKey) }
+        let store = try durableInventory()
+        let cleanupLease = try store?.claimCleanup(leaseIdentity: pendingKey)
+        defer { if let cleanupLease { try? store?.releaseCleanup(cleanupLease) } }
         let radioID: String?
         if let acceptedRadioID = accepted[key]?.radioID { radioID = acceptedRadioID }
         else { radioID = try persistedRadioID(for: spot, provider: provider) }
         if let radioID {
-            try requireOwnerScopedTCIRemoval(provider: provider, radioID: radioID, callsign: spot.callsign,
+            try requireOwnerScopedTCIRemoval(provider: provider, radioID: radioID, callsign: spot.callsign, frequencyHz: spot.frequencyHz,
                                             owner: spot.source == "xLog Contest" ? "contesting" : "normal_logging")
         }
         try await removeDelivery(spot, provider, radioID)
@@ -290,16 +318,30 @@ actor SpotForwardBroker {
         // fresh receipt and falsely report successful retirement.
         try await drainPendingAcceptances(owner: owner, acceptedBefore: cutoff)
         var removed = 0, firstFailure: Error?
-        for intent in try pendingDeliveryInventory().values.filter({ $0.owner == owner }) {
+        for intent in try pendingDeliveryInventory().values.filter({
+            $0.owner == owner && ($0.attemptedAt == nil || $0.attemptedAt! < cutoff.timeIntervalSince1970)
+        }) {
             do {
                 guard let radioID = intent.radioID else {
                     throw WorkerFailure("spot_delivery_unknown", "A prior spot delivery has no confirmed radio identity; its cleanup remains unresolved.")
                 }
                 let key = reservationKey(provider: intent.provider, callsign: intent.callsign, frequencyHz: intent.frequencyHz)
                 try await awaitPending(key)
+                let store = try durableInventory()
+                let cleanupLease = try store?.claimCleanup(leaseIdentity: key)
+                defer { if let cleanupLease { try? store?.releaseCleanup(cleanupLease) } }
+                guard try pendingDeliveryInventory()[intent.id] == intent else { continue }
+                let current = try loadInventory()
+                guard !current.spots.contains(where: {
+                    $0.provider == intent.provider && $0.radioID == radioID && $0.callsign == intent.callsign
+                        && (intent.provider == "direct_tci" || $0.frequencyHz == intent.frequencyHz)
+                        && $0.acceptedAt >= cutoff.timeIntervalSince1970
+                }) else {
+                    throw WorkerFailure("spot_delivery_unknown", "A fresh radio spot prevents removal of an older retained uncertainty.")
+                }
                 pending.insert(key)
                 defer { finishPending(key) }
-                try requireOwnerScopedTCIRemoval(provider: intent.provider, radioID: radioID, callsign: intent.callsign, owner: owner)
+                try requireOwnerScopedTCIRemoval(provider: intent.provider, radioID: radioID, callsign: intent.callsign, frequencyHz: intent.frequencyHz, owner: owner)
                 let spot = try FlexSpot(frequencyHz: intent.frequencyHz, callsign: intent.callsign, mode: "CW",
                     source: "xLog module transition", spotter: "", comment: "", timestamp: Int64(Date().timeIntervalSince1970),
                     lifetimeSeconds: 600, priority: 1, colorHex: "#AEB5B7")
@@ -334,6 +376,9 @@ actor SpotForwardBroker {
                 guard pending.count < 256 else {
                     throw WorkerFailure("spot_broker_busy", "Spot forwarding is busy; prior cleanup will retry.")
                 }
+                let store = try durableInventory()
+                let cleanupLease = try store?.claimCleanup(leaseIdentity: key)
+                defer { if let cleanupLease { try? store?.releaseCleanup(cleanupLease) } }
                 pending.insert(key)
                 defer { finishPending(key) }
                 // An earlier await may have allowed a fresh repaint. Only the
@@ -341,7 +386,7 @@ actor SpotForwardBroker {
                 let current = try loadInventory()
                 guard current.spots.contains(entry) else { continue }
                 try requireOwnerScopedTCIRemoval(provider: entry.provider, radioID: entry.radioID,
-                                                callsign: entry.callsign, owner: owner)
+                                                callsign: entry.callsign, frequencyHz: entry.frequencyHz, owner: owner)
                 // TCI deletes by callsign, not frequency. A current sibling on
                 // this radio supersedes the old receipt; deleting it remotely
                 // would also erase the newly accepted spot.
@@ -404,9 +449,20 @@ actor SpotForwardBroker {
         for waiter in waiters.values { waiter.resume(returning: ()) }
     }
 
+    private func settlePendingPersistence(_ store: SpotInventoryStore) throws {
+        for (id, settlement) in unsettledPersistence {
+            if settlement.discard { try store.removeDelivery(id.uuidString) }
+            else { try store.quarantineDelivery(id.uuidString, payload: JSONEncoder().encode(settlement.intent)) }
+            unsettledPersistence.removeValue(forKey: id)
+            unresolvedDeliveries.removeValue(forKey: id)
+        }
+    }
+
     private func pendingDeliveryInventory() throws -> [UUID: PendingDelivery] {
-        var result = unresolvedDeliveries
-        for payload in try durableInventory()?.pendingDeliveries() ?? [] {
+        let store = try durableInventory()
+        if let store { try settlePendingPersistence(store) }
+        var result: [UUID: PendingDelivery] = store == nil ? unresolvedDeliveries : [:]
+        for payload in try store?.pendingDeliveries() ?? [] {
             let value = try JSONDecoder().decode(PendingDelivery.self, from: payload)
             guard ["direct_agent", "direct_tci"].contains(value.provider),
                   ["normal_logging", "contesting"].contains(value.owner),
@@ -415,21 +471,22 @@ actor SpotForwardBroker {
                   (100_000...60_000_000).contains(value.frequencyHz) else {
                 throw WorkerFailure("spot_inventory_invalid", "The pending radio spot inventory is invalid; no cleanup was acknowledged.")
             }
-            if result[value.id] == nil { result[value.id] = value }
+            result[value.id] = value
         }
         return result
     }
 
-    private func requireOwnerScopedTCIRemoval(provider: String, radioID: String, callsign: String, owner: String) throws {
-        guard provider == "direct_tci" else { return }
+    private func requireOwnerScopedTCIRemoval(provider: String, radioID: String, callsign: String, frequencyHz: Int64, owner: String) throws {
         let acceptedConflict = try loadInventory().spots.contains {
             $0.provider == provider && $0.radioID == radioID && $0.callsign == callsign && $0.owner != owner
+                && (provider == "direct_tci" || $0.frequencyHz == frequencyHz)
         }
         let pendingConflict = try pendingDeliveryInventory().values.contains {
             $0.provider == provider && ($0.radioID == nil || $0.radioID == radioID) && $0.callsign == callsign && $0.owner != owner
+                && (provider == "direct_tci" || $0.frequencyHz == frequencyHz)
         }
         guard !acceptedConflict, !pendingConflict else {
-            throw WorkerFailure("spot_owner_conflict", "TCI deletes every spot for this callsign; another publisher's retained spot prevents owner-scoped cleanup.")
+            throw WorkerFailure("spot_owner_conflict", "Another publisher's retained spot prevents owner-scoped cleanup of this radio identity.")
         }
     }
 
