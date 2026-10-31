@@ -71,7 +71,7 @@ private actor CaptureWriter {
         try journal.write(contentsOf:line)
         bytes+=data.count;samples+=UInt64(block.packet.samples.count/2);blocks+=1
     }
-    func finish(error:String?,phase:String,identity:FlexIQIdentity?,verifyOnly:Bool,diagnostics:[FlexIQDiagnosticEvent]) throws -> [String:Any] {
+    func finish(error:String?,phase:String,identity:FlexIQIdentity?,verifyOnly:Bool,diagnostics:[FlexIQDiagnosticEvent],inputDiagnostics:FlexIQInputDiagnostics?,reportedClientAddress:String?) throws -> [String:Any] {
         try iq.synchronize();try journal.synchronize();try iq.close();try journal.close()
         var selection:[String:Any]=["host":options.connection.host,"station":options.connection.station,"panadapter":options.panadapter,"daxIQChannel":options.channel]
         if let serial=options.expectedSerial {selection["expectedSerial"]=serial}
@@ -95,6 +95,8 @@ private actor CaptureWriter {
         if let error{result["error"]=error}
         if let identity {result["verifiedDiscoveryIdentity"]=["model":identity.model,"serial":identity.serial,"address":identity.address,"controlPort":Int(identity.controlPort)]}
         result["controlDiagnostics"]=try JSONSerialization.jsonObject(with:JSONEncoder().encode(diagnostics))
+        result["udpInputDiagnostics"]=try inputDiagnostics.map{try JSONSerialization.jsonObject(with:JSONEncoder().encode($0))} ?? NSNull()
+        result["radioReportedClientAddress"]=reportedClientAddress.map{$0 as Any} ?? NSNull()
         let data=try JSONSerialization.data(withJSONObject:result,options:[.prettyPrinted,.sortedKeys])
         try data.write(to:options.directory.appendingPathComponent("capture.json"),options:.withoutOverwriting)
         return result
@@ -127,6 +129,7 @@ enum CWFlexCapture {
         let lease=UUID()
         var failure:String?
         var phase="preflight",identity:FlexIQIdentity?
+        var reportedClientAddress:String?
         do {
             await client.start()
             var inventory=await client.iqCapabilities()
@@ -135,6 +138,7 @@ enum CWFlexCapture {
                 try await Task.sleep(for:.milliseconds(500));inventory=await client.iqCapabilities()
             }
             guard inventory.ready,inventory.transmitStateKnownOff,inventory.panadapters.contains(where:{$0.id==options.panadapter && $0.channel==options.channel && $0.clientHandle==inventory.stationHandle}) else{throw CaptureFailure("Selected Station/panadapter/channel lacks fresh receive readiness.")}
+            reportedClientAddress=try? await client.inspectIQClientAddress()
             phase="physical_discovery_and_handoff"
             try await client.authorizeIQHandoff(panadapterID:options.panadapter,inventoryRevision:inventory.inventoryRevision)
             let verified=await client.iqCapabilities()
@@ -158,7 +162,7 @@ enum CWFlexCapture {
         } catch {failure="\(phase): \(error)"}
         // Never ordinary stop(): it can release unrelated radio output.
         await client.stopIQ(leaseID:lease);await client.stopTransportOnly()
-        let result=try await writer.finish(error:failure,phase:phase,identity:identity,verifyOnly:verifyOnly,diagnostics:client.iqDiagnostics())
+        let result=try await writer.finish(error:failure,phase:phase,identity:identity,verifyOnly:verifyOnly,diagnostics:client.iqDiagnostics(),inputDiagnostics:client.iqInputDiagnostics(),reportedClientAddress:reportedClientAddress)
         try FileHandle.standardOutput.write(contentsOf:JSONSerialization.data(withJSONObject:result,options:[.prettyPrinted,.sortedKeys]));print("")
         if let failure{throw CaptureFailure(failure)}
         if !verifyOnly && result["status"] as? String != "captured_unqualified_iq" {throw CaptureFailure("No usable IQ capture arrived.")}

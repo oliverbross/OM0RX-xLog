@@ -135,6 +135,12 @@ held-out evaluation. AC30/P8/P9 remain outside this Mac launch.
   or negative band-hours. Fifteen corpus/provenance and existing scoring-fixture
   tests pass; an outer-space operator alias first reproduced split leakage, then
   is rejected. Input format and limits are in `NATIVE_REPLAY.md`.
+- NL-07 owned cleanup now survives the no-data watchdog and is awaited by startup,
+  lease Stop and transport close; 19 lifecycle cases pass. The registered UDP port
+  remains fixed across Stop/Start; bounded input counters and a read-only numeric
+  `client ip` diagnostic pass 22 cases plus the occupied-port case. The radio
+  observes this Mac at 10.8.0.10. Live UDP arrival and original removal ACK remain
+  pending; no provider/RF/quality gate is promoted. See `FLEX_IQ.md`.
 
 Private raw tool receipts and reference copies are retained under
 `.build/cw-completion-20261030` and lossless lean-ctx archives. No production

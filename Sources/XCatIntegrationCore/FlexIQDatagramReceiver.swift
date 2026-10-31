@@ -6,7 +6,23 @@ import Foundation
 private final class FlexIQConnectionAdmission:@unchecked Sendable {
     private let lock=NSLock()
     private var claimed=false
-    func claim()->Bool{lock.lock();defer{lock.unlock()};guard !claimed else{return false};claimed=true;return true}
+    private var candidates=0,wrongPeer=0,wrongPort=0,extra=0
+    private var firstRejected:String?
+    func claim(host:NWEndpoint.Host,port:NWEndpoint.Port,peer:NWEndpoint.Host,sourcePort:NWEndpoint.Port)->Bool {
+        lock.lock();defer{lock.unlock()}
+        if candidates<Int.max{candidates+=1}
+        if host != peer {
+            if wrongPeer<Int.max{wrongPeer+=1}
+        } else if port != sourcePort {
+            if wrongPort<Int.max{wrongPort+=1}
+        } else if !claimed {claimed=true;return true}
+        else {if extra<Int.max{extra+=1}}
+        if firstRejected==nil {firstRejected=String("\(host):\(port.rawValue)".prefix(80))}
+        return false
+    }
+    func counts()->(Int,Int,Int,Int,String?) {
+        lock.lock();defer{lock.unlock()};return(candidates,wrongPeer,wrongPort,extra,firstRejected)
+    }
 }
 
 /// One owned UDP destination per control connection. One outstanding receive and
@@ -21,6 +37,10 @@ actor FlexIQDatagramReceiver {
     private var ready=false
     private var ended=false
     private var failure:(any Error)?
+    private let admission=FlexIQConnectionAdmission()
+    private var destinationPort:UInt16?
+    private var datagrams=0,byteCount:UInt64=0,firstPacketBytes:Int?
+    private var overflow=false,readFailed=false
     private let output:AsyncThrowingStream<Datagram,Error>
     private let continuation:AsyncThrowingStream<Datagram,Error>.Continuation
     init(peer:NWEndpoint.Host,sourcePort:UInt16) {
@@ -34,18 +54,19 @@ actor FlexIQDatagramReceiver {
         let next=try NWListener(using:parameters,on:NWEndpoint.Port(rawValue:port)!)
         listener=next
         next.stateUpdateHandler={[weak self] state in Task{await self?.state(state)}}
-        let admission=FlexIQConnectionAdmission(),peer=self.peer,sourcePort=self.sourcePort
+        let admission=self.admission,peer=self.peer,sourcePort=self.sourcePort
         next.newConnectionHandler={[weak self] connection in
             // Reject unrelated peers before allocating a Task. At most one
             // peer can be admitted for the lifetime of this destination.
-            guard case let .hostPort(host,port)=connection.endpoint,host==peer,port==sourcePort,admission.claim() else{connection.cancel();return}
+            guard case let .hostPort(host,port)=connection.endpoint,
+                  admission.claim(host:host,port:port,peer:peer,sourcePort:sourcePort) else{connection.cancel();return}
             Task{await self?.accept(connection)}
         }
         next.start(queue:queue)
         for _ in 0..<100 {
             try Task.checkCancellation()
             if let failure{throw failure}
-            if ready,let port=next.port{return (port.rawValue,output)}
+            if ready,let port=next.port{destinationPort=port.rawValue;return (port.rawValue,output)}
             try await Task.sleep(for:.milliseconds(20))
         }
         stop();throw FlexIQSubscriptionError.noData
@@ -53,6 +74,14 @@ actor FlexIQDatagramReceiver {
     func stop() {
         ended=true;ready=false;connection?.cancel();connection=nil;listener?.cancel();listener=nil
         continuation.finish()
+    }
+    func diagnostics()->FlexIQInputDiagnostics {
+        let counts=admission.counts()
+        return FlexIQInputDiagnostics(expectedPeer:String(describing:peer),expectedSourcePort:sourcePort.rawValue,
+            destinationPort:destinationPort,candidateConnections:counts.0,rejectedPeerConnections:counts.1,
+            rejectedPortConnections:counts.2,extraMatchingConnections:counts.3,firstRejectedEndpoint:counts.4,
+            acceptedPeerDatagrams:datagrams,acceptedPeerBytes:byteCount,firstPacketByteCount:firstPacketBytes,
+            overflow:overflow,readFailed:readFailed)
     }
     private func state(_ state:NWListener.State) {
         guard listener != nil else{return}
@@ -76,12 +105,15 @@ actor FlexIQDatagramReceiver {
     }
     private func deliver(_ data:Data?,receivedNS:UInt64,error:NWError?,connection current:NWConnection) {
         guard ready,connection===current else{return}
-        if let error{failure=error;continuation.finish(throwing:error);stop();return}
+        if let error{readFailed=true;failure=error;continuation.finish(throwing:error);stop();return}
         if let data {
+            if datagrams<Int.max{datagrams+=1}
+            if UInt64.max-byteCount>=UInt64(data.count){byteCount+=UInt64(data.count)}else{byteCount=UInt64.max}
+            if firstPacketBytes==nil{firstPacketBytes=data.count}
             guard !data.isEmpty,data.count<=16384 else{continuation.finish(throwing:FlexIQSubscriptionError.invalidPacket);stop();return}
             switch continuation.yield(Datagram(data:data,receivedNS:receivedNS)) {
             case .enqueued:break
-            case .dropped:continuation.finish(throwing:FlexIQSubscriptionError.overflow);stop();return
+            case .dropped:overflow=true;continuation.finish(throwing:FlexIQSubscriptionError.overflow);stop();return
             case .terminated:stop();return
             @unknown default:stop();return
             }

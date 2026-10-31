@@ -29,3 +29,11 @@ Links: [TCI source](https://github.com/ExpertSDR3/TCI/tree/6cbccdd7004858152b4b5
 [Flex stream API](https://github.com/flexradio/smartsdr-api-docs/wiki/TCPIP-stream).
 Manufacturer source was inspected as a wire-format reference; no FlexLib code,
 binaries or assets are incorporated into xLog.
+
+31 October follow-up: the official [client UDPPORT contract](https://github.com/flexradio/smartsdr-api-docs/wiki/TCPIP-client#udpport)
+requires one destination registration at session start and calls later port
+changes undefined. Stop/Start now reopens the original port without re-registering
+it; an occupied port fails instead of selecting another. The pinned FlexLib
+`Radio.cs` also requests read-only `client ip` and parses its numeric address
+(`Connect` / `GetClientIpReplyHandler`). The developer inspector uses that narrow
+query for transport diagnosis only, never ownership, RF or receive admission.

@@ -32,6 +32,8 @@ private actor Observations {
     var observedAt:Date?
     var controlTransmitObservation:ControlTransmitObservation?
     var messages:[String]=[]
+    var reportedClientAddress:String?
+    func clientAddress(_ value:String?){reportedClientAddress=value}
     func record(_ value:FlexIQCapabilities,control:FlexRadioClient.TransmitObservation?){
         capabilities=value;observedAt=Date()
         controlTransmitObservation=control.map{ControlTransmitObservation(readAt:Date(),revision:String($0.revision),isConnected:$0.isConnected,isTransmitting:$0.isTransmitting)}
@@ -39,7 +41,7 @@ private actor Observations {
     func message(_ value:String){messages.append(String(value.prefix(160)));if messages.count>20{messages.removeFirst(messages.count-20)}}
     func report(_ options:Options,diagnostics:[FlexIQDiagnosticEvent])->Report {
         Report(host:options.host,stationRequested:options.station,requestedSeconds:options.seconds,
-            observedAt:observedAt,observedCapabilities:capabilities,controlTransmitObservation:controlTransmitObservation,messages:messages,controlDiagnostics:diagnostics)
+            observedAt:observedAt,observedCapabilities:capabilities,controlTransmitObservation:controlTransmitObservation,messages:messages,controlDiagnostics:diagnostics,radioReportedClientAddress:reportedClientAddress)
     }
 }
 private struct ControlTransmitObservation:Encodable {
@@ -54,6 +56,7 @@ private struct Report:Encodable {
     let controlTransmitObservation:ControlTransmitObservation?
     let messages:[String]
     let controlDiagnostics:[FlexIQDiagnosticEvent]
+    let radioReportedClientAddress:String?
 }
 @main struct CWFlexInspect {
     static func main() async {
@@ -79,10 +82,15 @@ private struct Report:Encodable {
             })
             await client.start()
             let reader=Task {
+                var addressInspected=false
                 while !Task.isCancelled {
                     let capability=await client.iqCapabilities()
                     let transmit=await client.transmitObservation()
                     guard !Task.isCancelled else{return}
+                    if capability.ready,!addressInspected {
+                        addressInspected=true
+                        await observations.clientAddress(try? await client.inspectIQClientAddress())
+                    }
                     await observations.record(capability,control:transmit)
                     do{try await Task.sleep(for:.milliseconds(500))}catch{return}
                 }

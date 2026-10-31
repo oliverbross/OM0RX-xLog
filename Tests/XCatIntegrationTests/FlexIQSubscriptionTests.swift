@@ -6,6 +6,51 @@ import XCTest
 import Darwin
 
 final class FlexIQSubscriptionTests:XCTestCase {
+    func testRestartRefusesOccupiedRegisteredPortWithoutCreatingOrChangingDestination() async throws {
+        let (radio,wire)=try await setup();try await authorize(radio)
+        let lease=UUID(),first=try await radio.startIQ(panadapterID:"40000000",sampleRate:96000,leaseID:lease)
+        let drain=Task{for try await _ in first.blocks{}}
+        await radio.stopIQ(leaseID:lease);drain.cancel()
+        let before=await wire.commands
+        let command=try XCTUnwrap(before.first{$0.hasPrefix("client udpport ")})
+        let port=try XCTUnwrap(command.split(separator:" ").last.flatMap{UInt16($0)})
+        let occupant=FlexIQDatagramReceiver(peer:.ipv4(.loopback),sourcePort:4991)
+        _ = try await occupant.start(port:port)
+        addTeardownBlock{await occupant.stop()}
+        try await authorize(radio)
+        do{_ = try await radio.startIQ(panadapterID:"40000000",sampleRate:96000,leaseID:UUID());XCTFail("Occupied port acquired")}
+        catch{}
+        let after=await wire.commands
+        XCTAssertEqual(after.filter{$0.hasPrefix("client udpport ")}.count,1)
+        XCTAssertEqual(after.filter{$0.hasPrefix("stream create ")}.count,1)
+        let capability=await radio.iqCapabilities();XCTAssertTrue(capability.ready)
+    }
+    func testReportedClientAddressIsReadOnlyDiagnosticAndRejectsNonAddresses() async throws {
+        let (radio,wire)=try await setup()
+        let before=await wire.commands
+        let address=try await radio.inspectIQClientAddress();XCTAssertEqual(address,"127.0.0.1")
+        await wire.setClientAddress("not-an-address")
+        do{_ = try await radio.inspectIQClientAddress();XCTFail("Invalid client address accepted")}
+        catch{XCTAssertEqual(error as? FlexIQSubscriptionError,.invalidPacket)}
+        let after=await wire.commands
+        XCTAssertEqual(Array(after.dropFirst(before.count)),["client ip","client ip"])
+        let capability=await radio.iqCapabilities();XCTAssertTrue(capability.ready)
+        XCTAssertFalse(after.contains{$0.hasPrefix("stream ") || $0.hasPrefix("client udpport ")})
+    }
+    func testStopStartReusesRegisteredUDPDestinationWithinOneControlSession() async throws {
+        let (radio,wire)=try await setup();try await authorize(radio)
+        let a=UUID(),first=try await radio.startIQ(panadapterID:"40000000",sampleRate:96000,leaseID:a)
+        let old=try await next(first),drainA=Task{for try await _ in first.blocks{}}
+        await radio.stopIQ(leaseID:a);drainA.cancel();try await authorize(radio)
+        let b=UUID(),second=try await radio.startIQ(panadapterID:"40000000",sampleRate:96000,leaseID:b)
+        let current=try await next(second),drainB=Task{for try await _ in second.blocks{}}
+        XCTAssertNotEqual(current.capture.streamToken,old.capture.streamToken)
+        await radio.stopIQ(leaseID:b);drainB.cancel()
+        let commands=await wire.commands
+        XCTAssertEqual(commands.filter{$0.hasPrefix("client udpport ")}.count,1,"Manufacturer permits one destination registration per control session")
+        XCTAssertEqual(commands.filter{$0.hasPrefix("stream create ")}.count,2)
+        XCTAssertEqual(commands.filter{$0.hasPrefix("stream remove ")}.count,2)
+    }
     func testConcurrentLeaseStopAndTransportCloseAwaitOneOwnedRemove() async throws {
         let (radio,wire)=try await setup();try await authorize(radio)
         let lease=UUID(),subscription=try await radio.startIQ(panadapterID:"40000000",sampleRate:96000,leaseID:lease)
@@ -391,6 +436,7 @@ private actor FlexIQFixtureRadio {
     private var streams:[UInt32:(Int,UInt8)]=[:]
     private var held=false,pendingCreate:Int?
     private var heldRemove=false,pendingRemove:Int?,iqSuppressed=false
+    private var clientAddress="127.0.0.1"
     private(set) var commands:[String]=[]
     var createPending:Bool{pendingCreate != nil}
     var removePending:Bool{pendingRemove != nil}
@@ -434,6 +480,9 @@ private actor FlexIQFixtureRadio {
             status("display pan 0x40000001 client_handle=0x1234 daxiq_channel=2 center=7.025000 rxant=ANT1")
         }
         if body.hasPrefix("client udpport "),let port=UInt16(body.split(separator:" ").last!) {
+            if udpSocket>=0 {
+                udpDestination?.sin_port=port.bigEndian;send("R\(sequence)|0|\n");return
+            }
             // The receiver requires the radio's exact source port. Bind it
             // synchronously and check every datagram; the old NW sender ignored
             // readiness/send failures and left port 4991 held after a test threw.
@@ -456,6 +505,7 @@ private actor FlexIQFixtureRadio {
             timer.setEventHandler {[weak self] in Task(priority:.high) { await self?.emit() }}
             pump=timer;timer.resume()
         }
+        if body=="client ip"{send("R\(sequence)|0|\(clientAddress)\n");return}
         if body.hasPrefix("stream create ") {
             if held{pendingCreate=sequence;return}
             let channel=UInt32(body.split(separator:"=").last!) ?? 1
@@ -475,6 +525,7 @@ private actor FlexIQFixtureRadio {
     func status(_ text:String){send("S0|\(text)\n")}
     func holdCreate(){held=true}
     func suppressIQ(){iqSuppressed=true}
+    func setClientAddress(_ value:String){clientAddress=value}
     func holdRemove(){heldRemove=true}
     func releaseRemove(){if let sequence=pendingRemove{pendingRemove=nil;send("R\(sequence)|0|\n")}}
     func releaseCreate(){if let sequence=pendingCreate{pendingCreate=nil;send("R\(sequence)|0|0x80000001\n")}}

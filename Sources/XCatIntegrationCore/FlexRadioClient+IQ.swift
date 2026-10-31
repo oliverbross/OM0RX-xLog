@@ -75,7 +75,9 @@ struct FlexIQState {
     var receiver:FlexIQDatagramReceiver?
     var reader:Task<Void,Never>?
     var watchdog:Task<Void,Never>?
-    var destinationReady=false
+    var destinationRegistered=false
+    var destinationListening=false
+    var destinationPort:UInt16?
     var flows:[UInt32:FlexIQFlow]=[:]
     var epoch:UInt64=0
     var retiredCreateIDs:[UUID:UInt32]=[:]
@@ -106,6 +108,14 @@ struct FlexIQFlow {
 }
 extension FlexRadioClient {
     public func iqDiagnostics()->[FlexIQDiagnosticEvent]{iqEvents}
+    public func iqInputDiagnostics()->FlexIQInputDiagnostics?{iqLastInputDiagnostics}
+    /// Read-only transport diagnosis from the pinned FlexLib contract. Never RF evidence.
+    public func inspectIQClientAddress() async throws -> String {
+        guard let context=iqControlContext() else{throw FlexIQSubscriptionError.unavailable}
+        let reply=try await iqCommand("client ip",generation:context.generation)
+        guard reply.utf8.count<=45,IPv4Address(reply) != nil || IPv6Address(reply) != nil else{throw FlexIQSubscriptionError.invalidPacket}
+        return reply
+    }
     public func revokeIQHandoffs(){iqState.handoffs.removeAll()}
     public func iqCapabilities() async -> FlexIQCapabilities {
         try? await iqPrepare()
@@ -159,7 +169,7 @@ extension FlexRadioClient {
             return FlexIQSubscription(leaseID:leaseID,blocks:pair.stream)
         }
         let now=DispatchTime.now().uptimeNanoseconds
-        guard iqState.flows.count+iqCleanups.count<2,let handoff=iqState.handoffs.removeValue(forKey:id),
+        guard iqCleanups.isEmpty,iqState.flows.count<2,let handoff=iqState.handoffs.removeValue(forKey:id),
               handoff.permits(generation:context.generation,inventory:iqState.inventory,owned:iqOwnedStreams(),pan:pan,station:context.stationHandle,now:now) else {
             throw FlexIQSubscriptionError.handoffRequired
         }
@@ -349,22 +359,24 @@ extension FlexRadioClient {
         }
     }
     private func iqEnsureDestination(_ context:FlexIQControlContext) async throws {
-        if iqState.destinationReady{return}
+        if iqState.destinationListening,iqState.receiver != nil{return}
         if iqState.receiver != nil {
             for _ in 0..<100 {
                 try Task.checkCancellation()
                 guard iqControlContext()?.generation==context.generation,iqState.receiver != nil else{throw FlexIQSubscriptionError.stationChanged}
-                if iqState.destinationReady{return}
+                if iqState.destinationListening{return}
                 try await Task.sleep(for:.milliseconds(20))
             }
             throw FlexIQSubscriptionError.busy
         }
         let receiver=FlexIQDatagramReceiver(peer:context.peer,sourcePort:4991);iqState.receiver=receiver
+        iqLastInputDiagnostics=nil
         do {
-            let (port,packets)=try await receiver.start()
-            _ = try await iqCommand("client udpport \(port)",generation:context.generation)
+            let (port,packets)=try await receiver.start(port:iqState.destinationPort ?? 0)
+            iqState.destinationPort=port
+            if !iqState.destinationRegistered {_ = try await iqCommand("client udpport \(port)",generation:context.generation)}
             guard iqState.receiver===receiver,iqControlContext()?.generation==context.generation else{throw FlexIQSubscriptionError.stationChanged}
-            iqState.destinationReady=true
+            iqState.destinationRegistered=true;iqState.destinationListening=true
             iqState.reader=Task{[weak self] in
                 do {for try await packet in packets {await self?.iqReceive(packet,generation:context.generation)}}
                 catch {await self?.iqFailInput(error,generation:context.generation)}
@@ -374,7 +386,7 @@ extension FlexRadioClient {
             }
         } catch {
             await receiver.stop()
-            if iqState.receiver===receiver{iqState.receiver=nil;iqState.destinationReady=false}
+            if iqState.receiver===receiver{iqState.receiver=nil;iqState.destinationListening=false}
             throw error
         }
     }
@@ -440,7 +452,7 @@ extension FlexRadioClient {
         for continuation in flow.leases.values{continuation.finish(throwing:error)}
         var receiver:FlexIQDatagramReceiver?
         if iqState.flows.isEmpty {
-            receiver=iqState.receiver;iqState.receiver=nil;iqState.destinationReady=false
+            receiver=iqState.receiver;iqState.receiver=nil;iqState.destinationListening=false
             iqState.reader?.cancel();iqState.reader=nil;iqState.watchdog?.cancel();iqState.watchdog=nil
         }
         if flow.creating,let streamID=flow.streamID,iqMayRemoveStream(streamID,generation:flow.generation) {
@@ -452,11 +464,16 @@ extension FlexRadioClient {
         // withdraws evidence immediately; it must not hide an unfinished remove.
         let task=Task { [weak self,receiver] in
             await receiver?.stop()
+            if let receiver {await self?.iqRecordInputDiagnostics(receiver.diagnostics())}
             await self?.iqRemoveEndedFlow(flow)
         }
         iqCleanups[flow.id]=FlexIQCleanup(leases:Set(flow.leases.keys),task:task)
         await task.value
         iqCleanups.removeValue(forKey:flow.id)
+    }
+    private func iqRecordInputDiagnostics(_ value:FlexIQInputDiagnostics) {
+        iqLastInputDiagnostics=value
+        iqTrace("udp_summary","port=\(value.destinationPort.map(String.init) ?? "unknown") candidates=\(value.candidateConnections) peer_rejected=\(value.rejectedPeerConnections) port_rejected=\(value.rejectedPortConnections) datagrams=\(value.acceptedPeerDatagrams) bytes=\(value.acceptedPeerBytes) first_rejected=\(value.firstRejectedEndpoint ?? "none")")
     }
     private func iqRemoveEndedFlow(_ flow:FlexIQFlow) async {
         if let streamID=flow.streamID {

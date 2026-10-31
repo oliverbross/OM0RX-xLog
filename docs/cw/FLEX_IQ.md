@@ -79,6 +79,42 @@ error, then passes after exact-flow cleanup is retained and awaited by startup,
 Stop and transport close. All 19 lifecycle cases pass (`534b6b6390a75bd9`). See
 `SOURCE_LIFECYCLE.md`; hardware removal ACK and IQ delivery are still pending.
 
+## Stable UDP destination and delivery diagnostics
+
+The official UDPPORT contract requires one registration per TCP session. A real
+loopback Stop/Start regression first reproduces two registrations
+(`007163a097469a4a`). The owner now retains the registered port after releasing
+its last IQ stream/socket, rebinds that same port on Start, and never substitutes
+a new port if another owner occupies it. New flow acquisition waits until pending
+cleanup is finished. Receiver-ready state is separate from radio registration;
+parallel spans cannot use a destination still being established. Transport reset
+clears both. This preserves the current CAT/session owner.
+
+The last stopped destination reports candidate UDP **connections**, rejected peer
+or source-port connections, accepted-peer datagrams/bytes, first packet length,
+first rejected endpoint and input overflow/read failure. Connection counts are
+not datagram counts. The snapshot is captured before owned remove and survives
+transport teardown; unavailable evidence is null. It contains no IQ payload and
+does not admit another sender/port. A real loopback wrong-port packet is counted
+and rejected without claiming the expected peer; the expected sender then delivers.
+
+The explicit developer inspector also reads `client ip` through the existing
+owner, following the pinned manufacturer source, to record the address the radio
+sees for this client. Only numeric IP replies are accepted; failure stays unknown
+and cannot grant any receive/resource authority. No new radio-control setter or
+automatic production acquisition is added. All 22 Flex lifecycle/input cases pass
+(`bbaed7193c079acf`); a separate occupied-port regression passes
+(`767d4ca3b6fefb47`) without another stream-create/port command. Inspector self-test
+passes. Actual UDP arrival and removal ACK still require the next bounded window.
+
+An eight-second passive address read ends during subscription setup and supplies
+no ready/address evidence. One explicitly longer 16-second read completes setup,
+reports RX ready and the radio's `client ip` reply **10.8.0.10**, matching this
+Mac's known VPN address. It creates no IQ stream. Thus a TCP source translated to
+the router's LAN IP is not the observed explanation for the missing IQ. This is
+transport diagnosis, not proof of UDP reachability. Both raw reports are retained
+privately as `flex-client-address-{short,16s}-01.json`.
+
 31 October transport follow-up: the operator confirms SmartSDR/Windows DAX on
 192.168.0.117; Windows DAX is now stopped while panadapter 40000000 remains on
 DAX IQ 1. One post-ready acquisition still fails manufacturer discovery before
