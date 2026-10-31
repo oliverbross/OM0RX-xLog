@@ -121,3 +121,18 @@ DistributionMetadata and verifies the packaged worker/resources/CW payload.
 Notarization and installation are separate acceptance steps; their exact source
 commit, signatures, hashes, backup and rollback evidence are recorded below after
 verification. No installed or physical-hardware acceptance is claimed yet.
+
+## Candidate retired after private native checks
+
+Signed source `9de549f589fe06906a3883b3ce9db545508f0bdb` passed packaging,
+strict signature/source verification and a private 69,556-contact worker run.
+Five warm save → status → page timings were 18.27, 14.83, 16.90, 17.11 and
+28.95 ms. Native save showed durable success within the first AX observation
+(836 ms including automation), and the row appeared in the 69,562-contact private
+log (five benchmark records plus the native test). Ordinary Quit completed.
+
+The HM Control native window opened, but its projection was rejected because
+the new bridge omitted verified offline-root mode from native and worker read
+guards. The candidate was not installed; version 1.3.67 corrects these guards.
+Apple submission `256949ce-81c0-4a96-b7c8-ae992a425e9e` is retained as evidence
+for this retired candidate, never as approval for a different bundle.
