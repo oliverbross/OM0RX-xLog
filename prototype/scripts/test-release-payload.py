@@ -2,6 +2,7 @@ import gzip
 import importlib.util
 import io
 import json
+from contextlib import closing
 from pathlib import Path
 import sqlite3
 import tempfile
@@ -49,8 +50,9 @@ class ReleasePayloadTests(unittest.TestCase):
 
     def test_renamed_database_magic_is_rejected(self):
         database = self.root / 'innocent.cache'
-        with sqlite3.connect(database) as connection:
+        with closing(sqlite3.connect(database)) as connection:
             connection.execute('CREATE TABLE qsos(call TEXT)')
+            connection.commit()
         self.assertFalse(payload.scan(self.root)['passed'])
 
     def test_compressed_database_is_rejected(self):
