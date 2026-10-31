@@ -1,0 +1,112 @@
+name: Native core diagnosis
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Native host to validate without packaging
+        type: choice
+        options: [all, linux, windows, macos]
+        default: all
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-core-${{ github.ref }}-${{ inputs.platform }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(inputs.platform == 'all' && '["macos-15", "ubuntu-24.04", "windows-2022"]' || inputs.platform == 'linux' && '["ubuntu-24.04"]' || inputs.platform == 'windows' && '["windows-2022"]' || '["macos-15"]') }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - name: Enable Windows checkout long paths
+        if: runner.os == 'Windows'
+        run: git config --global core.longpaths true
+      - uses: actions/checkout@v4
+      - name: Select macOS Swift toolchain
+        if: runner.os == 'macOS'
+        run: echo "DEVELOPER_DIR=/Applications/Xcode_16.2.app/Contents/Developer" >> "$GITHUB_ENV"
+      - uses: actions/setup-python@v5
+        id: python
+        with:
+          python-version: '3.12.4'
+      - name: Restore Swift test build cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .build/prototype-tests
+          key: xlog-core-${{ runner.os }}-${{ hashFiles('Package.swift') }}-${{ github.sha }}
+          restore-keys: |
+            xlog-core-${{ runner.os }}-${{ hashFiles('Package.swift') }}-
+            xlog-p1b-${{ runner.os }}-
+      - name: Linux build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libcurl4-openssl-dev libxml2-dev libicu-dev libssl-dev libudev-dev libsecret-1-dev pkg-config dbus-x11 gnome-keyring
+      - name: Swift toolchain (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          archive="$RUNNER_TEMP/swift-6.3.3-RELEASE-ubuntu24.04.tar.gz"
+          toolchain="$RUNNER_TEMP/xlog-swift-6.3.3"
+          curl --fail --location --retry 3 --output "$archive" https://download.swift.org/swift-6.3.3-release/ubuntu2404/swift-6.3.3-RELEASE/swift-6.3.3-RELEASE-ubuntu24.04.tar.gz
+          sha256sum "$archive"
+          mkdir -p "$toolchain"
+          tar -xzf "$archive" --strip-components=1 -C "$toolchain"
+          echo "$toolchain/usr/bin" >> "$GITHUB_PATH"
+      - name: Swift toolchain (Windows)
+        if: runner.os == 'Windows'
+        uses: compnerd/gha-setup-swift@bbae8ce86bac5a3449f3992b3d88bc4ca25f2057
+        with:
+          swift-version: swift-6.3.3-release
+          swift-build: 6.3.3-RELEASE
+      - name: Windows SQLite
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install sqlite3:x64-windows
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "XLOG_SQLITE_PREFIX=$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows" >> $env:GITHUB_ENV
+          "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin" >> $env:GITHUB_PATH
+      - name: Python archive and payload guard tests
+        run: |
+          python3 prototype/scripts/test-release-payload.py
+          python3 prototype/scripts/test-runtime-artifacts.py
+      - name: Parse Windows installer scripts
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./prototype/scripts/test-installer-syntax.ps1
+      - name: Linux C vault in a private Secret Service session
+        if: runner.os == 'Linux'
+        run: python3 prototype/scripts/test-linux-vault.py
+      - name: Complete portable Swift core (Unix)
+        if: runner.os != 'Windows'
+        env:
+          XLOG_PORTABLE_ONLY: '1'
+          XLOG_CONTEST_PYTHON: ${{ steps.python.outputs.python-path }}
+        run: swift test --scratch-path .build/prototype-tests --no-parallel
+      - name: Complete portable Swift core (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          XLOG_PORTABLE_ONLY: '1'
+          XLOG_CONTEST_PYTHON: ${{ steps.python.outputs.python-path }}
+          XLOG_TEST_NATIVE_VAULT: '1'
+        run: |
+          swift test --scratch-path .build/prototype-tests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
+          exit $LASTEXITCODE
+      - name: Linux Swift vault in a private Secret Service session
+        if: runner.os == 'Linux'
+        env:
+          XLOG_PORTABLE_ONLY: '1'
+        run: python3 prototype/scripts/test-linux-vault.py --swift-tests --swift-scratch-path .build/prototype-tests
+      - name: Save Swift test build cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .build/prototype-tests
+          key: xlog-core-${{ runner.os }}-${{ hashFiles('Package.swift') }}-${{ github.sha }}

@@ -119,11 +119,16 @@ jobs:
         working-directory: prototype
         run: npm ci
       - name: Release payload guard tests
-        run: python3 prototype/scripts/test-release-payload.py
+        run: |
+          python3 prototype/scripts/test-release-payload.py
+          python3 prototype/scripts/test-runtime-artifacts.py
       - name: Parse Windows installer scripts
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./prototype/scripts/test-installer-syntax.ps1
+      - name: Linux C vault in a private Secret Service session
+        if: runner.os == 'Linux'
+        run: python3 prototype/scripts/test-linux-vault.py
       - name: Frontend tests and build
         working-directory: prototype
         env:
