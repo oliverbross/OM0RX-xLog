@@ -51,7 +51,7 @@ jobs:
       matrix:
         os: ${{ fromJSON(inputs.build_platforms == 'all' && '["macos-15", "ubuntu-24.04", "windows-2022"]' || inputs.build_platforms == 'linux' && '["ubuntu-24.04"]' || inputs.build_platforms == 'windows' && '["windows-2022"]' || '["macos-15"]') }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+    timeout-minutes: ${{ matrix.os == 'windows-2022' && 120 || 90 }}
     steps:
       - name: Enable Windows checkout long paths
         if: runner.os == 'Windows'

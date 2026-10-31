@@ -23,7 +23,9 @@ jobs:
       matrix:
         os: ${{ fromJSON(inputs.platform == 'all' && '["macos-15", "ubuntu-24.04", "windows-2022"]' || inputs.platform == 'linux' && '["ubuntu-24.04"]' || inputs.platform == 'windows' && '["windows-2022"]' || '["macos-15"]') }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    # Native Windows debug fixtures measured ~30 minutes of test work plus
+    # ~8 minutes compilation and toolchain setup, before Swift Testing runs.
+    timeout-minutes: ${{ matrix.os == 'windows-2022' && 90 || 45 }}
     steps:
       - name: Enable Windows checkout long paths
         if: runner.os == 'Windows'
