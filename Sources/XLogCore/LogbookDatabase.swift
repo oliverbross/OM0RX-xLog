@@ -111,6 +111,15 @@ public final class LogbookDatabase: @unchecked Sendable {
     private var cachedHMControlEntities: [CountryInfo]?
     private var hmControlFlags: [String: Bool]?
     private var hmControlRevision: Int64?
+    // Retained per-contact state makes known local mutations proportional to
+    // their changed IDs. Unknown/external revisions always rebuild from SQLite.
+    private var hmControlContacts: [String: HMControlContact]?
+    private var hmControlCells: [String: Set<String>] = [:]
+    private var hmControlRepresentatives: [String: HMControlContact] = [:]
+    private var hmControlConfirmedCounts: [Int: Int] = [:]
+    private var hmControlDirtyIDs = Set<String>()
+    private var hmControlKnownWrites: Int64 = 0
+    private(set) var hmControlFullProjectionBuilds = 0
     // Eligibility is never restored from disk. A reopened/restored database
     // requires a new native arm before any persisted scope can receive samples.
     private var operatorPowerScopeID: UUID?
@@ -442,7 +451,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                     try stepDone(statement)
                 }
             }
-            invalidateQSOAggregates()
+            invalidateQSOAggregates(hmChangedIDs: [qso.id])
         }
     }
 
@@ -1242,7 +1251,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                         }
                 }
                 try execute("COMMIT;")
-                if !updates.isEmpty { invalidateQSOAggregates() }
+                if !updates.isEmpty { invalidateQSOAggregates(hmChangedIDs: updates.map { $0.0.contactID }) }
                 return updates.count
             } catch { try? execute("ROLLBACK;"); throw error }
         }
@@ -2532,66 +2541,162 @@ public final class LogbookDatabase: @unchecked Sendable {
             .replacingOccurrences(of: "_", with: "\\_") + "/%"
     }
 
-    /// One bounded display projection of the entire live log. A revision check
-    /// avoids re-scanning it on radio ticks; no contact or persistent cache writes.
+    private static let hmControlColumns = """
+        local_id, call, json_extract(record_json,'$.band'),
+        json_extract(record_json,'$.mode'), qso_start,
+        json_extract(record_json,'$.country'), json_extract(record_json,'$.gridSquare'),
+        json_extract(record_json,'$.dxcc'), json_extract(record_json,'$.qslReceived'),
+        json_extract(record_json,'$.lotwReceived')
+        """
+
+    private func hmControlContact(_ statement: OpaquePointer?, entities: [Int: CountryInfo]) -> HMControlContact {
+        func text(_ column: Int32) -> String { sqlite3_column_text(statement, column).map { String(cString: $0) } ?? "" }
+        let grid = MaidenheadLocator.coordinate(text(6))
+        let entity = sqlite3_column_type(statement, 7) == SQLITE_NULL ? nil : entities[Int(sqlite3_column_int(statement, 7))]
+        let lat = grid?.latitude ?? entity?.latitude, lon = grid?.longitude ?? entity?.longitude
+        let valid = lat.map { $0.isFinite && abs($0) <= 90 } == true && lon.map { $0.isFinite && abs($0) <= 180 } == true
+        return HMControlContact(id: text(0), call: text(1), band: text(2), mode: text(3),
+            start: Date(timeIntervalSince1970: sqlite3_column_double(statement, 4)), whereName: text(5),
+            lat: valid ? lat : nil, lon: valid ? lon : nil, approximate: grid == nil && valid,
+            confirmed: [text(8).uppercased(), text(9).uppercased()].contains { ["Y", "V"].contains($0) },
+            adif: sqlite3_column_type(statement, 7) == SQLITE_NULL ? nil : Int(sqlite3_column_int(statement, 7)))
+    }
+
+    private func hmControlCell(_ contact: HMControlContact) -> String? {
+        guard let lat = contact.lat, let lon = contact.lon else { return nil }
+        return "\(min(35, Int(floor((lat + 90) / 5)))):\(min(71, Int(floor((lon + 180) / 5))))"
+    }
+
+    private func hmControlPrecedes(_ lhs: HMControlContact, _ rhs: HMControlContact) -> Bool {
+        lhs.start == rhs.start ? lhs.id < rhs.id : lhs.start > rhs.start
+    }
+
+    /// One display projection of the live log. Known same-connection mutations
+    /// patch retained contacts; external/unknown revisions rebuild authoritatively.
     public func hmControlLogbook(resolver: CTYResolver) throws -> HMControlLogbook {
         try withDatabaseLock {
             try refreshAggregateCacheVersion()
-            let revision = try qsoRevision()
-            let currentEntities = resolver.entities
-            if let cachedHMControl, cachedHMControl.revision == revision, cachedHMControlEntities == currentEntities { return cachedHMControl }
+            let revision = try qsoRevision(), currentEntities = resolver.entities
             let entities = Dictionary(currentEntities.map { ($0.adif, $0) }, uniquingKeysWith: { first, _ in first })
-            let result = try withStatement("""
-                SELECT local_id, call, json_extract(record_json,'$.band'),
-                    json_extract(record_json,'$.mode'), qso_start,
-                    json_extract(record_json,'$.country'), json_extract(record_json,'$.gridSquare'),
-                    json_extract(record_json,'$.dxcc'), json_extract(record_json,'$.qslReceived'),
-                    json_extract(record_json,'$.lotwReceived')
-                FROM qsos WHERE deleted_at IS NULL ORDER BY qso_start DESC, local_id;
-                """) { statement -> HMControlLogbook in
-                func text(_ column: Int32) -> String { sqlite3_column_text(statement, column).map { String(cString: $0) } ?? "" }
+            if let cachedHMControl, cachedHMControlEntities == currentEntities {
+                if cachedHMControl.revision == revision {
+                    // A rolled-back transaction may have left only dirty hints.
+                    hmControlDirtyIDs.removeAll(); hmControlKnownWrites = 0
+                    return cachedHMControl
+                }
+                let delta = revision.subtractingReportingOverflow(cachedHMControl.revision)
+                if !delta.overflow, delta.partialValue == hmControlKnownWrites,
+                   hmControlKnownWrites > 0, !hmControlDirtyIDs.isEmpty,
+                   hmControlDirtyIDs.count <= 256, hmControlContacts != nil {
+                    do {
+                        if let updated = try incrementalHMControl(cachedHMControl, revision: revision, entities: entities) {
+                            return updated
+                        }
+                    } catch { invalidateHMControlProjection(); throw error }
+                }
+            }
+            // Preserve only announcement flags across an authoritative rebuild.
+            invalidateHMControlProjection()
+            let result = try withStatement("SELECT \(Self.hmControlColumns) FROM qsos WHERE deleted_at IS NULL ORDER BY qso_start DESC, local_id;") { statement -> HMControlLogbook in
                 var total = 0, located = 0, approximate = 0
-                var points: [HMControlContact] = [], recent: [HMControlContact] = [], cells = Set<String>()
+                var contacts: [String: HMControlContact] = [:], cells: [String: Set<String>] = [:]
+                var representatives: [String: HMControlContact] = [:], confirmedCounts: [Int: Int] = [:]
+                var points: [HMControlContact] = [], recent: [HMControlContact] = []
                 var flags: [String: Bool] = [:], added: [HMControlContact] = [], confirmations: [HMControlContact] = []
-                var confirmedDXCC = Set<Int>()
                 var step = sqlite3_step(statement)
                 while step == SQLITE_ROW {
-                    total += 1
-                    let grid = MaidenheadLocator.coordinate(text(6))
-                    let entity = sqlite3_column_type(statement, 7) == SQLITE_NULL ? nil : entities[Int(sqlite3_column_int(statement, 7))]
-                    let lat = grid?.latitude ?? entity?.latitude, lon = grid?.longitude ?? entity?.longitude
-                    let valid = lat.map { $0.isFinite && abs($0) <= 90 } == true && lon.map { $0.isFinite && abs($0) <= 180 } == true
-                    let isApproximate = grid == nil && valid
-                    if valid { located += 1; if isApproximate { approximate += 1 } }
-                    let contact = HMControlContact(id: text(0), call: text(1), band: text(2), mode: text(3),
-                        start: Date(timeIntervalSince1970: sqlite3_column_double(statement, 4)), whereName: text(5),
-                        lat: valid ? lat : nil, lon: valid ? lon : nil, approximate: isApproximate,
-                        confirmed: [text(8).uppercased(), text(9).uppercased()].contains { ["Y", "V"].contains($0) },
-                        adif: sqlite3_column_type(statement, 7) == SQLITE_NULL ? nil : Int(sqlite3_column_int(statement, 7)))
-                    flags[contact.id] = contact.confirmed
-                    if contact.confirmed, let adif = contact.adif { confirmedDXCC.insert(adif) }
+                    let contact = hmControlContact(statement, entities: entities)
+                    total += 1; contacts[contact.id] = contact; flags[contact.id] = contact.confirmed
+                    if let cell = hmControlCell(contact) {
+                        located += 1; if contact.approximate { approximate += 1 }
+                        cells[cell, default: []].insert(contact.id)
+                        if representatives[cell] == nil { representatives[cell] = contact; points.append(contact) }
+                    }
+                    if contact.confirmed, let adif = contact.adif { confirmedCounts[adif, default: 0] += 1 }
                     if let previous = hmControlFlags {
                         if previous[contact.id] == nil, added.count < 50 { added.append(contact) }
                         if previous[contact.id] == false, contact.confirmed, confirmations.count < 50 { confirmations.append(contact) }
                     }
                     if recent.count < 50 { recent.append(contact) }
-                    if valid, let lat, let lon {
-                        let key = "\(min(35, Int(floor((lat + 90) / 5)))):\(min(71, Int(floor((lon + 180) / 5))))"
-                        if cells.insert(key).inserted { points.append(contact) }
-                    }
                     step = sqlite3_step(statement)
                 }
                 guard step == SQLITE_DONE else { throw error() }
                 let baseRevision = hmControlRevision
                 hmControlFlags = flags; hmControlRevision = revision
+                hmControlContacts = contacts; hmControlCells = cells
+                hmControlRepresentatives = representatives; hmControlConfirmedCounts = confirmedCounts
                 return HMControlLogbook(revision: revision, total: total, located: located, approximate: approximate,
                     points: points, recent: recent, baseRevision: baseRevision, added: added,
-                    confirmations: confirmations, confirmedDXCC: confirmedDXCC.sorted())
+                    confirmations: confirmations, confirmedDXCC: confirmedCounts.keys.sorted())
             }
-            cachedHMControl = result
-            cachedHMControlEntities = currentEntities
+            hmControlFullProjectionBuilds += 1
+            cachedHMControl = result; cachedHMControlEntities = currentEntities
             return result
         }
+    }
+
+    private func incrementalHMControl(_ previous: HMControlLogbook, revision: Int64,
+                                      entities: [Int: CountryInfo]) throws -> HMControlLogbook? {
+        var changed: [String: HMControlContact] = [:]
+        let ids = hmControlDirtyIDs
+        for id in ids {
+            try withStatement("SELECT \(Self.hmControlColumns) FROM qsos WHERE local_id=? AND deleted_at IS NULL;") { statement in
+                bind(id, to: 1, in: statement)
+                let step = sqlite3_step(statement)
+                if step == SQLITE_ROW { changed[id] = hmControlContact(statement, entities: entities) }
+                else if step != SQLITE_DONE { throw error() }
+            }
+        }
+        let recent = try withStatement("SELECT \(Self.hmControlColumns) FROM qsos WHERE deleted_at IS NULL ORDER BY qso_start DESC, local_id LIMIT 50;") { statement in
+            var values: [HMControlContact] = [], step = sqlite3_step(statement)
+            while step == SQLITE_ROW { values.append(hmControlContact(statement, entities: entities)); step = sqlite3_step(statement) }
+            guard step == SQLITE_DONE else { throw error() }
+            return values
+        }
+        // An external writer which interleaves the bounded reads cannot publish
+        // a mixed delta under the earlier revision; use a full rebuild instead.
+        guard try qsoRevision() == revision else { return nil }
+        var total = previous.total, located = previous.located, approximate = previous.approximate
+        var affectedCells = Set<String>(), added: [HMControlContact] = [], confirmations: [HMControlContact] = []
+        for id in ids {
+            let old = hmControlContacts?[id], new = changed[id]
+            if let old {
+                total -= 1
+                if let cell = hmControlCell(old) {
+                    located -= 1; if old.approximate { approximate -= 1 }
+                    hmControlCells[cell]?.remove(id); affectedCells.insert(cell)
+                }
+                if old.confirmed, let adif = old.adif { hmControlConfirmedCounts[adif, default: 0] -= 1 }
+            }
+            if let new {
+                total += 1
+                if let cell = hmControlCell(new) {
+                    located += 1; if new.approximate { approximate += 1 }
+                    hmControlCells[cell, default: []].insert(id); affectedCells.insert(cell)
+                }
+                if new.confirmed, let adif = new.adif { hmControlConfirmedCounts[adif, default: 0] += 1 }
+                if old == nil { added.append(new) }
+                if old?.confirmed == false, new.confirmed { confirmations.append(new) }
+                hmControlContacts?[id] = new; hmControlFlags?[id] = new.confirmed
+            } else { hmControlContacts?.removeValue(forKey: id); hmControlFlags?.removeValue(forKey: id) }
+        }
+        for cell in affectedCells {
+            var representative: HMControlContact?
+            for id in hmControlCells[cell] ?? [] {
+                guard let contact = hmControlContacts?[id] else { continue }
+                if representative.map({ hmControlPrecedes(contact, $0) }) ?? true { representative = contact }
+            }
+            hmControlRepresentatives[cell] = representative
+            if hmControlCells[cell]?.isEmpty == true { hmControlCells.removeValue(forKey: cell) }
+        }
+        let result = HMControlLogbook(revision: revision, total: total, located: located, approximate: approximate,
+            points: hmControlRepresentatives.values.sorted(by: hmControlPrecedes), recent: recent,
+            baseRevision: hmControlRevision, added: Array(added.sorted(by: hmControlPrecedes).prefix(50)),
+            confirmations: Array(confirmations.sorted(by: hmControlPrecedes).prefix(50)),
+            confirmedDXCC: hmControlConfirmedCounts.filter { $0.value > 0 }.keys.sorted())
+        hmControlRevision = revision; cachedHMControl = result
+        hmControlDirtyIDs.removeAll(); hmControlKnownWrites = 0
+        return result
     }
 
     public func count(search: String = "") throws -> Int {
@@ -3076,7 +3181,7 @@ public final class LogbookDatabase: @unchecked Sendable {
         cachedDataVersion = version
     }
 
-    private func invalidateQSOAggregates() {
+    private func invalidateQSOAggregates(hmChangedIDs: [UUID]? = nil) {
         cachedStats = nil
         cachedStatsYearStart = nil
         cachedAwards = nil
@@ -3084,7 +3189,21 @@ public final class LogbookDatabase: @unchecked Sendable {
         cachedAwardCatalog = nil
         cachedOpportunityReferences = nil
         cachedClusterContactRows = nil
+        if let hmChangedIDs, cachedHMControl != nil, hmControlContacts != nil,
+           let writes = Int64(exactly: hmChangedIDs.count),
+           hmControlKnownWrites <= Int64.max - writes {
+            hmControlDirtyIDs.formUnion(hmChangedIDs.map { $0.uuidString })
+            hmControlKnownWrites += writes
+            if hmControlDirtyIDs.count > 256 { invalidateHMControlProjection() }
+        } else { invalidateHMControlProjection() }
+    }
+
+    private func invalidateHMControlProjection() {
         cachedHMControl = nil
+        hmControlContacts = nil
+        hmControlCells.removeAll(); hmControlRepresentatives.removeAll()
+        hmControlConfirmedCounts.removeAll()
+        hmControlDirtyIDs.removeAll(); hmControlKnownWrites = 0
     }
 
     public func bandModeMatrix(call: String) throws -> Set<BandModeCell> {
@@ -4077,6 +4196,11 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     private func execute(_ sql: String) throws {
+        // Clear hints before attempting rollback: SQLite may have already
+        // auto-rolled back, in which case an explicit ROLLBACK itself fails.
+        if sql.trimmingCharacters(in: .whitespacesAndNewlines).uppercased().hasPrefix("ROLLBACK") {
+            invalidateHMControlProjection()
+        }
         guard sqlite3_exec(handle, sql, nil, nil, nil) == SQLITE_OK else { throw error() }
     }
 
