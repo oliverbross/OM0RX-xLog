@@ -389,6 +389,46 @@ for line in sys.stdin:
         await lane.shutdown()
     }
 
+    func testContestRuntimeAcceptanceUsesActualBridgeAndOnlyReportsSafeFacts() async throws {
+        let python = try python312()
+        var privateRoot: URL?
+        let result = try await ContestRuntimeSelfTest.run(configuration: { root in
+            privateRoot = root
+            return PythonContestHostConfiguration(executableURL: python,
+                launcherURL: repositoryRoot().appendingPathComponent("python/contest_host/launcher.py"),
+                dataRootURL: root.appendingPathComponent("Contesting/Python"))
+        })
+        XCTAssertEqual(result["passed"] as? Bool, true)
+        XCTAssertEqual(result["engine"] as? String, "not1mm-python")
+        XCTAssertEqual(result["qso_count"] as? Int, 1)
+        for key in ["synthetic_records", "catalogue", "save_read", "reopened", "temporary_store_removed", "shipping_shutdown"] {
+            XCTAssertEqual(result[key] as? Bool, true, key)
+        }
+        for key in ["station_io", "network_contact", "credentials_accessed"] { XCTAssertEqual(result[key] as? Bool, false, key) }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: try XCTUnwrap(privateRoot).path))
+        let report = String(decoding: try JSONSerialization.data(withJSONObject: result), as: UTF8.self)
+        XCTAssertFalse(report.contains("DL1ABC"))
+        XCTAssertFalse(report.contains("N0CALL"))
+        XCTAssertFalse(report.contains(try XCTUnwrap(privateRoot).path))
+    }
+
+    func testContestRuntimeAcceptanceMissingHostFailsClosedAndCleansItsStore() async throws {
+        var privateRoot: URL?
+        do {
+            _ = try await ContestRuntimeSelfTest.run(configuration: { root in
+                privateRoot = root
+                return PythonContestHostConfiguration(executableURL: root.appendingPathComponent("sensitive-missing-runtime"),
+                    launcherURL: root.appendingPathComponent("sensitive-missing-launcher"),
+                    dataRootURL: root.appendingPathComponent("Contesting/Python"))
+            })
+            XCTFail("A missing bundled runtime cannot pass acceptance")
+        } catch let error as ContestRuntimeSelfTest.Failure {
+            XCTAssertEqual(error.stage, "catalogue")
+            XCTAssertFalse(String(describing: error).contains("sensitive"))
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: try XCTUnwrap(privateRoot).path))
+    }
+
     private func python312() throws -> URL {
         let fileManager = FileManager.default
         let candidates = [

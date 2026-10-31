@@ -91,6 +91,20 @@ if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test"
         output.write(Data("{\"id\":\"local-logbook-self-test\",\"ok\":false,\"error\":{\"code\":\"local_self_test_failed\",\"message\":\"Local logbook acceptance failed.\"}}\n".utf8))
         exit(1)
     }
+} else if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--contest-runtime-self-test" {
+    do {
+        let result = try await ContestRuntimeSelfTest.run()
+        output.write(try JSONSerialization.data(withJSONObject: ["id": "contest-runtime-self-test", "ok": true, "result": result], options: [.sortedKeys]))
+        output.write(Data([10]))
+        exit(0)
+    } catch {
+        let stage = (error as? ContestRuntimeSelfTest.Failure)?.stage ?? "runtime"
+        output.write((try? JSONSerialization.data(withJSONObject: ["id": "contest-runtime-self-test", "ok": false,
+            "error": ["code": "contest_runtime_self_test_failed", "stage": stage,
+                      "message": "Bundled contest runtime acceptance failed."]], options: [.sortedKeys])) ?? Data())
+        output.write(Data([10]))
+        exit(1)
+    }
 } else if let localAcceptance = AppRuntimeProfile.workerServiceLocalAcceptance(arguments: workerArguments) {
     let acceptance: LocalAcceptanceSession?
     do { acceptance = localAcceptance ? try LocalAcceptanceSession() : nil }
@@ -175,6 +189,6 @@ if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test"
         }
     }
 } else {
-    FileHandle.standardError.write(Data("Usage: xlog-prototype-worker [--self-test | --local-logbook-self-test | [--runtime-profile=contesting-test] [--local-ui-acceptance]]\n".utf8))
+    FileHandle.standardError.write(Data("Usage: xlog-prototype-worker [--self-test | --local-logbook-self-test | --contest-runtime-self-test | [--runtime-profile=contesting-test] [--local-ui-acceptance]]\n".utf8))
     exit(2)
 }
