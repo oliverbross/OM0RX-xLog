@@ -36,7 +36,7 @@ int main(int argc,char** argv) {
     require(argc==2 || (argc==3 && (std::string(argv[2])=="coreml" || std::string(argv[2])=="coreml-neural" || std::string(argv[2])=="system-allocator" ||
       std::string(argv[2])=="cpu-steady" || std::string(argv[2])=="coreml-steady" || std::string(argv[2])=="coreml-neural-steady" ||
       std::string(argv[2])=="coreml-neural-gpu" || std::string(argv[2])=="coreml-neural-gpu-steady" ||
-      std::string(argv[2])=="cpu-intra4" || std::string(argv[2])=="cpu-shared8")),"Model path and bounded provider/allocator/shape/thread profile required");
+      std::string(argv[2])=="cpu-intra4" || std::string(argv[2])=="cpu-shared8" || std::string(argv[2])=="cpu-steady-parity")),"Model path and bounded provider/allocator/shape/thread profile required");
     cw::JobOrder jobs;
     const auto ready=[](const auto&){return true;};
     jobs.push("oldest");jobs.push("second");jobs.push("selected");jobs.focus("selected");
@@ -169,6 +169,10 @@ int main(int argc,char** argv) {
       }
       if(selected=="cpu-shared8") {
         std::cout<<"40 shared-session CPU text/token/sample/score parity cases passed\n";
+        return 0;
+      }
+      if(selected=="cpu-steady-parity") {
+        std::cout<<"5 dynamic/static CPU text/token/sample/score parity cases passed\n";
         return 0;
       }
     }

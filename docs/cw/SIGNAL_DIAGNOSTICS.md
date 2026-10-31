@@ -705,3 +705,35 @@ worker-budget experiment is removed and retained privately with SHA-256
 `b498181d65cd7f7924d3aae06a4b6f3ffa0d66a8b5eccc4a1dbfdb29d2aeaae6`.
 Only the bounded `cpu-shared8` parity selector remains; production keeps four
 workers and the original model. No failed-run retry or threshold change follows.
+
+## Original-model CPU fixed steady-window control
+
+The existing two-plan profile is measured with CPU for both plans: dynamic startup
+and exact 667-frame steady windows, four job workers and one intra-op thread.
+The original model/runtime/features/stride are unchanged. Five scalar versus
+dynamic/static text/token/sample/score cases pass via `cpu-steady-parity`; the
+selector runs only that bounded comparison. No per-track runtimes are introduced.
+
+Both unchanged 2×96-kHz / 32-track / 15-second runs **fail**:
+
+| CPU plan | Delivered seconds | Completed / submitted | Emitted | Coalesced / dropped | Max input lateness ms | P95 decode age ms | Peak RSS MiB |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Dynamic startup + fixed steady | 10.112 | 77 / 160 | 73 | 83 / 4 | 307.536 | 2833.25 | 388.672 |
+| Paired dynamic control | 14.464 | 180 / 288 | 176 | 108 / 4 | 355.924 | 3762.576208 | 294.016 |
+
+All 32 tracks are serviced; both have zero invalidated jobs/faults. Neither input
+population is the requested full 15 seconds. Static-plan startup/steady emitted
+counts are 41/32, with model Run mean/p95 367.232619/706.06675 and
+269.835391/353.050041 ms. Overall Run mean/p95 is 324.537944/588.283458 ms;
+queue 786.939319/2197.985958 ms; preparation 198.06 ms; workload CPU/wall
+12.9941/12.9255 s. Dynamic Run mean/p95 is 239.271419/415.638125 ms; queue
+746.333757/2771.206709 ms; preparation 119.406 ms; workload CPU/wall
+28.6147/17.9508 s. The unequal delivered populations do not establish a speedup.
+
+No task compiler/test/live capture overlaps these load runs. Ordinary applications
+remain running; host one-minute loads are 15.09→15.90 and 22.64→31.17. No thermal
+warning is recorded; those are not sustained headroom or whole-app responsiveness
+passes. Receipts `8afecefed76226e8` / `083a78bbc93c5d6d`, exact argv/source/model/
+runtime hashes and host snapshots remain in `original-cpu-{steady-ten-second,dynamic}-01`.
+These are local replay measurements independent of Australia–Slovakia network
+latency. No production profile or strict predicate changes.
