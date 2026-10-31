@@ -112,3 +112,11 @@ DistributionMetadata and verifies the packaged worker/resources/CW payload.
 Notarization and installation are separate acceptance steps; their exact source
 commit, signatures, hashes, backup and rollback evidence are recorded below after
 verification. No installed or physical-hardware acceptance is claimed yet.
+
+## Candidate retired before installation
+
+The signed 1.3.65 candidate was built from exact source
+`c37d7fea1adc50604e86e0b16957302f336b7e44`. Packaging completed successfully,
+but the candidate was neither notarized nor installed. A final review found that
+recovery of an absent operation could replace the retained identity needed to
+retry an unacknowledged rotor Stop. The corrected source advances to 1.3.66.
