@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { nativeSpotEditor, useSpotEditor } from "./live/useSpotEditor";
 import { useNormalLoggingAccess } from "./live/normalLoggingAccess";
 import { activationDisablesFollow, validSpotActivationSnapshot } from "./live/spotActivation";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { manualTuneSession } from "./live/manualTune";
 import { manualRotorGotoSession } from "./live/manualRotorGoto";
@@ -91,7 +91,9 @@ import { LogbookMutationSession, readLogbookMutationJournal } from "./live/logbo
 import { LogbookMutationStatus } from "./live/LogbookMutationStatus";
 import { requestLogbookContact } from "./live/logbookContactTransport";
 import { ContactEditStatus } from "./live/ContactEditStatus";
-import { connectWorkspaceNavigation, isContestMenuRoute, workspaceMenuScreens } from "./live/workspaceNavigation";
+import { connectWorkspaceNavigation, isContestMenuRoute, visibleWorkspaceMenuScreens } from "./live/workspaceNavigation";
+import FirstRunSetup from "./live/FirstRunSetup";
+import { completeFirstRunSetup } from "./live/firstRunSetupState";
 import { retireStationProvider } from "./live/stationHandover";
 import RotorPanel from "./live/RotorPanel";
 import { connectRotorTelemetry } from "./live/rotorTelemetry";
@@ -193,6 +195,9 @@ function MainLiveApp() {
     readSettingsJournal(storedDraftValue(settingsJournalKey))));
   const settingsState = useSyncExternalStore(settingsSession.subscribe, settingsSession.getSnapshot);
   const settings = settingsState.draft;
+  const showCWDecode = settingsState.snapshot?.settings.showCWDecode === true;
+  const workspaceMenuScreens = visibleWorkspaceMenuScreens(showCWDecode);
+  useEffect(() => { if (settingsState.snapshot && isTauri()) void invoke("set_cw_decode_menu_visibility", { visible: showCWDecode }).catch(() => {}); }, [showCWDecode, !!settingsState.snapshot]);
   const [rotorConfigurationSession] = useState(() => new RotorConfigurationSession(requestRotorConfiguration,
     journal => journal ? localStorage.setItem(rotorConfigurationJournalKey, JSON.stringify(journal)) : localStorage.removeItem(rotorConfigurationJournalKey),
     readRotorConfigurationJournal(storedDraftValue(rotorConfigurationJournalKey))));
@@ -1357,6 +1362,11 @@ function MainLiveApp() {
       {loggedFeedback.toast}
       <WorkspaceModeSurface separateWindows={displayedSeparateWindows}>
       <>
+      {(workspace?.first_run_eligible === true || settingsState.snapshot?.settings.onboardingCompleted === false) ? <FirstRunSetup
+        initialSettings={settingsState.snapshot?.settings} onFinish={async values => {
+          await completeFirstRunSetup(values, { request, settings: settingsSession, rotor: rotorConfigurationSession, storage: sessionStorage });
+          await reload(); setView("Operator Desk");
+        }} /> : <>
       {!workspace?.workspace_exists && <>
         {view === "Settings" && <section className="radio-settings-recovery" aria-label="Settings recovery">
           <RadioSettings onDraftState={(id, blocked) => { radioSettingsBlocked.current[id] = blocked; }} requestedRadioId={radioSettingsRequest.radioId} requestedRadioRevision={radioSettingsRequest.revision} />
@@ -1367,8 +1377,9 @@ function MainLiveApp() {
         </details> : <WorkspaceGate workspace={workspace} pending={workspacePending} busy={busy}
           retry={() => void run(reload)} create={mode => void run(async () => { await request("workspace_create", { mode }); await reload(); })} />}
       </>}
+      </>}
       {/* Spot History only reads archive diagnostics; editors still require a verified workspace. */}
-      {(workspace?.workspace_exists === true || view === "Spot History" || view === "CW Decode" || view === "HF Prop live") && <>
+      {settingsState.snapshot?.settings.onboardingCompleted !== false && (workspace?.workspace_exists === true || view === "Spot History" || view === "CW Decode" || view === "HF Prop live") && <>
       {view === "Operator Desk" && <OperatorCanvas {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind}
         canChangeLayout={() => !logbookWorkingRef.current && !editorBufferPending.current && !mainClosing.current && !editorTransition.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput()}
         onChangeInFlight={value => { layoutChanging.current = value; }} panels={{
@@ -1419,7 +1430,7 @@ function MainLiveApp() {
         {viewProvider === "direct_tci" ? <section className="live-station" aria-label="Direct TCI observations"><h2>Direct TCI · read only</h2>
           {stationProvider === viewProvider && activeRadio ? <><AgentConnectionSetup key={activeRadio} radioId={activeRadio} followSelection connections /><TCIObservation key={activeRadio} radioId={activeRadio} snapshot={station} /></> : <p>Apply Direct TCI selection to review its saved configuration.</p>}</section> : activeRadio && viewProvider === "hamlib" ? <HamlibPanel key={activeRadio} radioId={activeRadio} request={viewedStationRequest} snapshot={stationProvider === viewProvider ? station : null} /> :
           activeRadio && viewProvider === "direct_flex_lan" ? <DirectFlexPanel key={activeRadio} radioId={activeRadio} request={viewedStationRequest} snapshot={stationProvider === viewProvider ? station : null} /> :
-          activeRadio ? <StationPanel key={activeRadio} radioId={activeRadio} snapshot={stationProvider === viewProvider ? station : null} onRequest={viewedStationRequest} onSnapshot={value => { if (stationProvider === viewProvider && provider.current === viewProvider) setStation(value); }} independentRotor /> : <p role="status">Loading active radio routing…</p>}</>}</>}
+          activeRadio ? <StationPanel key={activeRadio} radioId={activeRadio} remoteSelected={stationProvider === viewProvider} snapshot={stationProvider === viewProvider ? station : null} onRequest={viewedStationRequest} onSnapshot={value => { if (stationProvider === viewProvider && provider.current === viewProvider) setStation(value); }} independentRotor /> : <p role="status">Loading active radio routing…</p>}</>}</>}
       {view === "Awards" && <IntegratedAwards request={panelRequest} refresh={refresh} initialStats={stats?.awards} onUndock={() => void openDetachedAwards().catch(cause => setError(cause.message))} />}
       {view === "Settings" && settings && <ServiceSettings values={settings} savedValues={settingsState.base?.settings} request={request}
         onChanged={value => settingsSession.edit(value)} onSave={async value => { await settingsSession.save(value); await draftSession.refresh(); }}
@@ -1437,6 +1448,7 @@ function MainLiveApp() {
 
 export function SidebarStation({ snapshot, provider, busy, onAction }: { snapshot: Data | null; provider: StationProvider; busy: boolean; onAction: (action: string) => void }) {
   const s = snapshot?.station, local = provider === "hamlib", flex = provider === "direct_flex_lan", tci = provider === "direct_tci";
+  const remote = provider === "direct_agent" && snapshot?.source === "direct_agent";
   const native = nativeStationSelection();
   const detail = (text: string | undefined, prefix: string) => text?.split(/[|·]/).map(v => v.trim()).find(v => v.toUpperCase().startsWith(prefix + " "))?.slice(prefix.length).trim();
   const band = (text: string | undefined) => text?.split(/[|·]/).map(v => v.trim()).find(v => /^\d+(\.\d+)?[cm]+$/i.test(v));
@@ -1447,11 +1459,11 @@ export function SidebarStation({ snapshot, provider, busy, onAction }: { snapsho
       ["RX VFO", snapshot?.radio?.receive_vfo || "—", "cyan"],
       ["TX", snapshot?.radio?.transmitting === true ? "ACTIVE" : snapshot?.radio?.transmitting === false ? "IDLE" : "UNKNOWN", snapshot?.radio?.transmitting === true ? "orange" : "teal"]]
     : local ? [["FREQUENCY", frequency(snapshot?.radio?.frequency_hz), "cyan"], ["MODE", snapshot?.radio?.mode || "—", "teal"], ["ROTOR", snapshot?.rotor?.azimuth == null ? "—" : `${Math.round(snapshot.rotor.azimuth)}°`, "cyan"]]
-    : [["OUTPUT", detail(s?.kpa_detail_primary, "OUT") || (s?.tx_power_watts == null ? "—" : `${s.tx_power_watts} W`), "orange"],
+    : !remote ? [] : [["OUTPUT", detail(s?.kpa_detail_primary, "OUT") || (s?.tx_power_watts == null ? "—" : `${s.tx_power_watts} W`), "orange"],
       [s?.swr_is_live ? "SWR LIVE" : "SWR LAST", s?.swr?.toFixed(2) || "—", "teal"], ["KPA BAND", band(s?.kpa_detail_primary) || s?.band || "—", "amber"],
       ["KPA TEMP", detail(s?.kpa_detail_secondary, "TEMP") || "—", "amber"], ["KAT BAND", band(s?.kat_detail_primary) || s?.band || "—", "cyan"], ["ANTENNA", antenna || "—", "cyan"]];
-  return <section className="live-station-brief"><div className="nav-group">Station</div><strong className={local || flex || tci ? "cyan" : "amber"}>{tci ? "DIRECT TCI · READ ONLY" : flex ? `DIRECT FLEX · ${snapshot?.radio?.connected ? "CONNECTED" : "OFFLINE"}` : local ? "LOCAL · HAMLIB" : `KPA500 · ${s?.kpa_operate == null ? "OFFLINE" : s.kpa_operate ? "OPERATE" : "STANDBY"}`}</strong>
+  return <section className="live-station-brief"><div className="nav-group">Station</div><strong className={local || flex || tci ? "cyan" : "amber"}>{tci ? "DIRECT TCI · READ ONLY" : flex ? `DIRECT FLEX · ${snapshot?.radio?.connected ? "CONNECTED" : "OFFLINE"}` : local ? "LOCAL · HAMLIB" : remote ? `KPA500 · ${s?.kpa_operate == null ? "OFFLINE" : s.kpa_operate ? "OPERATE" : "STANDBY"}` : "NO RADIO SELECTED"}</strong>
     {tci && <p>Direct TCI · read only</p>}
-    {!local && !flex && !tci && <button className={s?.kpa_operate ? "teal" : "orange"} disabled={native ? action !== "standby" && !s?.allowed_actions?.includes(action) : busy || !s?.allowed_actions?.includes(action)} onClick={() => onAction(action)}>Switch to {action}</button>}
+    {remote && <button className={s?.kpa_operate ? "teal" : "orange"} disabled={native ? action !== "standby" && !s?.allowed_actions?.includes(action) : busy || !s?.allowed_actions?.includes(action)} onClick={() => onAction(action)}>Switch to {action}</button>}
     <div className="sidebar-metrics">{items.map(([title, text, color]) => <div key={title} className={color}><small>{title}</small><b>{text}</b></div>)}</div></section>;
 }

@@ -44,7 +44,7 @@ type StationSnapshot = {
   cat_servers?: { cat_port?: number | null; rigctl_port?: number | null; allow_transmit?: boolean };
   propagation?: { status?: string; updated_at?: number; solar_flux?: number; a_index?: number; k_index?: number } | null;
 };
-type Props = { radioId: RadioID; snapshot: any; onRequest: Request; onSnapshot: (value: any) => void; monitor?: boolean; independentRotor?: boolean };
+type Props = { radioId: RadioID; snapshot: any; onRequest: Request; onSnapshot: (value: any) => void; monitor?: boolean; independentRotor?: boolean; remoteSelected?: boolean };
 const modes = ["CW", "SSB", "USB", "LSB", "AM", "FM", "FT8", "FT4", "FT2", "RTTY", "JTTY", "PSK", "DIGI"];
 const rotorBands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "4m", "2m", "70cm", "Other"];
 
@@ -54,7 +54,7 @@ function value<T>(item: T | null | undefined, unit = ""): string { return item =
 function timestamp(epoch?: number | null): string { return typeof epoch === "number" && Number.isFinite(epoch) ? new Date(epoch * 1000).toLocaleTimeString() : "—"; }
 function errorText(cause: unknown): string { return cause instanceof Error ? cause.message : "Station request failed."; }
 
-export default function StationPanel({ radioId, snapshot, onRequest, onSnapshot, monitor = false, independentRotor = true }: Props) {
+export default function StationPanel({ radioId, snapshot, onRequest, onSnapshot, monitor = false, independentRotor = true, remoteSelected = true }: Props) {
   const incoming = snapshot as StationSnapshot | null;
   const [provider] = useState<"xcat_loopback" | "direct_agent">(
     "direct_agent",
@@ -94,7 +94,8 @@ export default function StationPanel({ radioId, snapshot, onRequest, onSnapshot,
   const endpointRef = useRef(endpointKey);
   endpointRef.current = endpointKey;
   useEffect(() => { requestRef.current = onRequest; publishRef.current = onSnapshot; }, [onRequest, onSnapshot]);
-  useEffect(() => { if (incoming?.source === provider) setLive(incoming); }, [incoming, provider]);
+  useEffect(() => { setLive(remoteSelected && incoming?.source === provider ? incoming : null); }, [incoming, provider, remoteSelected]);
+  const remoteHardware = remoteSelected && live?.source === "direct_agent";
 
   const endpoint = provider === "direct_agent"
     ? { provider } : { provider, host: host.trim(), port: Number(port) };
@@ -114,6 +115,7 @@ export default function StationPanel({ radioId, snapshot, onRequest, onSnapshot,
   };
   // Read-only polling never connects, tunes, keys PTT, sends CW or moves a rotor.
   useEffect(() => {
+    if (!remoteSelected) return;
     let active = true;
     let reading = false;
     const read = () => {
@@ -127,7 +129,7 @@ export default function StationPanel({ radioId, snapshot, onRequest, onSnapshot,
     read();
     const timer = window.setInterval(read, 1500);
     return () => { active = false; window.clearInterval(timer); };
-  }, [provider, host, port]);
+  }, [provider, host, port, remoteSelected]);
 
   async function command(method: string, params: Record<string, unknown>, label: string) {
     if (monitor) return;
@@ -242,7 +244,7 @@ export default function StationPanel({ radioId, snapshot, onRequest, onSnapshot,
         </div>
         {radio?.vfos?.length ? <div className="live-station-vfos" aria-label="Observed VFOs">{radio.vfos.map((vfo) => <div key={vfo.letter}><b>VFO {vfo.letter}</b><strong>{frequency(vfo.frequency_hz)} MHz</strong><span>{vfo.mode} · {vfo.receive ? "RX" : ""}{vfo.receive && vfo.transmit ? "/" : ""}{vfo.transmit ? "TX" : ""}</span>
           <small>RIT {vfo.rit_enabled ? `${vfo.rit_offset_hz} Hz` : "off"} · XIT {vfo.xit_enabled ? `${vfo.xit_offset_hz} Hz` : "off"}</small></div>)}</div> : null}
-        <section className="live-station-card"><h3><Activity size={15} /> Station safety</h3>
+        {remoteHardware && <section className="live-station-card"><h3><Activity size={15} /> Station safety</h3>
           <div className="live-station-metrics"><span><b>Commissioned</b>{station?.commissioned == null ? "—" : station.commissioned ? "Yes" : "No"}</span>
             <span><b>Coordinator</b>{value(station?.coordinator_state)}</span><span><b>Interlock</b>{value(station?.interlock_state)}</span>
             <span><b>Route</b>{value(station?.route_alignment)}</span><span><b>Band</b>{value(station?.band)}</span>
@@ -252,19 +254,19 @@ export default function StationPanel({ radioId, snapshot, onRequest, onSnapshot,
           {(station?.inhibitors?.length ?? 0) > 0 && <div className="live-station-inhibitors"><ShieldAlert size={15} />{station?.inhibitors?.join(" · ")}</div>}
           {station?.alarm_summary && <p className="live-station-alarm">{station.alarm_summary}</p>}
           {[station?.kpa_detail_primary, station?.kpa_detail_secondary, station?.kat_detail_primary, station?.kat_detail_secondary, station?.route_detail].filter(Boolean).map((detail, index) => <p className="live-station-detail" key={index}>{detail}</p>)}
-        </section>
+        </section>}
         {!isMonitor && <section className="live-station-card"><h3>Radio &amp; station actions</h3>
           {nativeStationSelection() && <ManualTuneStatus radioId={radioId} />}
           <form className="live-station-inline" onSubmit={(event) => void tune(event)}><label>Frequency MHz<input aria-label="Tune frequency MHz" inputMode="decimal" value={tuneMHz} onChange={(event) => setTuneMHz(event.target.value)} placeholder={connected ? frequency(radio?.frequency_hz) : "14.074000"} /></label>
             <label>Mode<select aria-label="Tune mode" value={tuneMode} onChange={(event) => setTuneMode(event.target.value)}>{modes.map((mode) => <option key={mode}>{mode}</option>)}</select></label>
             <button type="submit" disabled={busy || !connected}>Tune simplex</button></form>
-          <div className="live-station-actionrow">{(["standby", "operate", "tune"] as const).map((action) => <button key={action} type="button" disabled={action === "standby" && nativeStationSelection() ? false : busy || !actions.includes(action) || (isDirect && action === "tune" && !canTransmit)} onClick={() => {
+          {remoteSelected && <div className="live-station-actionrow">{(["standby", "operate", "tune"] as const).map((action) => <button key={action} type="button" disabled={action === "standby" && nativeStationSelection() ? false : busy || !actions.includes(action) || (isDirect && action === "tune" && !canTransmit)} onClick={() => {
             if(action === "tune" && nativeStationSelection()) void carrierTuneSession().tune("direct_agent").catch(()=>{});
             else if(nativeStationSelection()) void amplifierTransitionSession().transition(action as "operate"|"standby").catch(()=>{});
             else void command("station_action", { ...endpoint, action }, `Station ${action}`);
           }}>{action[0].toUpperCase() + action.slice(1)}</button>)}
             <button type="button" disabled={!nativeStationSelection() && (busy || !actions.includes("cancel"))} onClick={() => { if (nativeStationSelection()) void radioReleaseSession().cancel("direct_agent").catch(() => {});
-              else void command("station_action", { ...endpoint, action: "cancel" }, "Station cancel"); }}>Cancel</button></div>
+              else void command("station_action", { ...endpoint, action: "cancel" }, "Station cancel"); }}>Cancel</button></div>}
           {nativeStationSelection() && <RadioReleaseStatus />}
           {nativeStationSelection() && <CarrierTuneStatus />}
           {nativeStationSelection() && <AmplifierTransitionStatus />}
@@ -316,7 +318,7 @@ export default function StationPanel({ radioId, snapshot, onRequest, onSnapshot,
           <div className="live-station-connect"><label>TS-480 CAT port (blank disables)<input type="number" min="1" max="65535" value={catPort} onChange={e => setCATPort(e.target.value)} /></label><label>RigCtlD port (blank disables)<input type="number" min="1" max="65535" value={rigctlPort} onChange={e => setRigctlPort(e.target.value)} /></label><label><input type="checkbox" checked={catTransmit} onChange={e => setCATTransmit(e.target.checked)} />Allow client transmit / CW commands</label>
           <div className="live-actions"><button disabled={busy || !connected} onClick={() => void command("station_cat_servers", { provider: "direct_agent", cat_port: catPort ? Number(catPort) : null, rigctl_port: rigctlPort ? Number(rigctlPort) : null, allow_transmit: catTransmit }, "CAT listeners")}>Apply CAT listeners</button><button disabled={busy} onClick={() => void command("station_cat_servers", { provider: "direct_agent", cat_port: null, rigctl_port: null, allow_transmit: false }, "Stop CAT listeners")}>Stop listeners</button></div></div>
         </section>}
-        {isDirect && !isMonitor && <section className="live-station-card"><h3>Agent configuration</h3><p className="live-station-helper">Load the active station profile, edit its hardware and band policy, then review the changes before saving.</p>
+        {isDirect && remoteSelected && !isMonitor && <section className="live-station-card"><h3>Agent configuration</h3><p className="live-station-helper">Load the active station profile, edit its hardware and band policy, then review the changes before saving.</p>
           <button type="button" disabled={busy || !connected} onClick={() => void loadConfiguration()}>Load configuration</button>
           {agentConfig && <AgentConfiguration config={agentConfig} onSave={saveConfiguration} busy={busy || !connected} />}
         </section>}

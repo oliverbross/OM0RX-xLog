@@ -1,0 +1,7 @@
+.about-xlog { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; min-height:100dvh; padding:28px; text-align:center; color:var(--text); background:var(--canvas,#07111f); }
+.about-xlog img { width:192px; height:192px; object-fit:contain; }
+.about-xlog h1 { margin:0; font-size:24px; }
+.about-xlog p { max-width:42ch; margin:0; line-height:1.5; color:var(--secondary); }
+.about-xlog strong { color:var(--text); }
+.about-xlog a { color:var(--cyan); }
+.about-xlog :focus-visible { outline:2px solid var(--cyan); outline-offset:3px; }

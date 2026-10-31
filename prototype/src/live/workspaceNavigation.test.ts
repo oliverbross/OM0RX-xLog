@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { connectWorkspaceNavigation, contestMenuPanelIDs, contestSetupDialogRoutes, isContestMenuRoute, validWorkspaceNavigation, workspaceScreens, workspaceMenuScreens } from "./workspaceNavigation";
+import { connectWorkspaceNavigation, contestMenuPanelIDs, contestSetupDialogRoutes, isContestMenuRoute, validWorkspaceNavigation, visibleWorkspaceMenuScreens, workspaceScreens, workspaceMenuScreens } from "./workspaceNavigation";
 import { OperatorDraftSession } from "./operatorDraftSession";
 import { SpotActivationEditor } from "./spotActivation";
 const tick = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
@@ -11,6 +11,8 @@ function fixture() {
   return { api, stop, navigate, failed, wake: () => wake(), connect: () => connectWorkspaceNavigation(navigate, failed, api) };
 }
 it("has every existing destination and no unknown navigation or CW function-key shortcut", () => {
+  expect(workspaceMenuScreens.some(screen => screen.id === "cw-decode")).toBe(false);
+  expect(visibleWorkspaceMenuScreens(true).some(screen => screen.id === "cw-decode")).toBe(true);
   expect(workspaceMenuScreens.some(screen => screen.id === "sync")).toBe(false);
   expect(workspaceMenuScreens.some(screen => screen.id === "settings")).toBe(true);
   expect(workspaceMenuScreens.some(screen => screen.id === "station-control")).toBe(false);

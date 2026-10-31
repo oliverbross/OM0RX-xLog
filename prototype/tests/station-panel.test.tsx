@@ -6,6 +6,17 @@ import StationPanel from "../src/live/StationPanel";
 
 afterEach(() => cleanup());
 
+it("hides retained amplifier details and stops remote reads when another provider is selected", async () => {
+  const state = { source: "direct_agent", station: { kpa_detail_primary: "Fixture KPA500", kat_detail_primary: "Fixture KAT500" } };
+  const request = vi.fn(async () => state);
+  const view = render(<StationPanel radioId="radio1" snapshot={state} onRequest={request} onSnapshot={vi.fn()} />);
+  await screen.findByText("Fixture KPA500");
+  view.rerender(<StationPanel radioId="radio1" snapshot={state} remoteSelected={false} onRequest={request} onSnapshot={vi.fn()} />);
+  expect(screen.queryByText("Fixture KPA500")).toBeNull(); expect(screen.queryByText("Fixture KAT500")).toBeNull();
+  expect(screen.queryByRole("heading", { name: "Station safety" })).toBeNull();
+  expect(screen.queryByRole("heading", { name: "Agent configuration" })).toBeNull();
+});
+
 it("reads observed state without connecting or commanding radio or rotor", async () => {
   const request = vi.fn(async (method: string, params?: Record<string, unknown>) => {
     expect(method).toBe("station_snapshot");

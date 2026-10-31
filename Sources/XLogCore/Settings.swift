@@ -56,6 +56,10 @@ public struct XLogSettings: Codable, Equatable, Sendable {
     public var automaticTransmitPower = false
     /// Opt-in only: clear an unlogged draft after a separately confirmed QSY.
     public var clearAfterQSY = false
+    /// Only explicitly created first-run workspaces opt into setup. Missing in
+    /// an existing profile means complete, so upgrades never interrupt operators.
+    public var onboardingCompleted = true
+    public var showCWDecode = false
     public var defaultRadio: String
     public var wavelogURL: String
     public var wavelogStationID: Int
@@ -75,13 +79,13 @@ public struct XLogSettings: Codable, Equatable, Sendable {
     public var ftpBackup = FTPBackupSettings()
 
     public static let defaults = XLogSettings(
-        operatorCall: "OM0RX",
-        stationCall: "OM0RX",
+        operatorCall: "",
+        stationCall: "",
         gridSquare: "",
         stationLocation: "",
         defaultPower: "100",
-        defaultRadio: "OM0RX-xCat",
-        wavelogURL: "https://om0rx.wavelog.online",
+        defaultRadio: "",
+        wavelogURL: "",
         wavelogStationID: 0,
         logbookMode: .local,
         automaticSync: true,
@@ -371,7 +375,7 @@ public enum RotorConfigurationError: Error {
 
 extension XLogSettings {
     private enum CodingKeys: String, CodingKey {
-        case operatorCall, stationCall, gridSquare, stationLocation, defaultPower, defaultRadio, automaticTransmitPower, clearAfterQSY
+        case operatorCall, stationCall, gridSquare, stationLocation, defaultPower, defaultRadio, automaticTransmitPower, clearAfterQSY, onboardingCompleted, showCWDecode
         case wavelogURL, wavelogStationID, logbookMode, automaticSync, syncIntervalMinutes
         case qrzUsername, qrzEnabled, callsignLookupProvider, hamqthUsername
         case xcatHost, xcatRigCtlPort, clubLogCTYURL, lotwActivityURL
@@ -387,6 +391,8 @@ extension XLogSettings {
         defaultPower = try values.decode(String.self, forKey: .defaultPower)
         automaticTransmitPower = try values.decodeIfPresent(Bool.self, forKey: .automaticTransmitPower) ?? false
         clearAfterQSY = try values.decodeIfPresent(Bool.self, forKey: .clearAfterQSY) ?? false
+        onboardingCompleted = try values.decodeIfPresent(Bool.self, forKey: .onboardingCompleted) ?? true
+        showCWDecode = try values.decodeIfPresent(Bool.self, forKey: .showCWDecode) ?? false
         defaultRadio = try values.decode(String.self, forKey: .defaultRadio)
         wavelogURL = try values.decode(String.self, forKey: .wavelogURL)
         wavelogStationID = try values.decode(Int.self, forKey: .wavelogStationID)

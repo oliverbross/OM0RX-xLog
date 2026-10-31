@@ -22,7 +22,7 @@ export type ServiceSettingsProps = { values: Data; savedValues?: Data; request: 
   onExternalContact?: () => void;
   availableTabs?: readonly Tab[]; requestedTab?: Tab; requestedTabRevision?: number; cwContext?: CWContext; cwState?: CWState;
   refreshCW?: () => Promise<void>; cwProvider?: string };
-const tabs = ["Station", "Radio", "Logbook", "Wavelog", "Sync", "Integrations", "Radio spots", "Cluster", "QRZ", "Online logs", "Reference data", "Rotator", "CW", "Display", "Workspace", "Backups"] as const;
+const tabs = ["Station", "Radio", "Logbook", "Wavelog", "Sync", "Integrations", "Radio spots", "Cluster", "QRZ", "Online logs", "Reference data", "Rotator", "CW", "Display", "Workspace", "Backups", "Experimental"] as const;
 type Tab = typeof tabs[number];
 const tabLabels: Partial<Record<Tab, string>> = { Station: "General", Integrations: "WSJT-X", QRZ: "Callsign lookup" };
 const settingsGroups: { label: string; tabs: readonly Tab[] }[] = [
@@ -30,7 +30,7 @@ const settingsGroups: { label: string; tabs: readonly Tab[] }[] = [
   { label: "Logbook", tabs: ["Logbook", "Wavelog", "Sync"] },
   { label: "Connections", tabs: ["Integrations", "Radio spots", "Cluster"] },
   { label: "Services", tabs: ["QRZ", "Online logs", "Reference data"] },
-  { label: "Application", tabs: ["Display", "Workspace", "Backups"] },
+  { label: "Application", tabs: ["Display", "Workspace", "Backups", "Experimental"] },
 ];
 
 function Credential({ account, label, request, leadingField, visible = false, showSavedStatus = false, savedStatus, missingStatus, allowRemove = false, inputType = "password", onChanged }: { account: string; label: string; request: Request; leadingField?: ReactNode; visible?: boolean; showSavedStatus?: boolean; savedStatus?: string; missingStatus?: string; allowRemove?: boolean; inputType?: "password" | "text"; onChanged?: () => void }) {
@@ -182,7 +182,7 @@ export default function ServiceSettings({ values, savedValues, request, onChange
   useEffect(() => { if (requestedTab && visibleTabs.includes(requestedTab)) setTab(requestedTab); }, [requestedTab, requestedTabRevision, visibleTabs]);
   useEffect(() => { if (!visibleTabs.includes(tab)) setTab(visibleTabs[0] ?? "Station"); }, [tab, visibleTabs]);
   const showAccountHelp = ["Station", "Wavelog", "QRZ", "Reference data", "Rotator", "Backups"].includes(tab);
-  const showFormSave = ["Station", "Logbook", "Wavelog", "QRZ", "Reference data", "CW"].includes(tab);
+  const showFormSave = ["Station", "Logbook", "Wavelog", "QRZ", "Reference data", "CW", "Experimental"].includes(tab);
   const form = values;
   const lookupProvider = form.qrzEnabled === true ? String(form.callsignLookupProvider ?? "qrz") : "disabled";
   const savedForm = savedValues ?? form;
@@ -246,6 +246,11 @@ export default function ServiceSettings({ values, savedValues, request, onChange
       {!pending && (dirty || conflict || workspaceChanged) && <button type="button" disabled={saving} onClick={onUseSaved}>Use saved Settings</button>}
     </div>}
     <form onSubmit={event => void save(event)} noValidate><fieldset disabled={saving || blocked}>
+      <section hidden={tab !== "Experimental"}><h2>Alpha and unfinished features</h2>
+        <p>Choose which experimental tools appear in the application menus. Showing a tool does not start it or change its release qualification.</p>
+        <label className="service-enable"><input type="checkbox" checked={form.showCWDecode === true} onChange={event => update({ showCWDecode: event.target.checked })} />Show CW Decode in menus</label>
+        <p>CW Decode is an unfinished receive-only tool. Hidden by default; save settings to apply this choice to the sidebar, View, Window and Contest menus.</p>
+      </section>
       {visibleTabs.includes("CW") && <div hidden={tab !== "CW"}><CWSettings value={form.cwProfile} saved={(savedValues ?? form).cwProfile} onChange={cwProfile => update({ cwProfile })} context={cwContext} request={request} state={cwState} refresh={refreshCW} radioProvider={cwProvider} /></div>}
       <section hidden={tab !== "Station"}><h2>Station identity</h2><div className="service-fields service-station-identity-fields">{[["operatorCall", "Operator call"], ["stationCall", "Station call"], ["gridSquare", "Station grid"], ["stationLocation", "Station location"], ["defaultPower", "Default power W"], ["defaultRadio", "Radio name"]].map(([key, label]) => key === "defaultPower" ? <div key={key} className="service-default-power">{field(key, label)}
         <label className="service-enable"><input type="checkbox" aria-describedby="automatic-power-help" checked={form.automaticTransmitPower === true} disabled={typeof (savedValues ?? form).automaticTransmitPower !== "boolean"}

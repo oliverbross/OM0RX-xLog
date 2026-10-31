@@ -10,6 +10,8 @@ const propagation = vi.hoisted(() => vi.fn());
 const identity = vi.hoisted(() => vi.fn());
 const alerts = vi.hoisted(() => vi.fn());
 const antenna = vi.hoisted(() => vi.fn());
+const about = vi.hoisted(() => vi.fn());
+vi.mock("../src/live/AboutSurface", () => { about(); return { AboutSurface: "about-surface" }; });
 vi.mock("../src/live/DetachedAntennaSurface", () => { antenna(); return { DetachedAntennaSurface: "antenna-surface" }; });
 vi.mock("../src/live/DetachedAlertsSurface", () => { alerts(); return { DetachedAlertsSurface: "alerts-surface" }; });
 vi.mock("../src/live/DetachedStationIdentitySurface", () => { identity(); return { DetachedStationIdentitySurface: "station-identity-surface" }; });
@@ -32,6 +34,11 @@ it("loads Antenna without evaluating the main station controller", async () => {
   const { loadWindowSurface } = await import("../src/windowSurface");
   expect(await loadWindowSurface("?view=antenna")).toBe("antenna-surface");
   expect(antenna).toHaveBeenCalledOnce(); expect(loaded.main).not.toHaveBeenCalled();
+});
+it("loads static About without evaluating the main station controller", async () => {
+  const { loadWindowSurface } = await import("../src/windowSurface");
+  expect(await loadWindowSurface("?view=about")).toBe("about-surface");
+  expect(about).toHaveBeenCalledOnce(); expect(loaded.main).not.toHaveBeenCalled();
 });
 it("cannot fall back to the main station controller if the Antenna chunk fails", async () => {
   vi.doMock("../src/live/DetachedAntennaSurface", () => { throw new Error("Antenna chunk unavailable"); });

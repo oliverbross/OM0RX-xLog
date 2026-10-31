@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import ServiceSettings from "./ServiceSettings";
 import SyncPanel from "./SyncPanel";
 import WorkspaceSettings from "./WorkspaceSettings";
@@ -12,7 +13,7 @@ import { connectRotorConfigurationChanges } from "./rotorConfigurationTransport"
 const journalKey = "xlog.integration.settings.detached.v1";
 const rotorJournalKey = "xlog.integration.rotorConfiguration.detached.v1";
 const RotorPanel = lazy(() => import("./RotorPanel"));
-const availableTabs = ["Station", "Logbook", "Wavelog", "Sync", "Integrations", "QRZ", "Online logs", "Reference data", "Rotator", "Radio spots", "Display", "Workspace", "Backups"] as const;
+const availableTabs = ["Station", "Logbook", "Wavelog", "Sync", "Integrations", "QRZ", "Online logs", "Reference data", "Rotator", "Radio spots", "Display", "Workspace", "Backups", "Experimental"] as const;
 export const detachedSettingsMethods = [
   "settings_load", "settings_receipt", "settings_save", "secret_status", "secret_save", "lookup_call",
   "online_log_status", "online_log_configure",
@@ -44,6 +45,8 @@ export function DetachedSettingsSurface() {
   const [settingsSession] = useState(() => new SettingsSession(requestDetachedSettings,
     journal => journal ? localStorage.setItem(journalKey, JSON.stringify(journal)) : localStorage.removeItem(journalKey), storedJournal()));
   const state = useSyncExternalStore(settingsSession.subscribe, settingsSession.getSnapshot);
+  const showCWDecode = state.snapshot?.settings.showCWDecode === true;
+  useEffect(() => { if (state.snapshot && isTauri()) void invoke("set_cw_decode_menu_visibility", { visible: showCWDecode }).catch(() => {}); }, [showCWDecode, !!state.snapshot]);
   const [rotorSession] = useState(() => new RotorConfigurationSession(requestDetachedSettings,
     journal => journal ? localStorage.setItem(rotorJournalKey, JSON.stringify(journal)) : localStorage.removeItem(rotorJournalKey),
     storedRotorJournal()));

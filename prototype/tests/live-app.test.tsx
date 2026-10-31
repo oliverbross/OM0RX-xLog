@@ -57,6 +57,31 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it("offers setup only after a verified fresh-install status without creating a workspace on mount", async () => {
+  const previous = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation(async (method: string, params: any = {}) => method === "workspace_status"
+    ? { ok: true, result: { workspace_exists: false, native_log_exists: false, first_run_eligible: true } }
+    : previous(method, params));
+  render(<LiveApp />);
+  await screen.findByRole("region", { name: "First-run station setup" });
+  expect((screen.getByLabelText("Operator call") as HTMLInputElement).value).toBe("");
+  expect(screen.queryByRole("button", { name: "Create empty logbook" })).toBeNull();
+  expect(calls.request.mock.calls.some(([method]) => method === "workspace_create" || method === "settings_save")).toBe(false);
+});
+
+it("resumes an explicitly incomplete setup with saved identity while keeping the logging editor gated", async () => {
+  exists = true;
+  const previous = calls.request.getMockImplementation()!;
+  calls.request.mockImplementation(async (method: string, params: any = {}) => method === "settings_load"
+    ? { ok: true, result: { generation: testWorkspaceGeneration, revision: 0, settings: { operatorCall: "K1ABC", stationCall: "K1ABC/P", gridSquare: "FN31PR", onboardingCompleted: false } } }
+    : previous(method, params));
+  render(<LiveApp />);
+  await screen.findByRole("region", { name: "First-run station setup" });
+  expect((screen.getByLabelText("Operator call") as HTMLInputElement).value).toBe("K1ABC");
+  expect(screen.queryByRole("textbox", { name: "Callsign" })).toBeNull();
+  expect(calls.request.mock.calls.some(([method]) => method === "workspace_create" || method === "settings_save")).toBe(false);
+});
+
 it("settles a stalled callsign lookup instead of leaving intelligence pending", async () => {
   vi.useFakeTimers();
   try {

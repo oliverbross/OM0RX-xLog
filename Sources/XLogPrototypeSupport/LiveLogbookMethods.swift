@@ -588,11 +588,28 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                                              "pending_sync_count": try database?.pendingSyncCount() ?? 0,
                                              "outbox_count": try database?.outboxCount() ?? 0,
                                              "automatic_sync": false]
+                // A saved native profile is an existing operator even if its
+                // original database is currently unavailable. Never replace it
+                // with first-run defaults or a new empty workspace implicitly.
+                let nativeProfileExists = inheritNativePreferences &&
+                    UserDefaults(suiteName: "com.oliverbross.OM0RXXLog")?.data(forKey: "OM0RX-xLog.settings.v1") != nil
+                status["first_run_eligible"] = !exists && !nativeProfileExists &&
+                    !fileManager.fileExists(atPath: nativeDatabaseURL.path)
                 if exists { status["generation"] = try editGeneration() }
                 return status
             case "workspace_create":
-                try requireKeys(params, allowed: ["mode"], required: ["mode"])
+                try requireKeys(params, allowed: ["mode", "onboarding"], required: ["mode"])
                 guard let mode = params["mode"] as? String else { throw invalid() }
+                guard params["onboarding"] == nil || params["onboarding"] is Bool else { throw invalid() }
+                let onboarding = params["onboarding"] as? Bool ?? false
+                if onboarding {
+                    let nativeProfileExists = inheritNativePreferences &&
+                        UserDefaults(suiteName: "com.oliverbross.OM0RXXLog")?.data(forKey: "OM0RX-xLog.settings.v1") != nil
+                    guard mode == "empty", !nativeProfileExists,
+                          !fileManager.fileExists(atPath: nativeDatabaseURL.path) else {
+                        throw WorkerFailure("existing_operator", "Existing logbook or station settings were found. Use logbook recovery instead of first-run setup.")
+                    }
+                }
                 guard !fileManager.fileExists(atPath: workspaceURL.path) else {
                     throw WorkerFailure("workspace_exists", "The integrated logbook already exists.")
                 }
@@ -620,6 +637,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 // copied from native). Copying contacts or profile defaults is
                 // not consent to sync this separate logbook.
                 initialSettings.logbookMode = .local
+                initialSettings.onboardingCompleted = !onboarding
                 SettingsStore(defaults: isolatedDefaults).save(initialSettings)
                 if mode == "copy_native", let nativeDefaults {
                     applyBackupPreferences(backupPreferences(from: nativeDefaults), to: isolatedDefaults)

@@ -90,6 +90,7 @@ static CONTEST_SETUP_CREATION: Mutex<()> = Mutex::new(());
 static WORKSPACE_PRESENTATION: Mutex<bool> = Mutex::new(false);
 static FOREGROUND_PRESENTATION: Mutex<()> = Mutex::new(());
 static APP_EXITING: AtomicBool = AtomicBool::new(false);
+static CW_DECODE_MENU_VISIBLE: AtomicBool = AtomicBool::new(false);
 static CONTEST_QUIT_PREPARING: AtomicBool = AtomicBool::new(false);
 static CONTEST_QUIT_PREPARED: AtomicBool = AtomicBool::new(false);
 static MAIN_WORKSPACE_REOPENED: AtomicBool = AtomicBool::new(false);
@@ -659,6 +660,7 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     // Extend Tauri's native default instead of replacing its app, Edit,
     // Window, Help, and macOS View/Fullscreen menus or keyboard shortcuts.
     let menu = Menu::default(app)?;
+    replace_about_menu(app, &menu)?;
     #[cfg(target_os = "macos")]
     append_application_settings(app, &menu)?;
     let compact = MenuItem::with_id(
@@ -724,7 +726,7 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     modes.append(&CheckMenuItem::with_id(app, "workspace_mode_windows", "Separate Windows", true, false, None::<&str>)?)?;
     windows.append(&modes)?;
     windows.append(&PredefinedMenuItem::separator(app)?)?;
-    for window in workspace_windows::SUPPORTED_WINDOWS.iter().filter(|window| window_menu_includes(window.id)) {
+    for window in workspace_windows::SUPPORTED_WINDOWS.iter().filter(|window| window_menu_includes(window.id) && experimental_menu_includes(window.id)) {
         windows.append(&MenuItem::with_id(app, format!("workspace_window_{}", window.id),
             window_menu_title(window.title), true,
             detached_window_shortcut(window.id))?)?;
@@ -783,6 +785,7 @@ fn append_contesting_menu(app: &tauri::AppHandle, menu: &Menu<tauri::Wry>) -> ta
         "Recorder…", true, None::<&str>)?)?;
     contesting.append(&PredefinedMenuItem::separator(app)?)?;
     for (route, title) in workspace_navigation::CONTEST_MENU_ITEMS {
+        if !experimental_menu_includes(route) { continue; }
         contesting.append(&MenuItem::with_id(app, format!("contest_menu_{route}"),
             title, true, None::<&str>)?)?;
     }
@@ -864,7 +867,51 @@ fn radio_menu_route(id: &str) -> Option<&'static str> {
 }
 
 fn window_menu_includes(id: &str) -> bool {
-    !matches!(id, "station-status" | "station-identity" | "connection-doctor")
+    !matches!(id, "station-status" | "station-identity" | "connection-doctor" | "about")
+}
+
+fn experimental_menu_includes(id: &str) -> bool {
+    experimental_menu_includes_for(id, CW_DECODE_MENU_VISIBLE.load(Ordering::Acquire))
+}
+fn experimental_menu_includes_for(id: &str, visible: bool) -> bool {
+    !matches!(id, "cw-decode" | "contest-window-cw-decode") || visible
+}
+
+fn replace_about_menu(app: &tauri::AppHandle, menu: &Menu<tauri::Wry>) -> tauri::Result<()> {
+    let title = PredefinedMenuItem::about(app, None, None)?.text()?;
+    for submenu in menu.items()?.iter().filter_map(|item| item.as_submenu().cloned()) {
+        if let Some(index) = submenu.items()?.iter().position(|item| item.as_predefined_menuitem()
+            .is_some_and(|item| item.text().is_ok_and(|text| text == title))) {
+            submenu.remove_at(index)?;
+            submenu.insert(&MenuItem::with_id(app, "app_about", "About OM0RX-xLog", true, None::<&str>)?, index)?;
+            return Ok(());
+        }
+    }
+    menu.append(&Submenu::with_items(app, "Help", true, &[
+        &MenuItem::with_id(app, "app_about", "About OM0RX-xLog", true, None::<&str>)?,
+    ])?)?;
+    Ok(())
+}
+
+#[tauri::command]
+fn set_cw_decode_menu_visibility(window: tauri::WebviewWindow, app: tauri::AppHandle, visible: bool) -> Result<(), String> {
+    if !matches!(window.label(), "main" | "settings") || APP_EXITING.load(Ordering::Acquire) {
+        return Err("Menu visibility can only be changed from Settings or the main workspace.".into());
+    }
+    let previous = CW_DECODE_MENU_VISIBLE.swap(visible, Ordering::AcqRel);
+    if previous != visible {
+        if let Err(error) = workspace_menu(&app).and_then(|menu| app.set_menu(menu).map(|_| ())) {
+            CW_DECODE_MENU_VISIBLE.store(previous, Ordering::Release);
+            return Err(error.to_string());
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn close_about_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    if window.label() != "about" { return Err("This control belongs to About OM0RX-xLog.".into()); }
+    window.close().map_err(|error| error.to_string())
 }
 
 fn window_menu_title(title: &str) -> String {
@@ -905,7 +952,7 @@ fn screen_group_menu_includes(id: &str) -> bool {
 
 fn append_screen_group(app: &tauri::AppHandle, menu: &Submenu<tauri::Wry>, group: &str) -> tauri::Result<()> {
     for screen in workspace_navigation::screens().iter().filter(|screen|
-        screen.group == group && !screen.hidden && screen_group_menu_includes(&screen.id)) {
+        screen.group == group && !screen.hidden && screen_group_menu_includes(&screen.id) && experimental_menu_includes(&screen.id)) {
         menu.append(&MenuItem::with_id(app, format!("workspace_screen_{}", screen.id),
             &screen.title, true, screen.shortcut.as_deref())?)?;
     }
@@ -4142,6 +4189,13 @@ fn main() {
             }
         })
         .on_menu_event(|app, event| {
+            if event.id().0 == "app_about" {
+                let app = app.clone();
+                tauri::async_runtime::spawn_blocking(move || {
+                    if let Err(error) = workspace_window_runtime::open(&app, "about") { eprintln!("Could not open About OM0RX-xLog: {error}"); }
+                });
+                return;
+            }
             if event.id().0 == "workspace_guarded_quit" {
                 app.exit(0);
                 return;
@@ -4433,7 +4487,7 @@ fn main() {
             contest_voice_prepare, contest_voice_ptt, contest_voice_profile_manifest, contest_voice_profile_preview,
             contest_voice_profile_write, contest_voice_profile_pick,
             contest_surface_action, contest_surface_diagnostic_report, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_owner_claim, contest_surface_publish, contest_surface_snapshot, contest_rotor_target,
-            workspace_mode_present, workspace_canvas_close_ack,
+            workspace_mode_present, workspace_canvas_close_ack, set_cw_decode_menu_visibility, close_about_window,
             workspace_navigation_snapshot, workspace_navigation_ack, hm_control_snapshot, hm_control_feed, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, contest_history_preview, contest_history_manager_request, contest_qrz_details_lookup, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,
             detached_cluster_ready, cluster_session_selection, contest_post_spot, dock_detached_window, close_logbook_window, close_qso_window, close_main_window, close_cw_window, show_cw_desk, close_rotor_window, show_rotor_desk, close_station_status_window, show_station_status_desk, close_propagation_window, show_propagation_desk, close_station_identity_window, show_station_identity_desk, close_alerts_window, show_alerts_desk, close_antenna_window, show_antenna_desk,
              hf_propagation_fetch,
@@ -4578,6 +4632,18 @@ mod workspace_layout_tests {
     use super::{WorkspaceLayout, DraftWake, HostActiveContest, NativeForeground, contest_desk_focus_label, contest_desk_is_open, contest_desk_window, contest_setup_route, enters_contest_desk, foreground_presentation_guard, hide_normal_workspace_during_contest, host_active_contest, main_workspace_menu_action, native_foreground, normal_workspace_window, recover_presentation_hint, recover_singleton, detached_window_shortcut, validate_detached_open, COMPACT_WORKSPACE_MENU_ID, STANDARD_WORKSPACE_MENU_ID};
     use super::{spot_editor_barrier, validate_spot_effect, validate_activation_reader, retires_automatic_rotor, is_raw_manual_rotor_goto, is_raw_owned_station_lifecycle, station_session_changes_state, validate_auto_rotor_read, validate_auto_rotor_set, validate_radio_read, validate_follow_snapshot, validate_follow_set, validate_follow_settlement, validate_rotor_stop, contest_history_manager_worker_params, contest_history_preview_worker_params, AutomaticRotorCommands};
     use serde_json::json;
+
+    #[test]
+    fn unfinished_decode_menu_opt_in_covers_normal_and_contest_without_hiding_other_tools() {
+        for id in ["cw-decode", "contest-window-cw-decode"] {
+            assert!(!super::experimental_menu_includes_for(id, false));
+            assert!(super::experimental_menu_includes_for(id, true));
+        }
+        for id in ["cw", "log-qso", "logbook", "settings", "about", "contest-window-active-qso"] {
+            assert!(super::experimental_menu_includes_for(id, false));
+        }
+        assert!(!super::window_menu_includes("about"));
+    }
 
     #[test]
     fn contest_desk_children_keep_a_usable_native_lifetime_after_main_retires() {

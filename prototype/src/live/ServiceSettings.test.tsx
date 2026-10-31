@@ -16,6 +16,16 @@ function SettingsHarness({ values: initial, onSave = async () => {}, ...props }:
   return <ServiceSettings {...props} values={values} onChanged={setValues} onSave={onSave} />;
 }
 describe("grouped service settings", () => {
+  it("keeps unfinished CW Decode hidden by default and persists visibility only on Save", async () => {
+    const saved = vi.fn(async () => {}), request = vi.fn();
+    render(<SettingsHarness values={values} request={request} onSave={saved} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Experimental" }));
+    const checkbox = screen.getByRole("checkbox", { name: "Show CW Decode in menus" }) as HTMLInputElement;
+    expect(checkbox.checked).toBe(false); fireEvent.click(checkbox);
+    expect(saved).not.toHaveBeenCalled(); expect(request).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
+    await waitFor(() => expect(saved).toHaveBeenCalledWith({ ...values, showCWDecode: true }));
+  });
   it("names and exposes radio output before the Radio spots subsection", async () => {
     const request = vi.fn(async (method: string) => {
       if (method === "cluster_snapshot") return { configuration: { forwardSpotsToFlex: false, palette: { status: {} } }, flex_forwarding_available: true };

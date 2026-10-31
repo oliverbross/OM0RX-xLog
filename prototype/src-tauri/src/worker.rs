@@ -20,6 +20,7 @@ const PASSIVE_READ_TIMEOUT: Duration = Duration::from_secs(5);
 pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     let label = crate::workspace_windows::surface_role(label);
     validate_request(request)?;
+    if label == "about" { return Err("About OM0RX-xLog has no worker access.".into()); }
     if label == "hm-control" { return Err("HM Control can only use its non-secret read-only display projection.".into()); }
     if request["method"].as_str().is_some_and(|method| method.starts_with("cw_decode_")) {
         return if matches!(label, "main" | "cw-decode" | "contest--cw-decode") { Ok(()) }
@@ -1317,6 +1318,12 @@ fn service_request_failure(phase: &str, control_request: bool) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn about_window_has_no_worker_or_secret_authority() {
+        for method in ["health", "workspace_status", "settings_load", "settings_save", "secret_status", "secret_save", "station_snapshot", "station_action", "cw_decode_snapshot", "cluster_snapshot"] {
+            assert!(super::validate_surface("about", &serde_json::json!({"id":"denied","method":method,"params":{}})).is_err(), "{method}");
+        }
+    }
     #[test]
     fn cw_decode_has_receive_only_authority_and_never_inherits_cw_output() {
         for method in ["cw_decode_snapshot", "cw_decode_resolve_selection", "cw_decode_resolve_signal", "cw_decode_configuration_save", "cw_decode_start", "cw_decode_stop", "cw_decode_source_start", "cw_decode_source_stop", "cw_decode_listener_start", "cw_decode_listener_stop", "cw_decode_flex_handoff", "cw_decode_track_mute", "cw_decode_track_focus"] {

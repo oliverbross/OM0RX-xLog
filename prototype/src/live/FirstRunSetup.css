@@ -1,0 +1,14 @@
+.first-run-setup { width:min(100%,820px); margin:12px auto; padding:24px; background:var(--panel); border:1px solid var(--border); border-radius:12px; }
+.first-run-setup h1 { margin:0 0 8px; font-size:24px; }
+.first-run-setup p { max-width:72ch; color:var(--secondary); line-height:1.5; }
+.first-run-setup ol { display:flex; flex-wrap:wrap; gap:10px 24px; margin:24px 0; padding:0; list-style:none; color:var(--secondary); }
+.first-run-setup li[aria-current="step"] { color:var(--cyan); font-weight:700; }
+.first-run-setup h2 { margin:0 0 12px; font-size:18px; }
+.first-run-setup fieldset { padding:0; margin:0; border:0; min-width:0; }
+.first-run-setup label { display:flex; flex-direction:column; gap:6px; color:var(--text); }
+.first-run-setup input,.first-run-setup select { width:100%; min-width:0; }
+.first-run-setup .setup-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin:16px 0; }
+.first-run-setup .setup-fields > p { grid-column:1/-1; }
+.first-run-setup footer { display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; margin-top:24px; }
+.first-run-setup :focus-visible { outline:2px solid var(--cyan); outline-offset:3px; }
+@media(max-width:650px) { .first-run-setup { padding:16px; } .first-run-setup .setup-fields { grid-template-columns:1fr; } }

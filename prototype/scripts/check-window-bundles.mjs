@@ -15,6 +15,10 @@ function closure(key, found = new Set()) {
 }
 const main = "src/LiveApp.tsx";
 assert(manifest[main], "Main workspace bundle is missing");
+const aboutGraph = closure("src/live/AboutSurface.tsx", closure("index.html"));
+assert(!aboutGraph.has(main) && !aboutGraph.has("src/worker.ts"), "About imports station or worker state");
+const aboutBytes = [...aboutGraph].reduce((total, key) => total + readFileSync(resolve(dist, manifest[key].file)).length, 0);
+assert(aboutBytes <= 300_000, `About startup JavaScript exceeds its 300 kB budget: ${aboutBytes}`);
 const eagerGraph = closure("index.html");
 const eagerCss = new Set([...eagerGraph].flatMap(key => manifest[key].css ?? []));
 const setupDialogEntry = "src/contesting/DetachedContestSetupDialog.tsx";

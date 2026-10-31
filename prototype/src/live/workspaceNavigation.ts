@@ -3,7 +3,8 @@ import { listen } from "@tauri-apps/api/event";
 import screens from "./workspaceScreens.json";
 export const workspaceScreens = screens;
 // Keep legacy routes valid without displaying their former top-level entries.
-export const workspaceMenuScreens = screens.filter(screen => !screen.hidden);
+export const workspaceMenuScreens = screens.filter(screen => !screen.hidden && screen.id !== "cw-decode");
+export const visibleWorkspaceMenuScreens = (showCWDecode = false) => screens.filter(screen => !screen.hidden && (screen.id !== "cw-decode" || showCWDecode));
 type Navigation = { revision: number; screen: string };
 export const workspaceModeRoutes = { "workspace-mode-canvas": "Workspace Mode: Canvas", "workspace-mode-windows": "Workspace Mode: Separate Windows" } as const;
 export const contestMenuPanelIDs = ["active-qso", "call-history", "qrz-details", "group-chat", "callsign-intelligence", "propagation", "monitor", "logbook", "band-maps", "world-map", "rotor", "dx-cluster",
