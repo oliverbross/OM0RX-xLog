@@ -121,12 +121,39 @@ struct RTCScoreReportingServiceTests {
 
     @Test("Redirects are rejected without following the new location")
     func redirectRejected() async throws {
-        RTCScoreFixture.reset(status: 302, responseBody: Data(), redirect: true)
+        RTCScoreFixture.reset(status: 302, responseBody: Data(),
+            redirectLocation: "https://example.invalid/rejected")
         let service = makeService()
         try await configure(service)
         await #expect(throws: Error.self) { try await service.sendNow() }
         #expect(RTCScoreFixture.requestCount() == 1)
+        #expect(RTCScoreFixture.request()?.url?.absoluteString == "https://hamscore.com/postxml/")
         await service.terminate()
+    }
+
+    @Test("The production delegate refuses same-host, foreign-host and insecure redirects")
+    func redirectDelegateRefusesEveryDestination() throws {
+        RTCScoreFixture.reset(status: 200)
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [RTCScoreFixture.self]
+        let original = URLRequest(url: URL(string: "https://hamscore.com/postxml/")!)
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        for destination in ["https://hamscore.com/another-path", "https://example.invalid/rejected",
+                            "http://hamscore.com/postxml/"] {
+            let transport = RTCScoreHTTPTransport(configuration: configuration, request: original)
+            let response = try #require(HTTPURLResponse(url: original.url!, statusCode: 302,
+                httpVersion: "HTTP/1.1", headerFields: ["Location": destination]))
+            let task = session.dataTask(with: original) // Never resumed: no network or credentials leave the fixture.
+            var refused = false
+            transport.urlSession(session, task: task, willPerformHTTPRedirection: response,
+                newRequest: URLRequest(url: URL(string: destination)!)) { next in
+                refused = true
+                #expect(next == nil)
+            }
+            #expect(refused)
+        }
+        #expect(RTCScoreFixture.requestCount() == 0)
     }
 
     @Test("Termination cancels a manual post without applying a result")
@@ -191,18 +218,18 @@ private final class RTCScoreFixture: URLProtocol {
     private static var requests = 0
     private static var responseStatus = 204
     private static var responseBody = Data()
-    private static var redirect = false
+    private static var redirectLocation: String?
     private static var suspended = false
     private static var cancellations = 0
     private static var probe = RTCScoreFixtureProbe()
     @discardableResult
     static func reset(status: Int, responseBody: Data = Data(), suspended: Bool = false,
-                      redirect: Bool = false) -> RTCScoreFixtureProbe {
+                      redirectLocation: String? = nil) -> RTCScoreFixtureProbe {
         let newProbe = RTCScoreFixtureProbe()
         lock.withLock {
             captured = nil; capturedBody = Data(); requests = 0; responseStatus = status
             self.responseBody = responseBody; self.suspended = suspended
-            self.redirect = redirect; cancellations = 0; probe = newProbe
+            self.redirectLocation = redirectLocation; cancellations = 0; probe = newProbe
         }
         return newProbe
     }
@@ -224,22 +251,19 @@ private final class RTCScoreFixture: URLProtocol {
                 body.append(buffer, count: count)
             }
         }
-        let (status, responseBody, suspended, redirect, probe) = Self.lock.withLock {
+        let (status, responseBody, suspended, redirectLocation, probe) = Self.lock.withLock {
             Self.captured = request
             Self.capturedBody = body
             Self.requests += 1
             eventProbe = Self.probe
-            return (Self.responseStatus, Self.responseBody, Self.suspended, Self.redirect, Self.probe)
+            return (Self.responseStatus, Self.responseBody, Self.suspended, Self.redirectLocation, Self.probe)
         }
         probe.started.signal()
         if suspended { return }
+        var headers = ["Content-Type":"application/json"]
+        if let redirectLocation { headers["Location"] = redirectLocation }
         let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: "HTTP/1.1",
-            headerFields: ["Content-Type":"application/json"])!
-        if redirect {
-            let redirected = URLRequest(url: URL(string: "https://example.invalid/rejected")!)
-            client?.urlProtocol(self, wasRedirectedTo: redirected, redirectResponse: response)
-            return
-        }
+            headerFields: headers)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         if !responseBody.isEmpty { client?.urlProtocol(self, didLoad: responseBody) }
         client?.urlProtocolDidFinishLoading(self)

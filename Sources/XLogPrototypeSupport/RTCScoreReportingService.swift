@@ -13,12 +13,14 @@ struct RTCScoreConfiguration: Sendable, Equatable {
     let enabled: Bool
 }
 
-private struct RTCScoreHTTPResponse: Sendable {
+struct RTCScoreHTTPResponse: Sendable {
     let status: Int
     let body: Data
 }
 
-private final class RTCScoreHTTPTransport: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+// Internal so portable tests can invoke the real redirect delegate without
+// corelibs Foundation's unsupported URLProtocol redirect callback.
+final class RTCScoreHTTPTransport: NSObject, URLSessionDataDelegate, @unchecked Sendable {
     static let maximumResponseBytes = 16_384
     private let configuration: URLSessionConfiguration
     private let request: URLRequest
