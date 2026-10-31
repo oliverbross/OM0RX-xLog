@@ -1306,7 +1306,8 @@ struct LiveClusterMethodsTests {
         #expect(value["forwardSpotsToFlex"] as? Bool == true)
         #if !os(macOS)
         #expect(initial["flex_forwarding_available"] as? Bool == false)
-        #expect((initial["forwarding"] as? [String: Any])?["status"] as? String == "Unavailable on this platform")
+        #expect((initial["forwarding"] as? [String: Any])?["flex_status"] as? String == "Unavailable on this platform")
+        #expect((initial["forwarding"] as? [String: Any])?["tci_status"] as? String == "Off")
         do { _ = try await bridge.handle(method: "cluster_configure", params: ["configuration": value,
                                                                              "base_configuration": value]); Issue.record("Unsupported forwarding was saved") }
         catch let error as WorkerFailure { #expect(error.code == "platform_pending") }
@@ -1317,6 +1318,40 @@ struct LiveClusterMethodsTests {
             "flex_enabled": false, "flex_expected": true])
         #expect((saved["configuration"] as? [String: Any])?["forwardSpotsToFlex"] as? Bool == false)
         await bridge.terminate()
+    }
+
+    @Test("Unsupported native forwarding stays passive when transferred settings enable it")
+    func unsupportedForwardingRemainsPassive() async throws {
+        #if !os(macOS)
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let url = root.appendingPathComponent("cluster.json")
+        try JSONEncoder().encode(ClusterSessionConfiguration(servers: [
+            .init(name: "Fixture", host: "cluster.example.invalid", port: 7300, callsign: "OM0RX")
+        ], requestRecentSpotsOnConnect: false, forwardSpotsToFlex: true)).write(to: url)
+        let fixture = WorkerClusterFixture()
+        // Fake TCP ingress only: no injected radio transport may advertise or
+        // exercise a native forwarding owner on an unsupported platform.
+        let bridge = LiveClusterMethods(logbook: LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false),
+            configurationURL: url, vault: UnavailableClusterTestVault(),
+            transportFactory: { _, _, _, _, state, line in
+                fixture.callbacks(state: state, line: line); return fixture
+            })
+        _ = try await bridge.handle(method: "cluster_connect", params: [:])
+        fixture.emit("DX de W1AW: 7125.0 DL1AAA SSB CQ")
+        for _ in 0..<100 {
+            let response = try await bridge.handle(method: "cluster_snapshot", params: [:])
+            if (response["snapshot"] as? [String: Any])?["loadedSpots"] as? Int == 1 { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        let response = try await bridge.handle(method: "cluster_snapshot", params: [:])
+        #expect((response["snapshot"] as? [String: Any])?["loadedSpots"] as? Int == 1)
+        #expect(response["flex_forwarding_available"] as? Bool == false)
+        #expect((response["forwarding"] as? [String: Any])?["accepted_count"] as? Int == 0)
+        #expect((response["forwarding"] as? [String: Any])?["flex_status"] as? String == "Unavailable on this platform")
+        await bridge.terminate()
+        #endif
     }
 
     @Test("Cluster save preserves newer Radio spots fields and status colours")
@@ -1397,7 +1432,8 @@ struct LiveClusterMethodsTests {
         original.palette.band["20m"] = "#AABBCC"
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         try JSONEncoder().encode(original).write(to: url)
-        let bridge = LiveClusterMethods(logbook: logbook, configurationURL: url, vault: UnavailableClusterTestVault())
+        let bridge = LiveClusterMethods(logbook: logbook, configurationURL: url, vault: UnavailableClusterTestVault(),
+            spotForward: { _, _, _ in true }, spotRemove: { _, _ in true })
         let result = try await bridge.handle(method: "cluster_radio_spots_configure",
             params: ["tci_enabled": true, "tci_expected": false,
                      "color_policy": "dxcc", "color_policy_expected": "callsign",

@@ -150,6 +150,7 @@ public actor LiveClusterMethods {
     private let beforeContactPublication: (@Sendable () async throws -> Void)?
     private let forwardClassifiedIngressSpots: Bool
     private let radioSideEffectsAllowed: Bool
+    private let hasInjectedSpotForwarder: Bool
     private let spotForward: @Sendable (ClusterRadioSpotPayload, String, Bool) async throws -> Bool
     private let spotRemove: @Sendable (ClusterRadioSpotPayload, String) async throws -> Bool
     private let contestRadioClock: @Sendable () -> Date
@@ -181,7 +182,7 @@ public actor LiveClusterMethods {
         #if os(macOS)
         true
         #else
-        false
+        hasInjectedSpotForwarder
         #endif
     }
 
@@ -194,20 +195,9 @@ public actor LiveClusterMethods {
          forwardClassifiedIngressSpots: Bool = true,
          radioSideEffectsAllowed: Bool = true,
          normalSpotRetryDelay: TimeInterval = 5,
-         spotForward: @escaping @Sendable (ClusterRadioSpotPayload, String, Bool) async throws -> Bool = { payload, provider, replacing in
-             #if os(macOS)
-             return try await SpotForwardBroker.shared.forward(try payload.flexSpot(), provider: provider,
-                                                               replacingExisting: replacing)
-             #else
-             return false
-             #endif
-         }, spotRemove: @escaping @Sendable (ClusterRadioSpotPayload, String) async throws -> Bool = { payload, provider in
-             #if os(macOS)
-             return try await SpotForwardBroker.shared.remove(try payload.flexSpot(), provider: provider)
-             #else
-             return false
-             #endif
-          }, beforeContestSpotPublication: (@Sendable () async throws -> Void)? = nil,
+         spotForward: (@Sendable (ClusterRadioSpotPayload, String, Bool) async throws -> Bool)? = nil,
+         spotRemove: (@Sendable (ClusterRadioSpotPayload, String) async throws -> Bool)? = nil,
+          beforeContestSpotPublication: (@Sendable () async throws -> Void)? = nil,
            priorRadioSpotCleanup: (@Sendable (Date) async throws -> Void)? = nil,
           retirePersistedContestSpots: (@Sendable () async throws -> Void)? = nil,
            deferPersistedContestSpots: (@Sendable () async throws -> Int)? = nil,
@@ -217,14 +207,33 @@ public actor LiveClusterMethods {
         self.transportFactory = transportFactory
         self.beforeContactPublication = beforeContactPublication
         self.radioSideEffectsAllowed = radioSideEffectsAllowed
+        self.hasInjectedSpotForwarder = radioSideEffectsAllowed && spotForward != nil
         self.forwardClassifiedIngressSpots = radioSideEffectsAllowed && forwardClassifiedIngressSpots
         self.normalSpotRetryDelay = max(0.01, normalSpotRetryDelay)
-        if radioSideEffectsAllowed {
-            self.spotForward = spotForward
-            self.spotRemove = spotRemove
-        } else {
+        if !radioSideEffectsAllowed {
             self.spotForward = { _, _, _ in false }
             self.spotRemove = { _, _ in false }
+        } else if spotForward != nil || spotRemove != nil {
+            // Explicit fixture transports never inherit a native broker for an
+            // omitted callback. Renderer parameters cannot inject these closures.
+            self.spotForward = spotForward ?? { _, _, _ in false }
+            self.spotRemove = spotRemove ?? { _, _ in false }
+        } else {
+            self.spotForward = { payload, provider, replacing in
+                #if os(macOS)
+                return try await SpotForwardBroker.shared.forward(try payload.flexSpot(), provider: provider,
+                                                                  replacingExisting: replacing)
+                #else
+                return false
+                #endif
+            }
+            self.spotRemove = { payload, provider in
+                #if os(macOS)
+                return try await SpotForwardBroker.shared.remove(try payload.flexSpot(), provider: provider)
+                #else
+                return false
+                #endif
+            }
         }
         self.contestRadioClock = contestRadioClock
         if !radioSideEffectsAllowed {
@@ -748,7 +757,7 @@ public actor LiveClusterMethods {
     }
 
     private func forwardSpotIfEnabled(_ spot: ClassifiedClusterSpot, generation: UUID) async {
-        guard !terminated, forwardClassifiedIngressSpots, let config = configuration else { return }
+        guard !terminated, forwardingAvailable, forwardClassifiedIngressSpots, let config = configuration else { return }
         for (enabled, provider) in [(config.forwardSpotsToFlex, "direct_agent"), (config.forwardSpotsToTCI, "direct_tci")] where enabled {
             let key = "\(provider)|\(spot.id)"
             normalSpotQueue[key] = PendingNormalSpot(spot: spot, generation: generation, provider: provider)
