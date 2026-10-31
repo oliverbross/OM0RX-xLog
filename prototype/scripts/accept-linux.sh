@@ -26,6 +26,7 @@ for attempt in 1 2 3; do
     launch_package="$relocated/om0rx-xlog-prototype-linux-amd64"
     (cd "$launch_package" && sha256sum --check payload.sha256) > "$evidence/archive-payload-hash-check.txt"
     python3 /qa/linux-runtime.py audit "$launch_package" "$evidence/archive-loader-audit.txt"
+    python3 /qa/linux-worker-acceptance.py "$launch_package/bin/xlog-prototype-worker" "$evidence/archive-worker.json"
   fi
   report="$evidence/ui-$attempt.json"
   [[ ! -e "$report" ]] || { echo "Report already exists: $report" >&2; exit 1; }
@@ -64,10 +65,14 @@ import json, sys
 from pathlib import Path
 package, evidence = map(Path, sys.argv[1:])
 manifest = json.loads((package / 'runtime-manifest.json').read_text())
+worker = json.loads((evidence / 'worker.json').read_text())
+archive_worker = json.loads((evidence / 'archive-worker.json').read_text())
 (evidence / 'acceptance.json').write_text(json.dumps({
     'schema': 1, 'status': 'passed', 'commit': manifest['commit'],
     'platform': 'ubuntu-24.04-amd64', 'developmentToolchainsPresent': False,
     'nonRoot': True, 'framingTestCount': 2, 'embeddedUiLaunchCount': 4,
+    'contestRuntimeTest': worker['contestRuntimeTest'],
+    'relocatedContestRuntimeTest': archive_worker['contestRuntimeTest'],
     'installedDebLaunchCount': 3, 'relocatedArchiveLaunchCount': 1,
     'x11LaunchCount': 3, 'waylandLaunchCount': 1,
     'waylandCompositorBackend': 'Weston nested X11 with pixman renderer',

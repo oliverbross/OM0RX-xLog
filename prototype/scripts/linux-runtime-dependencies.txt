@@ -3,6 +3,9 @@
 # Build-only Secret Service headers: libsecret-1-dev (pkg-config: libsecret-1).
 # A desktop session's Secret Service provider owns keyring storage/unlocking;
 # headless credential acceptance starts its own private GNOME Keyring/D-Bus.
+# Contesting uses the declared OS interpreter at /usr/bin/python3.12, with the
+# bundled source-only Not1MM host; no PATH or user-interpreter fallback.
+python3.12
 libwebkit2gtk-4.1-0
 libgtk-3-0t64
 libsqlite3-0

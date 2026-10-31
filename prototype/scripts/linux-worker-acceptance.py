@@ -30,6 +30,18 @@ def request(identifier, method, params=None):
     return json.dumps({'id': identifier, 'method': method, 'params': params or {}}).encode() + b'\n'
 
 
+def validate_contest_runtime(value):
+    assert value.get('id') == 'contest-runtime-self-test' and value.get('ok') is True
+    result = value.get('result', {})
+    assert result.get('engine') == 'not1mm-python' and result.get('qso_count') == 1
+    assert result.get('catalogue_count') == 97
+    for field in ['passed', 'synthetic_records', 'catalogue', 'save_read', 'reopened',
+                  'shipping_shutdown', 'temporary_store_removed']:
+        assert result.get(field) is True, f'Contest runtime acceptance did not prove {field}'
+    for field in ['station_io', 'network_contact', 'credentials_accessed']:
+        assert result.get(field) is False, f'Contest runtime acceptance used {field}'
+
+
 def send(child, data):
     deadline = time.monotonic() + 5
     os.set_blocking(child.stdin.fileno(), False)
@@ -95,7 +107,10 @@ if __name__ == '__main__':
     assert local_test['ok'] is True and local_test['result']['passed'] is True
     assert local_test['result']['award_programmes'] == 192
     assert local_test['result']['network_contact'] is False and local_test['result']['station_io'] is False
+    contest_test = json.loads(subprocess.check_output([worker, '--contest-runtime-self-test'], timeout=120))
+    validate_contest_runtime(contest_test)
     Path(report).write_text(json.dumps({'schema': 1, 'status': 'passed', 'selfTest': self_test,
                                        'localLogbookTest': local_test,
+                                        'contestRuntimeTest': contest_test,
                                        'openPipeAndFragments': exercise(worker), 'malformedOversizedRecovery': exercise(worker, True),
                                        'framingTestCount': 2}, indent=2) + '\n')

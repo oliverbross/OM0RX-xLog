@@ -87,6 +87,16 @@ def normalize_permissions(directory):
                 path.chmod(0o755 if path.stat().st_mode & 0o111 else 0o644)
 
 
+def stage_contest_runtime(root, stage):
+    # The shipping locator resolves Not1MM beside the worker executable.
+    subprocess.check_call([sys.executable, str(root / 'prototype/scripts/stage-contest-runtime.py'),
+                           '--platform', 'linux', '--destination', str(stage / 'bin')])
+    evidence = stage / 'bin/evidence/contest-runtime.json'
+    return {'launcher': 'bin/Not1MM/python/contest_host/launcher.py',
+            'executable': '/usr/bin/python3.12', 'evidence': str(evidence.relative_to(stage)),
+            'evidenceSHA256': digest(evidence)}
+
+
 def loader(path, env):
     output = run('ldd', str(path), env=env)
     if 'not found' in output:
@@ -146,6 +156,7 @@ def package(root, out, swift_root, sha):
         (stage / folder).mkdir(parents=True)
     for name in ['xlog-prototype', 'xlog-prototype-worker', 'rigctld', 'rotctld']:
         shutil.copy2(root / 'prototype/src-tauri/target/release' / name, stage / 'bin' / name)
+    contest_runtime = stage_contest_runtime(root, stage)
     shutil.copytree(root / 'prototype/src-tauri/binaries/hamlib-4.7.2-notices', stage / 'notices/hamlib-4.7.2')
     resource_names = [
         'OM0RXXLogPrototype_XLogPortableCore.resources',
@@ -236,6 +247,7 @@ def package(root, out, swift_root, sha):
     dependencies = [line.strip() for line in (stage / 'system-dependencies.txt').read_text().splitlines()
                     if line.strip() and not line.startswith('#')]
     metadata = {'schema': 1, **application, 'commit': sha, 'platform': 'ubuntu-24.04-amd64',
+                'contestRuntime': contest_runtime,
                 'swift': swift_version, 'bundledLibraryOrigins': origins,
                 'redistributionNoticeSources': notice_sources, 'toolchainNoticeCount': notice_count,
                 'redistributionNoticeAvailability': notice_availability,

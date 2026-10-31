@@ -37,5 +37,28 @@ class CorrelatedWorkerResponses(unittest.TestCase):
                 acceptance.validate_responses(malformed, True)
 
 
+class PackagedContestRuntimeEvidence(unittest.TestCase):
+    def test_shipping_host_and_private_persistence_proofs_are_all_required(self):
+        proof = {'id': 'contest-runtime-self-test', 'ok': True, 'result': {
+            'passed': True, 'engine': 'not1mm-python', 'synthetic_records': True,
+            'catalogue': True, 'catalogue_count': 97, 'save_read': True, 'reopened': True, 'qso_count': 1,
+            'station_io': False, 'network_contact': False, 'credentials_accessed': False,
+            'shipping_shutdown': True, 'temporary_store_removed': True}}
+        acceptance.validate_contest_runtime(proof)
+        for field, original in proof['result'].items():
+            malformed = copy.deepcopy(proof)
+            malformed['result'][field] = not original if isinstance(original, bool) else None
+            with self.subTest(field=field), self.assertRaises(AssertionError):
+                acceptance.validate_contest_runtime(malformed)
+            del malformed['result'][field]
+            with self.subTest(missing=field), self.assertRaises(AssertionError):
+                acceptance.validate_contest_runtime(malformed)
+        for field in ['id', 'ok']:
+            malformed = copy.deepcopy(proof)
+            del malformed[field]
+            with self.subTest(missing=field), self.assertRaises(AssertionError):
+                acceptance.validate_contest_runtime(malformed)
+
+
 if __name__ == '__main__':
     unittest.main()

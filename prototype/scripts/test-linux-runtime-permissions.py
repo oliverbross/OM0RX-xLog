@@ -111,5 +111,35 @@ class PackageMetadataTests(unittest.TestCase):
         self.assertIn('Exec=/opt/om0rx-xlog-prototype/launch\n', desktop)
 
 
+class PackageContestRuntimeTests(unittest.TestCase):
+    def test_staged_host_matches_worker_relative_locator_and_tracked_inventory(self):
+        repository = Path(__file__).resolve().parents[2]
+        with tempfile.TemporaryDirectory(prefix='xlog-linux-contest-package-') as temporary:
+            stage = Path(temporary) / 'package'
+            (stage / 'bin').mkdir(parents=True)
+            metadata = runtime['stage_contest_runtime'](repository, stage)
+            self.assertTrue((stage / metadata['launcher']).is_file())
+            self.assertEqual(metadata['executable'], '/usr/bin/python3.12')
+            evidence_path = stage / metadata['evidence']
+            self.assertEqual(metadata['evidenceSHA256'], hashlib.sha256(evidence_path.read_bytes()).hexdigest())
+            evidence = json.loads(evidence_path.read_text())
+            self.assertEqual(evidence['platform'], 'linux')
+            self.assertEqual(evidence['python']['executable'], '/usr/bin/python3.12')
+            self.assertTrue(evidence['host']['files'])
+            self.assertTrue(any(name.startswith('Not1MM/python/vendor/not1mm/')
+                                for name in evidence['host']['files']))
+            for name, expected_digest in evidence['host']['files'].items():
+                path = stage / 'bin' / name
+                self.assertTrue(path.is_file())
+                self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), expected_digest)
+            self.assertFalse(list(stage.rglob('__pycache__')))
+            self.assertFalse(list(stage.rglob('*.pyc')))
+
+    def test_fixed_interpreter_and_ca_are_mandatory_runtime_dependencies(self):
+        dependencies = {line.strip() for line in Path(__file__).with_name('linux-runtime-dependencies.txt')
+                        .read_text().splitlines() if line.strip() and not line.startswith('#')}
+        self.assertTrue({'python3.12', 'ca-certificates', 'libsecret-1-0'}.issubset(dependencies))
+
+
 if __name__ == '__main__':
     unittest.main()

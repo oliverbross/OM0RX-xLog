@@ -1,5 +1,7 @@
 # Native amd64 Ubuntu 24.04 runtime; no Swift/Rust/Node/development libraries.
 # Build runners install libsecret-1-dev; this image receives only libsecret-1-0.
+# Python 3.12 and its CA bundle are application dependencies from the OS, while
+# the package carries the tracked Not1MM host beside the worker executable.
 FROM ubuntu:24.04
 COPY prototype/scripts/linux-runtime-dependencies.txt /tmp/runtime-dependencies.txt
 RUN apt-get update && \
