@@ -1,5 +1,7 @@
+// @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
-import { homeFrom, rigFrom, announceLogChanges, publicFetch } from '../hm-control/xlog-adapter.js';
+import { homeFrom, rigFrom, announceLogChanges, publicFetch, connectXLog } from '../hm-control/xlog-adapter.js';
+import { invoke } from '@tauri-apps/api/core';
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }));
 const contact = { id: 'one', call: 'MM/LY3X/P', band: '40m', mode: 'SSB', whereName: 'Scotland', lat: 56, lon: -4, confirmed: false };
 const log = (total: number, recent: any[], generation = 'workspace') => ({ generation, logbook: { total, recent } });
@@ -38,5 +40,40 @@ describe('HM Control authoritative data', () => {
     expect(announce.mock.calls[0][0]).toMatchObject({ type: 'confirm', newCountry: true, where: 'Scotland' });
     announceLogChanges(after, after, announce);
     expect(announce).toHaveBeenCalledOnce();
+  });
+});
+
+describe('HM Control read-only startup recovery', () => {
+  const snapshot = { context: { metadata: { home: { call: 'OM0RX', lat: 48, lon: 20 } }, selection: {}, radio: { available: false } }, log: { logbook: { total: 1, located: 1, approximate: 0 } }, offline: true };
+  it('automatically recovers a transient service failure without a click', async () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = '<span id="xlog-link"></span><button id="xlog-retry" hidden>Reconnect</button>';
+    vi.mocked(invoke).mockReset().mockRejectedValueOnce(new Error('Station service is not responding')).mockResolvedValue(snapshot);
+    try {
+      const pending = connectXLog();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(invoke).toHaveBeenCalledTimes(1);
+      expect(document.getElementById('xlog-retry')!.hidden).toBe(false);
+      await vi.advanceTimersByTimeAsync(3000);
+      expect((await pending).home.call).toBe('OM0RX');
+      expect(invoke).toHaveBeenCalledTimes(2);
+      expect(document.getElementById('xlog-retry')!.hidden).toBe(true);
+    } finally { window.dispatchEvent(new Event('pagehide')); vi.useRealTimers(); }
+  });
+  it('bounds automatic retries and permits manual recovery', async () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = '<span id="xlog-link"></span><button id="xlog-retry" hidden>Reconnect</button>';
+    vi.mocked(invoke).mockReset().mockRejectedValue(new Error('Station service is busy'));
+    try {
+      const pending = connectXLog();
+      await vi.advanceTimersByTimeAsync(9000);
+      expect(invoke).toHaveBeenCalledTimes(4);
+      await vi.advanceTimersByTimeAsync(30000);
+      expect(invoke).toHaveBeenCalledTimes(4);
+      vi.mocked(invoke).mockResolvedValueOnce(snapshot);
+      document.getElementById('xlog-retry')!.click();
+      expect((await pending).home.call).toBe('OM0RX');
+      expect(invoke).toHaveBeenCalledTimes(5);
+    } finally { window.dispatchEvent(new Event('pagehide')); vi.useRealTimers(); }
   });
 });

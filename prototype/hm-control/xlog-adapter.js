@@ -22,12 +22,19 @@ export function rigFrom(context, now = Date.now()) {
 }
 export async function connectXLog() {
   const retry = document.getElementById('xlog-retry');
-  let initial;
+  let initial, startupFailures = 0;
   for (;;) {
     try { initial = await invoke('hm_control_snapshot'); homeFrom(initial); break; }
     catch (error) {
       status(String(error), true); retry.hidden = false;
-      await new Promise(resolve => retry.addEventListener('click', resolve, { once: true }));
+      // Read-only startup can race a busy station session; retry three times
+      // without overlapping requests, while keeping manual reconnect available.
+      await new Promise(resolve => {
+        let timer;
+        const resume = () => { clearTimeout(timer); retry.removeEventListener('click', resume); resolve(); };
+        retry.addEventListener('click', resume, { once: true });
+        if (++startupFailures <= 3) timer = setTimeout(resume, 3000);
+      });
       retry.hidden = true; status('Connecting to xLog…');
     }
   }
@@ -56,7 +63,7 @@ export async function connectXLog() {
     } finally { reading = false; }
   }
   const timer = setInterval(refresh, 2000);
-  addEventListener('pagehide', () => { disposed = true; clearInterval(timer); }, { once: true });
+  addEventListener('pagehide', () => { disposed = true; clearInterval(timer); removeEventListener('focus', refresh); }, { once: true });
   addEventListener('focus', refresh);
   return link;
 }

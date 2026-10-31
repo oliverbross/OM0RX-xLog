@@ -1268,7 +1268,7 @@ fn request_is_non_retiring_read(request: &Value) -> bool {
         // Exact original-receipt metadata reconciliation is also safe to keep
         // pending after a deadline; it cannot apply a draft or station effect.
         "spot_draft_cw_reconcile" |
-        "hm_control_logbook" | "lookup_call" | "logbook_previous" | "logbook_duplicate" |
+        "workspace_map_context" | "hm_control_logbook" | "lookup_call" | "logbook_previous" | "logbook_duplicate" |
         "logbook_matrix" | "cluster_history" | "cluster_snapshot" |
         "opportunities_snapshot" | "opportunities_refresh" |
         "opportunities_dxpedition_snapshot" | "opportunities_dxpedition_refresh" |
@@ -2472,6 +2472,14 @@ mod tests {
         }
     }
 
+    #[test]
+    #[cfg(unix)]
+    fn map_metadata_timeout_preserves_logging_worker_and_routes_late_reply() {
+        let request = json!({"method":"workspace_map_context"});
+        assert_eq!(request_timeout(&request), PASSIVE_READ_TIMEOUT);
+        assert_passive_timeout_preserves_worker("workspace_map_context");
+    }
+
     #[cfg(unix)]
     fn assert_passive_timeout_preserves_worker(method: &str) {
         let script = "IFS= read -r stale; sleep 0.25; printf '%s\\n' '{\"id\":\"stale\",\"ok\":true,\"result\":{}}'; IFS= read -r health; printf '%s\\n' '{\"id\":\"health\",\"ok\":true,\"result\":{}}'; cat >/dev/null";
@@ -2500,7 +2508,7 @@ mod tests {
         for method in [
             "station_snapshot", "station_rotor_snapshot", "rotor_snapshot",
             "spot_draft_cw_status",
-            "lookup_call", "logbook_previous", "logbook_duplicate",
+            "workspace_map_context", "hm_control_logbook", "lookup_call", "logbook_previous", "logbook_duplicate",
             "logbook_matrix", "cluster_history", "cluster_snapshot",
             "opportunities_snapshot", "opportunities_refresh",
             "opportunities_dxpedition_snapshot", "opportunities_dxpedition_refresh",
