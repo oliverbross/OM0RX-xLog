@@ -4,14 +4,39 @@ import Testing
 import FoundationNetworking
 #endif
 #if canImport(XLogCore)
-import XLogCore
+@testable import XLogCore
 #else
-import XLogPortableCore
+@testable import XLogPortableCore
 #endif
 
 /// Synthetic audit fixtures only. No request can escape this URLProtocol.
 @Suite("Sync identity join audit", .serialized)
 struct SyncIdentityJoinAuditTests {
+    @Test("Ordered history skips the complete fallback index while unordered history retains exact identity joins", arguments: [false, true])
+    func orderedHistoryDefersFallbackIndex(documentedOrder: Bool) async throws {
+        final class IndexObservation: @unchecked Sendable {
+            let lock = NSLock()
+            private var counts: [Int] = []
+            func record(_ count: Int) { lock.withLock { counts.append(count) } }
+            func values() -> [Int] { lock.withLock { counts } }
+        }
+        let fixture = try customFixture(json: [auditJSON(id: 12, name: "Second"), auditJSON(id: 11, name: "First")],
+            adif: [auditADIF(name: "First", dxcc: "291"), auditADIF(name: "Second", dxcc: "504")],
+            documentedOrder: documentedOrder)
+        defer { fixture.session.invalidateAndCancel(); try? FileManager.default.removeItem(at: fixture.root) }
+        let observation = IndexObservation()
+        let result = try await SyncEngine.previewRemoteHistory(configuration: fixture.settings, session: fixture.session,
+            fallbackIdentityIndexBuilt: { observation.record($0) })
+        #expect(observation.values() == (documentedOrder ? [] : [1]))
+        #expect(result.remoteIDs == [11, 12])
+        #expect(result.heldRemoteIDs.isEmpty && result.heldIdentities.isEmpty)
+        #expect(result.qsos.count == 2)
+        #expect(result.qsos.first(where: { $0.wavelogID == 11 })?.name == "First")
+        #expect(result.qsos.first(where: { $0.wavelogID == 12 })?.dxcc == 504)
+        #expect(try fixture.database.count() == 0)
+        #expect(IdentityJoinAuditProtocol.methods().allSatisfy { $0 == "GET" })
+    }
+
     @Test("Ambiguous confirmation siblings remain held without changing a linked contact", arguments: [false, true])
     func ambiguousConfirmationSnapshots(reverse: Bool) async throws {
         var stale = auditADIF(name: "First", dxcc: "291")

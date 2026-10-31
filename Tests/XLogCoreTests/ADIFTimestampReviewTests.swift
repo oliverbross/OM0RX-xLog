@@ -21,6 +21,22 @@ final class ADIFTimestampReviewTests: XCTestCase {
         XCTAssertNotNil(QSO(adif: record(["QSO_DATE": "20240229"])))
     }
 
+    func testConcurrentParsingAndExportKeepIndependentUTCFields() {
+        DispatchQueue.concurrentPerform(iterations: 128) { index in
+            let day = index.isMultiple(of: 2) ? "20240229" : "20261231"
+            let time = index.isMultiple(of: 2) ? "123456" : "235900"
+            let source = ADIFRecord(fields: ["CALL": "K1ABC", "QSO_DATE": day, "TIME_ON": time,
+                "TIME_OFF": index.isMultiple(of: 2) ? "1235" : "0001", "BAND": "20m", "MODE": "CW"])
+            guard let qso = QSO(adif: source) else { XCTFail("Valid concurrent timestamp rejected"); return }
+            let exported = qso.adifRecord
+            XCTAssertEqual(exported["QSO_DATE"], day)
+            XCTAssertEqual(exported["TIME_ON"], time)
+            XCTAssertEqual(exported["QSO_DATE_OFF"], index.isMultiple(of: 2) ? day : "20270101")
+            XCTAssertEqual(exported["TIME_OFF"], index.isMultiple(of: 2) ? "123500" : "000100")
+            XCTAssertNil(QSO(adif: ADIFRecord(fields: ["CALL": "K1ABC", "QSO_DATE": "20260229", "TIME_ON": time])))
+        }
+    }
+
     func testImplicitEndDateCrossesMidnightAndExportsInferredDay() throws {
         let qso = try XCTUnwrap(QSO(adif: record(["TIME_ON": "235500", "TIME_OFF": "010000"])))
         XCTAssertEqual(try XCTUnwrap(qso.end).timeIntervalSince(qso.start), 3900)

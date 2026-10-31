@@ -102,14 +102,22 @@ public actor SyncEngine {
         try await readRemoteHistory(client: WavelogClient(configuration: configuration, session: session))
     }
 
-    private static func readRemoteHistory(client: WavelogClient) async throws -> RemoteHistoryPreview {
+    // Internal rendezvous lets private fixtures verify that the complete fallback
+    // index is absent on the documented-order path, without timing assertions.
+    static func previewRemoteHistory(configuration: WavelogConfiguration, session: URLSession,
+                                    fallbackIdentityIndexBuilt: @Sendable (Int) -> Void) async throws -> RemoteHistoryPreview {
+        try await readRemoteHistory(client: WavelogClient(configuration: configuration, session: session),
+                                    fallbackIdentityIndexBuilt: fallbackIdentityIndexBuilt)
+    }
+
+    private static func readRemoteHistory(client: WavelogClient,
+        fallbackIdentityIndexBuilt: @Sendable (Int) -> Void = { _ in }) async throws -> RemoteHistoryPreview {
         try Task.checkCancellation()
         var remoteIDs: Set<Int> = []
         var jsonRows: [WavelogQSO] = []
         var jsonByIdentity: [String: [WavelogQSO]] = [:]
         var adifRows: [QSO] = []
         var adifPageEnds: [(count: Int, lastID: Int?)] = []
-        var adifByIdentity: [String: [QSO]] = [:]
 
         func hasStableMetadata(_ page: WavelogQSOPage, matching baseline: WavelogListMeta) -> Bool {
             page.meta.total == baseline.total &&
@@ -147,7 +155,6 @@ public actor SyncEngine {
                     throw WavelogClientError.invalidData("ADIF page \(page.meta.page) contained an unreadable QSO.")
                 }
                 adifRows.append(qso)
-                adifByIdentity[historyIdentity(qso), default: []].append(qso)
             }
             adifPageEnds.append((adifRows.count, page.data.lastFetchedID))
         }
@@ -252,6 +259,15 @@ public actor SyncEngine {
             remoteQSOs = joined
             jsonByIdentity.removeAll()
         } else {
+            // The documented-order join usually succeeds. Build this fallback
+            // index only when needed, rather than hashing every ADIF identity
+            // during every complete-history sync and then discarding it.
+            var adifByIdentity: [String: [QSO]] = [:]
+            for row in adifRows {
+                try Task.checkCancellation()
+                adifByIdentity[historyIdentity(row), default: []].append(row)
+            }
+            fallbackIdentityIndexBuilt(adifByIdentity.count)
             for (key, rows) in adifByIdentity {
                 try Task.checkCancellation()
                 guard let candidates = jsonByIdentity.removeValue(forKey: key) else {

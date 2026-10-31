@@ -1,32 +1,50 @@
 import Foundation
 
+// DateFormatter rebuilds ICU state after configuration. Keep each strict UTC
+// format configured once; serialization protects both parsing and formatting
+// when imports, synchronization and logging use the codec concurrently.
+private final class ADIFDateCodec: @unchecked Sendable {
+    static let shared = ADIFDateCodec()
+    private let lock = NSLock()
+    private let timestamp = ADIFDateCodec.formatter("yyyyMMddHHmmss")
+    private let day = ADIFDateCodec.formatter("yyyyMMdd")
+    private let time = ADIFDateCodec.formatter("HHmmss")
+
+    private static func formatter(_ format: String) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = format
+        formatter.isLenient = false
+        return formatter
+    }
+
+    func parse(_ text: String) -> Date? {
+        lock.withLock {
+            guard let value = timestamp.date(from: text), timestamp.string(from: value) == text else { return nil }
+            return value
+        }
+    }
+
+    func fields(_ date: Date) -> (day: String, time: String) {
+        lock.withLock { (day.string(from: date), time.string(from: date)) }
+    }
+}
+
 private func adifDate(day: String, time: String) -> Date? {
     // ADIF Time is HHMM or HHMMSS. Padding arbitrary input also truncates
     // overlong values, silently turning malformed data into another timestamp.
     guard day.utf8.count == 8, day.utf8.allSatisfy({ (48...57).contains($0) }),
           [4, 6].contains(time.utf8.count),
           time.utf8.allSatisfy({ (48...57).contains($0) }) else { return nil }
-    let formatter = DateFormatter()
-    formatter.locale = Locale(identifier: "en_US_POSIX")
-    formatter.calendar = Calendar(identifier: .gregorian)
-    formatter.timeZone = TimeZone(secondsFromGMT: 0)
-    formatter.dateFormat = "yyyyMMddHHmmss"
-    formatter.isLenient = false
     let text = day + (time.utf8.count == 4 ? time + "00" : time)
-    guard let value = formatter.date(from: text),
-          formatter.string(from: value) == text else { return nil }
-    return value
+    return ADIFDateCodec.shared.parse(text)
 }
 
 private func adifEndDate(start: Date, day: String?, time: String?) -> Date? {
-    let formatter = DateFormatter()
-    formatter.locale = Locale(identifier: "en_US_POSIX")
-    formatter.calendar = Calendar(identifier: .gregorian)
-    formatter.timeZone = TimeZone(secondsFromGMT: 0)
-    formatter.dateFormat = "yyyyMMdd"
-    let endDay = day ?? formatter.string(from: start)
-    formatter.dateFormat = "HHmmss"
-    guard let value = adifDate(day: endDay, time: time ?? formatter.string(from: start)) else { return nil }
+    let startFields = ADIFDateCodec.shared.fields(start)
+    guard let value = adifDate(day: day ?? startFields.day, time: time ?? startFields.time) else { return nil }
     // With no QSO_DATE_OFF, ADIF defines a duration under 24 hours. Compare
     // whole seconds so a legacy fractional start cannot invent a midnight wrap.
     let wholeSecondStart = Date(timeIntervalSince1970: start.timeIntervalSince1970.rounded(.down))
@@ -145,21 +163,15 @@ public extension QSO {
     var adifRecord: ADIFRecord {
         let bridged = backfillingADIFFields()
         var fields = extraFields
-        let dateFormatter = DateFormatter()
-        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
-        dateFormatter.timeZone = TimeZone(secondsFromGMT: 0)
-        dateFormatter.dateFormat = "yyyyMMdd"
-        let timeFormatter = DateFormatter()
-        timeFormatter.locale = Locale(identifier: "en_US_POSIX")
-        timeFormatter.timeZone = TimeZone(secondsFromGMT: 0)
-        timeFormatter.dateFormat = "HHmmss"
         func set(_ key: String, _ value: String?) {
             guard let value, !value.isEmpty else { fields.removeValue(forKey: key); return }
             fields[key] = value
         }
-        set("CALL", call); set("QSO_DATE", dateFormatter.string(from: start)); set("TIME_ON", timeFormatter.string(from: start))
+        let startFields = ADIFDateCodec.shared.fields(start)
+        set("CALL", call); set("QSO_DATE", startFields.day); set("TIME_ON", startFields.time)
         if let end = bridged.end {
-            set("QSO_DATE_OFF", dateFormatter.string(from: end)); set("TIME_OFF", timeFormatter.string(from: end))
+            let endFields = ADIFDateCodec.shared.fields(end)
+            set("QSO_DATE_OFF", endFields.day); set("TIME_OFF", endFields.time)
         }
         // Normalize only interchange output; retain local modes and explicit
         // submodes. Audited import-only ADIF 3.1.8 MODE values below use
