@@ -77,7 +77,7 @@ it("retries settings-busy profiles until success without settling the sentinel",
       .mockResolvedValueOnce({ call: "K1ABC", qrz_status: "settings_busy" })
       .mockResolvedValueOnce({ call: "K1ABC", qrz_status: "matched", source: "QRZ" });
     const lookup = boundedCallsignLookup(request, "K1ABC", 1_000);
-    await vi.advanceTimersByTimeAsync(500);
+    await vi.advanceTimersByTimeAsync(750);
     await expect(lookup).resolves.toMatchObject({ qrz_status: "matched" });
     expect(request).toHaveBeenCalledTimes(3);
   } finally { vi.useRealTimers(); }
@@ -90,7 +90,7 @@ it("bounds repeated settings-busy profiles with the lookup deadline", async () =
     const lookup = boundedCallsignLookup(request, "K1ABC", 600);
     const rejected = expect(lookup).rejects.toThrow("Callsign lookup timed out");
     await vi.advanceTimersByTimeAsync(600); await rejected;
-    expect(request.mock.calls.length).toBeGreaterThanOrEqual(3);
+    expect(request.mock.calls.length).toBe(2);
   } finally { vi.useRealTimers(); }
 });
 
@@ -125,7 +125,7 @@ it("recovers a saved Operator Desk callsign after one transient launch lookup fa
   const backend = calls.request.getMockImplementation()!;
   let attempts = 0;
   calls.request.mockImplementation((method, params) => method === "lookup_call"
-    ? ++attempts === 1 ? Promise.reject(new Error("Worker warming up"))
+    ? ++attempts === 1 ? Promise.reject(Object.assign(new Error("Worker warming up"), { code: "worker_busy" }))
       : Promise.resolve({ ok: true, result: { call: params.call, source: "Recovered lookup", country: "United States", dxcc: 291 } })
     : backend(method, params));
   render(<LiveApp />);

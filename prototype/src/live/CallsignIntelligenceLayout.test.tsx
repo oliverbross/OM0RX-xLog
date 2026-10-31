@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { DeskIntelligence } from "./CallsignIntelligence";
 
 afterEach(cleanup);
@@ -41,4 +41,19 @@ it("sizes from unique supported bands and preserves full fact values for truncat
   }
   expect(screen.getByTitle("JN88AA00AA")).toBeTruthy();
   expect(screen.getByTitle("CQ 15 · ITU 28")).toBeTruthy();
+});
+
+it("offers a read-only explicit lookup retry and disables repeat clicks while that read is pending", () => {
+  const retry = vi.fn(), draft = Object.freeze({ id: "draft-a", call: "FW3GT", country: "Manual country" });
+  const request = vi.fn(async (_method: string) => new Promise(() => {}));
+  const props = { draft, lookup: { call: "FW3GT", source: "Busy", lookup_error: true }, previous: [], request, refresh: 0, onRetryLookup: retry };
+  const view = render(<DeskIntelligence {...props} />);
+  fireEvent.click(screen.getByRole("button", { name: "Retry lookup" }));
+  expect(retry).toHaveBeenCalledTimes(1);
+  expect(draft.country).toBe("Manual country");
+  view.rerender(<DeskIntelligence {...props} lookupPending />);
+  const button = screen.getByRole("button", { name: "Retrying lookup…" });
+  expect((button as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(button); expect(retry).toHaveBeenCalledTimes(1);
+  expect(request.mock.calls.every(([method]) => ["logbook_matrix", "cluster_history"].includes(method))).toBe(true);
 });

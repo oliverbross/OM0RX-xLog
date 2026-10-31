@@ -16,7 +16,7 @@ import { useCurrentUTC } from "./useCurrentUTC";
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<any>;
 type Props = { draft: Data | null; setDraft: (value: SetStateAction<Data | null>) => void; save: (draft?:Data) => void; clear: () => void; busy: boolean; draftLocked?: boolean; referenceEvidence?: ReferenceEvidence | null;
-  lookup: Data | null; previous: Data[]; request: Request; refresh: number; onEditor: () => void; onReadRadio: () => Promise<void>;
+  lookup: Data | null; previous: Data[]; onRetryLookup?: () => void; lookupPending?: boolean; request: Request; refresh: number; onEditor: () => void; onReadRadio: () => Promise<void>;
   follow: boolean; setFollow: (value: boolean) => void; rotor: RotorSnapshot | null; rotorConfigured?: boolean; autoRotor: boolean; setAutoRotor: (value: boolean) => void; onManualRotor: () => void; isEditing?: boolean; intelligenceBands?: string[]; equipment?: unknown; cwControls?: ReactNode;
   canAcceptLocalInput?: () => boolean; onLocalInputState?: (pending: boolean) => void; resetInputEpoch?: number; automaticStart?: boolean };
 const normalizedCall = (value: unknown) => String(value ?? "").trim().toUpperCase();

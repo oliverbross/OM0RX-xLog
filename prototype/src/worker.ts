@@ -103,9 +103,9 @@ export async function workerRequest(
 ) {
   const response = await framedWorkerRequest(method, params);
   if (!response.ok)
-    throw new Error(
+    throw Object.assign(new Error(
       response.error?.message || "The operation failed; no successful outcome was confirmed.",
-    );
+    ), { code: response.error?.code });
   return response;
 }
 export async function openMonitor() {

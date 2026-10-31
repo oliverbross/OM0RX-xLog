@@ -80,7 +80,7 @@ import SpotBridgePanel from "./live/SpotBridgePanel";
 import WSJTXPanel from "./live/WSJTXPanel";
 import { followedLogMode } from "./live/draftRadio";
 import { changedCallDraft, enrichedDraft, normalizedCall, sameNormalLogCall } from "./live/draftEnrichment";
-import { settingsLoadingLookup } from "./live/callsignIntelligenceContext";
+import { useCallsignLookup } from "./live/useCallsignLookup";
 import { OperatorDraftSession, readDraftJournal, type DraftQSO } from "./live/operatorDraftSession";
 import { effectiveDraftAutomaticStart } from "./live/operatorDraftTimeIntent";
 import { requestOperatorDraft } from "./live/operatorDraftTransport";
@@ -123,58 +123,7 @@ export function contestingRuntimeAvailable(value: unknown): boolean {
   return contestingRuntimeKind(value) !== null;
 }
 
-const callsignLookups = new WeakMap<Request, Map<string, Promise<any>>>();
-function releaseCallsignLookup(request: Request, call: string, lookup: Promise<any>) {
-  const pending = callsignLookups.get(request), key = normalizedCall(call) || call;
-  if (pending?.get(key) !== lookup) return;
-  pending.delete(key);
-  if (!pending.size) callsignLookups.delete(request);
-}
-function ownedCallsignLookup(request: Request, call: string): Promise<any> {
-  let pending = callsignLookups.get(request);
-  if (!pending) { pending = new Map(); callsignLookups.set(request, pending); }
-  const key = normalizedCall(call) || call;
-  const existing = pending.get(key);
-  if (existing) return existing;
-  let work: Promise<any>;
-  work = Promise.resolve().then(() => request("lookup_call", { call })).finally(() => {
-    if (pending?.get(key) === work) {
-      pending.delete(key);
-      if (!pending.size) callsignLookups.delete(request);
-    }
-  });
-  pending.set(key, work);
-  return work;
-}
-
-// Native QRZ has a 40-second authenticated refresh worst case and the worker
-// owns a 45-second deadline. This outer deadline must be the last one to fire.
-export function boundedCallsignLookup(request: Request, call: string, timeoutMs = 46_000): Promise<any> {
-  return new Promise((resolve, reject) => {
-    let active: Promise<any> | null = null, retryTimer: ReturnType<typeof setTimeout> | undefined;
-    let settled = false;
-    const attempt = () => {
-      active = ownedCallsignLookup(request, call);
-      void active.then(value => {
-        if (settled) return;
-        if (settingsLoadingLookup(value)) { retryTimer = setTimeout(attempt, 250); return; }
-        settled = true; clearTimeout(timer); resolve(value);
-      }, cause => {
-        if (settled) return;
-        settled = true; clearTimeout(timer); reject(cause);
-      });
-    };
-    const timer = setTimeout(() => {
-      settled = true;
-      if (retryTimer) clearTimeout(retryTimer);
-      // A worker restart can abandon the transport promise forever. Retire that
-      // ownership so the existing UI retry can reach the replacement worker.
-      if (active) releaseCallsignLookup(request, call, active);
-      reject(new Error("Callsign lookup timed out."));
-    }, timeoutMs);
-    attempt();
-  });
-}
+export { boundedCallsignLookup } from "./live/callsignLookupRecovery";
 export const syncSettingsDestination = (logbookMode: unknown): "Logbook" | "Sync" => logbookMode === "local" ? "Logbook" : "Sync";
 const screenIcons: Record<string, typeof Radio> = {
   "operator-desk": LayoutDashboard, "log-qso": Radio, logbook: BookOpen, "dx-cluster": Network, "spot-history": History, "cw-decode": Activity,
@@ -322,8 +271,6 @@ function MainLiveApp() {
   const [station, setStation] = useState<Data | null>(null);
   const [cluster, setCluster] = useState<Data | null>(null);
   const [stats, setStats] = useState<Data | null>(null);
-  const [lookup, setLookup] = useState<Data | null>(null);
-  const [previous, setPrevious] = useState<Data[]>([]);
   const [message, setMessage] = useState("");
   const loggedFeedback = useQSOLoggedToast();
   const [error, setError] = useState("");
@@ -719,7 +666,7 @@ function MainLiveApp() {
           setMessage(current => clearConnectedHandoverMessage(current, true));
       }
       return result;
-    } catch (cause) { throw new Error(errorMessage(cause) || "Operation failed. Check the connection or configuration; no success has been confirmed."); }
+    } catch (cause) { if (cause instanceof Error) throw cause; throw new Error(errorMessage(cause) || "Operation failed. Check the connection or configuration; no success has been confirmed."); }
   }, [activeRadio, disarmAutoRotor]);
   const panelRequest = useDeferredPanelReads(request, refresh,
     workspace?.workspace_exists === true && !workspacePending && view !== "Chaser & DX" && !separateWindows);
@@ -1095,37 +1042,12 @@ function MainLiveApp() {
     void pollRotor(); const timer = setInterval(() => void pollRotor(), 1000);
     return () => { disposed = true; clearInterval(timer); };
   }, [request, disarmAutoRotor]);
-  useEffect(() => {
-    const call = normalizedCall(draft?.call); let disposed = false;
-    let retryTimer: ReturnType<typeof setTimeout> | undefined;
-    const baseline = draft;
-    setLookup(null); setPrevious([]);
-    if (!call || !workspace?.workspace_exists) { setLookup(null); setPrevious([]); return; }
-    const loadLookup = (retry: boolean) => {
-      void boundedCallsignLookup(request, call)
-        .then(info => {
-          if (disposed) return;
-          setLookup(info);
-          if (!retry && settingsLoadingLookup(info)) {
-            retryTimer = setTimeout(() => loadLookup(true), 750);
-            return;
-          }
-          if (draftSession.canAcceptBackgroundUpdate() && baseline && !editing.current) setDraft(current => enrichedDraft(current, baseline, info));
-        })
-        .catch(e => {
-          if (disposed) return;
-          if (!retry) { retryTimer = setTimeout(() => loadLookup(true), 750); return; }
-          setLookup({ call, source: e instanceof Error ? e.message : "Lookup unavailable" });
-        });
-    };
-    const timer = setTimeout(() => {
-      // A large history query must not hold QRZ details hostage.
-      loadLookup(false);
-      void request("logbook_previous", { call, limit: 25 })
-        .then(history => { if (!disposed) setPrevious(history.qsos); }).catch(() => { if (!disposed) setPrevious([]); });
-    }, 400);
-    return () => { disposed = true; clearTimeout(timer); if (retryTimer) clearTimeout(retryTimer); };
-  }, [draft?.call, request, workspace?.workspace_exists]);
+  const { lookup, previous, lookupPending, retryLookup, retryRevision: lookupRetryRevision } = useCallsignLookup({
+    draft, generation: (contactEdit.draft ? contactEdit.base : sharedDraft.base)?.generation ?? workspace?.generation,
+    workspaceExists: workspace?.workspace_exists === true, request,
+    canEnrich: () => draftSession.canAcceptBackgroundUpdate() && !editing.current,
+    enrich: (baseline, info) => setDraft(current => enrichedDraft(current, baseline, info)),
+  });
   const clear = async () => {
     if (contactSession.getSnapshot().draft) contactSession.cancel();
     else await draftSession.commit("clear");
@@ -1365,7 +1287,7 @@ function MainLiveApp() {
   const deskProps = { draftLocked: editorLocked, canAcceptLocalInput: acceptsInput, onLocalInputState: editorInputState, resetInputEpoch: spotEditorEpoch,
     automaticStart,
     referenceEvidence, cwControls, equipment: settings?.stationEquipment, draft, setDraft: setOperatorDraft, save,
-    clear: () => void run(clear), busy: busy || editorBlocked, lookup, previous, request, refresh, onEditor: () => setView("Log QSO"),
+    clear: () => void run(clear), busy: busy || editorBlocked, lookup, previous, lookupPending, onRetryLookup: retryLookup, request, refresh: refresh + lookupRetryRevision, onEditor: () => setView("Log QSO"),
     onReadRadio: readRadioIntoDraft, follow, setFollow: setFollowImmediate, rotor: rotorState,
     rotorConfigured: hasConfiguredRotor(rotorConfigurationState.base?.configuration), autoRotor, setAutoRotor: changeAutoRotor,
     onManualRotor: disarmAutoRotor, isEditing: editing.current, intelligenceBands: workspacePreferences?.intelligenceBands };

@@ -7,7 +7,7 @@ import "./OperatorDesk.css";
 type Data = Record<string, any>;
 export type IntelligenceRequest = (method: string, params?: Data) => Promise<any>;
 export type DeskIntelligenceProps = { draft: Data | null; lookup: Data | null; previous: Data[];
-  request: IntelligenceRequest; refresh: number; intelligenceBands?: string[]; contextKey?: string; emptyMessage?: string; taskOnly?: boolean };
+  request: IntelligenceRequest; refresh: number; onRetryLookup?: () => void; lookupPending?: boolean; intelligenceBands?: string[]; contextKey?: string; emptyMessage?: string; taskOnly?: boolean };
 const normalizedCall = (value: unknown) => String(value ?? "").trim().toUpperCase();
 const bands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "4m", "2m", "70cm"];
 const displayedBands = bands.slice(0, 10);
@@ -16,7 +16,7 @@ const utcSummary = (value: unknown) => typeof value === "string" && Number.isFin
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 
 type Evidence = { contextKey: string; call: string; adif: number | null; callCells?: Data[]; history?: Data; error?: string };
-export function DeskIntelligence({ draft, lookup, previous, request, refresh, intelligenceBands, contextKey = "", emptyMessage = "Enter a callsign", taskOnly = false }: DeskIntelligenceProps) {
+export function DeskIntelligence({ draft, lookup, previous, request, refresh, onRetryLookup, lookupPending = false, intelligenceBands, contextKey = "", emptyMessage = "Enter a callsign", taskOnly = false }: DeskIntelligenceProps) {
   const call = normalizedCall(draft?.call), sameLookup = call && normalizedCall(lookup?.call) === call;
   const info = sameLookup ? lookup : null;
   const adif = info && Number.isInteger(info.dxcc) && info.dxcc > 0 ? info.dxcc as number : null;
@@ -60,5 +60,7 @@ export function DeskIntelligence({ draft, lookup, previous, request, refresh, in
     <footer><span>{lastCall ? `CALL LAST · ${utcSummary(lastCall.date ?? lastCall.start)}` : current?.history?.previous_count === 0 ? "CALL · NEW" : "CALL LAST · —"}</span><span>DXCC LAST · {current?.history?.last_dxcc_qso ? utcSummary(current.history.last_dxcc_qso.date ?? current.history.last_dxcc_qso.start) : "Unavailable"}</span></footer>
     {current?.error && <p className="desk-error" role="status">{current.error}</p>}
     {info?.lookup_warning && <p className="desk-error" role="status">{info.lookup_warning}</p>}
+    {onRetryLookup && info && (info.lookup_error || ["unavailable", "settings_busy", "credential_required", "workspace_unavailable"].includes(info.lookup_status)) &&
+      <button type="button" onClick={onRetryLookup} disabled={lookupPending}>{lookupPending ? "Retrying lookup…" : "Retry lookup"}</button>}
   </section>;
 }
