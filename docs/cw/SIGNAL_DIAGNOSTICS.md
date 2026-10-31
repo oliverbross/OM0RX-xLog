@@ -737,3 +737,44 @@ passes. Receipts `8afecefed76226e8` / `083a78bbc93c5d6d`, exact argv/source/mode
 runtime hashes and host snapshots remain in `original-cpu-{steady-ten-second,dynamic}-01`.
 These are local replay measurements independent of Australia–Slovakia network
 latency. No production profile or strict predicate changes.
+
+## Low-level and impulsive-noise development controls
+
+The operator's unannotated 40 m recording is now replayable through the existing
+supervisor/child; provenance and limits are in [native replay](NATIVE_REPLAY.md).
+Typical QRN remains an operating condition to handle, not a reason to exclude this
+recording from development. No decoded calls are promoted to reference truth.
+
+A separately frozen low-amplitude control uses the original model, mono ABI and
+existing independent fixture keying: 15/20/25/30/35 WPM, amplitudes
+0.0003/0.001/0.003/0.01, three random sequences per condition, seed 83100637 and
+texts disjoint from the original clean slice. All **60 sequences / 360 characters
+have zero errors** (`971073e7a5695204`). The original 150-sequence/960-character
+clean profile is unchanged. This gives no measured reason to add input gain or
+replace the model merely because the recording's channel audio is quiet.
+
+An offline, explicitly **noncausal** whole-file impulse-mask prototype preserves
+the original recording, sample count and clock. It masks 9,782 complex frames
+(1.02925%) using a median-power ×64 / minimum-amplitude 0.1 threshold, runs at
+most 0.5 ms and two padded samples per side. Replaying that derivative emits 135
+windows across eleven track IDs, compared with 126/ten originally. Changed
+tracking, text and readability are not an accuracy improvement without a
+transcript. Its derivative SHA-256 is
+`261e6fd7daeb15d65d3ae1b46634d70c3ca3df3857836cd290392c48f977cc11`.
+No production preprocessing is changed.
+
+The next comparison freezes seed 83100638, 24 six-character messages at
+15/25/35 WPM, amplitudes 0.003/0.03, 0/10-dB keyed-on SNR in a declared
+2,500-Hz convention and two cases per condition. Analytic 48-kHz complex IQ
+places the carrier at −14,013.5 Hz; circular white-noise variance is derived from
+that SNR. Added independent impulses have amplitude 0.8, 50 arrivals/s, uniform
+1–24-sample widths and random phase. All three variants use the same existing
+native channelizer and original-model mono ABI: white noise alone, noise plus
+impulses, and the offline mask. **Each recovers 144/144 characters, 24/24 exact
+sequences.** Thus this profile demonstrates no benefit from the prototype;
+it does not establish RF robustness under the recording's unknown conditions.
+Frozen plan SHA-256
+`7fdc277be0ce15e7d107f4b901cb9b30c15cd031a6ca95adf77758d355284e72`,
+receipt `c412b945b156a314`; deterministic seeds, runner/DSP/model hashes, labels
+and per-case output remain in `synthetic-impulse-iq-01`. These are development
+controls, not held-out CER, spot precision/recall or throughput qualification.

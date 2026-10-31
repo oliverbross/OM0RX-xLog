@@ -216,4 +216,60 @@ before evaluation; changed tool/input/receipt content fails. Status is always
 unique negative band-hours: source gaps, overlap, band coverage and eligible
 exposure still require separate accounting. Nothing here establishes CER,
 precision, recall, frequency error, latency, actual native output or a soak.
-No real corpus has yet been supplied or sealed for launch qualification.
+No independently annotated real corpus has yet been sealed for launch qualification.
+
+## Operator 40 m recording — 31 October 2026
+
+The operator supplied a LAN-recorded Flex DAX IQ 1 archive on the separate
+`iq-recording-20261031` branch, commit `d5b2f9aab04fd3793a4996d3b794a1e237002ac6`.
+The branch is preserved and not merged into main. Archive SHA-256
+`d106ec3e3a2ccb8ffb47ff5616a51a97f41c221e0f136b4b2225ec8d8b1b37cc`
+and CF32 IQ SHA-256
+`3f2b0b66a9d14e486b20cee9189a64a4177c03e8c9f671b67496a73a6f97dac4`
+verify. Its 950,400 complex samples are **19.8 seconds at 48 ksample/s**, with
+metadata centre 7,050,312 Hz. This is actual RF development input, not a 96-kHz
+capacity profile. SmartSDR/DAX 4.3.16.42034 and NAudio WASAPI acquisition are
+reported by the Windows capture owner. The referenced original WAV is absent;
+conversion, orientation, source gaps and RF mapping are not independently proven.
+All samples are finite; 29 I and 24 Q component values reach absolute 0.99999.
+
+The operator confirms audible CW with typical crackly 40 m conditions. That is
+not a Morse transcription. This recording/session remains development/calibration
+data, excluded from held-out evaluation. Its SigMF annotation labels capture
+statistics, not transmitted characters or station identity. The supplied consent
+covers this analysis; no general redistribution licence is asserted. Raw IQ,
+audio and text diagnostics stay in the private `.build` completion directory.
+
+`CWRecordingReplayTests` offers an explicit, optional recording diagnostic using
+the **existing Swift supervisor and native child**. It requires an import manifest
+and a fresh output path beneath canonical `.build`; absent environment variables
+skip it. It checks bounded files/hashes and one sample-zero CF32 capture, records
+actual sample positions and raw provisional output, and stops/reaps the child.
+Every input block is drained before the next: elapsed replay time is not a
+real-rate or latency measurement. Source mapping stays unknown and every event is
+marked replay; no classifier, station, draft, listener or live output is opened.
+
+Set `XCW_REAL_IQ_MANIFEST` to the verified private `IMPORT_RECEIPT.json` and
+`XCW_REAL_IQ_OUTPUT` to a fresh private JSON path, together with the existing
+`XCW_TEST_NATIVE_DIRECTORY` and `XCW_TEST_RUNTIME`, then run:
+
+```sh
+XLOG_PORTABLE_ONLY=1 swift test --package-path native/cw-worker \
+  --scratch-path .build/cw-wire-tests --jobs 2 --filter CWRecordingReplayTests
+```
+
+The first complete original-recording run delivers all 950,400 frames, emits 126
+windows across ten decoded track IDs and drains with zero coalesced/dropped work.
+Its 24.331-s flow-controlled replay is functional evidence only. No RF CER,
+callsign accuracy, RF frequency accuracy or committed/spot latency is claimed.
+Native binary SHA-256 is
+`e158eb78a7174447f5e6671efed0bb981f82e612cd0a370053c007e06a893043`;
+full replay receipt SHA-256 is
+`b61fe8ee21581fc85254b00f4adad4665dce9073bbe18d58f15f0b4e499e412d`.
+The earlier invalid descriptor attempt is preserved. Resource/hash-rejection and
+unexpected-child-exit regression passes (`88358ab93ab5d4a0`). This does not close
+live Flex admission, held-out quality or the two-span standard-load gate.
+The final bounded-manifest harness also passes on the original input
+(`2cfbf3b7f644839e`): all 950,400 frames, 126 windows, zero coalesced/dropped work
+and a drained queue, with 26.708-s flow-controlled elapsed time. No production
+DSP/model changes or repeat-run performance improvement are inferred.

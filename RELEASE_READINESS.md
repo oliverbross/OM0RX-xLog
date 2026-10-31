@@ -69,6 +69,16 @@ normal deployment is on the radios' LAN: WAN timing is diagnostic/deferred, whil
 local replay capacity and decoder/RF quality requirements remain. These source
 repairs do not qualify live LAN IQ or change production/quality admission.
 
+The operator's 19.8-second, 48-kHz LAN IQ recording is hash-verified and delivered
+through the existing supervisor/native child in an isolated offline diagnostic.
+It is confirmed audible, crackly 40 m CW but has no independent transcript and
+stays development/calibration data. Separate low-amplitude and synthetic noisy-IQ
+controls recover every reference character; an offline impulse-mask comparison
+shows no measured benefit and is not promoted. [Replay provenance](docs/cw/NATIVE_REPLAY.md)
+and [diagnostic populations](docs/cw/SIGNAL_DIAGNOSTICS.md) retain exact limits.
+This adds real development input without closing held-out quality, strict capacity,
+live LAN hardware, soak or exact-package gates. Installed 1.3.63 remains untouched.
+
 31 October CW source progress: durable original draft-action reconciliation,
 actual slow-client isolation and offline relocated component-payload checks pass.
 CPU, bounded static-CoreML, GPU and tensor-preserving attention-fusion candidates
