@@ -662,7 +662,7 @@ public actor LiveWorker {
                     // retired by a newer provider handover or connection fence.
                     result = ["accepted": activeAdmission == .applied, "superseded": activeAdmission != .applied]
                 }
-            } else if method == "cluster_history" || method.hasPrefix("spot_draft_") || method.hasPrefix("workspace_") || method.hasPrefix("logbook_") || method.hasPrefix("settings_") || method.hasPrefix("backup_") {
+            } else if method == "hm_control_logbook" || method == "cluster_history" || method.hasPrefix("spot_draft_") || method.hasPrefix("workspace_") || method.hasPrefix("logbook_") || method.hasPrefix("settings_") || method.hasPrefix("backup_") {
                 #if os(macOS)
                 let cwCallsign=method=="spot_draft_apply" && (params["spot"] as? [String:Any])?["cwCallsign"] != nil
                 if cwCallsign {
@@ -913,7 +913,7 @@ public actor LiveWorker {
     }
 
     private static func testProfileAllows(_ method: String) -> Bool {
-        ["health", "parse_adif", "self_test", "integration_self_test", "cluster_classify", "reference_log_review"].contains(method)
+        ["health", "parse_adif", "self_test", "integration_self_test", "cluster_classify", "reference_log_review", "hm_control_logbook"].contains(method)
             || method.hasPrefix("workspace_") || method.hasPrefix("logbook_")
             || method.hasPrefix("settings_") || method.hasPrefix("backup_")
             || method.hasPrefix("contest_") && method != "contest_scp_download"

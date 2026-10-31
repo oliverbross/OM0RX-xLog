@@ -8,6 +8,43 @@ import XCTest
 #endif
 
 final class AppRuntimeProfileTests: XCTestCase {
+    func testOfflineCandidateAllowsHMControlProjectionButKeepsExternalServicesDisabled() async throws {
+        let (bundleRoot, executable) = try bundledExecutable(identifier: "com.oliverbross.xlog.integration")
+        let root = URL(fileURLWithPath: try AppRuntimeProfile.canonicalFilesystemPath(FileManager.default.temporaryDirectory), isDirectory: true)
+            .appendingPathComponent("xlog-wave1-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root); try? FileManager.default.removeItem(at: bundleRoot) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+        try JSONSerialization.data(withJSONObject: ["schema": 1, "id": UUID().uuidString])
+            .write(to: root.appendingPathComponent(".xlog-offline-acceptance.json"))
+        let profile = try AppRuntimeProfile.resolve(arguments: [AppRuntimeProfile.offlineAcceptancePrefix + root.path], executableURL: executable)
+        XCTAssertFalse(profile.externalIOAllowed)
+        let logbook = LiveLogbookMethods(supportDirectory: try XCTUnwrap(profile.supportDirectory),
+            inheritNativePreferences: false, runtimeProfile: profile)
+        _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        let context = try logbook.handle(method: "workspace_map_context", params: [:])
+        let worker = LiveWorker(logbook: logbook, runtimeProfile: profile)
+        let request = try JSONSerialization.data(withJSONObject: ["id": "hm-offline", "method": "hm_control_logbook", "params": [:]])
+        let response = await worker.response(to: request)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: response) as? [String: Any])
+        XCTAssertEqual(object["ok"] as? Bool, true)
+        let result = try XCTUnwrap(object["result"] as? [String: Any])
+        XCTAssertEqual(result["generation"] as? String, context["generation"] as? String)
+        XCTAssertEqual((result["logbook"] as? [String: Any])?["total"] as? Int, 0)
+        // Exercise the production dispatch branch against the same disposable
+        // log, with local acceptance fencing all external service effects.
+        let normal = LiveWorker(logbook: logbook, localAcceptance: true, runtimeProfile: .production)
+        let normalResponse = await normal.response(to: request)
+        let normalObject = try XCTUnwrap(JSONSerialization.jsonObject(with: normalResponse) as? [String: Any])
+        XCTAssertEqual(normalObject["ok"] as? Bool, true)
+        XCTAssertEqual((normalObject["result"] as? [String: Any])?["generation"] as? String, context["generation"] as? String)
+        for method in ["station_connect", "cluster_connect", "wsjtx_start"] {
+            let blocked = try JSONSerialization.data(withJSONObject: ["id": method, "method": method, "params": [:]])
+            let reply = await worker.response(to: blocked)
+            let failure = try XCTUnwrap(JSONSerialization.jsonObject(with: reply) as? [String: Any])
+            XCTAssertEqual((failure["error"] as? [String: Any])?["code"] as? String, "external_io_disabled", method)
+        }
+    }
+
     func testOfflineCandidateRequiresPrivateMarkedTemporaryRootAndDisablesExternalIO() throws {
         let (bundleRoot, executable) = try bundledExecutable(identifier: "com.oliverbross.xlog.integration")
         let root = URL(fileURLWithPath: try AppRuntimeProfile.canonicalFilesystemPath(FileManager.default.temporaryDirectory), isDirectory: true)

@@ -97,8 +97,13 @@ fn matched_radio(before: &Value, after: &Value, mut radio: Value) -> Result<Valu
 
 /// Separate isolated adapter: it cannot obtain an AppHandle or reach any live
 /// cluster/radio owner. Native process mode is checked again before worker I/O.
+// Both coordinates are installed by native startup before any renderer exists.
+fn require_isolated_metadata(synthetic: bool, verified_offline: bool) -> Result<(), String> {
+    if synthetic || verified_offline { Ok(()) }
+    else { Err("Isolated map context is unavailable in a normal launch.".into()) }
+}
 pub fn acceptance_snapshot() -> Result<Value, String> {
-    if !crate::worker::local_acceptance() { return Err("Isolated map context is unavailable in a normal launch.".into()); }
+    require_isolated_metadata(crate::worker::local_acceptance(), crate::runtime_profile::offline_root().is_some())?;
     let id = uuid::Uuid::new_v4().to_string();
     let response = crate::worker::request_existing(json!({"id":id,"method":"workspace_map_context","params":{}}))?;
     if response["id"] != id || response["ok"] != true { return Err("Isolated map metadata could not be verified.".into()); }
@@ -120,6 +125,12 @@ mod tests {
             assert!(validate(label, false).is_ok()); assert!(validate(label, true).is_err());
         }
         for label in ["log-qso", "spot-history", "dx-cluster", "unknown", ""] { assert!(validate(label, false).is_err()); }
+    }
+    #[test]
+    fn verified_offline_metadata_does_not_require_a_synthetic_report() {
+        assert!(require_isolated_metadata(false, true).is_ok());
+        assert!(require_isolated_metadata(true, false).is_ok());
+        assert!(require_isolated_metadata(false, false).is_err());
     }
     #[test]
     fn isolated_adapter_rejects_a_normal_native_process_before_worker_access() {

@@ -1619,7 +1619,7 @@ async fn map_context_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandl
 async fn hm_control_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
     hm_control::validate(window.label())?;
     let isolated = runtime_profile::isolated(state.path.is_some());
-    if isolated { state.require()?; }
+    if isolated && runtime_profile::offline_root().is_none() { state.require()?; }
     tauri::async_runtime::spawn_blocking(move || hm_control::snapshot(&app, isolated)).await
         .map_err(|_| "HM Control context is unavailable".to_string())?
 }
