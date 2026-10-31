@@ -15,4 +15,5 @@ prototype/playwright-report/
 prototype/distribution-metadata/
 prototype/dist-linux/
 prototype/dist-windows/
+prototype/dist-macos/
 prototype/packaging-evidence/

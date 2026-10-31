@@ -80,4 +80,6 @@ else
 fi
 codesign --verify --deep --strict "$bundle"
 python3 "$root/prototype/scripts/cw-macos.py" verify --bundle "$bundle"
+python3 "$root/prototype/scripts/verify-release-payload.py" "$bundle" \
+  --report "$root/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog-payload-privacy.json"
 printf 'OM0RX-xLog bundle verified (notarization separate): %s\n' "$bundle"
