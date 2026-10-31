@@ -36,7 +36,8 @@ int main(int argc,char** argv) {
     require(argc==2 || (argc==3 && (std::string(argv[2])=="coreml" || std::string(argv[2])=="coreml-neural" || std::string(argv[2])=="system-allocator" ||
       std::string(argv[2])=="cpu-steady" || std::string(argv[2])=="coreml-steady" || std::string(argv[2])=="coreml-neural-steady" ||
       std::string(argv[2])=="coreml-neural-gpu" || std::string(argv[2])=="coreml-neural-gpu-steady" ||
-      std::string(argv[2])=="cpu-intra4" || std::string(argv[2])=="cpu-shared8" || std::string(argv[2])=="cpu-steady-parity")),"Model path and bounded provider/allocator/shape/thread profile required");
+      std::string(argv[2])=="cpu-intra4" || std::string(argv[2])=="cpu-shared8" || std::string(argv[2])=="cpu-steady-parity" ||
+      std::string(argv[2])=="cpu-attribution")),"Model path and bounded provider/allocator/shape/thread profile required");
     cw::JobOrder jobs;
     const auto ready=[](const auto&){return true;};
     jobs.push("oldest");jobs.push("second");jobs.push("selected");jobs.focus("selected");
@@ -139,6 +140,7 @@ int main(int argc,char** argv) {
     if(argc==3) {
       cw::EngineProfile profile;
       const std::string selected=argv[2];profile.steady_ten_second=selected.find("-steady")!=std::string::npos;
+      profile.measure_thread_execution=selected=="cpu-attribution";
       if(selected=="system-allocator") profile.cpu_mem_arena=false;
       else if(selected=="cpu-intra4") profile.intra_op_threads=4;
       else if(selected=="coreml" || selected=="coreml-steady") profile.provider=cw::ExecutionProvider::core_ml;
@@ -148,6 +150,7 @@ int main(int argc,char** argv) {
       auto full=morse(20);full.resize(32000);
       for(const auto& audio:{std::vector<float>(19200),morse(20),morse(30),std::vector<float>(32000),full}) {
         const auto cpu=engine.decode(audio,3200);
+        require(!cpu.run_calling_thread_cpu_ms && !cpu.requested_worker_qos,"Default engine performs no thread attribution");
         std::vector<cw::Decode> copies;
         if(selected=="cpu-shared8") {
           std::vector<std::future<cw::Decode>> jobs;
@@ -155,6 +158,13 @@ int main(int argc,char** argv) {
           for(auto& job:jobs) copies.push_back(job.get());
         } else copies.push_back(accelerated.decode(audio,3200));
         for(const auto& other:copies) {
+          if(profile.measure_thread_execution) {
+#if defined(__APPLE__)
+            require(other.run_calling_thread_cpu_ms && std::isfinite(*other.run_calling_thread_cpu_ms) && *other.run_calling_thread_cpu_ms>0,
+              "Opt-in CPU clock measures calling-thread work");
+            require(other.requested_worker_qos.has_value(),"Opt-in requested QoS is observed on Mac");
+#endif
+          }
           if(profile.steady_ten_second) require(other.used_steady_plan==(audio.size()/48+1==667),"Exact shape selects bounded shared plan");
           require(cpu.text==other.text && cpu.tokens.size()==other.tokens.size(),"Profile/CPU fixture text parity");
           for(size_t i=0;i<cpu.tokens.size();++i) {
@@ -173,6 +183,10 @@ int main(int argc,char** argv) {
       }
       if(selected=="cpu-steady-parity") {
         std::cout<<"5 dynamic/static CPU text/token/sample/score parity cases passed\n";
+        return 0;
+      }
+      if(selected=="cpu-attribution") {
+        std::cout<<"5 opt-in CPU attribution text/token/sample/score parity cases passed\n";
         return 0;
       }
     }

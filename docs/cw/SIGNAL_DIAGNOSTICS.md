@@ -778,3 +778,58 @@ Frozen plan SHA-256
 receipt `c412b945b156a314`; deterministic seeds, runner/DSP/model hashes, labels
 and per-case output remain in `synthetic-impulse-iq-01`. These are development
 controls, not held-out CER, spot precision/recall or throughput qualification.
+
+## Optional calling-thread execution attribution
+
+The load profiler now opts into an internal engine measurement that production
+does not request: model-window calling-thread CPU time alongside its existing
+elapsed Run time, plus the calling worker's requested QoS. Text, sample indices,
+features, windows, shared sessions, job workers, wire output and strict predicate
+are unchanged. Unavailable clocks/QoS remain absent; empty timing populations
+report null summaries. The QoS sample is a requested class, not effective priority,
+performance-core placement or proof of an OS override.
+
+The denominator is **emitted decode jobs**. CPU/wall ratios use only jobs with
+both measurements; completed-but-withheld, coalesced and dropped work remain
+visible in the original ledger and cannot earn a strict pass. Calling-thread
+CPU excludes ORT helper threads and CoreML service processes. Even with one
+CPU intra-op thread, a wall/CPU difference alone cannot distinguish descheduling
+from internal lock waits. No whole-app headroom claim follows this instrument.
+Clock and requested-QoS semantics follow Apple's primary
+[clock documentation](https://github.com/apple-oss-distributions/Libc/blob/main/gen/clock_gettime.3)
+and [pthread interface](https://github.com/apple-oss-distributions/libpthread/blob/main/include/pthread/qos.h).
+
+Five opt-in/default original-model comparisons preserve text, scores and token
+samples (`67c5c4be6d745c8f`). The attributed standard `16 15 4 cpu 1` run **fails**:
+9.38667/15 s delivered, 75/128 completed jobs, 73 emitted, 53 coalesced/two dropped,
+all 32 tracks serviced, no invalidations/faults. Maximum input lateness is
+251.071 ms; p95 decode age 4473.127625 ms; peak process RSS 223.469 MiB. Model
+elapsed mean/p95 is 375.88226/667.111208 ms versus calling-thread CPU
+141.12137/189.110125 ms; paired CPU/wall ratio is 0.37544. Every emitted caller
+reports requested QoS 21 (default), while the input thread reports 33. Process
+workload CPU/wall is 12.06/13.5413 seconds. Receipt `7ccf22305a4c42b1`.
+
+An explicit engineering-only caller-QoS experiment then requests class 25 on the
+dedicated inference threads, rather than changing only the input thread as in
+the older priority comparison. Five text/token/sample/score cases pass; every
+emitted caller reports 25. The same workload **fails**: 12.0747/15 s delivered,
+92/192 jobs completed/emitted, 100 coalesced/zero dropped, all 32 tracks serviced,
+no invalidations/faults. Maximum input lateness is 703.399 ms, p95 decode age
+8466.740167 ms and peak RSS 293.094 MiB. Model elapsed mean/p95 is
+573.413968/1434.116917 ms versus caller CPU 158.440712/214.481667 ms; CPU/wall
+ratio 0.276311; workload CPU/wall 16.5561/19.5831 seconds. Receipt
+`cad401be22553e7a`. Different delivered populations and uncontrolled host load
+preclude a causal priority comparison or speedup claim.
+
+No task compiler/test/capture overlaps either profile. Host one-minute load starts
+at 33.49 for the first run; source, binary/runtime/model hashes and before/after
+host snapshots are preserved in `original-cpu-{thread-attribution,caller-qos}-01`.
+The failed scheduling change is removed, with its exact source patch retained as
+SHA-256 `0e1c6a05528274130959187e7001be54bf8d7b405d76895439f9f651d1d3c073`.
+Only optional timing attribution remains; production still uses its unchanged
+four-worker original-model CPU profile. No additional identical capacity retry
+is warranted until the workload or recorded host conditions meaningfully change.
+After removing that experiment, a complete native rebuild and CTest pass 2/2
+(`05be1a70f7291cc8`), including original-model decode, DSP/tracking/overload and
+process lifetime checks. This validates the remaining opt-in timing change,
+not the failed standard load or complete application qualification.

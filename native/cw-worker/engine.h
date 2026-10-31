@@ -18,6 +18,10 @@ struct Decode {
   // Run timing; these clocks do not change samples, features or acceptance.
   double features_ms=0,ctc_ms=0;
   bool used_steady_plan=false;
+  // Optional engineering attribution: calling thread only, never ORT helpers
+  // or CoreML service CPU. Absent clocks/QoS remain unknown, not zero.
+  std::optional<double> run_calling_thread_cpu_ms=std::nullopt;
+  std::optional<int> requested_worker_qos=std::nullopt;
 };
 void fft(std::vector<std::complex<double>>& values);
 std::vector<float> features(const std::vector<float>& audio);
@@ -29,6 +33,7 @@ struct EngineProfile {
   // Engineering-only, at most two shared sessions for the unchanged model.
   // Dynamic CPU startup and an exact full-window preferred-provider plan.
   bool steady_ten_second=false;
+  bool measure_thread_execution=false;
   std::string profiling_prefix;
 };
 class Engine {

@@ -7,8 +7,30 @@
 #include <chrono>
 #include <cmath>
 #include <stdexcept>
+#include <time.h>
+#if defined(__APPLE__)
+#include <pthread.h>
+#include <sys/qos.h>
+#endif
 
 namespace cw {
+namespace {
+std::optional<double> calling_thread_cpu_ms() {
+#if defined(CLOCK_THREAD_CPUTIME_ID)
+  timespec value{};
+  if(clock_gettime(CLOCK_THREAD_CPUTIME_ID,&value)==0)
+    return double(value.tv_sec)*1000+double(value.tv_nsec)/1e6;
+#endif
+  return std::nullopt;
+}
+std::optional<int> requested_calling_thread_qos() {
+#if defined(__APPLE__)
+  qos_class_t value=QOS_CLASS_UNSPECIFIED;
+  if(pthread_get_qos_class_np(pthread_self(),&value,nullptr)==0) return int(value);
+#endif
+  return std::nullopt;
+}
+}
 constexpr double pi = 3.14159265358979323846;
 void fft(std::vector<std::complex<double>>& a) {
   const size_t n = a.size();
@@ -57,6 +79,7 @@ struct Engine::Impl {
   Ort::Env env{ORT_LOGGING_LEVEL_WARNING,"xlog-cw"};
   Ort::Session session{nullptr};
   std::unique_ptr<Ort::Session> startup;
+  bool measure_thread_execution;
   static Ort::SessionOptions options_for(const EngineProfile& profile,bool fixed) {
     Ort::SessionOptions options;
     if(profile.intra_op_threads<1 || profile.intra_op_threads>4) throw std::invalid_argument("ORT shared pool outside bounded profile");
@@ -92,7 +115,7 @@ struct Engine::Impl {
         std::string(session.GetOutputNameAllocated(0,alloc).get())!=model::onnx_output_name)
       throw std::runtime_error("Model tensor contract mismatch");
   }
-  Impl(const std::string& path,const EngineProfile& profile) {
+  Impl(const std::string& path,const EngineProfile& profile):measure_thread_execution(profile.measure_thread_execution) {
     if(profile.steady_ten_second) {
       // Exactly two shared plans for the same model. Startup keeps every
       // original variable-length window; no input is padded or shortened.
@@ -117,6 +140,8 @@ Decode Engine::decode(const std::vector<float>& audio,uint64_t first) {
   auto mem=Ort::MemoryInfo::CreateCpu(OrtArenaAllocator,OrtMemTypeDefault);
   auto input=Ort::Value::CreateTensor<float>(mem,data.data(),data.size(),shape.data(),shape.size());
   const char* names[]{model::onnx_input_name}; const char* outputs[]{model::onnx_output_name};
+  const auto requested_qos=impl->measure_thread_execution?requested_calling_thread_qos():std::nullopt;
+  const auto cpu_start=impl->measure_thread_execution?calling_thread_cpu_ms():std::nullopt;
   const auto start=std::chrono::steady_clock::now();
   const bool steady=impl->startup && shape[2]==667;
   auto& session=impl->startup && !steady ? *impl->startup:impl->session;
@@ -124,6 +149,9 @@ Decode Engine::decode(const std::vector<float>& audio,uint64_t first) {
   const auto dims=tensors[0].GetTensorTypeAndShapeInfo().GetShape();
   if (dims.size()!=3 || dims[0]!=1 || dims[1]!=shape[2] || dims[2]!=42) throw std::runtime_error("Unexpected output shape");
   Decode result{"",{},std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-start).count()};
+  const auto cpu_end=impl->measure_thread_execution?calling_thread_cpu_ms():std::nullopt;
+  if(cpu_start && cpu_end && *cpu_end>=*cpu_start) result.run_calling_thread_cpu_ms=*cpu_end-*cpu_start;
+  result.requested_worker_qos=requested_qos;
   result.features_ms=feature_ms;
   result.used_steady_plan=steady;
   const auto ctc_start=std::chrono::steady_clock::now();

@@ -59,7 +59,7 @@ int main(int argc,char** argv) {
     const int workers=argc>=5?std::stoi(argv[4]):2;
     const std::string provider=argc>=6?argv[5]:"cpu";
     if(provider!="cpu" && provider!="coreml" && provider!="coreml-neural" && provider!="coreml-neural-gpu") throw std::invalid_argument("Unsupported execution provider profile");
-    cw::EngineProfile profile;profile.provider=provider=="coreml"?cw::ExecutionProvider::core_ml:provider=="coreml-neural"?cw::ExecutionProvider::core_ml_neural_network:
+    cw::EngineProfile profile;profile.measure_thread_execution=true;profile.provider=provider=="coreml"?cw::ExecutionProvider::core_ml:provider=="coreml-neural"?cw::ExecutionProvider::core_ml_neural_network:
       provider=="coreml-neural-gpu"?cw::ExecutionProvider::core_ml_neural_network_gpu:cw::ExecutionProvider::cpu;
     profile.intra_op_threads=argc>=7?std::stoi(argv[6]):1;
     if(argc>=8 && std::string(argv[7])!="-") profile.profiling_prefix=argv[7];
@@ -98,6 +98,10 @@ int main(int argc,char** argv) {
     std::set<std::string> decoded;
     std::vector<double> latencies;
     std::vector<double> model_ms,features_ms,ctc_ms,queue_ms;
+    std::vector<double> calling_thread_cpu_ms;
+    std::map<int,size_t> requested_worker_qos;
+    size_t unknown_worker_qos=0;
+    double paired_model_wall_ms=0;
     std::vector<double> startup_model_ms,steady_model_ms;
     size_t fault_events=0,startup_jobs=0,steady_jobs=0;
     size_t maximum_tracks=0,maximum_pending=0,maximum_in_flight=0;
@@ -114,6 +118,12 @@ int main(int argc,char** argv) {
         }
         decoded.insert(event.track_id);
         model_ms.push_back(event.copy.inference_ms);features_ms.push_back(event.copy.features_ms);
+        if(event.copy.run_calling_thread_cpu_ms) {
+          calling_thread_cpu_ms.push_back(*event.copy.run_calling_thread_cpu_ms);
+          paired_model_wall_ms+=event.copy.inference_ms;
+        }
+        if(event.copy.requested_worker_qos) ++requested_worker_qos[*event.copy.requested_worker_qos];
+        else ++unknown_worker_qos;
         ctc_ms.push_back(event.copy.ctc_ms);queue_ms.push_back(event.queue_wait_ms);
         const double expected=double(event.source_first_sample)/rate+double(event.end_sample)/3200-event.filter_delay_seconds;
         latencies.push_back(std::max(0.0,milliseconds(Clock::now()-start)-expected*1000));
@@ -189,6 +199,18 @@ int main(int argc,char** argv) {
     std::cout<<",\"timing_population\":\"emitted decode jobs\"";
     std::cout<<",\"decode_age_reference\":\"decoded window end in capture time, including FIR delay\"";
     timing("model_run",model_ms);timing("feature_extraction",features_ms);timing("ctc",ctc_ms);timing("queue_wait",queue_ms);
+    timing("model_run_calling_thread_cpu",calling_thread_cpu_ms);
+    std::cout<<",\"model_run_calling_thread_cpu_scope\":\"emitted jobs; calling thread only; excludes other ORT/CoreML threads\""
+      <<",\"model_run_cpu_paired_wall_sum_ms\":"<<paired_model_wall_ms
+      <<",\"model_run_calling_thread_cpu_to_wall_ratio\":"
+      <<(paired_model_wall_ms>0?std::to_string(std::accumulate(calling_thread_cpu_ms.begin(),calling_thread_cpu_ms.end(),0.0)/paired_model_wall_ms):"null")
+      <<",\"requested_worker_qos_samples\":{";
+    bool first_qos=true;
+    for(const auto& item:requested_worker_qos) {
+      if(!first_qos)std::cout<<",";first_qos=false;
+      std::cout<<"\""<<item.first<<"\":"<<item.second;
+    }
+    std::cout<<"},\"unknown_requested_worker_qos_samples\":"<<unknown_worker_qos;
     if(profile.steady_ten_second) {timing("startup_model_run",startup_model_ms);timing("steady_model_run",steady_model_ms);}
     std::cout<<"}"<<std::endl;
     skimmer.stop();return 0;
