@@ -904,3 +904,27 @@ new runs can establish speed, and stale/constant/irregular input stays unknown.
 The retained red log is `WPM_NOISE_HISTORY_BASELINE.log` under the private CW
 completion evidence root. These known-speed fixtures do not supply reference
 truth for real RF or qualify current-source capacity.
+
+## Known targets over the 20 m background — 31 October 2026
+
+A plan frozen before generation/evaluation injects twenty independently labelled
+synthetic sequences over fixed ten-second segments of the original 20 m IQ. It
+uses seed 83100641, 15/20/25/30/35 WPM, two sequences per speed/level, offset
+−6,000 Hz and 0/+10-dB keyed-on signal-to-observed-background power. The declared
+background integration is exactly 2,500 Hz (offset ±1,250 Hz, upper edge excluded).
+It includes existing signals and impulses, so this ratio is not a noise-only SNR
+or a qualified ordinary-RF label. Segment positions cycle 0/10/20/30 s; the
+20–30-s segment includes the original rail. Generated texts are disjoint from
+the earlier clean/low-level control texts. The original IQ remains unchanged.
+
+The existing native channelizer and original pinned model/runtime process every
+case through the mono diagnostic ABI (`2651ba2c294cbc26`). At 0 dB there is one
+character error in 65 reference characters (9/10 exact sequences, **1.53846%**
+target-copy CER); at +10 dB there are zero errors in 65 characters (10/10 exact).
+The error is a 35-WPM substitution; it is retained without post-hoc threshold or
+preprocessing changes. Frozen-plan SHA-256 is
+`853bc070cf6751e00bcdb4177bf576015fbb19cde6ad96aca87416eb2a941e4f`.
+Private plans, labels, input hashes and outputs remain under
+`real-background-injection-01`. This is calibration of known synthetic targets
+against one observed background, not independently transcribed on-air copy,
+precision/recall, negative band-hours, accepted spots, or real-time capacity.

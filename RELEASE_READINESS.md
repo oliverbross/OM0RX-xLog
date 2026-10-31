@@ -95,6 +95,22 @@ The post-fix real-file supervisor replay is incomplete: freshness fails after
 [CW diagnostics](docs/cw/SIGNAL_DIAGNOSTICS.md). No source/capacity/quality admission
 or installed acceptance is promoted from the measurement repair.
 
+The third, 20 m archive independently verifies WAV/SigMF identity and contains
+44.725 s of 48-kHz IQ with one retained Q rail. Source `f598e1f9` repairs a further
+known-speed defect: pre-carrier noise in channelizer backfill no longer poisons
+the signal's WPM fit; partial marks cannot count as complete observations. Native
+CTest passes 2/2, including all ten clean/noisy alignments. The changed child
+passes full supervisor replay: 2,146,800 frames / 276 provisional windows, zero
+coalesced jobs/dropped output events, drained queues, and identical text/token/sample/RF
+windows to the preceding run. WPM remains unknown on this unannotated recording.
+Known synthetic targets over its fixed background yield 1/65 character errors at
+0 dB and 0/65 at +10 dB signal/background in 2,500 Hz; this is not on-air truth or
+spot qualification. [Replay provenance](docs/cw/NATIVE_REPLAY.md#operator-20-m-recording--31-october-2026)
+and [CW diagnostics](docs/cw/SIGNAL_DIAGNOSTICS.md) retain exact hashes and limits.
+Strict 32-track capacity, independently annotated RF, actual one/two/mixed sources,
+elapsed 8h/24h and exact-package acceptance remain open. No package, installation
+or production capability change is authorized by these diagnostic results alone.
+
 31 October CW source progress: durable original draft-action reconciliation,
 actual slow-client isolation and offline relocated component-payload checks pass.
 CPU, bounded static-CoreML, GPU and tensor-preserving attention-fusion candidates

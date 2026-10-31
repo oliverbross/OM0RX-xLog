@@ -328,3 +328,48 @@ with `staleInput`, rather than completing this file (`c703ea25916168dd`). The
 source therefore has no completed post-fix real-file acceptance from that attempt;
 [WPM diagnostics](SIGNAL_DIAGNOSTICS.md#wpm-envelope-resolution--31-october-2026)
 record the exact positive and incomplete evidence separately.
+
+## Operator 20 m recording — 31 October 2026
+
+The third archive is pinned to transfer-only commit
+`c59852b257f6b399e82230f42092945276f2dfdf`; no capture files are merged into main.
+Archive SHA-256 is
+`a37c6470129f254c6b0e2aa7f8099d0fe0be5ce7325bb2fae70b92ad6db17972`;
+main CF32 IQ SHA-256 is
+`9210e1a9af29872b480363adfbfe3b9096700d0a803f622c734bcd2cd278b419`.
+The bounded private import verifies all listed member hashes and independently
+parses both original WAVs: IEEE Float32 stereo I/Q, 48 ksample/s, with payloads
+byte-identical to their SigMF files. It preserves originals in
+`.build/cw-completion-20261030/lan-iq-20261031-03`.
+
+The main file contains **2,146,800 complex frames / 44.725 s**, metadata centre
+**14,018,686 Hz**, and reported UTC start 2026-10-31T06:06:27.0910560Z. The separate
+preflight has 228,000 frames / 4.75 s and zero rail hits. The main file has one
+Q rail at frame 1,235,523, zero I rails, zero nonfinite/out-of-range samples and
+I/Q RMS 0.017098306/0.017085892. The one rail is retained; the full recording is
+development input, not an ordinary no-clipping qualification file. The short
+preflight is not padded into a six-second decode window. The Windows receipt
+reports no tuning/transmission/settings change; sample continuity, clock accuracy
+and RF orientation are not independently established by WASAPI files. No Morse
+transcript is supplied, and this recording/session stays outside held-out data.
+
+Before the WPM-history repair, the completed diagnostic receipt contains all
+frames and 276 provisional windows. Source `f598e1f98d20c4e51bbb5dee3b710ccc0ee96c2a`
+then passes the actual supervisor/native-child replay test (exit 0,
+`0500e1ed330e86cf`): **276 windows, eight decoded track IDs / nine revisions,
+zero coalesced jobs/dropped output events and zero final pending/in-flight jobs**.
+Final tracking count is 15; this is not the two-span/32-track standard workload.
+All events are replay-marked. Flow-controlled processing takes **130.688018 s**,
+not real-rate throughput or committed-text latency. Native SHA-256 is
+`5cf73af559bc5a17d7225deab91dde372cd333eab98bc0e77323840e08caf480`;
+replay receipt SHA-256 is
+`66e2908b4076a5708653496f69c863edd9062ba337fef17563e612510820b0b6`.
+
+All 276 text/token/sample/RF/SNR windows match the preceding run after excluding
+random track UUIDs, Run timing and WPM. WPM remains unknown throughout; neither
+the repair nor raw provisional text establishes real station identity or accuracy.
+The private source-bound stage receipt `TWENTY_METRE_STAGE_f598e1f9.json` has
+SHA-256 `83ff4874dc3b66bad299f70cbd21186830fe02a1bfd33a2fee834e834502287b`.
+Fixed first-ten-second listening derivatives use constant gain only, retain their
+derivation/hashes, and never replace the original decoder input. No live source,
+action, spot sink, listener or production admission is opened.
