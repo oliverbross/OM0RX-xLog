@@ -6,14 +6,17 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 
+# The Mac packaging lane runs this trusted source script with Python -I.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from runtime_artifacts import ROOT, digest, download, extract, sources
 
 
 def stage_host(destination):
     target = destination / 'Not1MM/python'
-    if target.exists():
+    if target.exists() or target.is_symlink() or (destination / 'Not1MM').is_symlink():
         raise ValueError('Contest host destination already exists')
     for relative in ['contest_host', 'vendor/not1mm']:
         source = ROOT / 'python' / relative
@@ -24,7 +27,7 @@ def stage_host(destination):
         paths = subprocess.check_output(['git', 'ls-files', '-z', '--', f'python/{relative}'], cwd=ROOT).decode().split('\0')
         for name in filter(None, paths):
             original = ROOT / name
-            if original.is_symlink() or not original.is_file():
+            if original.is_symlink() or not original.is_file() or not original.resolve().is_relative_to(ROOT.resolve()):
                 raise ValueError(f'Contest runtime source must be a regular tracked file: {name}')
             output = target / original.relative_to(ROOT / 'python')
             output.parent.mkdir(parents=True, exist_ok=True)
@@ -72,19 +75,21 @@ def stage_windows(destination):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--platform', choices=['windows', 'linux'], required=True)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument('--platform', choices=['windows', 'linux'])
+    mode.add_argument('--host-only', action='store_true', help='Stage tracked source only; the Mac lane owns its separate framework')
     parser.add_argument('--destination', type=Path, required=True)
     args = parser.parse_args()
     destination = args.destination.resolve(strict=True)
-    result = {'schema': 1, 'platform': args.platform, 'host': stage_host(destination)}
+    result = {'schema': 1, 'platform': args.platform or 'source-only', 'host': stage_host(destination)}
     if args.platform == 'windows':
         result['python'] = stage_windows(destination)
-    else:
+    elif args.platform == 'linux':
         result['python'] = {'executable': '/usr/bin/python3.12', 'source': 'Ubuntu 24.04 python3.12 package dependency'}
     evidence = destination / 'evidence'
     evidence.mkdir(exist_ok=True)
     (evidence / 'contest-runtime.json').write_text(json.dumps(result, indent=2) + '\n')
-    print(json.dumps({'platform': args.platform, 'hostFiles': len(result['host']['files']), 'destination': str(destination)}))
+    print(json.dumps({'platform': result['platform'], 'hostFiles': len(result['host']['files']), 'destination': str(destination)}))
 
 
 if __name__ == '__main__':

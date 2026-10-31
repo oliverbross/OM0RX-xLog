@@ -76,6 +76,7 @@ jobs:
         run: |
           python3 prototype/scripts/test-release-payload.py
           python3 prototype/scripts/test-runtime-artifacts.py
+          python3 prototype/scripts/test-contest-host-staging.py
           python3 prototype/scripts/test-linux-vault-harness.py
       - name: Parse Windows installer scripts
         if: runner.os == 'Windows'

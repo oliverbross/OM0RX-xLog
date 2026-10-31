@@ -352,7 +352,10 @@ def main():
         (framework / "Versions/Current").symlink_to("3.12")
         (framework / "Python").symlink_to("Versions/Current/Python")
         (framework / "Resources").symlink_to("Versions/Current/Resources")
-        shutil.copytree(ROOT / "python", host_root, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".venv"))
+        # The public application receives only tracked host/vendor runtime files.
+        # Developer tests, fixtures and untracked local files are never eligible.
+        run(source_python, "-I", "-B", ROOT / "prototype/scripts/stage-contest-runtime.py",
+            "--host-only", "--destination", bundle / "Contents/Resources")
         require(not list(framework.rglob("site-packages")), "site-packages survived runtime staging")
         closure = relocate(framework, source_runtime, target)
         data = {"schema": 1, "pythonVersion": version, "sourceFramework": str(source_runtime.parent.parent),
