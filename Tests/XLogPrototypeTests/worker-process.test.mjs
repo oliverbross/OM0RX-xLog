@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
@@ -12,11 +13,12 @@ const binary = process.env.XLOG_WORKER_BINARY || process.argv[2];
 assert.ok(binary, "Pass the built xlog-prototype-worker executable path.");
 
 async function exercise(start, onLine, expectedCount, args = [], executable = binary,
-                        { prepareHome = async () => {}, afterExit = async () => {}, expectedExitCode = 0 } = {}) {
+                        { prepareHome = async () => {}, afterExit = async () => {}, expectedExitCode = 0,
+                          wrapContestingBundle = true, operatingModule = "contesting", timeoutMilliseconds = 5000 } = {}) {
   const home = await mkdtemp(join(tmpdir(), "xlog-worker-home-"));
   try {
     await prepareHome(home);
-    if (process.platform === "darwin" && !args.includes("--runtime-profile=contesting-test")) {
+    if (wrapContestingBundle && process.platform === "darwin" && !args.includes("--runtime-profile=contesting-test")) {
       const contents = join(home, "Test.app", "Contents");
       await mkdir(join(contents, "MacOS"), { recursive: true });
       await writeFile(join(contents, "Info.plist"), `<?xml version="1.0"?><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>com.oliverbross.xlog.contesting-test</string></dict></plist>`);
@@ -31,7 +33,7 @@ async function exercise(start, onLine, expectedCount, args = [], executable = bi
     // acquire shared application-support ownership during a disposable run.
     const child = spawn(executable, args, {
       stdio: ["pipe", "pipe", "pipe"],
-      env: { ...process.env, XLOG_OPERATING_MODULE: "contesting", HOME: home, CFFIXED_USER_HOME: home },
+      env: { ...process.env, XLOG_OPERATING_MODULE: operatingModule, HOME: home, CFFIXED_USER_HOME: home },
     });
     let buffer = "";
     let stderr = "";
@@ -39,7 +41,7 @@ async function exercise(start, onLine, expectedCount, args = [], executable = bi
     const timer = setTimeout(() => {
       child.kill();
       reject(new Error("Worker response timed out while stdin remained open."));
-    }, 5000);
+    }, timeoutMilliseconds);
     child.on("error", reject);
     child.stderr.on("data", chunk => { stderr += chunk; });
     child.stdout.on("data", chunk => {
@@ -87,34 +89,75 @@ test("accepted work drains after EOF through the real retirement path", async ()
   assert.ok(responses.every(response => response.ok));
 });
 
-test("fresh and expired contest spot receipts never block worker retirement", { skip: process.platform !== "darwin" }, async () => {
-  for (const [age, expectedExitCode] of [[0, 0], [1200, 0]]) {
+test("Contesting Test EOF leaves production-style spot receipts untouched", { skip: process.platform !== "darwin" }, async () => {
+  for (const age of [0, 1200]) {
+    let legacyBytes;
     const replies = await exercise(child => {
       child.stdin.write(JSON.stringify({ id: "retained-spot", method: "health", params: {} }) + "\n");
       child.stdin.end();
     }, () => {}, 1, [], binary, {
-      expectedExitCode,
       prepareHome: async home => {
         const services = join(home, "Library", "Application Support", "OM0RX-xLog Integration Services");
         await mkdir(services, { recursive: true });
-        await writeFile(join(services, "forwarded-radio-spots.json"), JSON.stringify({ version: 1, spots: [{
+        legacyBytes = Buffer.from(JSON.stringify({ version: 1, spots: [{
           provider: "direct_agent", radioID: "radio1", callsign: "TEST1", frequencyHz: 7125000,
           owner: "contesting", acceptedAt: Date.now() / 1000 - age,
         }] }));
+        await writeFile(join(services, "forwarded-radio-spots.json"), legacyBytes);
       },
       afterExit: async home => {
-        const inventory = join(home, "Library", "Application Support", "OM0RX-xLog Integration Services", "forwarded-radio-spots.json.sqlite");
-        const { stdout } = await runFile("/usr/bin/sqlite3", [inventory, "SELECT CAST(payload AS TEXT) FROM receipts;"]);
-        const rows = stdout.trim() ? stdout.trim().split("\n").map(value => JSON.parse(value)) : [];
-        assert.equal(rows.length, 1, "Deferred cleanup must retain its durable receipt without attempting removal or expiry work.");
-        if (age === 0) {
-          assert.deepEqual([rows[0].provider, rows[0].radioID, rows[0].owner, rows[0].callsign, rows[0].frequencyHz],
-            ["direct_agent", "radio1", "contesting", "TEST1", 7125000]);
-          assert.ok(Date.now() / 1000 - rows[0].acceptedAt < 600, "This must exercise a fresh receipt.");
-        }
+        const services = join(home, "Library", "Application Support", "OM0RX-xLog Integration Services");
+        assert.deepEqual(await readFile(join(services, "forwarded-radio-spots.json")), legacyBytes);
+        assert.deepEqual(await readdir(services), ["forwarded-radio-spots.json"], "Private EOF must not open or migrate a production-style ledger.");
       },
     });
     assert.equal(replies[0].ok, true);
+  }
+});
+
+test("marked offline candidate EOF preserves the fake HOME production ledger byte for byte", { skip: process.platform !== "darwin" }, async () => {
+  for (const operatingModule of ["normal_logging", "contesting"]) {
+    const privateRoot = await mkdtemp(join(await realpath(tmpdir()), "xlog-wave1-"));
+    try {
+      await chmod(privateRoot, 0o700);
+      await writeFile(join(privateRoot, ".xlog-offline-acceptance.json"), JSON.stringify({ schema: 1, id: randomUUID() }));
+      const contents = join(privateRoot, "Candidate.app", "Contents");
+      const executable = join(contents, "MacOS", "xlog-prototype-worker");
+      await mkdir(join(contents, "MacOS"), { recursive: true });
+      await writeFile(join(contents, "Info.plist"), '<?xml version="1.0"?><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>com.oliverbross.xlog.integration</string></dict></plist>');
+      await symlink(resolve(binary), executable);
+      let before, names;
+      const replies = await exercise(child => {
+        child.stdin.write(JSON.stringify({ id: "offline-eof", method: "health", params: {} }) + "\n");
+        child.stdin.end();
+      }, () => {}, 1, ["--offline-contest-acceptance=" + privateRoot], executable, {
+        wrapContestingBundle: false, operatingModule, timeoutMilliseconds: 15000,
+        prepareHome: async home => {
+          const services = join(home, "Library", "Application Support", "OM0RX-xLog Integration Services");
+          await mkdir(services, { recursive: true });
+          const inventory = join(services, "forwarded-radio-spots.json.sqlite");
+          await writeFile(join(services, "forwarded-radio-spots.json"), JSON.stringify({ version: 1, spots: [] }));
+          const sql = "PRAGMA journal_mode=DELETE; CREATE TABLE pending_deliveries(key TEXT PRIMARY KEY,payload BLOB NOT NULL);" +
+            "WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<256) " +
+            "INSERT INTO pending_deliveries SELECT printf('00000000-0000-4000-8000-%012d',x), " +
+            "CAST(json_object('id',printf('00000000-0000-4000-8000-%012d',x),'provider','direct_agent'," +
+            "'callsign','TEST'||x,'frequencyHz',7125000,'owner',CASE WHEN x<=189 THEN 'contesting' ELSE 'normal_logging' END) AS BLOB) FROM n;";
+          await runFile("/usr/bin/sqlite3", [inventory, sql]);
+          before = createHash("sha256").update(await readFile(inventory)).digest("hex");
+          names = (await readdir(services)).sort();
+        },
+        afterExit: async home => {
+          const services = join(home, "Library", "Application Support", "OM0RX-xLog Integration Services");
+          const inventory = join(services, "forwarded-radio-spots.json.sqlite");
+          assert.equal(createHash("sha256").update(await readFile(inventory)).digest("hex"), before, "Offline EOF altered the fake production ledger.");
+          assert.deepEqual((await readdir(services)).sort(), names, "Offline EOF created production ledger sidecars or publisher locks.");
+          const { stdout } = await runFile("/usr/bin/sqlite3", ["-readonly", inventory, "SELECT count(*) FROM pending_deliveries;"]);
+          assert.equal(stdout.trim(), "256");
+          await assert.rejects(stat(join(privateRoot, "worker", "OM0RX-xLog Integration Services", "forwarded-radio-spots.json.sqlite")), { code: "ENOENT" });
+        },
+      });
+      assert.equal(replies[0].ok, true);
+    } finally { await rm(privateRoot, { recursive: true, force: true }); }
   }
 });
 

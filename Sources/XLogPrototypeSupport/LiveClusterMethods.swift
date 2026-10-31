@@ -149,6 +149,7 @@ public actor LiveClusterMethods {
     private var contactRefreshError: String?
     private let beforeContactPublication: (@Sendable () async throws -> Void)?
     private let forwardClassifiedIngressSpots: Bool
+    private let radioSideEffectsAllowed: Bool
     private let spotForward: @Sendable (ClusterRadioSpotPayload, String, Bool) async throws -> Bool
     private let spotRemove: @Sendable (ClusterRadioSpotPayload, String) async throws -> Bool
     private let contestRadioClock: @Sendable () -> Date
@@ -191,6 +192,7 @@ public actor LiveClusterMethods {
                                      requestSkimmer: skimmer, onState: state, onLine: line)
          }, beforeContactPublication: (@Sendable () async throws -> Void)? = nil,
          forwardClassifiedIngressSpots: Bool = true,
+         radioSideEffectsAllowed: Bool = true,
          normalSpotRetryDelay: TimeInterval = 5,
          spotForward: @escaping @Sendable (ClusterRadioSpotPayload, String, Bool) async throws -> Bool = { payload, provider, replacing in
              #if os(macOS)
@@ -214,12 +216,20 @@ public actor LiveClusterMethods {
         self.vault = CachedClusterCredentialStore(base: vault)
         self.transportFactory = transportFactory
         self.beforeContactPublication = beforeContactPublication
-        self.forwardClassifiedIngressSpots = forwardClassifiedIngressSpots
+        self.radioSideEffectsAllowed = radioSideEffectsAllowed
+        self.forwardClassifiedIngressSpots = radioSideEffectsAllowed && forwardClassifiedIngressSpots
         self.normalSpotRetryDelay = max(0.01, normalSpotRetryDelay)
-        self.spotForward = spotForward
-        self.spotRemove = spotRemove
+        if radioSideEffectsAllowed {
+            self.spotForward = spotForward
+            self.spotRemove = spotRemove
+        } else {
+            self.spotForward = { _, _, _ in false }
+            self.spotRemove = { _, _ in false }
+        }
         self.contestRadioClock = contestRadioClock
-        if let priorRadioSpotCleanup {
+        if !radioSideEffectsAllowed {
+            self.beforeContestSpotPublication = { _ in }
+        } else if let priorRadioSpotCleanup {
             self.beforeContestSpotPublication = priorRadioSpotCleanup
         } else if let beforeContestSpotPublication {
             self.beforeContestSpotPublication = { _ in try await beforeContestSpotPublication() }
@@ -238,7 +248,9 @@ public actor LiveClusterMethods {
         } else {
             self.beforeContestSpotPublication = { _ in }
         }
-        if let retirePersistedContestSpots {
+        if !radioSideEffectsAllowed {
+            self.retirePersistedContestSpots = nil
+        } else if let retirePersistedContestSpots {
             self.retirePersistedContestSpots = retirePersistedContestSpots
         } else if logbook === LiveLogbookMethods.shared {
             #if os(macOS)
@@ -251,11 +263,13 @@ public actor LiveClusterMethods {
         } else {
             self.retirePersistedContestSpots = nil
         }
-        self.configurationURL = configurationURL ?? (logbook === LiveLogbookMethods.shared
+        self.configurationURL = configurationURL ?? (radioSideEffectsAllowed && logbook === LiveLogbookMethods.shared
             ? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
                 .appendingPathComponent("OM0RX-xLog Integration Services/cluster.json")
             : logbook.workspaceDirectoryURL.appendingPathComponent("Cluster/cluster.json"))
-        if let deferPersistedContestSpots {
+        if !radioSideEffectsAllowed {
+            self.deferPersistedContestSpots = nil
+        } else if let deferPersistedContestSpots {
             self.deferPersistedContestSpots = deferPersistedContestSpots
         } else if logbook === LiveLogbookMethods.shared {
             #if os(macOS)
@@ -270,7 +284,8 @@ public actor LiveClusterMethods {
         }
     }
 
-    @discardableResult func terminate(deferRadioSpotCleanup: Bool = false) async -> Bool {
+    @discardableResult func terminate(deferRadioSpotCleanup: Bool = false,
+                                     permitRadioSpotCleanup: Bool = true) async -> Bool {
         terminated = true
         normalSpotDrain?.cancel()
         normalSpotQueue.removeAll()
@@ -278,6 +293,15 @@ public actor LiveClusterMethods {
         cleanup?.cancel()
         if !deferRadioSpotCleanup { await cleanup?.value }
         contactRefreshRevision &+= 1
+        // EOF retirement is an independent authority boundary. Even an injected
+        // cluster must not consult a process-global ledger for an offline worker.
+        guard radioSideEffectsAllowed, permitRadioSpotCleanup else {
+            contestForwardedSpots.removeAll()
+            contestPublication = nil
+            await service?.terminate()
+            await history?.stop()
+            return true
+        }
         if deferRadioSpotCleanup {
             // Stop the publisher and retain durable marker cleanup for a later
             // worker. Remote cosmetic removal must never delay the mode switch.

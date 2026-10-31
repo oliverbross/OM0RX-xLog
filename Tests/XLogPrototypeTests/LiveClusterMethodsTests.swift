@@ -287,7 +287,7 @@ struct LiveClusterMethodsTests {
             try await Task.sleep(for: .milliseconds(5))
         }
         #expect(await cleanup.started())
-        let worker = LiveWorker(logbook: logbook, localAcceptance: true, cluster: cluster)
+        let worker = LiveWorker(logbook: logbook, cluster: cluster, ownsProcessSessions: false, runtimeProfile: .production)
         let shutdown = Task {
             let outcome = await worker.shutdownOutcome()
             await cleanup.markRetired()
@@ -686,7 +686,7 @@ struct LiveClusterMethodsTests {
                 "multiplier_count": 2, "country_multiplier": true, "zone_multiplier": true]]])
         #expect(published["accepted"] as? Int == 1)
         await recorder.setRemovalAccepted(false)
-        let worker = LiveWorker(logbook: logbook, localAcceptance: true, cluster: cluster)
+        let worker = LiveWorker(logbook: logbook, cluster: cluster, ownsProcessSessions: false, runtimeProfile: .production)
         #expect(await worker.shutdownOutcome() == .contestSpotCleanupDeferred)
         #expect((await recorder.activeSnapshot()).count == 1)
         #expect((await recorder.removed()).isEmpty)
@@ -722,7 +722,7 @@ struct LiveClusterMethodsTests {
             vault: UnavailableClusterTestVault(), forwardClassifiedIngressSpots: false,
             retirePersistedContestSpots: { _ = try await broker.retireContestForwardedSpots() },
             deferPersistedContestSpots: { try await broker.deferContestForwardedSpotsForShutdown() })
-        let worker = LiveWorker(logbook: logbook, localAcceptance: true, cluster: cluster)
+        let worker = LiveWorker(logbook: logbook, cluster: cluster, ownsProcessSessions: false, runtimeProfile: .production)
         #expect(await worker.shutdownOutcome() == .contestSpotCleanupDeferred)
         #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("absent-cluster.json").path))
         #expect((await recorder.removed()).isEmpty)
@@ -775,7 +775,7 @@ struct LiveClusterMethodsTests {
             try await Task.sleep(for: .milliseconds(5))
         }
         #expect(await gate.started())
-        let worker = LiveWorker(logbook: logbook, localAcceptance: true, cluster: cluster)
+        let worker = LiveWorker(logbook: logbook, cluster: cluster, ownsProcessSessions: false, runtimeProfile: .production)
         let retirement = Task {
             let outcome = await worker.shutdownOutcome()
             await gate.markRetired()

@@ -266,7 +266,7 @@ public actor LiveWorker {
             accountVerifier: backupVerifier)
         self.remoteBackup = backupService
         #if os(macOS)
-        let ftpPresentation = ownsProcessSessions && remoteBackupEnvironment == nil
+        let ftpPresentation = ownsProcessSessions && runtimeProfile.externalIOAllowed && !localAcceptance && remoteBackupEnvironment == nil
             ? LiveFTPBackupPresentation(logbook: logbook, service: backupService) : nil
         #else
         let ftpPresentation: LiveFTPBackupPresentation? = nil
@@ -280,9 +280,11 @@ public actor LiveWorker {
         #if os(macOS)
         references = LiveReferenceMethods(logbook: logbook)
         #endif
-        let cluster = cluster ?? (logbook === LiveLogbookMethods.shared && operatingModule == .normalLogging
+        let cluster = cluster ?? (runtimeProfile.externalIOAllowed && !localAcceptance
+            && logbook === LiveLogbookMethods.shared && operatingModule == .normalLogging
             ? .shared : LiveClusterMethods(logbook: logbook,
-                                           forwardClassifiedIngressSpots: operatingModule == .normalLogging))
+                                           forwardClassifiedIngressSpots: operatingModule == .normalLogging,
+                                           radioSideEffectsAllowed: runtimeProfile.externalIOAllowed && !localAcceptance))
         self.cluster = cluster
         #if os(macOS)
         cwDecode = LiveCWDecodeMethods(logbook:logbook,prepareListener:{try await cluster.prepareLocalCWListener()},
@@ -299,7 +301,7 @@ public actor LiveWorker {
         self.runtimeProfile = runtimeProfile
         self.operatingModule = operatingModule
         self.ownsProcessSessions = ownsProcessSessions
-        self.stationRegistry = stationRegistry ?? (ownsProcessSessions && !localAcceptance ? .shared : nil)
+        self.stationRegistry = stationRegistry ?? (ownsProcessSessions && !localAcceptance && runtimeProfile.externalIOAllowed ? .shared : nil)
     }
 
     func beginTerminalShutdown() async {
@@ -434,7 +436,7 @@ public actor LiveWorker {
         await services.beginTermination()
         #if os(macOS)
         await references.terminate()
-        if ownsProcessSessions {
+        if ownsProcessSessions && runtimeProfile.externalIOAllowed && !localAcceptance {
             await LiveWSJTXBridge.shared.stopForShutdown()
             await LiveFldigiBridge.shared.stopForShutdown()
         }
@@ -444,25 +446,27 @@ public actor LiveWorker {
         if localAcceptance {
             // Only the injected local cluster/archive owner is retired here;
             // process-wide station singletons remain outside acceptance scope.
-            contestSpotsRetired = await cluster.terminate(deferRadioSpotCleanup: true)
+            contestSpotsRetired = await cluster.terminate(deferRadioSpotCleanup: true, permitRadioSpotCleanup: runtimeProfile.externalIOAllowed && !localAcceptance)
             await services.terminate()
             return .resolve(onlineLogsRetired: onlineLogsRetired, contestSpotsRetired: contestSpotsRetired)
         }
         #if os(macOS)
-        if ownsProcessSessions {
+        if ownsProcessSessions && runtimeProfile.externalIOAllowed {
             await LiveSpotBridge.shared.stopForShutdown()
             // Seal/drain accepted publications, but leave cosmetic removal on
             // its durable queue so station ownership can retire promptly.
-            contestSpotsRetired = await cluster.terminate(deferRadioSpotCleanup: true)
+            contestSpotsRetired = await cluster.terminate(deferRadioSpotCleanup: true, permitRadioSpotCleanup: runtimeProfile.externalIOAllowed && !localAcceptance)
             await LiveRotorSession.shared.terminate()
         } else {
-            contestSpotsRetired = await cluster.terminate(deferRadioSpotCleanup: true)
+            contestSpotsRetired = await cluster.terminate(deferRadioSpotCleanup: true, permitRadioSpotCleanup: runtimeProfile.externalIOAllowed && !localAcceptance)
         }
         #else
-        contestSpotsRetired = await cluster.terminate(deferRadioSpotCleanup: true)
+        contestSpotsRetired = await cluster.terminate(deferRadioSpotCleanup: true, permitRadioSpotCleanup: runtimeProfile.externalIOAllowed && !localAcceptance)
         #endif
         #if os(macOS)
-        let stationRetirement = await stationRegistry?.terminate()
+        let stationRetirement: StationRetirementResult?
+        if runtimeProfile.externalIOAllowed { stationRetirement = await stationRegistry?.terminate() }
+        else { stationRetirement = nil }
         #endif
         await services.terminate()
         #if os(macOS)

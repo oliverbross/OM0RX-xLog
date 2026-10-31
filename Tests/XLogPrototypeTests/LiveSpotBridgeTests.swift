@@ -792,7 +792,7 @@ final class LiveSpotBridgeTests: XCTestCase {
         XCTAssertTrue(forwarded)
 
         await routing.setRemovalAccepted(false)
-        let worker = LiveWorker(logbook: logbook, localAcceptance: true, cluster: replacementWorker())
+        let worker = LiveWorker(logbook: logbook, cluster: replacementWorker(), ownsProcessSessions: false, runtimeProfile: .production)
         let deferred = await worker.shutdownOutcome()
         XCTAssertEqual(deferred, .contestSpotCleanupDeferred)
         XCTAssertTrue(deferred.permitsRestart)

@@ -67,9 +67,8 @@ actor SpotForwardBroker {
         var lastAttemptID: UUID?
     }
 
-    private static let defaultInventoryURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        .appendingPathComponent("OM0RX-xLog Integration Services", isDirectory: true)
-        .appendingPathComponent("forwarded-radio-spots.json")
+    private static let defaultInventoryURL = AppRuntimeProfile.current.spotInventoryURL(
+        applicationSupport: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0])
     static let shared = SpotForwardBroker(inventoryURL: defaultInventoryURL, targetedDeliver: { spot, provider, preferredRadioID in
         let payload: [String: Any] = [
             "frequency_hz": spot.frequencyHz, "callsign": spot.callsign,

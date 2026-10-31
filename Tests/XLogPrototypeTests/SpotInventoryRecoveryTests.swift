@@ -52,6 +52,30 @@ final class SpotInventoryRecoveryTests: XCTestCase {
                      spotter: "", comment: "", timestamp: Int64(Date().timeIntervalSince1970), lifetimeSeconds: 600, priority: 3, colorHex: "#AEB5B7")
     }
 
+    func testRuntimeProfileRoutesPrivateBrokerLedgerAwayFromProduction() async throws {
+        let root = try root(); defer { try? FileManager.default.removeItem(at: root) }
+        let applicationSupport = root.appendingPathComponent("Application Support")
+        let production = AppRuntimeProfile.production.spotInventoryURL(applicationSupport: applicationSupport)
+        XCTAssertEqual(production, applicationSupport.appendingPathComponent("OM0RX-xLog Integration Services/forwarded-radio-spots.json"))
+        try FileManager.default.createDirectory(at: production.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let productionDB = production.appendingPathExtension("sqlite")
+        let original = try seedLegacy(productionDB)
+        for supportRoot in [root.appendingPathComponent("xlog-wave1-fixture/worker"), applicationSupport.appendingPathComponent("OM0RX-xLog Contesting Test")] {
+            let profile = AppRuntimeProfile.contestingTest(supportRoot: supportRoot)
+            let isolated = profile.spotInventoryURL(applicationSupport: applicationSupport)
+            XCTAssertTrue(isolated.path.hasPrefix(supportRoot.path + "/"))
+            XCTAssertNotEqual(isolated, production)
+            let broker = SpotForwardBroker(inventoryURL: isolated,
+                targetedDeliver: { _, _, _ in XCTFail("Private retirement cannot add radio spots"); return "radio1" },
+                targetedRemove: { _, _, _ in XCTFail("Private retirement cannot remove radio spots") })
+            let deferred = try await broker.deferContestForwardedSpotsForShutdown()
+            XCTAssertEqual(deferred, 0)
+            XCTAssertTrue(FileManager.default.fileExists(atPath: isolated.appendingPathExtension("sqlite").path))
+            XCTAssertEqual(try rows(productionDB, "pending_deliveries").sorted { $0.lexicographicallyPrecedes($1) }, original)
+            XCTAssertTrue(try rows(productionDB, "quarantined_deliveries").isEmpty)
+        }
+    }
+
     func testAtomicLegacyMigrationPreservesAllBytesAndReopensWithCapacity() throws {
         let root = try root(); defer { try? FileManager.default.removeItem(at: root) }
         let url = root.appendingPathComponent("spots.sqlite"), original = try seedLegacy(url)

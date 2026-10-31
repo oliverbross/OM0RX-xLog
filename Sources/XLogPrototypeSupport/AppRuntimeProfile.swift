@@ -141,6 +141,14 @@ public enum AppRuntimeProfile: Equatable, Sendable {
         return nil
     }
 
+    /// The resolved private support coordinate owns every offline ledger, too.
+    /// Production retains its existing process-shared inventory location.
+    func spotInventoryURL(applicationSupport: URL) -> URL {
+        (supportDirectory ?? applicationSupport)
+            .appendingPathComponent("OM0RX-xLog Integration Services", isDirectory: true)
+            .appendingPathComponent("forwarded-radio-spots.json")
+    }
+
     var identityPrefix: String {
         self == .production ? "com.oliverbross.OM0RXXLog.Integration." : Self.contestingIdentityPrefix
     }
