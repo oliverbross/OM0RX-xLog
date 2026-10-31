@@ -116,6 +116,9 @@ jobs:
     env:
       XLOG_PORTABLE_ONLY: '1'
     steps:
+      - name: Enable Windows checkout long paths
+        if: runner.os == 'Windows'
+        run: git config --global core.longpaths true
       - uses: actions/checkout@v4
       - name: Select macOS Swift toolchain
         if: runner.os == 'macOS'
@@ -343,6 +346,9 @@ jobs:
       CARGO_BUILD_JOBS: '2'
       TAURI_CONFIG: '{"productName":"OM0RX-xLog Contesting Test","identifier":"com.oliverbross.xlog.contesting-test","bundle":{"active":false,"externalBin":[]}}'
     steps:
+      - name: Enable Windows checkout long paths
+        if: runner.os == 'Windows'
+        run: git config --global core.longpaths true
       - uses: actions/checkout@v4
       - name: Linux Tauri compile dependencies
         if: runner.os == 'Linux'

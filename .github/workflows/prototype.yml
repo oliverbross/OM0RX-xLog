@@ -6,7 +6,7 @@ on:
       build_platforms:
         description: 'Native build and test targets'
         type: choice
-        options: [macos, all]
+        options: [macos, linux, windows, all]
         default: macos
       validation_only:
         description: 'Run native tests without producing application packages'
@@ -40,7 +40,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: beta-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  group: beta-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}-${{ inputs.build_platforms || 'macos' }}
   cancel-in-progress: true
 
 jobs:
@@ -49,10 +49,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(inputs.build_platforms == 'all' && '["macos-15", "ubuntu-24.04", "windows-2022"]' || '["macos-15"]') }}
+        os: ${{ fromJSON(inputs.build_platforms == 'all' && '["macos-15", "ubuntu-24.04", "windows-2022"]' || inputs.build_platforms == 'linux' && '["ubuntu-24.04"]' || inputs.build_platforms == 'windows' && '["windows-2022"]' || '["macos-15"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     steps:
+      - name: Enable Windows checkout long paths
+        if: runner.os == 'Windows'
+        run: git config --global core.longpaths true
       - uses: actions/checkout@v4
       - name: Select macOS Swift toolchain
         if: runner.os == 'macOS'
@@ -286,9 +289,11 @@ jobs:
   linux-runtime:
     name: Linux runtime-only container acceptance
     needs: prototype
-    if: ${{ always() && !cancelled() && (inputs.runtime_run_id != '' || (needs.prototype.result == 'success' && inputs.build_platforms == 'all' && !inputs.validation_only)) && inputs.runtime_platform != 'windows' }}
+    if: ${{ always() && !cancelled() && ((inputs.runtime_run_id != '' && inputs.runtime_platform != 'windows') || (inputs.runtime_run_id == '' && needs.prototype.result == 'success' && (inputs.build_platforms == 'all' || inputs.build_platforms == 'linux') && !inputs.validation_only)) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      XLOG_EXPECTED_PACKAGE_SOURCE_SHA: ${{ inputs.runtime_source_sha || github.sha }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -298,7 +303,11 @@ jobs:
           run-id: ${{ inputs.runtime_run_id || github.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Build runtime-only Ubuntu image with packaged deb
-        run: docker build -f prototype/scripts/Dockerfile.linux-runtime -t xlog-prototype-runtime .
+        run: |
+          docker build -f prototype/scripts/Dockerfile.linux-runtime -t xlog-prototype-runtime .
+          mkdir -p prototype/packaging-evidence/linux
+          docker run --rm --network none --cap-drop ALL --entrypoint cat xlog-prototype-runtime /opt/om0rx-xlog-prototype/runtime-manifest.json > prototype/packaging-evidence/linux/runtime-manifest.json
+          python3 -c 'import json,os; from pathlib import Path; m=json.loads(Path("prototype/packaging-evidence/linux/runtime-manifest.json").read_text()); assert m["commit"] == os.environ["XLOG_EXPECTED_PACKAGE_SOURCE_SHA"], "Linux package source differs from requested artifact"'
       - name: Native WebKit GUI, worker, relaunch and relocation with network disabled
         run: |
           mkdir -p prototype/packaging-evidence/linux
@@ -310,17 +319,21 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: xlog-acceptance-linux-${{ github.sha }}
+          name: xlog-acceptance-linux-${{ inputs.runtime_source_sha || github.sha }}
           retention-days: 30
           if-no-files-found: warn
           path: prototype/packaging-evidence/linux/
   windows-runtime:
     name: Windows fresh-runner runtime acceptance
     needs: prototype
-    if: ${{ always() && !cancelled() && (inputs.runtime_run_id != '' || (needs.prototype.result == 'success' && inputs.build_platforms == 'all' && !inputs.validation_only)) && inputs.runtime_platform != 'linux' }}
+    if: ${{ always() && !cancelled() && ((inputs.runtime_run_id != '' && inputs.runtime_platform != 'linux') || (inputs.runtime_run_id == '' && needs.prototype.result == 'success' && (inputs.build_platforms == 'all' || inputs.build_platforms == 'windows') && !inputs.validation_only)) }}
     runs-on: windows-2022
     timeout-minutes: 25
+    env:
+      XLOG_EXPECTED_PACKAGE_SOURCE_SHA: ${{ inputs.runtime_source_sha || github.sha }}
     steps:
+      - name: Enable Windows checkout long paths
+        run: git config --global core.longpaths true
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
@@ -331,10 +344,15 @@ jobs:
       - name: Extract isolated package
         shell: pwsh
         run: |
-          $zip = "$env:RUNNER_TEMP/xlog-runtime-download/OM0RX-xLog-Prototype-windows-x86_64.zip"
+          # Multi-directory uploads preserve their common-parent subdirectories.
+          $zips = @(Get-ChildItem "$env:RUNNER_TEMP/xlog-runtime-download" -Filter 'OM0RX-xLog-Prototype-windows-x86_64.zip' -File -Recurse)
+          if ($zips.Count -ne 1) { throw 'Expected exactly one Windows portable ZIP' }
+          $zip = $zips[0].FullName
           $expected = (Get-Content "$zip.sha256").Split(' ')[0].ToLowerInvariant()
           if ((Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'ZIP checksum mismatch' }
           Expand-Archive -LiteralPath $zip -DestinationPath "$env:RUNNER_TEMP/xlog-windows-accept"
+          $provenance = Get-Content "$env:RUNNER_TEMP/xlog-windows-accept/OM0RX-xLog-Prototype-windows-x86_64/provenance.json" -Raw | ConvertFrom-Json -Depth 30
+          if ($provenance.commit -ne $env:XLOG_EXPECTED_PACKAGE_SOURCE_SHA) { throw 'Windows package source differs from requested artifact' }
       - name: Native WebView2 GUI and worker without installing Swift
         shell: pwsh
         run: |
@@ -343,17 +361,19 @@ jobs:
       - name: EXE silent install, isolated application acceptance and uninstall
         shell: pwsh
         run: |
-          $installers = @(Get-ChildItem "$env:RUNNER_TEMP/xlog-runtime-download" -Filter '*-setup.exe' -File)
+          $installers = @(Get-ChildItem "$env:RUNNER_TEMP/xlog-runtime-download" -Filter '*-setup.exe' -File -Recurse)
           if ($installers.Count -ne 1) { throw 'Expected exactly one versioned Windows EXE installer' }
           $installer = $installers[0].FullName
           $expected = (Get-Content "$installer.sha256").Split(' ')[0].ToLowerInvariant()
           if ((Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'EXE checksum mismatch' }
+          $provenance = Get-Content "$installer.provenance.json" -Raw | ConvertFrom-Json -Depth 20
+          if ($provenance.sourceCommit -ne $env:XLOG_EXPECTED_PACKAGE_SOURCE_SHA) { throw 'Windows installer source differs from requested artifact' }
           ./prototype/scripts/accept-windows-installer.ps1 -Installer $installer -EvidenceDirectory "$env:RUNNER_TEMP/xlog-windows-installer-evidence"
       - name: Upload native Windows reports and screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: xlog-acceptance-windows-${{ github.sha }}
+          name: xlog-acceptance-windows-${{ inputs.runtime_source_sha || github.sha }}
           retention-days: 30
           if-no-files-found: warn
           path: |
