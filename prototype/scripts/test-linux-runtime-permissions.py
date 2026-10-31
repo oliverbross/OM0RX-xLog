@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Regression for owner-only build-cache notices in root-installed packages."""
+"""Regressions for Linux package permissions and application release metadata."""
+import hashlib
+import json
 from pathlib import Path
 import runpy
 import shutil
@@ -8,7 +10,8 @@ import tempfile
 import unittest
 
 
-normalize = runpy.run_path(str(Path(__file__).with_name('linux-runtime.py')))['normalize_permissions']
+runtime = runpy.run_path(str(Path(__file__).with_name('linux-runtime.py')))
+normalize = runtime['normalize_permissions']
 
 
 class PackagePermissionTests(unittest.TestCase):
@@ -50,6 +53,62 @@ class PackagePermissionTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'Unexpected package symlink'):
                 normalize(stage)
             self.assertEqual(stat.S_IMODE(outside.stat().st_mode), 0o600)
+
+
+class PackageMetadataTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix='xlog-linux-package-metadata-')
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.configuration = self.root / 'prototype/src-tauri/tauri.conf.json'
+        self.configuration.parent.mkdir(parents=True)
+
+    def write_configuration(self, version, product='OM0RX-xLog'):
+        self.configuration.write_text(json.dumps({'productName': product, 'version': version}))
+
+    def test_actual_version_beta_branding_credit_and_configuration_provenance(self):
+        self.write_configuration('2.4.6-beta.1+fixture7')
+        application = runtime['application_metadata'](self.root)
+        self.assertEqual(application['version'], '2.4.6-beta.1+fixture7')
+        self.assertEqual(application['productName'], 'OM0RX-xLog')
+        self.assertEqual(application['releaseChannel'], 'beta')
+        self.assertEqual(application['maintainer'], 'Oliver Bross <oliver@bross.eu>')
+        self.assertEqual(application['applicationConfigurationSHA256'],
+                         hashlib.sha256(self.configuration.read_bytes()).hexdigest())
+        self.write_configuration('2.4.7')
+        self.assertNotEqual(runtime['application_metadata'](self.root)['applicationConfigurationSHA256'],
+                            application['applicationConfigurationSHA256'])
+
+    def test_invalid_configuration_cannot_supply_a_release_filename_or_control_field(self):
+        for version in ['', None, 123, '01.2.3', '1.2', '1.2.3-beta..1', '../1.2.3', '1.2.3\nInjected: value']:
+            with self.subTest(version=version):
+                self.write_configuration(version)
+                with self.assertRaises(RuntimeError):
+                    runtime['application_metadata'](self.root)
+        self.write_configuration('2.4.6', product='Old Prototype')
+        with self.assertRaises(RuntimeError):
+            runtime['application_metadata'](self.root)
+
+    def test_debian_user_metadata_is_beta_and_technical_acceptance_paths_remain(self):
+        self.write_configuration('2.4.6-beta.1')
+        application = runtime['application_metadata'](self.root)
+        deb = self.root / 'deb-root'
+        deb.mkdir()
+        runtime['write_debian_metadata'](deb, application, ['libsqlite3-0', 'libsecret-1-0'])
+        control = (deb / 'DEBIAN/control').read_text()
+        self.assertIn('Package: om0rx-xlog\nVersion: 2.4.6~beta.1\n', control)
+        self.assertIn('Maintainer: Oliver Bross <oliver@bross.eu>\n', control)
+        self.assertIn('Depends: libsqlite3-0, libsecret-1-0\n', control)
+        self.assertIn('OM0RX-xLog amateur-radio logging (beta)', control)
+        self.assertNotIn('synthetic', control)
+        self.assertNotIn('prototype@', control)
+        for name in ['om0rx-xlog', 'om0rx-xlog-prototype']:
+            command = deb / 'usr/bin' / name
+            self.assertEqual(command.read_text(), '#!/bin/sh\nexec /opt/om0rx-xlog-prototype/launch "$@"\n')
+            self.assertEqual(stat.S_IMODE(command.stat().st_mode), 0o755)
+        desktop = (deb / 'usr/share/applications/om0rx-xlog-prototype.desktop').read_text()
+        self.assertIn('Name=OM0RX-xLog Beta\n', desktop)
+        self.assertIn('Exec=/opt/om0rx-xlog-prototype/launch\n', desktop)
 
 
 if __name__ == '__main__':

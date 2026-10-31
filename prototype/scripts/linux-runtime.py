@@ -11,6 +11,53 @@ import sys
 import urllib.error
 import urllib.request
 
+PRODUCT_NAME = 'OM0RX-xLog'
+RELEASE_CHANNEL = 'beta'
+MAINTAINER = 'Oliver Bross <oliver@bross.eu>'
+# These internal paths are also used by installed/relocated acceptance harnesses.
+STAGE_NAME = 'om0rx-xlog-prototype-linux-amd64'
+INSTALL_PATH = '/opt/om0rx-xlog-prototype'
+
+
+def application_metadata(root):
+    configuration = root / 'prototype/src-tauri/tauri.conf.json'
+    configuration_bytes = configuration.read_bytes()
+    source = json.loads(configuration_bytes)
+    version = source.get('version')
+    number = r'(?:0|[1-9][0-9]*)'
+    suffix = r'[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*'
+    version_pattern = rf'{number}\.{number}\.{number}(?:-{suffix})?(?:\+{suffix})?'
+    if (source.get('productName') != PRODUCT_NAME or not isinstance(version, str)
+            or not re.fullmatch(version_pattern, version)):
+        raise RuntimeError('Expected OM0RX-xLog application name and a valid application version')
+    return {'productName': PRODUCT_NAME, 'version': version, 'releaseChannel': RELEASE_CHANNEL,
+            'maintainer': MAINTAINER,
+            'applicationConfigurationSHA256': hashlib.sha256(configuration_bytes).hexdigest()}
+
+
+def write_debian_metadata(deb, application, dependencies):
+    (deb / 'DEBIAN').mkdir()
+    # Debian sorts prereleases before their stable version using '~'. Keep the
+    # original application SemVer in runtime-manifest.json for exact provenance.
+    debian_version = application['version'].replace('-', '~')
+    (deb / 'DEBIAN/control').write_text(
+        f'Package: om0rx-xlog\nVersion: {debian_version}\nArchitecture: amd64\n'
+        f'Maintainer: {MAINTAINER}\nSection: hamradio\nPriority: optional\n'
+        f'Depends: {", ".join(dependencies)}\n'
+        'Description: OM0RX-xLog amateur-radio logging (beta)\n'
+        ' Local logbooks and Wavelog integration. Ubuntu 24.04 amd64.\n')
+    (deb / 'usr/bin').mkdir(parents=True)
+    for name in ['om0rx-xlog', 'om0rx-xlog-prototype']:
+        command = deb / 'usr/bin' / name
+        command.write_text(f'#!/bin/sh\nexec {INSTALL_PATH}/launch "$@"\n')
+        command.chmod(0o755)
+    desktop = deb / 'usr/share/applications/om0rx-xlog-prototype.desktop'
+    desktop.parent.mkdir(parents=True)
+    desktop.write_text('[Desktop Entry]\nType=Application\nName=OM0RX-xLog Beta\n'
+                       'GenericName=Amateur Radio Logging\n'
+                       'Comment=Local logbooks and Wavelog integration (beta)\n'
+                       f'Exec={INSTALL_PATH}/launch\nTerminal=false\nCategories=HamRadio;Utility;\n')
+
 
 def run(*args, env=None):
     return subprocess.check_output(args, text=True, env=env, stderr=subprocess.STDOUT)
@@ -93,7 +140,8 @@ def audit(package, output):
 
 
 def package(root, out, swift_root, sha):
-    stage = out / 'om0rx-xlog-prototype-linux-amd64'
+    application = application_metadata(root)
+    stage = out / STAGE_NAME
     for folder in ['bin', 'lib', 'notices']:
         (stage / folder).mkdir(parents=True)
     for name in ['xlog-prototype', 'xlog-prototype-worker', 'rigctld', 'rotctld']:
@@ -187,13 +235,13 @@ def package(root, out, swift_root, sha):
     audit(stage, stage / 'native-loader-audit.txt')
     dependencies = [line.strip() for line in (stage / 'system-dependencies.txt').read_text().splitlines()
                     if line.strip() and not line.startswith('#')]
-    metadata = {'schema': 1, 'commit': sha, 'platform': 'ubuntu-24.04-amd64',
+    metadata = {'schema': 1, **application, 'commit': sha, 'platform': 'ubuntu-24.04-amd64',
                 'swift': swift_version, 'bundledLibraryOrigins': origins,
                 'redistributionNoticeSources': notice_sources, 'toolchainNoticeCount': notice_count,
                 'redistributionNoticeAvailability': notice_availability,
                 'systemPackages': dependencies, 'systemPackageVersions': run('dpkg-query', '-W'),
                 'source': f'https://github.com/oliverbross/OM0RX-xLog/tree/{sha}',
-                'scope': 'synthetic prototype; no Hamlib, station access or production release'}
+                'scope': 'OM0RX-xLog beta; hardware and provider qualification is recorded separately'}
     write_json(stage / 'runtime-manifest.json', metadata)
     normalize_permissions(stage)
     hashes = {str(path.relative_to(stage)): digest(path) for path in sorted(stage.rglob('*')) if path.is_file()}
@@ -201,22 +249,9 @@ def package(root, out, swift_root, sha):
     hash_manifest.write_text(''.join(f'{value}  {name}\n' for name, value in hashes.items()))
     hash_manifest.chmod(0o644)
     deb = out / 'deb-root'
-    install = deb / 'opt/om0rx-xlog-prototype'
+    install = deb / INSTALL_PATH.removeprefix('/')
     shutil.copytree(stage, install)
-    (deb / 'DEBIAN').mkdir()
-    (deb / 'DEBIAN/control').write_text(
-        f'Package: om0rx-xlog-prototype\nVersion: 0.1.0+p1.{sha[:12]}\nArchitecture: amd64\n'
-        'Maintainer: OM0RX-xLog Prototype <prototype@om0rx.com>\nSection: utils\nPriority: optional\n'
-        f'Depends: {", ".join(dependencies)}\nDescription: Isolated synthetic OM0RX-xLog prototype\n'
-        ' No station, account or live logbook access. Ubuntu 24.04 amd64 only.\n')
-    (deb / 'usr/bin').mkdir(parents=True)
-    command = deb / 'usr/bin/om0rx-xlog-prototype'
-    command.write_text('#!/bin/sh\nexec /opt/om0rx-xlog-prototype/launch "$@"\n')
-    command.chmod(0o755)
-    desktop = deb / 'usr/share/applications/om0rx-xlog-prototype.desktop'
-    desktop.parent.mkdir(parents=True)
-    desktop.write_text('[Desktop Entry]\nType=Application\nName=OM0RX-xLog Prototype (synthetic)\n'
-                       'Exec=/opt/om0rx-xlog-prototype/launch\nTerminal=false\nCategories=Utility;\n')
+    write_debian_metadata(deb, application, dependencies)
     normalize_permissions(deb)
 
 
@@ -225,5 +260,7 @@ if __name__ == '__main__':
         package(*(Path(value).resolve() for value in sys.argv[2:5]), sys.argv[5])
     elif sys.argv[1] == 'audit':
         audit(Path(sys.argv[2]).resolve(), Path(sys.argv[3]))
+    elif sys.argv[1] == 'version':
+        print(application_metadata(Path(sys.argv[2]).resolve())['version'])
     else:
-        raise SystemExit('Expected package or audit')
+        raise SystemExit('Expected package, audit or version')
