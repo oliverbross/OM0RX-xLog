@@ -54,8 +54,11 @@ identity/resource/lifecycle cases pass. Serial-pinned inspector self-test passes
 Fresh serial-pinned native handoff subsequently passes. Instrumented IQ startup
 acknowledges create/rate but receives no admitted IQ. Its trace exposes premature
 TCP close before owned remove ACK. The cleanup-await/error-preservation regression
-first fails, then all 19 Flex lifecycle cases pass after repair. Actual UDP and
-removal ACK remain pending. Production capability, RF and spot-quality gates
+first fails, then all 19 Flex lifecycle cases pass after repair. A later live run
+confirms exact owned removal status/ACK and 1,222 sender-port refusals from the
+verified radio peer (first endpoint port 50001). The unsupported fixed-port
+assumption is corrected and 26 Flex plus six provider cases pass; actual admitted
+IQ remains pending. Production capability, RF and spot-quality gates
 stay separate; no one/two/mixed-radio IQ acceptance is claimed.
 
 31 October CW source progress: durable original draft-action reconciliation,

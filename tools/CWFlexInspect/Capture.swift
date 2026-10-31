@@ -9,6 +9,29 @@ private struct CaptureFailure:Error,CustomStringConvertible {
     let description:String
     init(_ message:String){description=message}
 }
+private enum CaptureCleanupEvidence {
+    typealias Row=(operation:String,detail:String,generation:Int)
+    static func verified(_ rows:[Row],truncated:Bool)->Bool? {
+        guard !truncated else{return nil}
+        var requested=0,created:[String:Int]=[:],removed:[String:Int]=[:],gone:[String:Int]=[:]
+        func key(_ value:String,_ generation:Int)->String? {
+            guard let id=FlexIQResourceInventory.handle(value),id>0 else{return nil}
+            return "\(generation):\(FlexIQResourceInventory.identifier(id))"
+        }
+        for row in rows {
+            if row.operation=="command",row.detail.hasPrefix("stream create "){requested+=1}
+            if row.operation=="ack",row.detail.hasPrefix("stream create "),let range=row.detail.range(of:" reply="),
+               let id=key(String(row.detail[range.upperBound...]),row.generation){created[id,default:0]+=1}
+            let words=row.detail.split(separator:" ").map(String.init)
+            if row.operation=="ack",words.count>=4,words[0]=="stream",words[1]=="remove",words[3].hasPrefix("reply="),
+               let id=key(words[2],row.generation){removed[id,default:0]+=1}
+            if row.operation=="inventory",words.count==3,words[0]=="stream",words[2]=="removed",
+               let id=key(words[1],row.generation){gone[id,default:0]+=1}
+        }
+        guard requested>0 else{return nil}
+        return created.values.reduce(0,+)==requested && created.allSatisfy{removed[$0.key,default:0]>=$0.value && gone[$0.key,default:0]>=$0.value}
+    }
+}
 private struct CaptureOptions {
     let connection:Options
     let panadapter:String,channel:Int,directory:URL
@@ -77,9 +100,10 @@ private actor CaptureWriter {
         if let serial=options.expectedSerial {selection["expectedSerial"]=serial}
         let creationAttempted:Any=diagnostics.contains{$0.operation=="command" && $0.detail.hasPrefix("stream create ")}
             ? true:diagnostics.count<128 ? false as Any:NSNull()
+        let cleanup=CaptureCleanupEvidence.verified(diagnostics.map{($0.operation,$0.detail,$0.connectionGeneration)},truncated:diagnostics.count>=128)
         var result:[String:Any]=["instrument":"xlog-cw-flex-bounded-capture-v1","receiveOnly":true,
             "status":error==nil ? (verifyOnly ? "verified_handoff_no_stream_created":blocks>0 ? "captured_unqualified_iq":"incomplete"):"incomplete","sampleRate":96000,
-            "lastPhase":phase,"cleanupRequested":true,"stationSideCleanupVerified":false,
+            "lastPhase":phase,"cleanupRequested":true,"stationSideCleanupVerified":cleanup.map{$0 as Any} ?? NSNull(),
             "streamCreationAttempted":creationAttempted,"controlDiagnosticsMayBeTruncated":diagnostics.count>=128,
             "directory":options.directory.path,"blocks":blocks,"complexSamples":String(samples),"bytes":bytes,
             "sampleSHA256":digest.finalize().map{String(format:"%02x",$0)}.joined(),
@@ -89,7 +113,7 @@ private actor CaptureWriter {
         if let capture {
             result["physicalIdentity"]=["model":capture.identity.model,"serial":capture.identity.serial,"address":capture.identity.address,"controlPort":Int(capture.identity.controlPort)]
             result["capture"]=["streamToken":capture.streamToken.uuidString,"epoch":String(capture.epoch),"connectionGeneration":capture.connectionGeneration,
-                "stationHandle":String(capture.stationHandle),"streamID":String(format:"%08x",capture.streamID),"centreHz":capture.panadapter.centreHz.map{$0 as Any} ?? NSNull(),
+                "stationHandle":String(capture.stationHandle),"streamID":String(format:"%08x",capture.streamID),"udpSourcePort":capture.udpSourcePort,"centreHz":capture.panadapter.centreHz.map{$0 as Any} ?? NSNull(),
                 "receiveAntenna":capture.panadapter.receiveAntenna.map{$0 as Any} ?? NSNull(),"pathProperties":capture.panadapter.pathProperties]
         }
         if let error{result["error"]=error}
@@ -104,6 +128,16 @@ private actor CaptureWriter {
 }
 enum CWFlexCapture {
     static func selfTest() throws {
+        let cleanup:[CaptureCleanupEvidence.Row]=[("command","stream create type=dax_iq daxiq_channel=1",1),
+            ("ack","stream create type=dax_iq daxiq_channel=1 reply=20000000",1),
+            ("inventory","stream 0x20000000 removed",1),("ack","stream remove 0x20000000 reply=",1)]
+        guard CaptureCleanupEvidence.verified(cleanup,truncated:false)==true,
+              CaptureCleanupEvidence.verified(Array(cleanup.dropLast()),truncated:false)==false,
+              CaptureCleanupEvidence.verified(Array(cleanup.prefix(2))+[("inventory","stream 0x20000000 removed",2),cleanup[3]],truncated:false)==false,
+              CaptureCleanupEvidence.verified(Array(cleanup.prefix(2))+[("inventory","stream 0x20000001 removed",1),cleanup[3]],truncated:false)==false,
+              CaptureCleanupEvidence.verified(cleanup+[cleanup[0]],truncated:false)==false,
+              CaptureCleanupEvidence.verified(cleanup,truncated:true)==nil,
+              CaptureCleanupEvidence.verified([],truncated:false)==nil else{throw CaptureFailure("Scoped cleanup evidence self-test failed.")}
         let path=FileManager.default.currentDirectoryPath+"/.build/cw-capture-self-test-"+UUID().uuidString
         let valid=["--capture","--host","192.168.0.199","--station","Fixture","--panadapter","40000000","--channel","1","--seconds","2","--directory",path]
         _ = try CaptureOptions(valid)

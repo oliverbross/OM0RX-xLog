@@ -47,6 +47,7 @@ public struct FlexIQCapture:Equatable,Sendable {
     public let panadapter:FlexIQPanadapter
     public let streamID:UInt32
     public let sampleRate:Int
+    public let udpSourcePort:UInt16
 }
 public struct FlexIQBlock:Sendable {
     public let capture:FlexIQCapture

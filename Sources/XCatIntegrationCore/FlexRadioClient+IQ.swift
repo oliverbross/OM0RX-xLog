@@ -369,7 +369,10 @@ extension FlexRadioClient {
             }
             throw FlexIQSubscriptionError.busy
         }
-        let receiver=FlexIQDatagramReceiver(peer:context.peer,sourcePort:4991);iqState.receiver=receiver
+        // FlexLib's remote UDP port is a send destination, not an inbound
+        // source-port guarantee. Pin the first endpoint from the verified peer;
+        // current owned stream/VITA/rate/RX/continuity still gate every IQ block.
+        let receiver=FlexIQDatagramReceiver(peer:context.peer,sourcePort:nil);iqState.receiver=receiver
         iqLastInputDiagnostics=nil
         do {
             let (port,packets)=try await receiver.start(port:iqState.destinationPort ?? 0)
@@ -412,7 +415,7 @@ extension FlexRadioClient {
             if flow.capture==nil {
                 guard iqState.epoch<UInt64.max else{throw FlexIQSubscriptionError.stopped};iqState.epoch+=1
                 flow.capture=FlexIQCapture(streamToken:UUID(),epoch:iqState.epoch,connectionGeneration:generation,identity:identity,
-                    stationHandle:context.stationHandle,panadapter:flow.pan,streamID:streamID,sampleRate:flow.rate)
+                    stationHandle:context.stationHandle,panadapter:flow.pan,streamID:streamID,sampleRate:flow.rate,udpSourcePort:datagram.sourcePort)
             }
             guard let capture=flow.capture,flow.sequence<UInt64.max,
                   UInt64(packet.samples.count/2)<=UInt64.max-flow.nextSample else{throw FlexIQSubscriptionError.stopped}
@@ -473,7 +476,7 @@ extension FlexRadioClient {
     }
     private func iqRecordInputDiagnostics(_ value:FlexIQInputDiagnostics) {
         iqLastInputDiagnostics=value
-        iqTrace("udp_summary","port=\(value.destinationPort.map(String.init) ?? "unknown") candidates=\(value.candidateConnections) peer_rejected=\(value.rejectedPeerConnections) port_rejected=\(value.rejectedPortConnections) datagrams=\(value.acceptedPeerDatagrams) bytes=\(value.acceptedPeerBytes) first_rejected=\(value.firstRejectedEndpoint ?? "none")")
+        iqTrace("udp_summary","port=\(value.destinationPort.map(String.init) ?? "unknown") sender_port=\(value.acceptedSourcePort.map(String.init) ?? "unknown") candidates=\(value.candidateConnections) peer_rejected=\(value.rejectedPeerConnections) port_rejected=\(value.rejectedPortConnections) datagrams=\(value.acceptedPeerDatagrams) bytes=\(value.acceptedPeerBytes) first_rejected=\(value.firstRejectedEndpoint ?? "none")")
     }
     private func iqRemoveEndedFlow(_ flow:FlexIQFlow) async {
         if let streamID=flow.streamID {

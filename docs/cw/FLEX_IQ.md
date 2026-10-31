@@ -115,6 +115,45 @@ the router's LAN IP is not the observed explanation for the missing IQ. This is
 transport diagnosis, not proof of UDP reachability. Both raw reports are retained
 privately as `flex-client-address-{short,16s}-01.json`.
 
+## Actual sender-port correction and scoped cleanup proof
+
+Capture `flex-native-iq-03` runs **00:18:26–00:18:40 UTC**, within the reported
+00:17:54.8672105–00:22:54.8672105 Windows relay window. Discovery/serial/Station,
+owned create/rate ACK and RX checks pass. The receiver records **1,222 candidate
+connections rejected for source port**, zero peer-address rejections and zero
+accepted datagrams. The first rejected endpoint is **192.168.0.199:50001**; the
+remaining rejected-port distribution was not recorded. This is delivery evidence,
+not admitted IQ or 1,222 measured IQ packets. The exact owned stream `20000000`
+then reports removed and receives its remove ACK in the same connection generation.
+Startup preserves `noData`. The old receipt's conservative cleanup flag stays
+unchanged; its journal now establishes this specific scoped cleanup result.
+
+The official FlexLib archive is fetched again and matches the pinned ZIP hash.
+`Vita/VitaSocket.cs` SHA-256 is
+`4da482a5115d0fa9e0934ca06df710d18c113b957d462edc477923bc69e19d98`.
+Its radio-port parameter configures client-to-radio sending; its ReceiveLoop
+reports the actual sender endpoint. `Radio.cs` dispatches that endpoint with the
+VITA packet. Neither establishes that native inbound data must originate at 4991.
+No manufacturer implementation is copied or redistributed.
+
+A real loopback ephemeral sender first reproduces `noData`
+(`93f039dad784ab02`). The independent receiver now admits only the already verified
+numeric radio IP and pins its first UDP endpoint for that destination's lifetime.
+Later source-port changes are rejected. This transport pin does not admit RF:
+fresh current-owned stream metadata, strict VITA framing/class, delivered rate,
+RX state, continuity and quarantine still gate every capture. Discovery retains
+its exact 4992 sender requirement. Actual sender port is retained in each capture
+and the stopped-input diagnostics; no arbitrary renderer setter is added.
+
+All **26 Flex lifecycle/input and six provider tests** pass
+(`0b2f5f0a85547e92`), including ephemeral delivery, unverified-peer rejection,
+pinned-port change refusal, two spans, TX/unknown, cancellation and scoped cleanup.
+The rebuilt inspector's no-network self-test also passes. Its cleanup evidence
+requires matching create, remove ACK and removed status in the original generation;
+missing/mismatched/truncated evidence cannot become a pass. Provider RF mapping,
+spot policy and production capability remain unqualified. A fresh live attempt
+after this correction is still required before any native-IQ success claim.
+
 31 October transport follow-up: the operator confirms SmartSDR/Windows DAX on
 192.168.0.117; Windows DAX is now stopped while panadapter 40000000 remains on
 DAX IQ 1. One post-ready acquisition still fails manufacturer discovery before
@@ -161,7 +200,7 @@ This is the direct local connection implementation; SmartLink IQ and a VPN
 without matching local discovery have no acceptance claim.
 
 The owned UDP destination accepts only the connected radio's numeric peer and
-LAN source port 4991. Unrelated peers are rejected before Task allocation; one
+pins one actual sender endpoint. Unrelated peers are rejected before Task allocation; one
 receive and eight queued datagrams bound delivery. Each flow checks the create
 reply, matching owner/channel/panadapter/rate/active status, VITA class and actual
 sample arrival. A successful command alone cannot establish Running. Startup,

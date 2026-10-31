@@ -16,7 +16,8 @@ public struct FlexIQDiagnosticEvent: Encodable, Sendable {
 /// Last stopped UDP destination, before IQ parsing. Connection counts are not packet counts.
 public struct FlexIQInputDiagnostics: Encodable, Sendable {
     public let expectedPeer:String
-    public let expectedSourcePort:UInt16
+    public let expectedSourcePort:UInt16?
+    public let acceptedSourcePort:UInt16?
     public let destinationPort:UInt16?
     public let candidateConnections:Int
     public let rejectedPeerConnections:Int

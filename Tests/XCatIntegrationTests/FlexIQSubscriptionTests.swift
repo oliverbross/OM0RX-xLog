@@ -6,6 +6,16 @@ import XCTest
 import Darwin
 
 final class FlexIQSubscriptionTests:XCTestCase {
+    func testNativeIQAcceptsVerifiedPeerWithEphemeralSenderPort() async throws {
+        let (radio,wire)=try await setup(sourcePort:0);try await authorize(radio)
+        let lease=UUID(),subscription=try await radio.startIQ(panadapterID:"40000000",sampleRate:96000,leaseID:lease)
+        let block=try await next(subscription)
+        let drain=Task{for try await _ in subscription.blocks{}}
+        await radio.stopIQ(leaseID:lease);drain.cancel()
+        let port=await wire.actualSourcePort;XCTAssertGreaterThan(port,0)
+        XCTAssertEqual(block.capture.udpSourcePort,port)
+        let input=await radio.iqInputDiagnostics();XCTAssertEqual(input?.acceptedSourcePort,port)
+    }
     func testRestartRefusesOccupiedRegisteredPortWithoutCreatingOrChangingDestination() async throws {
         let (radio,wire)=try await setup();try await authorize(radio)
         let lease=UUID(),first=try await radio.startIQ(panadapterID:"40000000",sampleRate:96000,leaseID:lease)
@@ -103,8 +113,8 @@ final class FlexIQSubscriptionTests:XCTestCase {
         XCTAssertTrue(events.first?.detail.hasPrefix("12:")==true)
         XCTAssertTrue(events.allSatisfy{$0.detail.utf8.count<=512 && !$0.detail.contains("\n")})
     }
-    private func setup() async throws -> (FlexRadioClient,FlexIQFixtureRadio) {
-        let wire=FlexIQFixtureRadio()
+    private func setup(sourcePort:UInt16=4991) async throws -> (FlexRadioClient,FlexIQFixtureRadio) {
+        let wire=FlexIQFixtureRadio(sourcePort:sourcePort)
         addTeardownBlock { await wire.stop() }
         let port=try await wire.start()
         let radio=FlexRadioClient(host:"127.0.0.1",port:port,stationName:"Fixture")
@@ -426,6 +436,9 @@ private extension FlexRadioClient {
     }
 }
 private actor FlexIQFixtureRadio {
+    private let sourcePort:UInt16
+    private(set) var actualSourcePort:UInt16=0
+    init(sourcePort:UInt16=4991){self.sourcePort=sourcePort}
     private let queue=DispatchQueue(label:"xlog.fixture.flex-iq")
     private var listener:NWListener?,connection:NWConnection?
     private var udpSocket:Int32 = -1
@@ -483,18 +496,22 @@ private actor FlexIQFixtureRadio {
             if udpSocket>=0 {
                 udpDestination?.sin_port=port.bigEndian;send("R\(sequence)|0|\n");return
             }
-            // The receiver requires the radio's exact source port. Bind it
-            // synchronously and check every datagram; the old NW sender ignored
+            // Bind an observable sender synchronously and check every datagram;
+            // the old NW sender ignored
             // readiness/send failures and left port 4991 held after a test threw.
             let fd=Darwin.socket(AF_INET,SOCK_DGRAM,0)
             guard fd >= 0 else { XCTFail("Fixture UDP socket: \(errno)"); return }
             var local=sockaddr_in();local.sin_len=UInt8(MemoryLayout<sockaddr_in>.size)
-            local.sin_family=sa_family_t(AF_INET);local.sin_port=UInt16(4991).bigEndian
+            local.sin_family=sa_family_t(AF_INET);local.sin_port=sourcePort.bigEndian
             local.sin_addr.s_addr=inet_addr("127.0.0.1")
             let bound=withUnsafePointer(to:&local) { pointer in
                 pointer.withMemoryRebound(to:sockaddr.self,capacity:1) { Darwin.bind(fd,$0,socklen_t(MemoryLayout<sockaddr_in>.size)) }
             }
             guard bound == 0 else { let error=errno;Darwin.close(fd);XCTFail("Fixture UDP bind: \(error)");return }
+            var size=socklen_t(MemoryLayout<sockaddr_in>.size)
+            let inspected=withUnsafeMutablePointer(to:&local){$0.withMemoryRebound(to:sockaddr.self,capacity:1){getsockname(fd,$0,&size)}}
+            guard inspected==0 else{Darwin.close(fd);XCTFail("Fixture UDP endpoint inspection: \(errno)");return}
+            actualSourcePort=UInt16(bigEndian:local.sin_port)
             udpSocket=fd;local.sin_port=port.bigEndian;udpDestination=local
             // macOS-14 CI coalesces Task.sleep(10ms) to 30–50ms. That is
             // slower than three 1024-sample packets at 96k and correctly trips

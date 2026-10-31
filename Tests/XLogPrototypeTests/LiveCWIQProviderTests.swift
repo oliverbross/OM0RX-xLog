@@ -62,7 +62,7 @@ final class LiveCWIQProviderTests:XCTestCase {
         let source=try CWSourceConfiguration(radioID:"radio1",provider:.flexDAXIQ,receiverID:"40000000",sampleRate:96000)
         let identity=FlexIQIdentity(serial:"FIXTURE-8400",model:"FLEX-8400",address:"127.0.0.1",controlPort:4992)
         let capture=FlexIQCapture(streamToken:UUID(),epoch:8,connectionGeneration:3,identity:identity,stationHandle:0x1234,
-            panadapter:FlexIQPanadapter(id:"40000000",clientHandle:0x1234,channel:1,centreHz:14025000,receiveAntenna:"ANT1"),streamID:0x80000001,sampleRate:96000)
+            panadapter:FlexIQPanadapter(id:"40000000",clientHandle:0x1234,channel:1,centreHz:14025000,receiveAntenna:"ANT1"),streamID:0x80000001,sampleRate:96000,udpSourcePort:4991)
         let packet=FlexIQPacket(streamID:0x80000001,packetCounter:0,sampleRate:96000,integerTimestamp:nil,fractionalTimestamp:nil,samples:[Float](repeating:0,count:128))
         let pair=AsyncThrowingStream<FlexIQBlock,Error>.makeStream(bufferingPolicy:.bufferingOldest(2))
         let adapted=LiveCWIQProvider.adapt(FlexIQSubscription(leaseID:UUID(),blocks:pair.stream),source:source,sessionID:UUID(),stop:{})

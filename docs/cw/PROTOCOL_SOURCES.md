@@ -37,3 +37,12 @@ it; an occupied port fails instead of selecting another. The pinned FlexLib
 `Radio.cs` also requests read-only `client ip` and parses its numeric address
 (`Connect` / `GetClientIpReplyHandler`). The developer inspector uses that narrow
 query for transport diagnosis only, never ownership, RF or receive admission.
+
+The same pinned archive's `VitaSocket.cs` receives actual sender endpoints; its
+radio-port argument is for outbound sending. Native inbound sender port 4991 is
+not a guaranteed contract. Actual verified-peer delivery from port 50001 exposes
+that former receiver assumption. The independent implementation pins one actual
+endpoint from the verified radio, retains the port in capture provenance and
+keeps owned-stream/VITA/rate/RX/continuity admission. Discovery still requires
+source port 4992. Source reference/hash and negative/positive evidence are in
+`FLEX_IQ.md`; no SmartLink IQ or production qualification follows this correction.
