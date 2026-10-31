@@ -12,6 +12,15 @@ final class PythonContestHostLocatorTests: XCTestCase {
 
     private func write(_ url: URL, executable: Bool = false) throws {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        #if os(Windows)
+        if executable {
+            // Windows checks executable format; arbitrary text with an .exe
+            // extension cannot stand in for a valid package interpreter.
+            try FileManager.default.copyItem(at: URL(fileURLWithPath: CommandLine.arguments[0]), to: url)
+            XCTAssertTrue(FileManager.default.isExecutableFile(atPath: url.path))
+            return
+        }
+        #endif
         try Data("fixture".utf8).write(to: url)
         #if !os(Windows)
         try FileManager.default.setAttributes([.posixPermissions: executable ? 0o700 : 0o600], ofItemAtPath: url.path)
