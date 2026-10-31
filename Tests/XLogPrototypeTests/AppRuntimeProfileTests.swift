@@ -12,17 +12,19 @@ final class AppRuntimeProfileTests: XCTestCase {
         let (bundleRoot, executable) = try bundledExecutable(identifier: "com.oliverbross.xlog.integration")
         let root = URL(fileURLWithPath: try AppRuntimeProfile.canonicalFilesystemPath(FileManager.default.temporaryDirectory), isDirectory: true)
             .appendingPathComponent("xlog-wave1-\(UUID().uuidString)", isDirectory: true)
-        defer { try? FileManager.default.removeItem(at: root); try? FileManager.default.removeItem(at: bundleRoot) }
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+        addTeardownBlock { try? FileManager.default.removeItem(at: root); try? FileManager.default.removeItem(at: bundleRoot) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false, attributes: LocalFilePermissions.directoryAttributes)
         try JSONSerialization.data(withJSONObject: ["schema": 1, "id": UUID().uuidString])
             .write(to: root.appendingPathComponent(".xlog-offline-acceptance.json"))
         let profile = try AppRuntimeProfile.resolve(arguments: [AppRuntimeProfile.offlineAcceptancePrefix + root.path], executableURL: executable)
         XCTAssertFalse(profile.externalIOAllowed)
         let logbook = LiveLogbookMethods(supportDirectory: try XCTUnwrap(profile.supportDirectory),
             inheritNativePreferences: false, runtimeProfile: profile)
+        addTeardownBlock { (try? logbook.openedDatabase())?.close() }
         _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
         let context = try logbook.handle(method: "workspace_map_context", params: [:])
         let worker = LiveWorker(logbook: logbook, runtimeProfile: profile)
+        addTeardownBlock { _ = await worker.shutdown() }
         let request = try JSONSerialization.data(withJSONObject: ["id": "hm-offline", "method": "hm_control_logbook", "params": [:]])
         let response = await worker.response(to: request)
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: response) as? [String: Any])
@@ -33,6 +35,7 @@ final class AppRuntimeProfileTests: XCTestCase {
         // Exercise the production dispatch branch against the same disposable
         // log, with local acceptance fencing all external service effects.
         let normal = LiveWorker(logbook: logbook, localAcceptance: true, runtimeProfile: .production)
+        addTeardownBlock { _ = await normal.shutdown() }
         let normalResponse = await normal.response(to: request)
         let normalObject = try XCTUnwrap(JSONSerialization.jsonObject(with: normalResponse) as? [String: Any])
         XCTAssertEqual(normalObject["ok"] as? Bool, true)
@@ -50,7 +53,7 @@ final class AppRuntimeProfileTests: XCTestCase {
         let root = URL(fileURLWithPath: try AppRuntimeProfile.canonicalFilesystemPath(FileManager.default.temporaryDirectory), isDirectory: true)
             .appendingPathComponent("xlog-wave1-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root); try? FileManager.default.removeItem(at: bundleRoot) }
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false, attributes: LocalFilePermissions.directoryAttributes)
         let argument = AppRuntimeProfile.offlineAcceptancePrefix + root.path
         XCTAssertThrowsError(try AppRuntimeProfile.resolve(arguments: [argument], executableURL: executable))
         let marker = root.appendingPathComponent(".xlog-offline-acceptance.json")
@@ -66,9 +69,24 @@ final class AppRuntimeProfileTests: XCTestCase {
         XCTAssertFalse(profile.externalIOAllowed,"Loopback fixtures cannot grant station/output admission")
         XCTAssertEqual(AppRuntimeProfile.workerServiceLocalAcceptance(arguments: [argument]), false)
         XCTAssertThrowsError(try AppRuntimeProfile.resolve(arguments: [argument, argument], executableURL: executable))
-        try FileManager.default.setAttributes([.posixPermissions:0o755], ofItemAtPath:root.path)
+    }
+
+    #if !os(Windows)
+    func testOfflineCandidateRejectsGroupOrWorldAccessiblePOSIXRoot() throws {
+        let (bundleRoot, executable) = try bundledExecutable(identifier: "com.oliverbross.xlog.integration")
+        let root = URL(fileURLWithPath: try AppRuntimeProfile.canonicalFilesystemPath(FileManager.default.temporaryDirectory), isDirectory: true)
+            .appendingPathComponent("xlog-wave1-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root); try? FileManager.default.removeItem(at: bundleRoot) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false, attributes: LocalFilePermissions.directoryAttributes)
+        try JSONSerialization.data(withJSONObject: ["schema": 1, "id": UUID().uuidString])
+            .write(to: root.appendingPathComponent(".xlog-offline-acceptance.json"))
+        let argument = AppRuntimeProfile.offlineAcceptancePrefix + root.path
+        XCTAssertNoThrow(try AppRuntimeProfile.resolve(arguments: [argument], executableURL: executable))
+        // chmod-style grant changes do not represent Windows user-profile ACLs.
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: root.path)
         XCTAssertThrowsError(try AppRuntimeProfile.resolve(arguments: [argument], executableURL: executable))
     }
+    #endif
     #if os(macOS)
     func testOfflineCandidateAcceptsRustCanonicalPrivateTemporaryPath() throws {
         let (bundleRoot, executable) = try bundledExecutable(identifier: "com.oliverbross.xlog.integration")
@@ -186,6 +204,8 @@ final class AppRuntimeProfileTests: XCTestCase {
         let service = LiveLogbookMethods(supportDirectory: supportRoot,
             inheritNativePreferences: false, runtimeProfile: profile)
 
+        defer { (try? service.openedDatabase())?.close() }
+
         XCTAssertThrowsError(try service.handle(method: "workspace_create", params: ["mode": "copy_native"]))
         let created = try service.handle(method: "workspace_create", params: ["mode": "empty"])
         XCTAssertEqual(created["qso_count"] as? Int, 0)
@@ -203,6 +223,7 @@ final class AppRuntimeProfileTests: XCTestCase {
         guard case .contestingTest(let supportRoot) = profile else { return XCTFail("Expected test profile") }
         let service = LiveLogbookMethods(supportDirectory: supportRoot,
             inheritNativePreferences: false, runtimeProfile: profile)
+        defer { (try? service.openedDatabase())?.close() }
         _ = try service.handle(method: "workspace_create", params: ["mode": "empty"])
         let metadataURL = service.workspaceDirectoryURL.appendingPathComponent("workspace.json")
         let metadata = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: metadataURL)) as? [String: Any])
@@ -213,6 +234,7 @@ final class AppRuntimeProfileTests: XCTestCase {
         try JSONSerialization.data(withJSONObject: replaced).write(to: metadataURL, options: .atomic)
         let reopened = LiveLogbookMethods(supportDirectory: supportRoot,
             inheritNativePreferences: false, runtimeProfile: profile)
+        defer { (try? reopened.openedDatabase())?.close() }
         XCTAssertThrowsError(try reopened.handle(method: "workspace_status", params: [:]))
     }
 
@@ -226,12 +248,15 @@ final class AppRuntimeProfileTests: XCTestCase {
         guard case .contestingTest(let supportRoot) = profile else { return XCTFail("Expected test profile") }
         let service = LiveLogbookMethods(supportDirectory: supportRoot,
             inheritNativePreferences: false, runtimeProfile: profile)
+        defer { (try? service.openedDatabase())?.close() }
         _ = try service.handle(method: "workspace_create", params: ["mode": "empty"])
         let isolatedURL = service.workspaceDirectoryURL.appendingPathComponent("OM0RX-xLog.sqlite")
+        try service.openedDatabase().close()
         try FileManager.default.removeItem(at: isolatedURL)
         try FileManager.default.linkItem(at: productionURL, to: isolatedURL)
         let reopened = LiveLogbookMethods(supportDirectory: supportRoot,
             inheritNativePreferences: false, runtimeProfile: profile)
+        defer { (try? reopened.openedDatabase())?.close() }
         XCTAssertThrowsError(try reopened.handle(method: "workspace_status", params: [:]))
     }
 
@@ -245,12 +270,15 @@ final class AppRuntimeProfileTests: XCTestCase {
         guard case .contestingTest(let supportRoot) = profile else { return XCTFail("Expected test profile") }
         let service = LiveLogbookMethods(supportDirectory: supportRoot,
             inheritNativePreferences: false, runtimeProfile: profile)
+        defer { (try? service.openedDatabase())?.close() }
         _ = try service.handle(method: "workspace_create", params: ["mode": "empty"])
         let isolatedURL = service.workspaceDirectoryURL.appendingPathComponent("OM0RX-xLog.sqlite")
+        try service.openedDatabase().close()
         try FileManager.default.removeItem(at: isolatedURL)
         try FileManager.default.linkItem(at: productionURL, to: isolatedURL)
         let reopened = LiveLogbookMethods(supportDirectory: supportRoot,
             inheritNativePreferences: false, runtimeProfile: profile)
+        defer { (try? reopened.openedDatabase())?.close() }
         XCTAssertThrowsError(try reopened.handle(method: "workspace_status", params: [:]))
     }
 
@@ -261,12 +289,15 @@ final class AppRuntimeProfileTests: XCTestCase {
         guard case .contestingTest(let supportRoot) = profile else { return XCTFail("Expected test profile") }
         let service = LiveLogbookMethods(supportDirectory: supportRoot,
             inheritNativePreferences: false, runtimeProfile: profile)
+        defer { (try? service.openedDatabase())?.close() }
         _ = try service.handle(method: "workspace_create", params: ["mode": "empty"])
         let relocated = root.appendingPathComponent("relocated-test-data")
+        try service.openedDatabase().close()
         try FileManager.default.moveItem(at: supportRoot, to: relocated)
         try FileManager.default.createSymbolicLink(at: supportRoot, withDestinationURL: relocated)
         let reopened = LiveLogbookMethods(supportDirectory: supportRoot,
             inheritNativePreferences: false, runtimeProfile: profile)
+        defer { (try? reopened.openedDatabase())?.close() }
         XCTAssertThrowsError(try reopened.handle(method: "workspace_status", params: [:]))
     }
 
@@ -294,11 +325,12 @@ final class AppRuntimeProfileTests: XCTestCase {
 
     func testContestingMutationsCannotScheduleOnlineDelivery() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-contest-hooks-\(UUID().uuidString)")
-        defer { try? FileManager.default.removeItem(at: root) }
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
         let profile = try AppRuntimeProfile.contestingTestProfile(applicationSupport: root)
         guard case .contestingTest(let supportRoot) = profile else { return XCTFail("Expected test profile") }
         let logbook = LiveLogbookMethods(supportDirectory: supportRoot,
             inheritNativePreferences: false, runtimeProfile: profile)
+        addTeardownBlock { (try? logbook.openedDatabase())?.close() }
         _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
         var qso = try XCTUnwrap(logbook.handle(method: "logbook_draft", params: [:])["qso"] as? [String: Any])
         qso["call"] = "OM0RX"
@@ -308,6 +340,7 @@ final class AppRuntimeProfileTests: XCTestCase {
             credential: { XCTFail("Credential vault must remain unopened"); return nil },
             delivery: { _, _, _, _ in XCTFail("Network delivery must remain unused"); throw CancellationError() })
         let worker = LiveWorker(logbook: logbook, onlineLogs: online, runtimeProfile: profile)
+        addTeardownBlock { _ = await worker.shutdown() }
 
         for (id, method, params): (String, String, [String: Any]) in [
             ("save", "logbook_save", ["qso": qso]),
@@ -324,12 +357,14 @@ final class AppRuntimeProfileTests: XCTestCase {
 
     func testContestingWorkerRejectsExternalServices() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-contest-worker-\(UUID().uuidString)")
-        defer { try? FileManager.default.removeItem(at: root) }
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
         let profile = try AppRuntimeProfile.contestingTestProfile(applicationSupport: root)
         guard case .contestingTest(let supportRoot) = profile else { return XCTFail("Expected test profile") }
         let logbook = LiveLogbookMethods(supportDirectory: supportRoot,
             inheritNativePreferences: false, runtimeProfile: profile)
+        addTeardownBlock { (try? logbook.openedDatabase())?.close() }
         let worker = LiveWorker(logbook: logbook, runtimeProfile: profile)
+        addTeardownBlock { _ = await worker.shutdown() }
         for method in ["cluster_connect", "contest_scp_download", "wsjtx_start"] {
             let request = try JSONSerialization.data(withJSONObject: [
                 "id": "blocked-\(method)", "method": method, "params": [:],
