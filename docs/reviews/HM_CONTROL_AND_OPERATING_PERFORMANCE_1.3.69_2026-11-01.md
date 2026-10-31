@@ -74,3 +74,36 @@ ledger as well as the log workspace, native state, WebKit and preferences. Keep
 the paired prior app/data and all post-repair evidence for any supported rollback;
 restoring an older app alone must not hide quarantined uncertainty. Exact source,
 backup, rollback and live acceptance results follow after verification.
+
+## Candidate retired after isolation incident
+
+Signed source a1beb0e91a51dc273550cbbbc91290784eee1755 passed packaging,
+strict signatures, 61 spot tests and private native save/HM checks. The signed
+private copy measured save → page 15–26 ms and save → page → HM 35–51 ms;
+native durable success was visible in 894 ms including automation. Apple
+submission 5bb13ad9-f545-4103-89d8-be762da7030a was made. This candidate was
+not installed and must not be used as the final replacement.
+
+During private worker EOF shutdown, the shared cluster's persisted-contest-spot
+deferral opened SpotForwardBroker's global Application Support inventory.
+It migrated the production legacy entries into quarantine despite the worker's
+marked private root. That defer path does not send radio add/remove calls, but
+freeing capacity allowed the still-running installed 1.3.68 worker to resume
+its normal spot forwarding. Read-only inventory inspection found fresh
+normal_logging/direct_agent/radio1 acknowledgements starting at 16:35:25 UTC.
+They are evidence of the recovered delivery path, not installed-1.3.69 acceptance.
+
+A read-only SQLite backup of the recovered ledger was retained at
+/Users/oliver/Documents/Backups/OM0RX-xLog/HM-Control-169-isolation-incident-20261101T021202+0930.
+It contained 257 untimestamped quarantined entries (the original cap was 256),
+75 receipts and one current pending attempt. There is no independent
+pre-migration byte snapshot of that ledger, so actual original-byte equality
+cannot be claimed from this incident; the migration's byte equality remains
+covered by disposable 256-record fault/reopen tests. Production QSO storage
+remained private for test writes; no private acceptance contacts were entered
+into the production log. Final contact-ID/marker verification remains required.
+
+The replacement candidate must route broker inventory through the runtime
+profile and prevent offline lifecycle callbacks from owning external sessions.
+It must receive a new visible version and fresh qualification, backup and live
+acknowledgements after its actual installed worker starts.
