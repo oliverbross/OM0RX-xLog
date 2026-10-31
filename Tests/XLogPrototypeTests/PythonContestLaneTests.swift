@@ -9,8 +9,7 @@ import XLogPortableCore
 
 final class PythonContestLaneTests: XCTestCase {
     func testPracticeNativeOutputFencesRejectCurrentAndRetiredSourceContexts() async throws {
-        let temporary = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
-            .appendingPathComponent("xlog-practice-native-\(UUID().uuidString)", isDirectory: true)
+        let temporary = try temporaryDirectory("xlog-practice-native")
         defer { try? FileManager.default.removeItem(at: temporary) }
         let configuration = PythonContestHostConfiguration(executableURL: try python312(),
             launcherURL: repositoryRoot().appendingPathComponent("python/contest_host/launcher.py"),
@@ -79,8 +78,7 @@ final class PythonContestLaneTests: XCTestCase {
     }
 
     func testSCPRecoversActiveSessionAfterWorkerRestartWithoutReopeningContest() async throws {
-        let temporary = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
-            .appendingPathComponent("xlog-scp-restart-\(UUID().uuidString)", isDirectory: true)
+        let temporary = try temporaryDirectory("xlog-scp-restart")
         defer { try? FileManager.default.removeItem(at: temporary) }
         let configuration = try PythonContestHostConfiguration(executableURL: python312(),
             launcherURL: repositoryRoot().appendingPathComponent("python/contest_host/launcher.py"),
@@ -135,8 +133,7 @@ final class PythonContestLaneTests: XCTestCase {
     }
 
     func testAnalyticsSnapshotThroughRealPythonBridgeKeepsDraftAndLogSeparate() async throws {
-        let root = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
-            .appendingPathComponent("xlog-analytics-\(UUID().uuidString)", isDirectory: true)
+        let root = try temporaryDirectory("xlog-analytics")
         defer { try? FileManager.default.removeItem(at: root) }
         let lane = try PythonContestLane(configuration: PythonContestHostConfiguration(
             executableURL: try python312(),
@@ -180,8 +177,7 @@ final class PythonContestLaneTests: XCTestCase {
     }
 
     func testObservedSpotCallResolvesCountryBeforeCQWWZonePrefill() async throws {
-        let temporary = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
-            .appendingPathComponent("xlog-observed-spot-\(UUID().uuidString)", isDirectory: true)
+        let temporary = try temporaryDirectory("xlog-observed-spot")
         defer { try? FileManager.default.removeItem(at: temporary) }
         let lane = try PythonContestLane(configuration: PythonContestHostConfiguration(
             executableURL: try python312(),
@@ -227,10 +223,7 @@ final class PythonContestLaneTests: XCTestCase {
 
     func testContestingTestWorkerUsesPythonLaneInsideIsolatedSupportRoot() async throws {
         let repository = repositoryRoot()
-        let applicationSupport = URL(fileURLWithPath: FileManager.default.temporaryDirectory.path
-            .replacingOccurrences(of: "/var/", with: "/private/var/")
-            .replacingOccurrences(of: "/tmp/", with: "/private/tmp/"), isDirectory: true)
-            .appendingPathComponent("xlog-python-contest-profile-\(UUID().uuidString)", isDirectory: true)
+        let applicationSupport = try temporaryDirectory("xlog-python-contest-profile")
         defer { try? FileManager.default.removeItem(at: applicationSupport) }
         let profile = try AppRuntimeProfile.contestingTestProfile(applicationSupport: applicationSupport)
         guard case .contestingTest(let supportRoot) = profile else {
@@ -278,10 +271,7 @@ final class PythonContestLaneTests: XCTestCase {
 
     func testCWOPSOpenOriginalPluginSerialDupeAndScoreThroughNativeBridge() async throws {
         let root = repositoryRoot()
-        let temporary = URL(fileURLWithPath: FileManager.default.temporaryDirectory.path
-            .replacingOccurrences(of: "/var/", with: "/private/var/")
-            .replacingOccurrences(of: "/tmp/", with: "/private/tmp/"))
-            .appendingPathComponent("xlog-cwo-\(UUID().uuidString)")
+        let temporary = try temporaryDirectory("xlog-cwo")
         defer { try? FileManager.default.removeItem(at: temporary) }
         let lane = try PythonContestLane(configuration: PythonContestHostConfiguration(
             executableURL: try python312(), launcherURL: root.appendingPathComponent("python/contest_host/launcher.py"),
@@ -312,10 +302,7 @@ final class PythonContestLaneTests: XCTestCase {
 
     func testICWCMSTOriginalPluginSerialAndScoreThroughNativeBridge() async throws {
         let root = repositoryRoot()
-        let temporary = URL(fileURLWithPath: FileManager.default.temporaryDirectory.path
-            .replacingOccurrences(of: "/var/", with: "/private/var/")
-            .replacingOccurrences(of: "/tmp/", with: "/private/tmp/"))
-            .appendingPathComponent("xlog-mst-\(UUID().uuidString)")
+        let temporary = try temporaryDirectory("xlog-mst")
         defer { try? FileManager.default.removeItem(at: temporary) }
         let lane = try PythonContestLane(configuration: PythonContestHostConfiguration(
             executableURL: try python312(), launcherURL: root.appendingPathComponent("python/contest_host/launcher.py"),
@@ -494,11 +481,7 @@ for line in sys.stdin:
 
     func testOriginalDigitalHandlerIsLeasedDeduplicatedAndRetiredOnContestSwitch() async throws {
         let root = repositoryRoot()
-        let basePath = FileManager.default.temporaryDirectory.path
-            .replacingOccurrences(of: "/var/", with: "/private/var/")
-            .replacingOccurrences(of: "/tmp/", with: "/private/tmp/")
-        let temporary = URL(fileURLWithPath: basePath, isDirectory: true)
-            .appendingPathComponent("xlog-digital-lane-\(UUID().uuidString)", isDirectory: true)
+        let temporary = try temporaryDirectory("xlog-digital-lane")
         defer { try? FileManager.default.removeItem(at: temporary) }
         let lane = try PythonContestLane(configuration: PythonContestHostConfiguration(
             executableURL: try python312(), launcherURL: root.appendingPathComponent("python/contest_host/launcher.py"),
@@ -552,11 +535,7 @@ for line in sys.stdin:
 
     func testNormalProcessWorkerUsesTrustedContestScopeForDigitalSetupSnapshot() async throws {
         let root = repositoryRoot()
-        let basePath = FileManager.default.temporaryDirectory.path
-            .replacingOccurrences(of: "/var/", with: "/private/var/")
-            .replacingOccurrences(of: "/tmp/", with: "/private/tmp/")
-        let temporary = URL(fileURLWithPath: basePath, isDirectory: true)
-            .appendingPathComponent("xlog-digital-worker-route-\(UUID().uuidString)", isDirectory: true)
+        let temporary = try temporaryDirectory("xlog-digital-worker-route")
         defer { try? FileManager.default.removeItem(at: temporary) }
         let configuration = PythonContestHostConfiguration(
             executableURL: try python312(), launcherURL: root.appendingPathComponent("python/contest_host/launcher.py"),
@@ -578,8 +557,13 @@ for line in sys.stdin:
         let settings = try XCTUnwrap(settingsReply["result"] as? [String: Any])
         let workspace = try XCTUnwrap(settings["generation"] as? String)
         let initialReply = try await request("initial", "wsjtx_snapshot")
+        #if os(macOS)
         let initial = try XCTUnwrap(initialReply["result"] as? [String: Any])
         let initialDestination = try XCTUnwrap(initial["logging_destination"] as? String)
+        #else
+        XCTAssertEqual(initialReply["ok"] as? Bool, false)
+        XCTAssertEqual((initialReply["error"] as? [String: Any])?["code"] as? String, "platform_pending")
+        #endif
         let session = UUID().uuidString.lowercased()
         let created = try await request("create", "contest_session_create", [
             "sessionID": session, "workspaceGeneration": workspace,
@@ -591,6 +575,7 @@ for line in sys.stdin:
         XCTAssertEqual(created["ok"] as? Bool, true)
 
         let ordinaryReply = try await request("ordinary", "wsjtx_snapshot")
+        #if os(macOS)
         let ordinary = try XCTUnwrap(ordinaryReply["result"] as? [String: Any])
         XCTAssertEqual(ordinary["contest_target_supported"] as? Bool, false)
         XCTAssertEqual(ordinary["logging_destination"] as? String, initialDestination)
@@ -601,6 +586,14 @@ for line in sys.stdin:
         XCTAssertEqual((contest["active_contest"] as? [String: Any])?["plugin_id"] as? String, "cq_ww_rtty")
         XCTAssertEqual(contest["logging_destination"] as? String, initialDestination,
             "A scoped snapshot must not change the operator's persisted destination.")
+        #else
+        let contestReply = try await request("contest", "wsjtx_snapshot", operatingModule: "contesting")
+        for reply in [ordinaryReply, contestReply] {
+            XCTAssertEqual(reply["ok"] as? Bool, false)
+            XCTAssertEqual((reply["error"] as? [String: Any])?["code"] as? String, "platform_pending")
+            XCTAssertNil(reply["result"])
+        }
+        #endif
 
         let invalid = try await request("invalid", "wsjtx_snapshot", operatingModule: "unknown")
         XCTAssertEqual((invalid["error"] as? [String: Any])?["code"] as? String, "operating_module_invalid")
@@ -610,6 +603,15 @@ for line in sys.stdin:
     private func repositoryRoot() -> URL {
         URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent()
+    }
+
+    private func temporaryDirectory(_ prefix: String) throws -> URL {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(prefix)-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+        // Match the Python host's no-symlink boundary without hardcoded Unix
+        // roots or string replacements that corrupt other platform layouts.
+        return URL(fileURLWithPath: try AppRuntimeProfile.canonicalFilesystemPath(directory), isDirectory: true)
     }
 
     func testContestHostBridgeDrainsResponseLargerThanPipeCapacity() async throws {
@@ -636,11 +638,7 @@ for line in sys.stdin:
 
     func testActualPinnedHostRunsThroughBoundedSerializedBridge() async throws {
         let root = repositoryRoot()
-        let basePath = FileManager.default.temporaryDirectory.path
-            .replacingOccurrences(of: "/var/", with: "/private/var/")
-            .replacingOccurrences(of: "/tmp/", with: "/private/tmp/")
-        let temporary = URL(fileURLWithPath: basePath, isDirectory: true)
-            .appendingPathComponent("xlog-python-contest-\(UUID().uuidString)", isDirectory: true)
+        let temporary = try temporaryDirectory("xlog-python-contest")
         defer { try? FileManager.default.removeItem(at: temporary) }
         let lane = try PythonContestLane(configuration: PythonContestHostConfiguration(
             executableURL: try python312(),
@@ -742,11 +740,7 @@ for line in sys.stdin:
 
     func testCountryBridgeKeepsOESeparateFromNamed4U1VAuthority() async throws {
         let root = repositoryRoot()
-        let basePath = FileManager.default.temporaryDirectory.path
-            .replacingOccurrences(of: "/var/", with: "/private/var/")
-            .replacingOccurrences(of: "/tmp/", with: "/private/tmp/")
-        let temporary = URL(fileURLWithPath: basePath, isDirectory: true)
-            .appendingPathComponent("xlog-python-country-\(UUID().uuidString)", isDirectory: true)
+        let temporary = try temporaryDirectory("xlog-python-country")
         defer { try? FileManager.default.removeItem(at: temporary) }
         let dataRoot = temporary.appendingPathComponent("Contesting/Python", isDirectory: true)
         let configuration = PythonContestHostConfiguration(
@@ -812,11 +806,7 @@ for line in sys.stdin:
 
     func testCallHistoryActivationSerializesHostTrafficAndNormalizesSQLiteLookupCall() async throws {
         let root = repositoryRoot()
-        let basePath = FileManager.default.temporaryDirectory.path
-            .replacingOccurrences(of: "/var/", with: "/private/var/")
-            .replacingOccurrences(of: "/tmp/", with: "/private/tmp/")
-        let temporary = URL(fileURLWithPath: basePath, isDirectory: true)
-            .appendingPathComponent("xlog-python-history-\(UUID().uuidString)", isDirectory: true)
+        let temporary = try temporaryDirectory("xlog-python-history")
         defer { try? FileManager.default.removeItem(at: temporary) }
         let lane = try PythonContestLane(configuration: PythonContestHostConfiguration(
             executableURL: try python312(),
@@ -895,11 +885,7 @@ for line in sys.stdin:
 
     func testNormalLoggingWorkerInterleavesLogbookAndPythonContestWorkInOneGeneration() async throws {
         let root = repositoryRoot()
-        let basePath = FileManager.default.temporaryDirectory.path
-            .replacingOccurrences(of: "/var/", with: "/private/var/")
-            .replacingOccurrences(of: "/tmp/", with: "/private/tmp/")
-        let temporary = URL(fileURLWithPath: basePath, isDirectory: true)
-            .appendingPathComponent("xlog-python-health-\(UUID().uuidString)", isDirectory: true)
+        let temporary = try temporaryDirectory("xlog-python-health")
         defer { try? FileManager.default.removeItem(at: temporary) }
         let configuration = PythonContestHostConfiguration(
             executableURL: try python312(),
@@ -918,7 +904,14 @@ for line in sys.stdin:
         let responseData = await worker.response(to: request)
         let response = try XCTUnwrap(try JSONSerialization.jsonObject(with: responseData) as? [String: Any])
         let health = try XCTUnwrap(response["result"] as? [String: Any])
+        #if os(macOS)
         XCTAssertEqual(health["mode"] as? String, "integrated")
+        XCTAssertEqual(health["platform_services"] as? Bool, true)
+        #else
+        XCTAssertEqual(health["mode"] as? String, "integrated_local")
+        XCTAssertEqual(health["platform_services"] as? Bool, false)
+        #endif
+        XCTAssertEqual(health["station_io"] as? Bool, false)
         XCTAssertEqual(health["contesting_engine"] as? String, "not1mm-python")
         XCTAssertEqual(health["contesting_available"] as? Bool, true)
         XCTAssertEqual(health["isolated_workspace"] as? Bool, false)

@@ -358,7 +358,7 @@ struct LiveClusterMethodsTests {
     }
     #endif
 
-    @Test("Portable prior cleanup uses first admission time and respects platform forwarding")
+    @Test("Portable prior cleanup uses first admission time with an explicit fixture transport")
     func portablePriorCleanupUsesFirstAdmissionClock() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -396,12 +396,7 @@ struct LiveClusterMethodsTests {
         #expect(first["stale"] as? Bool == false)
         #expect(first["revision"] as? Int == 1)
         #expect(first["workspace_generation"] as? String == generation)
-        #if os(macOS)
         #expect(first["accepted"] as? Int == 1)
-        #else
-        // Injected callbacks must not enable the unsupported radio backend.
-        #expect(first["accepted"] as? Int == 0)
-        #endif
         for _ in 0..<100 {
             let snapshot = try await cluster.handle(method: "cluster_snapshot", params: [:])
             if (snapshot["forwarding"] as? [String: Any])?["prior_spot_cleanup_pending"] as? Bool == false { break }
@@ -409,17 +404,14 @@ struct LiveClusterMethodsTests {
         }
         let settled = try await cluster.handle(method: "cluster_snapshot", params: [:])
         #expect((settled["forwarding"] as? [String: Any])?["prior_spot_cleanup_pending"] as? Bool == false)
-        #if os(macOS)
+        // These callbacks own an explicit portable transport. The separate
+        // unsupportedForwardingRemainsPassive test covers absent native owners.
+        #expect(settled["flex_forwarding_available"] as? Bool == true)
+        #expect(settled["tci_forwarding_available"] as? Bool == true)
+        #expect((settled["forwarding"] as? [String: Any])?["accepted_count"] as? Int == 1)
         #expect(await recorder.snapshot().count == 1)
         #expect(Array(await recorder.lifecycleSnapshot().prefix(2)) == ["forward", "cleanup"])
-        #else
-        #expect(settled["flex_forwarding_available"] as? Bool == false)
-        #expect(settled["tci_forwarding_available"] as? Bool == false)
-        #expect((settled["forwarding"] as? [String: Any])?["accepted_count"] as? Int == 0)
-        #expect(await recorder.snapshot().isEmpty)
         #expect(await recorder.removed().isEmpty)
-        #expect(await recorder.lifecycleSnapshot() == ["cleanup"])
-        #endif
         #expect(await recorder.cutoffSnapshot() == [admission])
         clock.advance(5)
         let second = try await cluster.handle(method: "cluster_contest_radio_spots_publish", params: publication(2))
@@ -430,22 +422,16 @@ struct LiveClusterMethodsTests {
         #expect(second["stale"] as? Bool == false)
         #expect(second["revision"] as? Int == 2)
         #expect(second["workspace_generation"] as? String == generation)
-        #if os(macOS)
         #expect(second["accepted"] as? Int == 1)
         #expect(await recorder.snapshot().count == 2)
-        #else
-        #expect(second["accepted"] as? Int == 0)
-        #expect(second["removed"] as? Int == 0)
-        #expect(await recorder.snapshot().isEmpty)
-        #expect(await recorder.removed().isEmpty)
-        #expect(await recorder.activeSnapshot().isEmpty)
-        #expect(await recorder.lifecycleSnapshot() == ["cleanup"])
+        #expect(second["removed"] as? Int == 1)
+        #expect(await recorder.removed().count == 1)
+        #expect(await recorder.activeSnapshot().count == 1)
         let final = try await cluster.handle(method: "cluster_snapshot", params: [:])
-        #expect(final["flex_forwarding_available"] as? Bool == false)
-        #expect(final["tci_forwarding_available"] as? Bool == false)
-        #expect((final["forwarding"] as? [String: Any])?["accepted_count"] as? Int == 0)
+        #expect(final["flex_forwarding_available"] as? Bool == true)
+        #expect(final["tci_forwarding_available"] as? Bool == true)
+        #expect((final["forwarding"] as? [String: Any])?["accepted_count"] as? Int == 2)
         #expect((final["forwarding"] as? [String: Any])?["prior_spot_cleanup_pending"] as? Bool == false)
-        #endif
         #expect(await recorder.cutoffSnapshot() == [admission])
         #expect(await cluster.terminate())
     }
