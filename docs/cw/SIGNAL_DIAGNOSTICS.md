@@ -878,3 +878,29 @@ failure age/stage is not measured by this receipt. Native SHA-256 is
 The failed receipt remains in `lan-iq-20261031-02/native-replay-02.json`; neither
 the deadline nor its timestamps are relaxed and no identical retry is counted as
 a pass. Reference-Mac headroom and full source-path acceptance remain open.
+
+## WPM history priming — 31 October 2026
+
+The 20 m development recording also emits no measured WPM. A focused native
+regression adds deterministic complex Gaussian noise (seed 83100631, standard
+deviation 0.002 per component) to the existing strong 35-WPM IQ waveform,
+including its pre-carrier interval. All five clean alignments still pass, but the
+first noisy alignment reports unknown and fails the unchanged ≥80%-known,
+maximum-two-WPM-error control (`7a0cbbf31ed782a5`). Only events within 25 Hz of
+the independently generated carrier count toward that positive control.
+
+Track creation backfills the channelizer from span history. That history includes
+noise before carrier admission; its short excursions were entering the new
+signal's 64-element speed history. After backfill, the speed fit now starts fresh,
+retaining its observed envelope level and discarding any mark already in progress.
+The FIR/audio history, coarse CW eligibility detector, model features, required
+jobs and all fit/expiry thresholds remain unchanged. This is measurement repair,
+not a lower confidence threshold or a text/spot admission change.
+
+Full native CTest passes 2/2 (`f4d6bb720e99fa96`). All ten clean/noisy alignment
+cases report 34.5 or 35 WPM. Both clock resolutions verify that reset removes old
+evidence, a partial mark cannot satisfy the twelve-run minimum, twelve complete
+new runs can establish speed, and stale/constant/irregular input stays unknown.
+The retained red log is `WPM_NOISE_HISTORY_BASELINE.log` under the private CW
+completion evidence root. These known-speed fixtures do not supply reference
+truth for real RF or qualify current-source capacity.

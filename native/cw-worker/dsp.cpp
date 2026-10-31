@@ -27,11 +27,14 @@ KeyingSpeed::KeyingSpeed(size_t samples_per_tick):tick_seconds(double(samples_pe
 void KeyingSpeed::tick(bool next) {
   if(ticks<UINT64_MAX) ++ticks;
   if(next==down) {run=std::min(size_t(10000),run+1);return;}
-  if(down && run>=1 && run*tick_seconds<=0.8) {
+  if(down && complete_run && run>=1 && run*tick_seconds<=0.8) {
     durations.push_back(run*tick_seconds);last_fall=ticks;
     if(durations.size()>64) durations.erase(durations.begin());
   }
-  down=next;run=1;
+  down=next;run=1;complete_run=next;
+}
+void KeyingSpeed::reset() {
+  durations.clear();ticks=0;last_fall=0;run=0;complete_run=false;
 }
 std::optional<double> KeyingSpeed::estimate() const {
   if(durations.size()<12 || double(ticks-last_fall)*tick_seconds>2) return {};

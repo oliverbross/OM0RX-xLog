@@ -100,6 +100,21 @@ int main(int argc,char** argv) {
         }
         const auto estimate=measured.estimate();
         require(estimate && std::abs(*estimate-speed)<=2,"Observed dot/dash speed estimate");
+        measured.reset();
+        require(!measured.estimate(),"Reset removes previous keying-speed evidence");
+        for(int repeat=0;repeat<12;++repeat) {
+          const int ticks=int(std::round((repeat%2?3:1)*1.2/speed/interval));
+          for(int tick=0;tick<ticks;++tick) measured.tick(true);
+          if(repeat==0) { // The remaining partial mark is invalid.
+            measured.reset();
+            for(int tick=0;tick<ticks;++tick) measured.tick(true);
+          }
+          for(int tick=0;tick<8;++tick) measured.tick(false);
+        }
+        require(!measured.estimate(),"Reset cannot count a partially observed mark toward twelve runs");
+        for(int tick=0;tick<int(std::round(1.2/speed/interval));++tick) measured.tick(true);
+        for(int tick=0;tick<8;++tick) measured.tick(false);
+        require(bool(measured.estimate()),"Twelve complete post-reset runs can establish speed");
         for(int tick=0;tick<8000/samples_per_tick;++tick) measured.tick(false);
         require(!measured.estimate(),"Stale keying speed expires in physical seconds");
       }
@@ -209,12 +224,16 @@ int main(int argc,char** argv) {
     }
     // Known-speed waveform through the actual channelizer/track envelope.
     // Rounded boolean ticks alone hide the 35-WPM timing-resolution failure.
-    for(size_t alignment:{0,8,16,24,32}) {
+    // Include pre-carrier noise: history priming must not poison the speed of
+    // a subsequently clear carrier with unrelated short noise excursions.
+    for(bool with_noise:{false,true}) for(size_t alignment:{0,8,16,24,32}) {
       cw::Skimmer speed_track(engine,1);
       const std::string speed_source="99887766554433221100ffeeddccbbaa";
       speed_track.open(speed_source,1,48000,-21000,21000,true);
       auto key=morse(35,"CQ AB7DXQ AB7DXQ",true,false,48000);
       key.insert(key.begin(),alignment*15,0);
+      std::mt19937 speed_random(83100631);
+      std::normal_distribution<float> speed_noise(0,0.002f);
       const double final_key=double(key.size()-24000)/48000-3*1.2/35;
       size_t eligible=0,known=0;uint64_t sequence=0;
       for(size_t first=0;first<key.size();first+=4096) {
@@ -223,19 +242,20 @@ int main(int argc,char** argv) {
         for(size_t i=0;i<count;++i) {
           const size_t n=first+i;
           iq[i]=std::complex<float>(std::polar(0.05*key[n],2*pi*(-10700.6)*n/48000));
+          if(with_noise) iq[i]+=std::complex<float>(speed_noise(speed_random),speed_noise(speed_random));
         }
         speed_track.feed(speed_source,1,sequence++,first,48000,iq);
         require(speed_track.wait_idle(10),"Known-speed IQ drains every required job");
-        for(const auto& event:speed_track.events()) if(event.kind=="decode") {
+        for(const auto& event:speed_track.events()) if(event.kind=="decode" && std::abs(event.offset_hz+10700.6)<25) {
           const double capture_end=double(event.source_first_sample)/48000+double(event.end_sample)/3200-event.filter_delay_seconds;
           if(capture_end>=6 && capture_end<=final_key) {
             ++eligible;
-            std::cout<<"35 WPM IQ alignment "<<alignment<<": "<<(event.estimated_wpm?std::to_string(*event.estimated_wpm):"unknown")<<"\n";
+            std::cout<<"35 WPM IQ noise "<<with_noise<<" alignment "<<alignment<<": "<<(event.estimated_wpm?std::to_string(*event.estimated_wpm):"unknown")<<"\n";
             if(event.estimated_wpm) {++known;require(std::abs(*event.estimated_wpm-35)<=2,"Measured 35-WPM IQ remains within two WPM");}
           }
         }
       }
-      require(eligible>=1 && known*5>=eligible*4,"Clean 35-WPM IQ has measured speed on at least 80 percent of eligible windows");
+      require(eligible>=1 && known*5>=eligible*4,"Known-speed 35-WPM IQ has measured speed on at least 80 percent of eligible windows");
     }
     // Two independent CW signals in IQ, extracted and decoded through the
     // actual tracker/scheduler. Offline draining proves function, not capacity.

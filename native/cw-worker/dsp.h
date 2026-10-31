@@ -20,9 +20,12 @@ class KeyingSpeed {
  public:
   explicit KeyingSpeed(size_t samples_per_tick=40);
   void tick(bool down);
+  // Forget old observations; a mark already in progress is not a complete run.
+  void reset();
   std::optional<double> estimate() const;
  private:
   bool down=false;
+  bool complete_run=true;
   double tick_seconds;
   uint64_t ticks=0,last_fall=0;
   size_t run=0;

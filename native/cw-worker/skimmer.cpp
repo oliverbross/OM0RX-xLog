@@ -378,6 +378,10 @@ void Skimmer::feed(const std::string& token,uint64_t epoch,uint64_t sequence,uin
             span.history.begin()+std::ptrdiff_t(std::min(at+8192,span.history.size())));
         track->append(before);
       }
+      // Backfill primes the FIR/audio and unchanged CW eligibility detector.
+      // Before carrier admission, noise excursions are not this signal's
+      // keying observations. Keep its envelope level, but start a fresh fit.
+      track->speed.reset();
       if(!peak.ambiguous) track->observe(span.rate,windowEnd-4096,peak.offset_hz);
       span.tracks.push_back(track);
       ++admitted;
