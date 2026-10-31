@@ -3,10 +3,10 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { WorkspacePanelID } from "./workspaceLayoutSession";
 
-export const nativeWorkspaceWindowIDs = ["operating-goals", "previous-qsos", "callsign-intelligence", "log-qso", "spot-history", "cw-decode", "monitor", "world-map", "dxpedition-map", "band-maps", "dx-cluster", "logbook", "awards", "settings", "chaser-dx", "hf-propagation-live", "station-control", "cw", "rotor", "station-status", "connection-doctor", "propagation", "station-identity", "alerts", "antenna"] as const satisfies readonly (WorkspacePanelID | "previous-qsos" | "connection-doctor" | "operating-goals" | "hf-propagation-live" | "dxpedition-map" | "cw-decode")[];
+export const nativeWorkspaceWindowIDs = ["about", "hm-control", "operating-goals", "previous-qsos", "callsign-intelligence", "log-qso", "spot-history", "cw-decode", "monitor", "world-map", "dxpedition-map", "band-maps", "dx-cluster", "logbook", "awards", "settings", "chaser-dx", "hf-propagation-live", "station-control", "cw", "rotor", "station-status", "connection-doctor", "propagation", "station-identity", "alerts", "antenna"] as const satisfies readonly (WorkspacePanelID | "about" | "hm-control" | "previous-qsos" | "connection-doctor" | "operating-goals" | "hf-propagation-live" | "dxpedition-map" | "cw-decode")[];
 export type NativeWorkspaceWindowID = typeof nativeWorkspaceWindowIDs[number];
 export type WorkspaceWindowsStatus = {
-  supported: (WorkspacePanelID | "previous-qsos" | "connection-doctor" | "operating-goals" | "hf-propagation-live" | "dxpedition-map" | "cw-decode")[];
+  supported: (WorkspacePanelID | NativeWorkspaceWindowID)[];
   generation: string | null;
   revision: number | null;
   presetID: string | null;

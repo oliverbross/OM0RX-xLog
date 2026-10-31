@@ -15,6 +15,7 @@ import { verifyEditorFocus } from "./editorFocusAcceptance";
 import { verifyWorkspaceMenuRoutes } from "./workspaceMenuAcceptance";
 import { verifyADIFTransferRoundtrip } from "./adifTransferAcceptance";
 import { framedWorkerRequest } from "./worker";
+import { verifyFirstRunSetup } from "./onboardingAcceptance";
 
 export const essentialSettingsLabels = ["General", "Logbook", "Wavelog", "Sync", "Rotator", "Radio spots", "Workspace"] as const;
 
@@ -102,8 +103,8 @@ async function main(report: Json) {
   report.worker = true;
   const before = (await worker("workspace_status")).result;
   check("empty_workspace", before.workspace_exists === false && before.native_log_exists === false);
-  await waitForAcceptance("create empty logbook", () => [...document.querySelectorAll("button")].some(item => item.textContent === "Create empty logbook"));
-  await click("Create empty logbook");
+  report.details.onboarding = await verifyFirstRunSetup({ fill, click, wait: waitForAcceptance, waitWorker: waitForWorkerAcceptance, worker });
+  check("onboarding_setup", report.details.onboarding.completed && report.details.onboarding.radioSkipped && report.details.onboarding.rotatorSkipped && report.details.onboarding.localMode);
   await waitForAcceptance("real operator draft", () => !!document.querySelector('[aria-label="Desk Callsign"]'));
   if (largeLog) report.details.performance.operatorReadyMs = Math.round(performance.now());
   check("workspace_created", (await worker("workspace_status")).result.workspace_exists === true);

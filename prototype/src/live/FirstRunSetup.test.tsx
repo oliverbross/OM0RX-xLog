@@ -7,6 +7,17 @@ function identity() {
   fireEvent.change(screen.getByLabelText("Operator call"), { target: { value: "K1ABC" } });
   fireEvent.change(screen.getByLabelText("Station call"), { target: { value: "K1ABC/P" } });
 }
+it.each([false, true])("offers only providers supported by the worker platform services (available=%s)", async available => {
+  render(<FirstRunSetup onFinish={async () => {}} loadCapabilities={async () => ({ platform_services: available })} />);
+  identity(); fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  await waitFor(() => expect(!!screen.queryByRole("option", { name: "Remote Station Agent" })).toBe(available));
+  expect(screen.getByRole("option", { name: /USB \/ Serial or network CAT/ })).toBeTruthy();
+  expect(!!screen.queryByRole("option", { name: "Direct FLEX · LAN / VPN" })).toBe(available);
+  expect(!!screen.queryByRole("option", { name: "ExpertSDR TCI" })).toBe(available);
+  fireEvent.click(screen.getByRole("button", { name: "Skip radio" }));
+  expect(!!screen.queryByRole("option", { name: "DCU-1 network rotator" })).toBe(available);
+  expect(screen.getByRole("option", { name: /USB \/ Serial or network rotator/ })).toBeTruthy();
+});
 it("keeps first run blank, makes hardware skippable, and saves only on explicit Finish", async () => {
   const finish = vi.fn(async () => {}), catalogue = vi.fn();
   render(<FirstRunSetup onFinish={finish} loadModels={catalogue} />);

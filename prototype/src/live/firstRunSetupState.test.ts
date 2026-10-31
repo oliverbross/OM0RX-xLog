@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { completeFirstRunSetup, firstRunError, firstRunValues } from "./firstRunSetupState";
+import { completeFirstRunSetup, firstRunDirectServicesAvailable, firstRunError, firstRunValues } from "./firstRunSetupState";
 import { SettingsSession } from "./settingsSession";
 import { defaultRotorConfiguration, RotorConfigurationSession } from "./rotorConfigurationSession";
 
@@ -34,6 +34,8 @@ function fixture(existing = false, completed = false) {
 const stationValues = () => ({ ...firstRunValues(), operatorCall: "k1abc", stationCall: "k1abc/p", gridSquare: "FN31pr" });
 describe("first-run setup transactions", () => {
   it("starts with blank personal details and validates the actual configured fields", () => {
+    expect(firstRunDirectServicesAvailable({ platform_services: true })).toBe(true);
+    for (const value of [null, {}, { platform_services: false }, { platform_services: "true" }]) expect(firstRunDirectServicesAvailable(value)).toBe(false);
     expect(firstRunValues().operatorCall).toBe(""); expect(firstRunValues().stationCall).toBe(""); expect(firstRunValues().wavelogURL).toBe("");
     expect(firstRunError(firstRunValues())).toMatch(/operator call/);
     expect(firstRunError({ ...stationValues(), gridSquare: "AA99zz" })).toMatch(/Maidenhead/);

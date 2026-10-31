@@ -4,6 +4,10 @@ import { stationSessionRequest, type RadioProfile, type StationSession, type Sta
 
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<any>;
+/** Direct radio clients and the DCU-1 adapter are Swift platform services.
+ * Hamlib is owned by the bundled cross-platform native helper. */
+export const firstRunDirectServicesAvailable = (health: unknown) => !!health && typeof health === "object" &&
+  !Array.isArray(health) && (health as Data).platform_services === true;
 export type FirstRunValues = {
   operatorCall: string; stationCall: string; gridSquare: string; stationLocation: string; defaultPower: string;
   radio: "skip" | RadioProfile["provider"]; radioName: string; radioModel?: number; radioPath: string; radioBaud: number;

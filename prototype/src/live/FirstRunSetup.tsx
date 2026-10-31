@@ -1,22 +1,32 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { HamlibModelPicker } from "./HamlibModelPicker";
 import { loadHamlibCatalogue, type HamlibModel } from "./hamlibCatalogue";
 import { stationSessionRequest } from "./stationSession";
-import { firstRunError, firstRunValues, type FirstRunValues } from "./firstRunSetupState";
+import { firstRunDirectServicesAvailable, firstRunError, firstRunValues, type FirstRunValues } from "./firstRunSetupState";
 import "./FirstRunSetup.css";
 
 type Props = { initialSettings?: Record<string, any> | null; onFinish: (values: FirstRunValues) => Promise<void>;
-  loadModels?: (device: "radio" | "rotor") => Promise<HamlibModel[]> };
+  loadModels?: (device: "radio" | "rotor") => Promise<HamlibModel[]>; loadCapabilities?: () => Promise<unknown> };
 const catalogueRequest = (_method: string, params: Record<string, unknown>) => params.device === "radio"
   ? stationSessionRequest<{ models: unknown[] }>("radio1", { action: "hamlib_catalogue" })
   : import("../worker").then(({ workerRequest }) => workerRequest("hamlib_models", { device: "rotor" }));
 const titles = ["Station identity", "Radio (optional)", "Rotator (optional)", "Logbook"];
+const nativeCapabilities = () => import("../worker").then(async ({ workerRequest }) => (await workerRequest("health")).result);
 
-export default function FirstRunSetup({ initialSettings, onFinish, loadModels = device => loadHamlibCatalogue(catalogueRequest, device) }: Props) {
+export default function FirstRunSetup({ initialSettings, onFinish, loadModels = device => loadHamlibCatalogue(catalogueRequest, device), loadCapabilities = nativeCapabilities }: Props) {
   const [values, setValues] = useState(() => firstRunValues(initialSettings));
   const [step, setStep] = useState(0), [busy, setBusy] = useState(false), [error, setError] = useState("");
   const [models, setModels] = useState<Partial<Record<"radio" | "rotor", HamlibModel[]>>>({});
   const [loading, setLoading] = useState<"radio" | "rotor" | null>(null);
+  const [directServices, setDirectServices] = useState(false);
+  const [capabilitiesReady, setCapabilitiesReady] = useState(false);
+  const capabilityLoader = useRef(loadCapabilities);
+  useEffect(() => {
+    let active = true;
+    void capabilityLoader.current().then(health => { if (active) setDirectServices(firstRunDirectServicesAvailable(health)); }, () => {})
+      .finally(() => { if (active) setCapabilitiesReady(true); });
+    return () => { active = false; };
+  }, []);
   const heading = useRef<HTMLHeadingElement>(null), inFlight = useRef(false);
   const update = (change: Partial<FirstRunValues>) => { setValues(previous => ({ ...previous, ...change })); setError(""); };
   const go = (next: number) => { setError(""); setStep(next); queueMicrotask(() => heading.current?.focus()); };
@@ -58,8 +68,9 @@ export default function FirstRunSetup({ initialSettings, onFinish, loadModels = 
         </div></>}
         {step === 1 && <><p>Save a connection now, or use xLog without a connected radio. Setup never connects or enables transmit.</p>
           <label>Radio connection<select aria-label="Setup radio connection" value={values.radio} onChange={event => update({ radio: event.target.value as FirstRunValues["radio"] })}>
-            <option value="skip">No radio for now</option><option value="hamlib">USB / Serial or network CAT · Hamlib</option><option value="direct_flex_lan">Direct FLEX · LAN / VPN</option><option value="direct_tci">ExpertSDR TCI</option><option value="direct_agent">Remote Station Agent</option>
+            <option value="skip">No radio for now</option><option value="hamlib">USB / Serial or network CAT · Hamlib</option>{directServices && <><option value="direct_flex_lan">Direct FLEX · LAN / VPN</option><option value="direct_tci">ExpertSDR TCI</option><option value="direct_agent">Remote Station Agent</option></>}
           </select></label>
+          {!directServices && <p role="status">{capabilitiesReady ? "Direct station services are unavailable in this runtime. Hamlib remains available, or skip radio setup for now." : "Checking available radio providers. Hamlib and Skip remain available."}</p>}
           {values.radio !== "skip" && <div className="setup-fields">{field("radioName", "Radio name (optional)", "text", { maxLength: 64 })}
             {values.radio === "hamlib" && <>{modelPicker("radio")}{field("radioPath", "Radio serial device or host:port")}{field("radioBaud", "Radio baud rate", "number", { min: 300, max: 921600 })}</>}
             {values.radio === "direct_flex_lan" && <>{field("radioHost", "FLEX radio address")}{field("radioPort", "FLEX port", "number", { min: 1, max: 65535 })}</>}
@@ -69,7 +80,7 @@ export default function FirstRunSetup({ initialSettings, onFinish, loadModels = 
         </>}
         {step === 2 && <><p>A rotator is optional. Saved connection details do not connect, arm automatic rotation or move an antenna.</p>
           <label>Rotator connection<select aria-label="Setup rotator connection" value={values.rotor} onChange={event => update({ rotor: event.target.value as FirstRunValues["rotor"] })}>
-            <option value="skip">No rotator for now</option><option value="native_dcu1">DCU-1 network rotator</option><option value="hamlib">USB / Serial or network rotator · Hamlib</option>
+            <option value="skip">No rotator for now</option>{directServices && <option value="native_dcu1">DCU-1 network rotator</option>}<option value="hamlib">USB / Serial or network rotator · Hamlib</option>
           </select></label>
           {values.rotor === "native_dcu1" && <div className="setup-fields">{field("rotorHost", "Rotator address")}{field("rotorPort", "Rotator port", "number", { min: 1, max: 65535 })}</div>}
           {values.rotor === "hamlib" && <div className="setup-fields">{modelPicker("rotor")}{field("rotorPath", "Rotator serial device or host:port")}{field("rotorBaud", "Rotator baud rate", "number", { min: 300, max: 921600 })}</div>}
