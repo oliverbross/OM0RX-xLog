@@ -48,6 +48,7 @@ export function DetachedQSOSurface() {
   const referenceEvidence = useReferenceEvidence(state.draft, state.base?.generation, request);
   const [error, setError] = useState("");
   const loggedFeedback = useQSOLoggedToast();
+  const [savingQSO, setSavingQSO] = useState(false);
   const [working, setWorking] = useState(false), [closing, setClosing] = useState(false);
   const [lookup, setLookup] = useState<Record<string, any> | null>(null);
   const [previous, setPrevious] = useState<Record<string, any>[]>([]);
@@ -178,13 +179,17 @@ export function DetachedQSOSurface() {
     setMode(next); setError("");
   };
   const save = () => run(async () => {
+    setSavingQSO(true);
+    try {
     const saved = await session.commit("save");
     if (saved && mounted.current) loggedFeedback.show();
+    } finally { if (mounted.current) setSavingQSO(false); }
   });
   const clear = () => void run(async () => { await session.commit("clear"); });
   return <div className="app live monitor-app detached-qso-app"><main className="qso-feedback-area live-feedback-host" aria-label="Detached Log QSO">
     {loggedFeedback.toast}
     <StableFeedbackLayer>
+    {savingQSO && <p className="live-message" role="status">Saving QSO…</p>}
     {error && <p className="live-error" role="alert">{error}</p>}
     {readOperation.current && <button type="button" disabled={radioBusy} onClick={() => void checkReadRadio()}>Check Read radio</button>}
     <SpotActivationStatus status={spotEditor.status} error={spotEditor.error} reconcile={() => void spotEditor.reconcile()} />

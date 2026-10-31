@@ -577,7 +577,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 var status: [String: Any] = ["workspace_exists": exists,
                                              "native_log_exists": fileManager.fileExists(atPath: nativeDatabaseURL.path),
                                              "source": exists ? "isolated_workspace" : "none",
-                                             "qso_count": try database?.stats().qsoCount ?? 0,
+                                             "qso_count": try database?.count() ?? 0,
                                              "pending_sync_count": try database?.pendingSyncCount() ?? 0,
                                              "outbox_count": try database?.outboxCount() ?? 0,
                                              "automatic_sync": false]

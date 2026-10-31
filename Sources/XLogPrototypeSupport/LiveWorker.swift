@@ -184,6 +184,8 @@ public actor LiveWorker {
     private var contactRefreshIdentity: UUID?
     // Isolated tests may join the exact task, rather than guessing a delay.
     private(set) var contactRefreshTask: Task<Void, Never>?
+    private var onlineLogKickPending = false
+    private var onlineLogKickTask: Task<Void, Never>?
     init(logbook: LiveLogbookMethods = .shared, localAcceptance: Bool = false, cluster: LiveClusterMethods? = nil,
          publicServices: LivePublicServiceMethods? = nil,
          opportunityMethods: LiveOpportunitiesMethods? = nil,
@@ -310,6 +312,9 @@ public actor LiveWorker {
         await rtcScores?.terminate()
         powerCapture.terminate()
         cancelContactRefresh()
+        onlineLogKickPending = false
+        onlineLogKickTask?.cancel()
+        onlineLogKickTask = nil
         remoteBackup.beginTermination()
         await onlineLogs.beginTermination()
     }
@@ -331,6 +336,25 @@ public actor LiveWorker {
         contactRefreshTask = Task(priority: .utility) { [weak self] in
             await self?.drainContactRefresh(identity)
         }
+    }
+
+    /// A delivery actor may be occupied with credential/database work. Its
+    /// scheduling acknowledgement must never hold a durable local save receipt.
+    private func queueOnlineLogDelivery() {
+        guard !localAcceptance, !terminalShutdown, runtimeProfile.externalIOAllowed else { return }
+        onlineLogKickPending = true
+        guard onlineLogKickTask == nil else { return }
+        onlineLogKickTask = Task(priority: .utility) { [weak self] in
+            await self?.drainOnlineLogDelivery()
+        }
+    }
+
+    private func drainOnlineLogDelivery() async {
+        while !terminalShutdown, !Task.isCancelled, onlineLogKickPending {
+            onlineLogKickPending = false
+            await onlineLogs.requestDelivery()
+        }
+        onlineLogKickTask = nil
     }
 
     private func drainContactRefresh(_ identity: UUID) async {
@@ -373,7 +397,7 @@ public actor LiveWorker {
     private func externalContactChanged() async {
         guard operatingModule == .normalLogging, !terminalShutdown else { return }
         queueContactRefresh()
-        await onlineLogs.requestDelivery()
+        queueOnlineLogDelivery()
     }
 
     private var normalBackgroundEnabled: Bool {
@@ -731,7 +755,7 @@ public actor LiveWorker {
                     queueContactRefresh()
                 }
                 if normalBackgroundEnabled && (draftLogged || method == "logbook_save") {
-                    await onlineLogs.requestDelivery()
+                    queueOnlineLogDelivery()
                 }
             } else if method == "remote_backup_request" {
                 result = try await remoteBackupPresentation.handle(params)

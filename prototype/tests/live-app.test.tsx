@@ -381,6 +381,28 @@ it("logs through the shared draft receipt without exposing the retired Follow ra
   expect(screen.queryByText(/saved to the integrated logbook/)).toBeNull();
 });
 
+it("shows saving immediately and confirms logging only after the durable receipt", async () => {
+  exists = true;
+  const backend = calls.request.getMockImplementation()!;
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  calls.request.mockImplementation(async (method, params) => {
+    if (method === "logbook_operator_draft_apply" && params.action === "save") await held;
+    return backend(method, params);
+  });
+  render(<LiveApp />);
+  fireEvent.change(await screen.findByLabelText("Callsign"), { target: { value: "K1ABC" } });
+  fireEvent.submit(screen.getByLabelText("Callsign").closest("form")!);
+  expect(await screen.findByText("Saving QSO…")).toBeTruthy();
+  expect(screen.queryByText("QSO logged")).toBeNull();
+  expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("K1ABC");
+  await act(async () => release());
+  await waitFor(() => expect(screen.queryByText("Saving QSO…")).toBeNull());
+  expect(screen.getAllByText("QSO logged")).toHaveLength(1);
+  expect((screen.getByLabelText("Callsign") as HTMLInputElement).value).toBe("");
+  expect(calls.request.mock.calls.filter(([method, params]) => method === "logbook_operator_draft_apply" && params.action === "save")).toHaveLength(1);
+});
+
 it("populates a clean blank draft from observed radio state and preserves a later manual frequency",async()=>{
   exists=true;const backend=calls.request.getMockImplementation()!;
   calls.request.mockImplementation((method,params)=>method==="station_snapshot"

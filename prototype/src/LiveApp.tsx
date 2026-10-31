@@ -388,6 +388,7 @@ function MainLiveApp() {
   const [refresh, setRefresh] = useState(0);
   useEffect(() => connectLogbookChanges(() => setRefresh(value => value + 1), setError), []);
   const [busy, setBusy] = useState(false);
+  const [savingQSO, setSavingQSO] = useState(false);
   const busyRef = useRef(busy); busyRef.current = busy;
   const nativeFollow = useFollowRadio();
   const reconcileSpotEditor = useRef<(snapshot?: any) => Promise<boolean>>(async () => false);
@@ -1126,6 +1127,8 @@ function MainLiveApp() {
   };
   const save = (submitted?:Data) => run(async () => {
     if (!draft) return;
+    setSavingQSO(true);
+    try {
     if(submitted){if(contactSession.getSnapshot().draft)contactSession.edit(submitted as DraftQSO);else draftSession.edit(submitted as DraftQSO);}
     let saved;
     if (contactSession.getSnapshot().draft) saved = await contactSession.save();
@@ -1149,6 +1152,7 @@ function MainLiveApp() {
     }
     if (saved) loggedFeedback.show();
     setSelected(null); setRefresh(n => n + 1);
+    } finally { setSavingQSO(false); }
   });
   const editLoggedContact = (qso: Data) => void run(async () => {
     if (editorBufferPending.current || !acceptsInput()) throw new Error("Finish the buffered draft fields before editing a logged contact. Your text is retained.");
@@ -1409,6 +1413,7 @@ function MainLiveApp() {
         <button type="button" onClick={() => void run(() => navigator.clipboard.writeText(JSON.stringify(legacyDraft, null, 2)))}>Copy previous draft</button>
         <button type="button" disabled={!acceptsInput()} onClick={() => { if (!acceptsInput()) return; localStorage.removeItem("xlog.integration.draft"); setLegacyDraft(null); }}>Discard previous draft</button>
       </div>}
+      {savingQSO && <p className="live-message" role="status">Saving QSO…</p>}
       {message && !message.endsWith("· radio frequency and mode confirmed") && <p className="live-message" role="status">{message}</p>}
       </StableFeedbackLayer>
       {loggedFeedback.toast}

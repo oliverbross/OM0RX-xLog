@@ -43,8 +43,65 @@ private actor OnlineLogDeliveryGate {
 
 private enum OnlineLogFixtureError: Error { case credentialUnavailable }
 
+private final class BlockingOnlineCredential: @unchecked Sendable {
+    private let lock = NSLock()
+    private let gate = DispatchSemaphore(value: 0)
+    private var enteredValue = false
+    private var acknowledgedValue = false
+    var entered: Bool { lock.withLock { enteredValue } }
+    var acknowledged: Bool { lock.withLock { acknowledgedValue } }
+    func block() -> String? {
+        let first = lock.withLock {
+            if enteredValue { return false }
+            enteredValue = true
+            return true
+        }
+        if first { _ = gate.wait(timeout: .now() + 10) }
+        return nil
+    }
+    func acknowledge() { lock.withLock { acknowledgedValue = true } }
+    func release() { gate.signal() }
+}
+
 @Suite("Native online-log delivery owner", .serialized)
 struct LiveOnlineLogDeliveryServiceTests {
+    @Test func localSaveReceiptDoesNotWaitForAnOccupiedOnlineDeliveryActor() async throws {
+        let (logbook, database, root) = try fixture()
+        defer { database.close(); try? FileManager.default.removeItem(at: root) }
+        _ = try database.configureOnlineLogEnrollment(service: .qrz, enabled: true)
+        try database.saveNewContactForOnlineLogs(QSO(call: "N0FIRST", band: "20m", mode: "SSB"))
+        let gate = BlockingOnlineCredential()
+        defer { gate.release() }
+        let online = LiveOnlineLogDeliveryService(logbook: logbook, credential: { gate.block() },
+            delivery: { _, _, _, _ in Issue.record("Fixture attempted delivery"); throw OnlineLogDeliveryError.invalidPlan })
+        let worker = LiveWorker(logbook: logbook, onlineLogs: online, contactRefresher: {})
+        let delivery = Task { await online.runDue() }
+        for _ in 0..<400 {
+            if gate.entered { break }
+            try await Task.sleep(nanoseconds: 5_000_000)
+        }
+        #expect(gate.entered)
+        var qso = try #require(logbook.handle(method: "logbook_draft", params: [:])["qso"] as? [String: Any])
+        qso["call"] = "N0SECOND"
+        let input = try JSONSerialization.data(withJSONObject: ["id": "local-save", "method": "logbook_save", "params": ["qso": qso]])
+        let save = Task {
+            let response = await worker.response(to: input)
+            gate.acknowledge()
+            return response
+        }
+        for _ in 0..<400 {
+            if gate.acknowledged { break }
+            try await Task.sleep(nanoseconds: 5_000_000)
+        }
+        #expect(gate.acknowledged, "Local save waited for online credential work")
+        gate.release()
+        let response = try #require(JSONSerialization.jsonObject(with: await save.value) as? [String: Any])
+        #expect(response["ok"] as? Bool == true)
+        #expect(try database.count() == 2)
+        await delivery.value
+        await worker.beginTerminalShutdown()
+    }
+
     private func fixture() throws -> (LiveLogbookMethods, LogbookDatabase, URL) {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-online-owner-\(UUID())")
         let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
