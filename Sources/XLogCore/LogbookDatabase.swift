@@ -107,6 +107,10 @@ public final class LogbookDatabase: @unchecked Sendable {
     private var cachedAwardCatalog: AwardCatalogSnapshot?
     private var cachedOpportunityReferences: [OpportunityReferenceHistory]?
     private var cachedClusterContactRows: [ClusterContactRow]?
+    private var cachedHMControl: HMControlLogbook?
+    private var cachedHMControlEntities: [CountryInfo]?
+    private var hmControlFlags: [String: Bool]?
+    private var hmControlRevision: Int64?
     // Eligibility is never restored from disk. A reopened/restored database
     // requires a new native arm before any persisted scope can receive samples.
     private var operatorPowerScopeID: UUID?
@@ -2528,6 +2532,68 @@ public final class LogbookDatabase: @unchecked Sendable {
             .replacingOccurrences(of: "_", with: "\\_") + "/%"
     }
 
+    /// One bounded display projection of the entire live log. A revision check
+    /// avoids re-scanning it on radio ticks; no contact or persistent cache writes.
+    public func hmControlLogbook(resolver: CTYResolver) throws -> HMControlLogbook {
+        try withDatabaseLock {
+            try refreshAggregateCacheVersion()
+            let revision = try qsoRevision()
+            let currentEntities = resolver.entities
+            if let cachedHMControl, cachedHMControl.revision == revision, cachedHMControlEntities == currentEntities { return cachedHMControl }
+            let entities = Dictionary(currentEntities.map { ($0.adif, $0) }, uniquingKeysWith: { first, _ in first })
+            let result = try withStatement("""
+                SELECT local_id, call, json_extract(record_json,'$.band'),
+                    json_extract(record_json,'$.mode'), qso_start,
+                    json_extract(record_json,'$.country'), json_extract(record_json,'$.gridSquare'),
+                    json_extract(record_json,'$.dxcc'), json_extract(record_json,'$.qslReceived'),
+                    json_extract(record_json,'$.lotwReceived')
+                FROM qsos WHERE deleted_at IS NULL ORDER BY qso_start DESC, local_id;
+                """) { statement -> HMControlLogbook in
+                func text(_ column: Int32) -> String { sqlite3_column_text(statement, column).map { String(cString: $0) } ?? "" }
+                var total = 0, located = 0, approximate = 0
+                var points: [HMControlContact] = [], recent: [HMControlContact] = [], cells = Set<String>()
+                var flags: [String: Bool] = [:], added: [HMControlContact] = [], confirmations: [HMControlContact] = []
+                var confirmedDXCC = Set<Int>()
+                var step = sqlite3_step(statement)
+                while step == SQLITE_ROW {
+                    total += 1
+                    let grid = MaidenheadLocator.coordinate(text(6))
+                    let entity = sqlite3_column_type(statement, 7) == SQLITE_NULL ? nil : entities[Int(sqlite3_column_int(statement, 7))]
+                    let lat = grid?.latitude ?? entity?.latitude, lon = grid?.longitude ?? entity?.longitude
+                    let valid = lat.map { $0.isFinite && abs($0) <= 90 } == true && lon.map { $0.isFinite && abs($0) <= 180 } == true
+                    let isApproximate = grid == nil && valid
+                    if valid { located += 1; if isApproximate { approximate += 1 } }
+                    let contact = HMControlContact(id: text(0), call: text(1), band: text(2), mode: text(3),
+                        start: Date(timeIntervalSince1970: sqlite3_column_double(statement, 4)), whereName: text(5),
+                        lat: valid ? lat : nil, lon: valid ? lon : nil, approximate: isApproximate,
+                        confirmed: [text(8).uppercased(), text(9).uppercased()].contains { ["Y", "V"].contains($0) },
+                        adif: sqlite3_column_type(statement, 7) == SQLITE_NULL ? nil : Int(sqlite3_column_int(statement, 7)))
+                    flags[contact.id] = contact.confirmed
+                    if contact.confirmed, let adif = contact.adif { confirmedDXCC.insert(adif) }
+                    if let previous = hmControlFlags {
+                        if previous[contact.id] == nil, added.count < 50 { added.append(contact) }
+                        if previous[contact.id] == false, contact.confirmed, confirmations.count < 50 { confirmations.append(contact) }
+                    }
+                    if recent.count < 50 { recent.append(contact) }
+                    if valid, let lat, let lon {
+                        let key = "\(min(35, Int(floor((lat + 90) / 5)))):\(min(71, Int(floor((lon + 180) / 5))))"
+                        if cells.insert(key).inserted { points.append(contact) }
+                    }
+                    step = sqlite3_step(statement)
+                }
+                guard step == SQLITE_DONE else { throw error() }
+                let baseRevision = hmControlRevision
+                hmControlFlags = flags; hmControlRevision = revision
+                return HMControlLogbook(revision: revision, total: total, located: located, approximate: approximate,
+                    points: points, recent: recent, baseRevision: baseRevision, added: added,
+                    confirmations: confirmations, confirmedDXCC: confirmedDXCC.sorted())
+            }
+            cachedHMControl = result
+            cachedHMControlEntities = currentEntities
+            return result
+        }
+    }
+
     public func count(search: String = "") throws -> Int {
         try withDatabaseLock {
             let needle = search.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -3018,6 +3084,7 @@ public final class LogbookDatabase: @unchecked Sendable {
         cachedAwardCatalog = nil
         cachedOpportunityReferences = nil
         cachedClusterContactRows = nil
+        cachedHMControl = nil
     }
 
     public func bandModeMatrix(call: String) throws -> Set<BandModeCell> {

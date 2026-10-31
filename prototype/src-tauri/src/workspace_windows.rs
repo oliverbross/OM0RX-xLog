@@ -58,7 +58,8 @@ pub struct WindowSpec {
     pub width: f64,
     pub height: f64,
 }
-pub const SUPPORTED_WINDOWS: [WindowSpec; 25] = [
+pub const SUPPORTED_WINDOWS: [WindowSpec; 26] = [
+    WindowSpec { id: "hm-control", title: "OM0RX-xLog — HM Control", width: 1440.0, height: 850.0 },
     WindowSpec { id: "operating-goals", title: "OM0RX-xLog — Operating Goals", width: 900.0, height: 700.0 },
     WindowSpec { id: "previous-qsos", title: "OM0RX-xLog — Previous QSOs", width: 860.0, height: 600.0 },
     WindowSpec { id: "callsign-intelligence", title: "OM0RX-xLog — Callsign Intelligence", width: 700.0, height: 620.0 },
@@ -160,6 +161,7 @@ pub fn band_map_band(label: &str) -> Option<&str> {
 pub fn surface_role(label: &str) -> &str { if band_map_band(label).is_some() { "band-maps" } else { label } }
 pub fn supports(label: &str) -> bool { SUPPORTED_WINDOWS.iter().any(|window| window.id == surface_role(label)) }
 pub fn native_minimum(label: &str) -> (f64, f64) {
+    if label == "hm-control" { return (1000.0, 640.0); }
     if label == "contest-setup" { return (520.0, 320.0); }
     if label == "contest-setup-operator" { return (360.0, 170.0); }
     if label == "contest-setup-rover" { return (340.0, 90.0); }
@@ -528,7 +530,7 @@ mod tests {
     #[test]
     fn registry_covers_only_real_windows() {
         let ids: BTreeSet<_> = SUPPORTED_WINDOWS.iter().map(|window| window.id).collect();
-        assert_eq!(ids.len(), 25);
+        assert_eq!(ids.len(), 26);
         let capabilities: Value = serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
         for id in &ids { assert!(capabilities["windows"].as_array().unwrap().contains(&json!(id))); }
         for window in SUPPORTED_WINDOWS {

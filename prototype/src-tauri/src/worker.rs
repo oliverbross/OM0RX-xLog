@@ -20,6 +20,7 @@ const PASSIVE_READ_TIMEOUT: Duration = Duration::from_secs(5);
 pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     let label = crate::workspace_windows::surface_role(label);
     validate_request(request)?;
+    if label == "hm-control" { return Err("HM Control can only use its non-secret read-only display projection.".into()); }
     if request["method"].as_str().is_some_and(|method| method.starts_with("cw_decode_")) {
         return if matches!(label, "main" | "cw-decode" | "contest--cw-decode") { Ok(()) }
         else { Err("CW Decode requests belong to the main or CW Decode window.".into()) };
@@ -360,6 +361,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "workspace_band_map_apply",
         "workspace_logbook_filters_apply",
         "workspace_map_context",
+        "hm_control_logbook",
         "workspace_layout_load",
         "workspace_layout_apply",
         "backup_create",
@@ -1266,7 +1268,7 @@ fn request_is_non_retiring_read(request: &Value) -> bool {
         // Exact original-receipt metadata reconciliation is also safe to keep
         // pending after a deadline; it cannot apply a draft or station effect.
         "spot_draft_cw_reconcile" |
-        "lookup_call" | "logbook_previous" | "logbook_duplicate" |
+        "hm_control_logbook" | "lookup_call" | "logbook_previous" | "logbook_duplicate" |
         "logbook_matrix" | "cluster_history" | "cluster_snapshot" |
         "opportunities_snapshot" | "opportunities_refresh" |
         "opportunities_dxpedition_snapshot" | "opportunities_dxpedition_refresh" |

@@ -1,0 +1,32 @@
+[
+  {
+    "name": "earth-blue-marble.jpg",
+    "url": "https://unpkg.com/three-globe@2.31.0/example/img/earth-blue-marble.jpg",
+    "bytes": 1461877,
+    "sha256": "228deba2e4b600146bdcb6cfa359b8ead6aacc2b1c13550a29cd82824cfa1c01"
+  },
+  {
+    "name": "earth-night.jpg",
+    "url": "https://unpkg.com/three-globe@2.31.0/example/img/earth-night.jpg",
+    "bytes": 715000,
+    "sha256": "355ab23dd1323315b393d7b91dd2d7ee223a1cbaaba2b48dc72ba90d371ced24"
+  },
+  {
+    "name": "earth-water.png",
+    "url": "https://unpkg.com/three-globe@2.31.0/example/img/earth-water.png",
+    "bytes": 430200,
+    "sha256": "3a8132db56aac4e64e7fcbf2928ee970c075ac6a96b38798d0bb8be82836a4d3"
+  },
+  {
+    "name": "clouds.png",
+    "url": "https://unpkg.com/globe.gl@2.34.4/example/clouds/clouds.png",
+    "bytes": 5033486,
+    "sha256": "35c46d8b29651a99e482401f33ed752bf4625837435fb3a89bb0032f72b88a3a"
+  },
+  {
+    "name": "countries-110m.json",
+    "url": "https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json",
+    "bytes": 107761,
+    "sha256": "2516c915867c7baf18ddec727aec46c315541a07cfb3d79a6559b05d5e94eee8"
+  }
+]

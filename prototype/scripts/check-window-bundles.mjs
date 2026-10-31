@@ -95,3 +95,13 @@ assert(!eagerGraph.has(analyticsEntry), "Contest Analytics is loaded by ordinary
 const analyticsGraph = closure(analyticsEntry);
 assert(!analyticsGraph.has(main), "Analytics imports the live station controller");
 assert(!analyticsGraph.has("src/Map.tsx"), "Analytics imports the map renderer");
+const hmEntry = "hm-control/index.html", hmDashboard = "hm-control/dashboard.js";
+assert(manifest[hmEntry] && manifest[hmDashboard], "HM Control local dashboard is missing");
+assert(!eagerGraph.has(hmEntry) && !eagerGraph.has(hmDashboard), "Ordinary xLog startup loads HM Control");
+const hmGraph = closure(hmDashboard, closure(hmEntry));
+assert(!hmGraph.has(main) && !hmGraph.has("src/Map.tsx"), "HM Control imports the main controller or MapLibre UI");
+const hmFiles = [...new Set([...hmGraph].map(key => manifest[key].file))];
+assert(!hmFiles.some(file => /\/react-/.test(file)), "HM Control unnecessarily loads React");
+const hmBytes = hmFiles.reduce((sum, file) => sum + readFileSync(resolve(dist, file)).length, 0);
+assert(hmBytes < 2_000_000, `HM Control JavaScript budget exceeded: ${hmBytes}`);
+console.log(JSON.stringify({ window: "HM Control", bytes: hmBytes, files: hmFiles }));

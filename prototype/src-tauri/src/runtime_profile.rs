@@ -103,7 +103,7 @@ pub(crate) fn allows_worker_method(method: &str, local_acceptance: bool) -> bool
 }
 fn profile_allows_worker_method(method: &str, local_acceptance: bool, restricted: bool) -> bool {
     local_acceptance || !restricted || matches!(method,
-        "health" | "parse_adif" | "self_test" | "integration_self_test" | "cluster_classify")
+        "health" | "parse_adif" | "self_test" | "integration_self_test" | "cluster_classify" | "hm_control_logbook")
         || restricted && method != "contest_scp_download"
             && ["workspace_", "logbook_", "settings_", "backup_", "contest_"]
                 .iter().any(|prefix| method.starts_with(prefix))

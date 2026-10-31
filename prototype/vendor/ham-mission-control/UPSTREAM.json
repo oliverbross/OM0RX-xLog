@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/Billy-NZ3C/ham-mission-control",
+  "commit": "7203724e7a3374d955430cf3e16dff8458be0212",
+  "indexBlob": "b9ea44b3e38fa4bb4752b572fd897c51b70c91fa",
+  "license": "MIT",
+  "author": "Billy NZ3C",
+  "integration": "../../scripts/build-hm-control.mjs"
+}

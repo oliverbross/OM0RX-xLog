@@ -1367,6 +1367,9 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 return try applyBandMapPreferences(params)
             case "workspace_logbook_filters_apply":
                 return try applySavedLogbookFilters(params)
+            case "hm_control_logbook":
+                try requireKeys(params, allowed: [])
+                return ["generation": try editGeneration(), "logbook": try json(readyDatabase().hmControlLogbook(resolver: currentCTYResolver()))]
             case "workspace_map_context":
                 try requireKeys(params, allowed: [])
                 let db = try readyDatabase()

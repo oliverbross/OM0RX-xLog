@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { validClusterProjection, type ClusterProjection } from "./DetachedClusterBridge";
 import { validPreferenceSnapshot, type PreferenceSnapshot } from "./bandMapPreferenceTransport";
-import { hamlibProjection } from "./hamlibStation";
+export { mapClusterFresh, mapRadioFrequency } from "./mapObservations";
 import type { Spot } from "../model";
 
 export type MapContext = { epoch: string; revision: number; metadata: PreferenceSnapshot & {
@@ -18,21 +18,6 @@ export function validMapContext(value: any): value is MapContext {
     object(value.metadata.dxccStatuses) && Object.values(value.metadata.dxccStatuses).every(status => ["needed", "worked", "confirmed"].includes(String(status))) &&
     validClusterProjection(value.cluster) && Number.isSafeInteger(value.cluster.received_at_ms) && value.cluster.received_at_ms >= 0 &&
     object(value.selection) && object(value.radio);
-}
-export function mapClusterFresh(context: MapContext | null, now = Date.now()): boolean {
-  const source = context?.cluster;
-  return !!source?.available && source.received_at_ms > 0 && now - source.received_at_ms >= -1000 && now - source.received_at_ms <= 5000;
-}
-export function mapRadioFrequency(context: MapContext | null, now = Date.now()): number | undefined {
-  if (!context) return;
-  const radio = context.radio, provider = context.selection.provider;
-  if (radio.available !== true || radio.provider !== provider || !Number.isSafeInteger(radio.received_at_ms) ||
-    now - radio.received_at_ms > 5000 || now - radio.received_at_ms < -1000) return;
-  const projected = provider === "hamlib" ? hamlibProjection(radio.snapshot, null) : radio.snapshot;
-  const observation = projected?.radio;
-  if (projected?.source !== provider || observation?.connected !== true || observation?.observed !== true || projected?.station?.radio_stale === true) return;
-  const hz = observation.receive_frequency_hz ?? observation.frequency_hz;
-  return typeof hz === "number" && Number.isFinite(hz) && hz > 0 ? hz : undefined;
 }
 export function mapSpots(spots: Record<string, any>[]): Spot[] {
   return spots.filter(s => Number.isFinite(s.latitude) && Math.abs(s.latitude) <= 90 && Number.isFinite(s.longitude) && Math.abs(s.longitude) <= 180).map(s => ({

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OM0RX-xLog — HM Control</title>
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="./dashboard.css">
+</head>
+<body>
+<div id="stage">
+  <canvas id="globe" width="1920" height="1080"></canvas>
+  <div id="labels"></div>
+  <div id="qthMark"><i class="n"></i><i class="s"></i><i class="e"></i><i class="w"></i></div>
+  <div class="frame tl"></div><div class="frame bl"></div><div class="frame tr"></div><div class="frame br"></div>
+
+  <div id="hud">
+    <div class="brand"><b id="brandCall">&nbsp;</b><div id="qth">&nbsp;</div><div class="mc">MISSION CONTROL</div></div>
+    <div class="clock utc"><div class="t" id="utc">--:--</div><div class="l">UTC</div></div>
+    <div class="clock"><div class="t" id="loc">--:--</div><div class="l" id="locLbl">LOCAL</div></div>
+    <div class="wxline"><b id="date">&nbsp;</b><span class="tmp" id="temp">--&deg;</span> <span id="cond"></span><div id="sun"></div><div class="alert" id="alert"></div></div>
+  </div>
+
+  <div id="bl">
+    <div class="glass"><h3>NEXT PASSES OVER <span id="passTown"></span> <em id="satNote">loading</em></h3><div id="passList"></div></div>
+    <div class="glass rigc off" id="rigCard"><h3>RIG <em id="rigSrc">waiting for WSJT-X</em></h3>
+      <div class="f" id="rigFreq">&mdash;.&mdash;&mdash;&mdash;<span>.&mdash;&mdash;&mdash;</span></div>
+      <div class="m"><span id="rigMode">RIG OFF</span><span class="onair" id="onAir">ON AIR</span></div></div>
+    <div class="glass"><h3>SPACE WEATHER</h3><div class="sw">
+      <div><span>SFI</span><b id="sfi">--</b><i id="sfiX">&nbsp;</i></div><div><span>Kp</span><b id="kp">--</b><i id="kpX">&nbsp;</i></div>
+      <div><span>A</span><b id="aidx">--</b><i id="aX">&nbsp;</i></div><div><span>X-RAY</span><b id="xray">--</b><i id="xrayX">&nbsp;</i></div></div></div>
+  </div>
+  <div id="ticker"><div class="lbl"><span class="livedot" id="dxDot"></span>DX CLUSTER</div><div id="tick"></div></div>
+  <div id="flash"></div>
+
+  <div id="right">
+    <div id="scope"><canvas id="radar" width="1244" height="1244"></canvas></div>
+    <div class="glass" id="air">
+      <h3><span><span class="livedot off" id="pskDot"></span><span id="airCall"></span> ON THE AIR</span><em id="pskNote">connecting to PSKReporter&hellip;</em></h3>
+      <div class="big"><b id="heardN">0</b><span id="heardTxt">&nbsp;</span></div>
+      <div class="sub" id="heardSub">&nbsp;</div>
+      <div id="heardList"></div>
+      <h3 style="margin-top:8px">WORLDWIDE ACTIVITY <em id="actNote">spots per minute, live</em></h3>
+      <div class="bands" id="bands"></div>
+      <div class="key"><span><i class="me"></i><span id="keyCall"></span> heard</span><span><i class="them"></i>other stations &middot; color = band</span></div>
+    </div>
+  </div>
+  <div class="scope-tag" style="left:1290px;top:40px">AZIMUTH<em id="azGrid"></em></div>
+  <button class="chip" id="spinBtn"></button>
+  <canvas id="fx" width="1920" height="1080"></canvas>
+  <div id="celebrate"><div class="k" id="ceK"></div><div class="n" id="ceN"></div><div class="c" id="ceC"></div><div class="s" id="ceS"></div></div>
+  <div id="toast"></div>
+  <div id="xlog-link" role="status">Connecting to xLog…</div><button id="xlog-retry" hidden>Reconnect</button>
+<div id="xlog-credit">Ham Mission Control · Billy NZ3C · MIT · Integrated with OM0RX-xLog</div>
+<script type="module" src="./boot.js"></script>
+</body>
+</html>

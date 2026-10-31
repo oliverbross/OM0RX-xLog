@@ -17,6 +17,7 @@ mod alerts;
 mod dx_alerts;
 mod propagation_session;
 mod map_context;
+mod hm_control;
 mod monitor_context;
 mod connection_doctor;
 mod contest_export;
@@ -1615,6 +1616,22 @@ async fn map_context_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandl
 }
 
 #[tauri::command]
+async fn hm_control_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
+    hm_control::validate(window.label())?;
+    let isolated = runtime_profile::isolated(state.path.is_some());
+    if isolated { state.require()?; }
+    tauri::async_runtime::spawn_blocking(move || hm_control::snapshot(&app, isolated)).await
+        .map_err(|_| "HM Control context is unavailable".to_string())?
+}
+
+#[tauri::command]
+async fn hm_control_feed(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, request: hm_control::FeedRequest) -> Result<String, String> {
+    hm_control::validate(window.label())?;
+    if runtime_profile::isolated(state.path.is_some()) { return Err("External feeds are disabled in isolated acceptance.".into()); }
+    hm_control::fetch(request).await
+}
+
+#[tauri::command]
 async fn station_telemetry_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, radio_id: String, provider: Option<String>) -> Result<serde_json::Value, String> {
     station_telemetry::validate(window.label(), runtime_profile::isolated(state.path.is_some()), provider.is_some())?;
     radio_slots::index(&radio_id)?;
@@ -2558,7 +2575,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
             } else {worker::request_existing(request)}
         }).await.map_err(|_| "CW Decode request failed".to_string())?;
     }
-    if matches!(workspace_windows::surface_role(window.label()), "monitor" | "log-qso" | "spot-history" | "world-map" | "dxpedition-map" | "band-maps" | "callsign-intelligence" | "previous-qsos" | "operating-goals" | "station-control" | "cw" | "rotor" | "station-status" | "propagation" | "station-identity" | "alerts" | "antenna") { worker::validate_surface(window.label(), &request)?; }
+    if matches!(workspace_windows::surface_role(window.label()), "hm-control" | "monitor" | "log-qso" | "spot-history" | "world-map" | "dxpedition-map" | "band-maps" | "callsign-intelligence" | "previous-qsos" | "operating-goals" | "station-control" | "cw" | "rotor" | "station-status" | "propagation" | "station-identity" | "alerts" | "antenna") { worker::validate_surface(window.label(), &request)?; }
     if state.path.is_none() && matches!(method, "opportunities_snapshot" | "opportunities_refresh" | "opportunities_dxpedition_snapshot" | "opportunities_dxpedition_refresh") {
         worker::validate_surface(window.label(), &request)?;
         return tauri::async_runtime::spawn_blocking(move || opportunity_selection::snapshot(request)).await
@@ -2743,7 +2760,7 @@ fn exact_contest_recent_spots_command(request: &serde_json::Value) -> bool {
 }
 
 fn validate_worker_request_caller(label: &str, request: &serde_json::Value) -> Result<(), String> {
-    if label=="contest--cw-decode" {return worker::validate_surface(label,request);}
+    if matches!(label, "hm-control" | "contest--cw-decode") {return worker::validate_surface(label,request);}
     if label.starts_with(workspace_windows::CONTEST_LABEL_PREFIX) {
         let cluster_control = workspace_windows::WorkspaceWindowIdentity::parse_native_label(label).ok()
             .is_some_and(|identity| identity.scope == workspace_windows::WorkspaceWindowScope::Contesting
@@ -3231,7 +3248,8 @@ fn ensure_workspace_window(app: &tauri::AppHandle, kind: &str, focus: bool,
     };
     let title = band.map(|band| format!("OM0RX-xLog — {band} Band Map")).unwrap_or_else(|| spec.title.into());
     let (minimum_width, minimum_height) = workspace_windows::native_minimum(kind);
-    let mut builder = tauri::WebviewWindowBuilder::new(app, kind, tauri::WebviewUrl::App(format!("index.html?view={route}{suffix}").into()))
+    let url = if kind == "hm-control" { format!("hm-control/index.html?view=hm-control{suffix}") } else { format!("index.html?view={route}{suffix}") };
+    let mut builder = tauri::WebviewWindowBuilder::new(app, kind, tauri::WebviewUrl::App(url.into()))
         .title(title)
         .inner_size(if identity.scope == workspace_windows::WorkspaceWindowScope::NormalLogging && role == "band-maps" { 380.0 } else { spec.width }, spec.height)
         .min_inner_size(minimum_width, minimum_height)
@@ -4412,7 +4430,7 @@ fn main() {
             contest_voice_profile_write, contest_voice_profile_pick,
             contest_surface_action, contest_surface_diagnostic_report, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_owner_claim, contest_surface_publish, contest_surface_snapshot, contest_rotor_target,
             workspace_mode_present, workspace_canvas_close_ack,
-            workspace_navigation_snapshot, workspace_navigation_ack, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, contest_history_preview, contest_history_manager_request, contest_qrz_details_lookup, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,
+            workspace_navigation_snapshot, workspace_navigation_ack, hm_control_snapshot, hm_control_feed, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, contest_history_preview, contest_history_manager_request, contest_qrz_details_lookup, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,
             detached_cluster_ready, cluster_session_selection, contest_post_spot, dock_detached_window, close_logbook_window, close_qso_window, close_main_window, close_cw_window, show_cw_desk, close_rotor_window, show_rotor_desk, close_station_status_window, show_station_status_desk, close_propagation_window, show_propagation_desk, close_station_identity_window, show_station_identity_desk, close_alerts_window, show_alerts_desk, close_antenna_window, show_antenna_desk,
              hf_propagation_fetch,
              acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,

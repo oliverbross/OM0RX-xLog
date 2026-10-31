@@ -9,5 +9,5 @@ export default defineConfig({
     strictPort: true,
     fs: { allow: [".."] },
   },
-  build: { target: "es2022", manifest: true },
+  build: { target: "es2022", manifest: true, rolldownOptions: { input: { main: "index.html", hmControl: "hm-control/index.html" } } },
 });
