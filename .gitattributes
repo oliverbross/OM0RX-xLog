@@ -2,6 +2,10 @@ Tests/XContestCoreTests/SourceFixtures/master-scp-focused.txt text eol=lf
 Sources/XContestCore/Resources/**/*.json text eol=lf
 python/vendor/not1mm/upstream/not1mm/data/cwmacros.txt text eol=lf whitespace=-blank-at-eol
 
+# source-manifest.json verifies exact upstream bytes on every platform.
+# Do not let a Windows checkout rewrite the pinned sources to CRLF.
+python/vendor/not1mm/upstream/** -text
+
 # Historical diagnostic snapshots are retained in the repository for audit,
 # but are not part of downloadable source distributions or release payloads.
 docs/reviews/** export-ignore
