@@ -1478,7 +1478,14 @@ async fn workspace_mode_present(window: tauri::WebviewWindow, app: tauri::AppHan
                 MAIN_WORKSPACE_REOPENED.store(false, Ordering::Release);
                 main.hide().map_err(|error| error.to_string())?;
             }
-            else { present_active_workspace(&app)?; }
+            else if operating_module::owner()?.snapshot()?["selected"] != "contesting"
+                && !main.is_visible().map_err(|error| error.to_string())?
+                && !main.is_minimized().map_err(|error| error.to_string())? {
+                // Saved-layout reconciliation runs in the background, including
+                // after draft and logbook updates. Reveal a hidden canvas, but
+                // leave activation/minimization to explicit Open/Dock/menu intent.
+                main.show().map_err(|error| error.to_string())?;
+            }
         }
         update_workspace_mode_checks(&app, windows)?;
         *presented_windows = windows;
