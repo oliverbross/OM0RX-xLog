@@ -151,8 +151,12 @@ def isolated_session(root, swift_tests, swift_scratch_path):
             output, _ = monitor.communicate(timeout=5)
         if b"member=Unlock" in output or b"member=Prompt" in output:
             raise RuntimeError("Background vault read requested an unlock or prompt")
-        run(["gnome-keyring-daemon", "--unlock", "--components=secrets"],
-            env=env, input=PASSWORD, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        # --unlock is a daemon startup mode, not a client command targeting our
+        # existing foreground process. Recover the same encrypted keyring using
+        # its known fixture password through the already-verified startup path.
+        stop_daemon(daemon)
+        daemon = start_daemon(root, env, 3)
+        run([binary, "recovered"], env=env)
         run([binary, "delete"], env=env)
         unavailable_env = dict(env, DBUS_SESSION_BUS_ADDRESS="unix:path=" + str(root / "absent-bus"))
         run([binary, "unavailable"], env=unavailable_env)

@@ -34,7 +34,10 @@ feeds a synthetic keyring password through stdin, and starts its own foreground
 keyring process. It verifies exact case/Unicode/service-account identities,
 embedded NUL and size boundaries, replacement and idempotent deletion, unavailable
 service errors, persistence across a daemon restart, and locked reads completing
-without Unlock or Prompt method calls. On failure it retains fixture evidence
+without Unlock or Prompt method calls. After that locked-read proof, it stops
+only its owned daemon and starts a fresh foreground daemon with the same fixture
+password. It verifies the persisted bytes remain readable before deleting them;
+it does not launch an independent background unlock daemon. On failure it retains fixture evidence
 and prints its directory; successful synthetic fixtures are removed. Startup
 failures distinguish D-Bus ownership from a failed default-collection probe and
 include bounded private probe/daemon stderr, without printing the inherited

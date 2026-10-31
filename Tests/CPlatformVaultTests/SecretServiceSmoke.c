@@ -127,6 +127,14 @@ int main(int argc, char **argv) {
         lock_default_collection();
     } else if (!strcmp(mode, "locked")) {
         check_load(service, "account", XLOG_VAULT_UNAVAILABLE, NULL, 0);
+    } else if (!strcmp(mode, "recovered")) {
+        /* Restart after the locked-read proof must recover this same encrypted
+         * keyring, rather than silently creating an empty collection. */
+        check_load(service, "account", XLOG_VAULT_OK, payload, sizeof(payload) - 1);
+        check_load(other_service, "Account", XLOG_VAULT_OK, other_payload, sizeof(other_payload) - 1);
+        uint8_t maximum[2560];
+        memset(maximum, 'x', sizeof(maximum));
+        check_load(service, "maximum", XLOG_VAULT_OK, maximum, sizeof(maximum));
     } else if (!strcmp(mode, "delete")) {
         for (size_t index = 0; index < account_count; index++) {
             require(xlog_vault_remove(service, accounts[index], &native_code) == XLOG_VAULT_OK, "cleanup");
