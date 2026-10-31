@@ -2,7 +2,7 @@
 
 ## Scope and carried qualification
 
-This candidate advances installed 1.3.70 to repair a persistent callsign lookup
+Installed 1.3.71 replaces 1.3.70 and repairs a persistent callsign lookup
 failure after temporary worker startup contention. The 1.3.70 review records
 the preceding HM integration, Scotland operating-country/foreground repairs,
 save/logbook improvements, rapid-QSY/rotor safeguards, Maestro recovery and
@@ -76,3 +76,89 @@ Version 1.3.71 packages only from the clean canonical checkout with nice priorit
 10 and one Cargo job. DistributionMetadata and the main executable record the
 exact versioned commit, independently verified before installation. Native
 backend control and ledger code are unchanged from qualified 1.3.70.
+
+## Final signed candidate qualification
+
+Clean packaged source: 0680d7558d3cd48c14f9a2e2e460e8ac24a538c9.
+The package completed from the canonical checkout with the documented single-job
+priority. Frontend production/type/bundle checks, worker self-test, Python tests,
+CW payload checks and strict signatures passed. The independently verified hashes:
+
+| Executable | SHA-256 |
+| --- | --- |
+| xlog-prototype | cc323fc712f6967a91f4373300e94ec4f4c2f058a8c040baf39d3628c406119f |
+| xlog-prototype-worker | 8356bc11f589d459788babe5a3168ff9207161cd02ab7132feafd88205d8a50f |
+| xlog-cw-worker | ab81a7af2c562db59095ce14d69741b99375077c58b68592862951e064f5255d |
+
+Apple submission b760577b-ad89-4587-9450-b39de96a757b was Accepted. The ticket
+was stapled and validated; Gatekeeper accepted the candidate and installed app.
+Final notarized ZIP SHA-256:
+9b98e677cf0b61c506e97d79952937b2221a68729e3337731e94128940deeb6a.
+
+The signed private benchmark used 69,556 copied original contacts and five
+isolated saves. Save → status → logbook page took 16.92–35.97 ms; including
+HM projection took 37.53–65.33 ms. Initial workspace opening took 9.093 seconds
+and first full HM projection 4.448 seconds; these remain separate cold boundaries,
+not repeated-save timings or production latency percentiles.
+
+The actual signed native app opened HM as a separate window while a private
+QSO was entered. Retry lookup left all 14 draft text fields unchanged, including
+a manual name and country. An initial comparison incorrectly included the AX
+focused-control summary; comparing actual fields and the later full tree
+confirmed preservation. Durable “QSO logged” appeared within the first
+observation, 1577 ms including automation. SQLite confirmed the saved MM/LY3X/P
+row with Manual operator / Scotland and its unique HM171 acceptance marker.
+Native logbook and HM both updated 69,561 → 69,562 with the matching notification.
+Country was deliberately typed for the retry preservation check; this is not
+a claim of an offline QRZ lookup. Ordinary Quit completed.
+
+Read-only actual shared-ledger comparison before/after both signed CLI and
+native runs found the same 257 quarantined key/raw payloads and four publisher
+filenames. Digest remained
+26497a527c186fd9cacc640d26701f00a7c408c4ddff503c0234e7db15e5dadb.
+The earlier isolation escape did not recur.
+
+## Installed acceptance — complete on this Mac
+
+The running 1.3.70 app quit normally with the FW3GT draft retained. Fresh complete
+backup, including Integration Services, workspace, native state, WebKit and
+preferences:
+/Users/oliver/Documents/Backups/OM0RX-xLog/HM-Control-performance-1.3.71-before-install-20261101T034553+0930.
+The database remained byte-identical before the first updated launch:
+936a4156cb3c82516aa69f058177ecafb7f897966166db4569e80a5bf5677f48.
+
+Atomic replacement retained prior 1.3.70 at
+/Applications/OM0RX-xLog-previous-20261031T181653Z-4663.app.
+Installed main/worker/CW hashes exactly matched the table. App PID 4711 and
+worker PID 4732 were verified by process-only inspection with exact installed
+paths, matching parentage and zero private arguments before GUI binding.
+
+The restored FW3GT intelligence resolved automatically to QRZ, Gavin GM3GAV,
+Wallis and Futuna Islands, DXCC 298 and AH05wr. No manual Retry lookup or draft
+input was needed. The draft kept its call, 14.001000 MHz, CW/20m, 599 reports,
+name, comment “up”, grid, country and IOTA OC-118. The radio remained connected
+at 14.003810 MHz CW. The existing Scotland history row was present.
+
+Window → HM Control connected without manual Reconnect on this final build.
+It displayed the same 69,556 contacts, direct-agent radio, live PSKReporter
+and 11 tracked satellites. The previously qualified shared-cluster integration
+is unchanged. HM was closed after verification and Operator Desk left active,
+with the resolved lookup and pending draft intact.
+
+Read-only ledger checks preserved all 257 pre-install quarantine key/payload
+pairs byte-exactly, with zero missing or altered entries. At 18:17:55 UTC, 23
+fresh normal_logging/direct_agent/radio1 receipts postdated this installation's
+start; no pending deliveries or active leases remained. These are actual
+software transport acknowledgements from the installed worker, not fixtures.
+
+Final contact integrity passed: all 69,556 original live contact IDs remained,
+no original contact was missing, no HM16/HM17 acceptance/projection marker
+reached production, and the N0PERF count remained zero. No production test QSO
+was logged and no manual RF/QSY/rotor test input was sent.
+
+Keep paired backup/app rollback assets and the 1.3.69 incident evidence. Its
+pre-migration historical-byte limitation is not replaced by the later exact
+pre-install comparisons. This is accepted for the installed current Mac;
+physical Maestro LCD observation, measured physical rotor-stop timing, extended
+hardware/provider soak and all-platform public-release qualification are outside
+this acceptance. Cold opening/full rebuilding can still take several seconds.
