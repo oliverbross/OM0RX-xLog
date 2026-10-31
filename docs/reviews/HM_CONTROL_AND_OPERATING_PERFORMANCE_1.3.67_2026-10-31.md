@@ -137,3 +137,25 @@ Final source, tests and installed evidence follow after verification.
 Runtime bridge follow-up source: `4b5c9750`. Native map/metadata tests: 7 passed.
 Actual Swift worker offline and fenced-production JSON dispatch regression:
 1 passed, with station/cluster/WSJT-X still denied by offline policy.
+
+## Installed acceptance and measured follow-up
+
+Source 3dc0de2e5e0dc8946ed612364991dc6cc7c49540 was signed, accepted by Apple
+(submission 77472b86-aa66-4bd3-b8d5-8ef4787c40f1), stapled, Gatekeeper-accepted,
+and installed at /Applications/OM0RX-xLog.app. All three executable hashes
+matched the candidate. The live database remained byte-identical until launch;
+all 69,556 original contact IDs remained present and private test markers were
+absent. The previous 1.3.64 app is retained as
+/Applications/OM0RX-xLog-previous-20261031T141246Z-43662.app.
+
+The installed main window reconnected radio 7.162500 MHz LSB and the shared
+cluster. Rotor telemetry showed connected, stopped at 179 degrees. HM Control
+opened from Window, recovered after one manual retry, and displayed the same
+69,556-QSO log, direct-agent frequency, live PSKReporter and 11 tracked satellites.
+No test contact, QSY or rotor movement was sent to the production station.
+
+A live worker sample exposed additional background-sync date-formatter/index
+work and repeated settings filesystem validation. The HM initial service timeout
+also exposed that passive map metadata could retire the shared worker. These
+measured follow-ups advance to 1.3.68; this installed state is not claimed as
+complete acceptance of the entire performance request.
