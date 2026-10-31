@@ -84,6 +84,11 @@ impl Coordinator {
             let mut state = self.state.lock().map_err(|_| "Spot activation unavailable")?;
             if let Some(retired) = state.retired.get(operation_id) { return Ok(retired.clone()); }
             if !state.operations.contains_key(operation_id) {
+                // A rejected new identity must not displace the exact retained
+                // operation needed to retry an unacknowledged rotor Stop.
+                if let Some(error) = &state.rotor_stop_error {
+                    return Err(format!("Previous rotor Stop is unconfirmed. Retry its retained cancellation before recovering another activation identity: {error}"));
+                }
                 if state.active.is_some() || state.recovering { return Err("Another activation is active. Wait for it before retiring an old identity.".into()); }
                 if state.operations.len() + state.retired.len() >= 4096 { return Err("Activation history is full. Restart safely before continuing.".into()); }
                 state.recovering = true;
@@ -370,6 +375,28 @@ mod tests {
     }
     fn request() -> Request { Request { operation_id:uuid::Uuid::new_v4().to_string(), source_epoch:uuid::Uuid::new_v4().to_string(),
         spot_id:"report".into(), spot_version:uuid::Uuid::new_v4().to_string() } }
+    #[test]
+    fn missing_identity_recovery_cannot_displace_a_failed_stop_retry() {
+        let backend = Arc::new(Fake::new()); let owner = Coordinator::new(backend.clone()); let original = request();
+        owner.activate(original.clone()).unwrap();
+        backend.mode.store(18, Ordering::SeqCst);
+        assert!(owner.supersede_rotor(&original.operation_id).is_err());
+        let absent = request();
+        assert!(owner.activate(absent.clone()).is_err());
+        let before = backend.calls.lock().unwrap().len();
+        assert!(owner.reconcile(&absent.operation_id).unwrap_err().contains("Previous rotor Stop is unconfirmed"));
+        assert_eq!(backend.calls.lock().unwrap().len(), before);
+        assert_eq!(owner.snapshot().unwrap()["operationId"], original.operation_id);
+        assert_eq!(owner.status(&original.operation_id).unwrap()["phase"], "confirmed");
+        assert_eq!(owner.reconcile(&original.operation_id).unwrap()["phase"], "confirmed");
+        {
+            let state = owner.state.lock().unwrap();
+            assert!(!state.recovering); assert!(!state.retired.contains_key(&absent.operation_id));
+        }
+        backend.mode.store(0, Ordering::SeqCst);
+        assert_eq!(owner.supersede_rotor(&original.operation_id).unwrap()["stopAcknowledged"], true);
+        assert_eq!(owner.activate(request()).unwrap()["phase"], "confirmed");
+    }
     #[test]
     fn unknown_stop_blocks_new_native_activation_until_explicit_correlated_retry() {
         let backend = Arc::new(Fake::new()); let owner = Coordinator::new(backend.clone()); let original = request();
