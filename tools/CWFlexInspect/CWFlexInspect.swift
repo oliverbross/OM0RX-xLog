@@ -1,5 +1,6 @@
 // Copyright © 2026 Oliver Bross OM0RX. SPDX-License-Identifier: GPL-3.0-only
-// Explicit, bounded metadata inspection. Never grants handoff or starts IQ.
+// Explicit, bounded metadata inspection. Named entry point supports multi-file Swift targets.
+// Never grants handoff or starts IQ.
 import Foundation
 import XCatIntegrationCore
 
