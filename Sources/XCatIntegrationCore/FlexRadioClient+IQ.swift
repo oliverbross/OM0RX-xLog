@@ -62,6 +62,7 @@ private enum FlexIQInterlockSettings {
     }
 }
 struct FlexIQState {
+    var stopping=false
     var inventory=FlexIQResourceInventory()
     var subscribedGeneration:Int?
     var preparing=false
@@ -78,6 +79,11 @@ struct FlexIQState {
     var flows:[UInt32:FlexIQFlow]=[:]
     var epoch:UInt64=0
     var retiredCreateIDs:[UUID:UInt32]=[:]
+    var terminalErrors:[UUID:any Error]=[:]
+}
+struct FlexIQCleanup {
+    let leases:Set<UUID>
+    let task:Task<Void,Never>
 }
 struct FlexIQFlow {
     let id:UUID
@@ -138,9 +144,10 @@ extension FlexRadioClient {
             pan:pan,station:context.stationHandle,expiresNS:now+30_000_000_000)
     }
     public func startIQ(panadapterID:String,sampleRate:Int,leaseID:UUID) async throws -> FlexIQSubscription {
-        guard [48000,96000,192000].contains(sampleRate),let context=iqControlContext(),
+        guard !iqState.stopping,[48000,96000,192000].contains(sampleRate),let context=iqControlContext(),
               let id=FlexIQResourceInventory.handle(panadapterID),
-              !iqState.flows.values.contains(where:{$0.leases[leaseID] != nil}) else{throw FlexIQSubscriptionError.unavailable}
+               !iqState.flows.values.contains(where:{$0.leases[leaseID] != nil}),
+               !iqCleanups.values.contains(where:{$0.leases.contains(leaseID)}) else{throw FlexIQSubscriptionError.unavailable}
         guard context.knownReceive else{throw FlexIQSubscriptionError.receiveUnverified}
         guard iqState.identity != nil else{throw FlexIQSubscriptionError.handoffRequired}
         let pan=try iqState.inventory.permittedPanadapter(id,stationHandle:context.stationHandle,ownedStreams:iqOwnedStreams())
@@ -152,7 +159,7 @@ extension FlexRadioClient {
             return FlexIQSubscription(leaseID:leaseID,blocks:pair.stream)
         }
         let now=DispatchTime.now().uptimeNanoseconds
-        guard iqState.flows.count<2,let handoff=iqState.handoffs.removeValue(forKey:id),
+        guard iqState.flows.count+iqCleanups.count<2,let handoff=iqState.handoffs.removeValue(forKey:id),
               handoff.permits(generation:context.generation,inventory:iqState.inventory,owned:iqOwnedStreams(),pan:pan,station:context.stationHandle,now:now) else {
             throw FlexIQSubscriptionError.handoffRequired
         }
@@ -192,10 +199,14 @@ extension FlexRadioClient {
         }
     }
     public func stopIQ(leaseID:UUID) async {
+        if let cleanup=iqCleanups.values.first(where:{$0.leases.contains(leaseID)}) {
+            await cleanup.task.value;return
+        }
         guard let id=iqState.flows.first(where:{$0.value.leases[leaseID] != nil})?.key,
-              let continuation=iqState.flows[id]?.leases.removeValue(forKey:leaseID) else{return}
+              let continuation=iqState.flows[id]?.leases[leaseID] else{return}
         continuation.finish()
-        if iqState.flows[id]?.leases.isEmpty==true {await iqEndFlow(id,error:FlexIQSubscriptionError.stopped)}
+        if iqState.flows[id]?.leases.count==1 {await iqEndFlow(id,error:FlexIQSubscriptionError.stopped)}
+        else{iqState.flows[id]?.leases.removeValue(forKey:leaseID)}
     }
     public func currentIQCapture(leaseID:UUID) -> FlexIQCapture? {
         iqRevalidate()
@@ -334,7 +345,7 @@ extension FlexRadioClient {
         guard let current=iqControlContext(),current.generation==context.generation,current.stationHandle==context.stationHandle,
               iqState.flows[id]?.id==flowID,iqState.flows[id]?.invalidated==false else{
             iqTrace("flow_check_failed","pan=\(FlexIQResourceInventory.identifier(id)) expected_flow=\(flowID) current_flow=\(String(describing:iqState.flows[id]?.id)) context_available=\(iqControlContext() != nil)")
-            throw FlexIQSubscriptionError.stopped
+            throw iqState.terminalErrors[flowID] ?? FlexIQSubscriptionError.stopped
         }
     }
     private func iqEnsureDestination(_ context:FlexIQControlContext) async throws {
@@ -420,23 +431,43 @@ extension FlexRadioClient {
         for (id,flow) in iqState.flows where flow.generation==generation {await iqEndFlow(id,expected:flow.id,error:error)}
     }
     private func iqEndFlow(_ id:UInt32,expected:UUID?=nil,error:any Error) async {
+        if let expected,let cleanup=iqCleanups[expected]{await cleanup.task.value;return}
         guard let flow=iqState.flows[id],expected==nil || expected==flow.id else{return}
         iqTrace("flow_end","pan=\(flow.pan.id) flow=\(flow.id) stream=\(flow.streamID.map(FlexIQResourceInventory.identifier) ?? "none") error=\(error)")
         iqState.flows.removeValue(forKey:id)
+        if iqState.terminalErrors.count>=32,let key=iqState.terminalErrors.keys.first{iqState.terminalErrors.removeValue(forKey:key)}
+        iqState.terminalErrors[flow.id]=error
         for continuation in flow.leases.values{continuation.finish(throwing:error)}
+        var receiver:FlexIQDatagramReceiver?
         if iqState.flows.isEmpty {
-            let receiver=iqState.receiver;iqState.receiver=nil;iqState.destinationReady=false
+            receiver=iqState.receiver;iqState.receiver=nil;iqState.destinationReady=false
             iqState.reader?.cancel();iqState.reader=nil;iqState.watchdog?.cancel();iqState.watchdog=nil
-            await receiver?.stop()
         }
+        if flow.creating,let streamID=flow.streamID,iqMayRemoveStream(streamID,generation:flow.generation) {
+            if iqState.retiredCreateIDs.count>=32,let key=iqState.retiredCreateIDs.keys.first{iqState.retiredCreateIDs.removeValue(forKey:key)}
+            iqState.retiredCreateIDs[flow.id]=streamID
+        }
+        // One uncancelled cleanup operation is shared by the watchdog, pending
+        // acquisition, every lease Stop and transport close. Removing the flow
+        // withdraws evidence immediately; it must not hide an unfinished remove.
+        let task=Task { [weak self,receiver] in
+            await receiver?.stop()
+            await self?.iqRemoveEndedFlow(flow)
+        }
+        iqCleanups[flow.id]=FlexIQCleanup(leases:Set(flow.leases.keys),task:task)
+        await task.value
+        iqCleanups.removeValue(forKey:flow.id)
+    }
+    private func iqRemoveEndedFlow(_ flow:FlexIQFlow) async {
         if let streamID=flow.streamID {
             if iqMayRemoveStream(streamID,generation:flow.generation) {
-                if flow.creating {
-                    if iqState.retiredCreateIDs.count>=32,let key=iqState.retiredCreateIDs.keys.first{iqState.retiredCreateIDs.removeValue(forKey:key)}
-                    iqState.retiredCreateIDs[flow.id]=streamID
-                }
                 _ = try? await iqCommand("stream remove 0x\(FlexIQResourceInventory.identifier(streamID))",generation:flow.generation)
             }
+        }
+    }
+    func iqAwaitPendingCleanup() async {
+        for (id,cleanup) in iqCleanups {
+            await cleanup.task.value;iqCleanups.removeValue(forKey:id)
         }
     }
 }

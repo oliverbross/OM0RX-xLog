@@ -6,6 +6,44 @@ import XCTest
 import Darwin
 
 final class FlexIQSubscriptionTests:XCTestCase {
+    func testConcurrentLeaseStopAndTransportCloseAwaitOneOwnedRemove() async throws {
+        let (radio,wire)=try await setup();try await authorize(radio)
+        let lease=UUID(),subscription=try await radio.startIQ(panadapterID:"40000000",sampleRate:96000,leaseID:lease)
+        let drain=Task{for try await _ in subscription.blocks{}}
+        await wire.holdRemove()
+        let first=Task{await radio.stopIQ(leaseID:lease)}
+        for _ in 0..<400 {if await wire.removePending{break};try await Task.sleep(for:.milliseconds(5))}
+        let pending=await wire.removePending;XCTAssertTrue(pending)
+        let stopped=FlexIQCompletion(),closed=FlexIQCompletion()
+        let second=Task{await radio.stopIQ(leaseID:lease);await stopped.mark()}
+        let close=Task{await radio.stopTransportOnly();await closed.mark()}
+        try await Task.sleep(for:.milliseconds(40))
+        let stopReturned=await stopped.completed,closeReturned=await closed.completed
+        XCTAssertFalse(stopReturned);XCTAssertFalse(closeReturned)
+        await wire.releaseRemove();await first.value;await second.value;await close.value;drain.cancel()
+        let events=await radio.iqDiagnostics(),commands=await wire.commands
+        XCTAssertEqual(commands.filter{$0.hasPrefix("stream remove ")}.count,1)
+        XCTAssertEqual(events.filter{$0.operation=="ack" && $0.detail.hasPrefix("stream remove ")}.count,1)
+    }
+    func testNoDataStartupWaitsForOriginalCleanupACKAndPreservesFailure() async throws {
+        let (radio,wire)=try await setup();try await authorize(radio)
+        await wire.suppressIQ();await wire.holdRemove()
+        let completion=FlexIQCompletion()
+        let request=Task { () -> String in
+            let result:String
+            do{_ = try await radio.startIQ(panadapterID:"40000000",sampleRate:96000,leaseID:UUID());result="unexpected_running"}
+            catch{result=String(describing:error)}
+            await completion.mark();return result
+        }
+        for _ in 0..<1400 {if await wire.removePending{break};try await Task.sleep(for:.milliseconds(5))}
+        let pending=await wire.removePending;XCTAssertTrue(pending)
+        try await Task.sleep(for:.milliseconds(40))
+        let returned=await completion.completed;XCTAssertFalse(returned,"Startup must await the original owned removal before its caller can close TCP")
+        await wire.releaseRemove()
+        let failure=await request.value;XCTAssertEqual(failure,"noData")
+        let events=await radio.iqDiagnostics()
+        XCTAssertEqual(events.filter{$0.operation=="ack" && $0.detail.hasPrefix("stream remove ")}.count,1)
+    }
     func testIQControlEvidenceIsBoundedAndSurvivesTransportStop() async {
         let radio=FlexRadioClient(host:"127.0.0.1",stationName:"Fixture")
         await radio.iqConsumeStatus("stream 0x80000001 license=private_fixture_value type=dax_iq daxiq_channel=1")
@@ -352,8 +390,10 @@ private actor FlexIQFixtureRadio {
     private let sampleQueue=DispatchQueue(label:"xlog.fixture.flex-iq.samples",qos:.userInteractive)
     private var streams:[UInt32:(Int,UInt8)]=[:]
     private var held=false,pendingCreate:Int?
+    private var heldRemove=false,pendingRemove:Int?,iqSuppressed=false
     private(set) var commands:[String]=[]
     var createPending:Bool{pendingCreate != nil}
+    var removePending:Bool{pendingRemove != nil}
     func start() async throws -> UInt16 {
         let listener=try NWListener(using:.tcp,on:.any);self.listener=listener
         listener.stateUpdateHandler={[weak self] state in if case .ready=state {Task{await self?.markReady()}}}
@@ -428,14 +468,19 @@ private actor FlexIQFixtureRadio {
         }
         if body.hasPrefix("stream remove "),let id=body.split(separator:" ").last.flatMap({FlexIQResourceInventory.handle(String($0))}) {
             streams.removeValue(forKey:id);status("stream 0x\(FlexIQResourceInventory.identifier(id)) removed")
+            if heldRemove{pendingRemove=sequence;return}
         }
         send("R\(sequence)|0|\n")
     }
     func status(_ text:String){send("S0|\(text)\n")}
     func holdCreate(){held=true}
+    func suppressIQ(){iqSuppressed=true}
+    func holdRemove(){heldRemove=true}
+    func releaseRemove(){if let sequence=pendingRemove{pendingRemove=nil;send("R\(sequence)|0|\n")}}
     func releaseCreate(){if let sequence=pendingCreate{pendingCreate=nil;send("R\(sequence)|0|0x80000001\n")}}
     private func send(_ text:String){connection?.send(content:Data(text.utf8),completion:.contentProcessed{_ in})}
     private func emit() {
+        guard !iqSuppressed else{return}
         for (id,(rate,counter)) in streams {
             var data=Data()
             for word in [UInt32(0x18000000)|(UInt32(counter)<<16)|UInt32(2052),id,0x1c2d,0x534c02e5] {
@@ -455,5 +500,9 @@ private actor FlexIQFixtureRadio {
         }
     }
     func stop(){pump?.cancel();pump=nil;if udpSocket >= 0 { Darwin.close(udpSocket);udpSocket = -1 };udpDestination=nil;connection?.cancel();connection=nil;listener?.cancel();listener=nil}
+}
+private actor FlexIQCompletion {
+    private(set) var completed=false
+    func mark(){completed=true}
 }
 #endif

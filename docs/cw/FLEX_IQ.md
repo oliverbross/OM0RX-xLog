@@ -74,6 +74,11 @@ another acquisition. A subsequent passive read reports RX ready and no DAX IQ
 stream, but does not prove the lost original removal ACK. Receipt and journal:
 `flex-native-iq-02`; no Running, RF mapping or physical cleanup pass is claimed.
 
+The cleanup-await regression first fails with early startup return and a replaced
+error, then passes after exact-flow cleanup is retained and awaited by startup,
+Stop and transport close. All 19 lifecycle cases pass (`534b6b6390a75bd9`). See
+`SOURCE_LIFECYCLE.md`; hardware removal ACK and IQ delivery are still pending.
+
 31 October transport follow-up: the operator confirms SmartSDR/Windows DAX on
 192.168.0.117; Windows DAX is now stopped while panadapter 40000000 remains on
 DAX IQ 1. One post-ready acquisition still fails manufacturer discovery before

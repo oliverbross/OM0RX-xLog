@@ -51,10 +51,11 @@ Later Mac receipt demonstrates source-preserving discovery delivery: five actual
 FLEX-8400 frames reveal terminal NUL alignment rejected by the native parser.
 The received-frame regression fails before the bounded fix, then all 25 Flex
 identity/resource/lifecycle cases pass. Serial-pinned inspector self-test passes.
-Fresh serial-pinned native handoff subsequently passes. First native IQ startup
-fails `stopped` with zero samples; actual create/cleanup remains unresolved. The
-existing owner's bounded command/status trace passes 17 lifecycle cases before
-the next coordinated capture. Production capability, RF and spot-quality gates
+Fresh serial-pinned native handoff subsequently passes. Instrumented IQ startup
+acknowledges create/rate but receives no admitted IQ. Its trace exposes premature
+TCP close before owned remove ACK. The cleanup-await/error-preservation regression
+first fails, then all 19 Flex lifecycle cases pass after repair. Actual UDP and
+removal ACK remain pending. Production capability, RF and spot-quality gates
 stay separate; no one/two/mixed-radio IQ acceptance is claimed.
 
 31 October CW source progress: durable original draft-action reconciliation,

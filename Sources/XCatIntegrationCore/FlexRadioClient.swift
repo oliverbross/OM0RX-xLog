@@ -114,6 +114,7 @@ public actor FlexRadioClient: RadioControlling {
     private var reportedSliceIDs: Set<Int> = []
     var iqState = FlexIQState()
     var iqEvents:[FlexIQDiagnosticEvent]=[]
+    var iqCleanups:[UUID:FlexIQCleanup]=[:]
     private var ownClientHandle:UInt32?
     private var iqBoundClientID:String?
 
@@ -162,6 +163,8 @@ public actor FlexRadioClient: RadioControlling {
     /// Close this client without changing the radio's transmit state. Owners
     /// with explicit RF obligations release and observe those before calling it.
     public func stopTransportOnly() async {
+        shouldRun=false;iqState.stopping=true
+        await iqAwaitPendingCleanup()
         iqReset()
         shouldRun = false
         reconnectTask?.cancel()

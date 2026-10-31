@@ -97,3 +97,23 @@ panel cases pass (`58c9eb11a1dcaeda`), including a late Start reply after span S
 TypeScript and all frontend/window budgets pass; CW Decode's startup graph is
 310,349 bytes (`d4ec3470c88fd608`). These are isolated/loopback checks. Actual
 station-side release and recovery remain hardware acceptance gates.
+
+## Flex no-data cleanup receipt
+
+The actual first instrumented native start acknowledges stream creation and
+96-ksample/s rate, then receives no admitted IQ. Its watchdog removes the flow
+before awaiting the owned remove ACK; the pending start sees `stopped` and its
+caller can close TCP too early. A held-ACK loopback regression reproduces both
+early return and loss of the original `noData` reason (`0d14e36030b0bef0`).
+
+One exact-flow cleanup task now survives caller/watchdog cancellation and is
+shared by pending startup, lease Stop and transport close. Evidence is withdrawn
+synchronously; later Stop still finds the original lease's cleanup. Retired flows
+count against the two-flow bound, and a lease cannot be reused during its cleanup.
+A bounded 32-flow terminal-error record preserves the original cause. Current
+generation/ownership checks still precede any remove; no unknown stream is removed.
+
+The focused regression passes (`72ce4a3ec47cccc5`), then all **19 Flex lifecycle
+cases** pass (`534b6b6390a75bd9`), including concurrent Stop/transport close held
+until exactly one owned remove ACK. These tests establish the source repair;
+actual ACK/stream disappearance and UDP delivery remain live gates.
