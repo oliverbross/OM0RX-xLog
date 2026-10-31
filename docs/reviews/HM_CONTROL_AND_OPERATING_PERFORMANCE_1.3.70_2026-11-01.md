@@ -93,3 +93,49 @@ Package from the clean versioned commit using prototype/scripts/package-macos.sh
 with CARGO_BUILD_JOBS=1 and nice priority 10. The build records that commit in the
 main executable and DistributionMetadata; independently verify them and all three
 executable hashes before notarization and installation.
+
+## Actual installed 1.3.70 acceptance and remaining startup lookup
+
+Clean packaged source: 15733f32477e7f52e2c9078641fe9a301807b05e.
+Main SHA-256 f75960ffe4d4eab7cecf6d5a2fb32f85324f2a8e693d1be155eac8ed4bae6c45;
+worker 718b298f9175728cddda0b85b3535713d99dcc2ce702344637bd62495ef3b01b;
+CW worker ce135c1c860ebaf03fab8fd0fd689e136dda214b3aec1a44c8525f9c029d38c6.
+Apple submission 951e490c-6598-4390-aeae-c44d7d36248f was Accepted, stapled and
+Gatekeeper accepted. The exact hashes matched the installed app.
+
+The signed private 69,556-contact benchmark measured save → page at 28–80 ms
+and save → page → HM at 60–131 ms over five runs. Initial HM full rebuilding
+took 4.535 seconds; first workspace initialization took 10.375 seconds. These
+cold operations remain separate from the repeated save path. Native durable
+success was visible in 1028 ms including automation, with HM open. Native
+logbook and HM both updated 69,561 → 69,562 and showed the saved callsign.
+Ordinary private Quit completed, and actual global quarantine digest and all
+three publisher filenames remained unchanged across signed CLI and native EOF.
+
+Production 1.3.68 quit normally. Fresh complete backup:
+/Users/oliver/Documents/Backups/OM0RX-xLog/HM-Control-performance-1.3.70-before-install-20261101T025358+0930.
+The production database stayed byte-identical through the atomic swap
+(SHA-256 0b02c342548d08361e50179945e1f42f0e6516305ec83ed7fb3ea1c8d1049de0).
+Retained prior app: /Applications/OM0RX-xLog-previous-20261031T172445Z-91369.app.
+New app PID 91424 and worker 91446 were process-verified with exact installed
+paths, correct parentage and no private arguments before GUI binding.
+
+All 69,556 original contact IDs remained; no HM16/HM17 acceptance/projection
+markers or N0PERF contacts reached production. All 257 pre-install quarantine
+key/payload pairs remained byte-identical, with zero missing/altered entries.
+At 17:29:38 UTC the installed worker had 40 fresh normal_logging/direct_agent/
+radio1 receipts and zero pending deliveries. This verifies software transport
+acceptance; no physical Maestro LCD observation was supplied.
+
+The FW3GT draft (including frequency, name, comment, grid, country and IOTA)
+was retained. Live HM showed 69,556 contacts, direct-agent 14.003810 MHz CW,
+filtered cluster, PSKReporter, weather and 11 satellites. Its initial open
+exhausted the startup retry budget while the worker was busy; one explicit
+Reconnect immediately recovered the complete live dashboard.
+
+A remaining startup defect was found: callsign lookup retries only once after
+750 ms, then stores a busy error until its callsign/request/workspace dependency
+changes. The restored draft's intelligence card stayed busy after ordinary
+Logbook → Desk navigation. This is a persistent failure after temporary startup
+contention, not a successful lookup qualification. A bounded read-retry and
+explicit retry follow-up will receive a new visible version before replacement.
