@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { MapSpot } from "../MapSpots";
+import { useDocumentVisible } from "./useDocumentVisible";
 import "./OpportunitiesPanel.css";
 const OpportunityMap = lazy(() => import("../Map"));
 
@@ -152,6 +153,7 @@ function preferences(): Preferences {
 }
 
 export function OpportunitiesPanel({ request, onSelect, onDock, refresh = 0, home, taskOnly = false }: { request: Request; onSelect?: (item: Opportunity) => void; onDock?: () => void; refresh?: number; home?: { call?: string; lat: number; lon: number } | null; taskOnly?: boolean }) {
+  const visible = useDocumentVisible();
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [prefs, setPrefs] = useState(preferences);
   const { kind, band, mode, sort, map: showMap } = prefs;
@@ -169,6 +171,7 @@ export function OpportunitiesPanel({ request, onSelect, onDock, refresh = 0, hom
   const inFlight = useMemo(() => new Map<string, Promise<unknown>>(), [request]);
   const responseOrder = useRef(0), acceptedOrder = useRef(0);
   useEffect(() => {
+    if (!visible) return;
     let active = true, refreshing = false;
     setError("");
     const load = (key: string, method: string, params?: Record<string, unknown>) => {
@@ -219,7 +222,7 @@ export function OpportunitiesPanel({ request, onSelect, onDock, refresh = 0, hom
     const localTimer = window.setInterval(read, 15_000);
     const feedTimer = window.setInterval(() => reload(true), 60_000);
     return () => { active = false; window.clearInterval(localTimer); window.clearInterval(feedTimer); };
-  }, [refresh, inFlight]);
+  }, [refresh, inFlight, visible]);
   useEffect(() => { try { localStorage.setItem(preferencesKey, JSON.stringify(prefs)); } catch { /* Session-only fallback. */ } }, [prefs]);
   useEffect(() => {
     try { localStorage.setItem(columnWidthsKey, JSON.stringify({ version: 1, widths: columnWidths })); }

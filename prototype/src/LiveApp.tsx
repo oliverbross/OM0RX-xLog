@@ -675,8 +675,9 @@ function MainLiveApp() {
       return result;
     } catch (cause) { if (cause instanceof Error) throw cause; throw new Error(errorMessage(cause) || "Operation failed. Check the connection or configuration; no success has been confirmed."); }
   }, [activeRadio, disarmAutoRotor]);
-  const panelRequest = useDeferredPanelReads(request, refresh,
-    workspace?.workspace_exists === true && !workspacePending && view !== "Chaser & DX" && !separateWindows);
+  const panelRequest = useDeferredPanelReads(request, `${workspace?.generation ?? ""}:${settingsState.snapshot?.revision ?? ""}:${refresh}`,
+    workspace?.workspace_exists === true && workspace?.first_run_eligible !== true && settingsState.snapshot?.settings.onboardingCompleted !== false
+      && !workspacePending && view !== "Chaser & DX" && !separateWindows, workspace?.generation ?? "");
   const referenceEvidence = useReferenceEvidence(draft, (contactEdit.draft ? contactEdit.base : sharedDraft.base)?.generation, request, refresh);
   useReferenceSchedule(workspace?.workspace_exists === true, request);
   const cw = useSharedCW(`${view}:${draft?.id}:${draft?.call}:${draft?.frequencyHz}:${draft?.mode}`);
@@ -1391,11 +1392,11 @@ function MainLiveApp() {
         "world-map": { title: "World map", content: <div className="live-map">{map}</div> },
         "band-maps": { title: "Band maps", content: deskBands },
         "dx-cluster": { title: "DX Cluster", content: <ClusterPanel passive snapshot={cluster} selectedSpotId={selected} onRequest={request} onSelect={selectSpot} onUndock={() => void openDetachedCluster().catch(e => setError(e.message))} /> },
-        logbook: { title: "Logbook", content: <LogbookPanel onRequest={request} refreshKey={refresh} mutations={logbookMutations} onWorkingChange={logbookWorkingChanged} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={editLoggedContact} /> },
+        logbook: { title: "Logbook", content: <LogbookPanel onRequest={panelRequest} refreshKey={refresh} mutations={logbookMutations} onWorkingChange={logbookWorkingChanged} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={editLoggedContact} /> },
         awards: { title: "Awards", content: <IntegratedAwards request={panelRequest} refresh={refresh} initialStats={stats?.awards} onUndock={() => void openDetachedAwards().catch(cause => setError(cause.message))} /> },
         "spot-history": { title: "Spot History", content: <SpotHistoryPanel request={request} /> },
       }} traditional={<><OperatorDesk {...deskProps} /><div className="live-desk-bottom"><OperatorWorkspace map={<DeskMapLogbook map={<div className="live-map">{map}</div>}
-        logbook={<LogbookPanel columnContext="desk" onRequest={request} refreshKey={refresh} mutations={logbookMutations}
+        logbook={<LogbookPanel columnContext="desk" onRequest={panelRequest} refreshKey={refresh} mutations={logbookMutations}
           disabled={editorLocked || busy || editorBufferPending.current || editorTransition.current}
           onWorkingChange={logbookWorkingChanged} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={editLoggedContact} />}
         previousQSOs={<DeskPreviousQSOs call={deskCall} qsos={deskPrevious} />} hasPreviousQSOs={deskPrevious.length > 0}
@@ -1414,7 +1415,7 @@ function MainLiveApp() {
         onResumeAutomaticPower={!editing.current && sharedDraft.base?.power ? () => void run(async () => { draftSession.resumeAutomaticPower(); await draftSession.flush(); }) : undefined}
         onLocalInputState={editorInputState}
         onUndock={!editing.current ? () => void run(async () => { await draftSession.flush(); await openDetachedQSO(); }) : undefined} />}
-      {view === "Logbook" && <LogbookPanel onRequest={request} refreshKey={refresh} mutations={logbookMutations} onWorkingChange={logbookWorkingChanged} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={editLoggedContact} />}
+      {view === "Logbook" && <LogbookPanel onRequest={panelRequest} refreshKey={refresh} mutations={logbookMutations} onWorkingChange={logbookWorkingChanged} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={editLoggedContact} />}
       {view === "DX Cluster" && <ClusterPanel passive snapshot={cluster} selectedSpotId={selected} onRequest={request} onSelect={selectSpot} onUndock={() => void openDetachedCluster().catch(e => setError(e.message))} />}
       {view === "Chaser & DX" && <OpportunitiesPanel request={panelRequest} refresh={refresh} onSelect={loadOpportunity} home={stats?.map_home} />}
       {view === "HF Prop live" && <HFPropagationLive initialOwnCall={settings?.stationCall} initialLocator={settings?.gridSquare} />}

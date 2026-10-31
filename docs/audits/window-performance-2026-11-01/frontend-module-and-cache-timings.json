@@ -1,0 +1,700 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-31T18:49:33.842Z",
+  "method": "Actual dynamic modules in jsdom, first/repeat imports in one sequential process; shared dependencies may already be loaded. No component mounted and no native/worker/data/hardware call occurred. Cache timings use an explicit synthetic 25ms read, not a production query.",
+  "normalWindowCount": 27,
+  "contestWindowCount": 19,
+  "contestDialogCount": 13,
+  "normalWindowReads": [
+    {
+      "id": "about",
+      "policy": "static",
+      "initial": "Application version and links; no worker read"
+    },
+    {
+      "id": "hm-control",
+      "policy": "retained-native",
+      "initial": "hm_control_snapshot (separate HTML entry)"
+    },
+    {
+      "id": "operating-goals",
+      "policy": "explicit-query",
+      "initial": "Form immediately; evaluation only after operator submits targets"
+    },
+    {
+      "id": "previous-qsos",
+      "policy": "draft-scoped-local",
+      "initial": "Canonical draft, then bounded cluster_history for its callsign"
+    },
+    {
+      "id": "callsign-intelligence",
+      "policy": "draft-scoped-local",
+      "initial": "Canonical draft, keyed lookup cache, bounded local history and preferences"
+    },
+    {
+      "id": "log-qso",
+      "policy": "canonical-editor",
+      "initial": "Canonical draft/receipt first; lookup and previous QSOs are secondary"
+    },
+    {
+      "id": "spot-history",
+      "policy": "bounded-local",
+      "initial": "Archive page, then same-watermark statistics; visible status poll 5s"
+    },
+    {
+      "id": "cw-decode",
+      "policy": "live-owner",
+      "initial": "cw_decode_snapshot; experimental visibility setting gates discovery"
+    },
+    {
+      "id": "monitor",
+      "policy": "retained-native",
+      "initial": "monitor_context_snapshot plus map_context_snapshot; freshness fences retained"
+    },
+    {
+      "id": "world-map",
+      "policy": "retained-native",
+      "initial": "map_context_snapshot; metadata and spots already held by native owner"
+    },
+    {
+      "id": "dxpedition-map",
+      "policy": "retained-then-feed",
+      "initial": "opportunities_dxpedition_snapshot and map context, then automatic public feeds"
+    },
+    {
+      "id": "band-maps",
+      "policy": "retained-native",
+      "initial": "map_context_snapshot; metadata and spots already held by native owner"
+    },
+    {
+      "id": "dx-cluster",
+      "policy": "retained-native",
+      "initial": "Shared cluster projection/session; no independent connection owner"
+    },
+    {
+      "id": "logbook",
+      "policy": "bounded-local",
+      "initial": "First 20 rows paint before additional bounded page frames; main idle prewarm"
+    },
+    {
+      "id": "awards",
+      "policy": "revision-cached-local",
+      "initial": "logbook_stats and paged logbook_catalog; shared worker aggregate caches"
+    },
+    {
+      "id": "settings",
+      "policy": "canonical-editor",
+      "initial": "Current Settings/rotor/layout sessions; no generic settings result cache"
+    },
+    {
+      "id": "chaser-dx",
+      "policy": "retained-then-feed",
+      "initial": "Retained opportunities_snapshot, then admitted feeds; hidden timers paused"
+    },
+    {
+      "id": "hf-propagation-live",
+      "policy": "retained-then-feed",
+      "initial": "Bounded retained public reports, then admitted public feeds; hidden timers paused"
+    },
+    {
+      "id": "station-control",
+      "policy": "live-owner",
+      "initial": "Retained monitor context and radio session; no control cache"
+    },
+    {
+      "id": "cw",
+      "policy": "live-owner",
+      "initial": "cw_session_request snapshot; native lease and output authority remain live"
+    },
+    {
+      "id": "rotor",
+      "policy": "live-owner",
+      "initial": "rotor_telemetry_snapshot and automatic/manual owner state; no motion cache"
+    },
+    {
+      "id": "station-status",
+      "policy": "retained-native",
+      "initial": "station_status_snapshot; epoch/revision/provider and age checked"
+    },
+    {
+      "id": "connection-doctor",
+      "policy": "retained-native",
+      "initial": "connection_doctor_snapshot; passive saved observation only"
+    },
+    {
+      "id": "propagation",
+      "policy": "retained-then-feed",
+      "initial": "Shared propagation projection/ensure; native TTL and singleflight own fetches"
+    },
+    {
+      "id": "station-identity",
+      "policy": "retained-native",
+      "initial": "station_identity_snapshot; no credential/settings request or poller"
+    },
+    {
+      "id": "alerts",
+      "policy": "retained-native",
+      "initial": "alerts_snapshot; retained reports with explicit current/unavailable state"
+    },
+    {
+      "id": "antenna",
+      "policy": "retained-native",
+      "initial": "antenna_snapshot; read-only configured profile with revision fences"
+    }
+  ],
+  "measurements": [
+    {
+      "scope": "normal_logging",
+      "view": "about",
+      "query": "?view=about",
+      "firstImportMs": 25.554,
+      "repeatImportMs": 0.05,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "normal_logging",
+      "view": "operating-goals",
+      "query": "?view=operating-goals",
+      "firstImportMs": 40.382,
+      "repeatImportMs": 0.032,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "normal_logging",
+      "view": "previous-qsos",
+      "query": "?view=previous-qsos",
+      "firstImportMs": 78.842,
+      "repeatImportMs": 0.026,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "normal_logging",
+      "view": "callsign-intelligence",
+      "query": "?view=callsign-intelligence",
+      "firstImportMs": 89.763,
+      "repeatImportMs": 0.024,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "normal_logging",
+      "view": "log-qso",
+      "query": "?view=log-qso",
+      "firstImportMs": 210.237,
+      "repeatImportMs": 0.028,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "normal_logging",
+      "view": "spot-history",
+      "query": "?view=spot-history",
+      "firstImportMs": 9.167,
+      "repeatImportMs": 0.017,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "normal_logging",
+      "view": "cw-decode",
+      "query": "?view=cw-decode",
+      "firstImportMs": 49.249,
+      "repeatImportMs": 0.026,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "normal_logging",
+      "view": "monitor",
+      "query": "?view=monitor",
+      "firstImportMs": 512.929,
+      "repeatImportMs": 0.033,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "normal_logging",
+      "view": "world-map",
+      "query": "?view=world-map",
+      "firstImportMs": 27.283,
+      "repeatImportMs": 0.047,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "normal_logging",
+      "view": "dxpedition-map",
+      "query": "?view=dxpedition-map",
+      "firstImportMs": 46.768,
+      "repeatImportMs": 0.019,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "normal_logging",
+      "view": "band-maps",
+      "query": "?view=band-maps",
+      "firstImportMs": 14.704,
+      "repeatImportMs": 0.015,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "normal_logging",
+      "view": "dx-cluster",
+      "query": "?view=dx-cluster",
+      "firstImportMs": 110.191,
+      "repeatImportMs": 0.023,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "normal_logging",
+      "view": "logbook",
+      "query": "?view=logbook",
+      "firstImportMs": 124.265,
+      "repeatImportMs": 0.017,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "normal_logging",
+      "view": "awards",
+      "query": "?view=awards",
+      "firstImportMs": 68.869,
+      "repeatImportMs": 0.087,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "normal_logging",
+      "view": "settings",
+      "query": "?view=settings",
+      "firstImportMs": 309.729,
+      "repeatImportMs": 0.016,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "normal_logging",
+      "view": "chaser-dx",
+      "query": "?view=chaser-dx",
+      "firstImportMs": 11.915,
+      "repeatImportMs": 0.016,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "normal_logging",
+      "view": "hf-propagation-live",
+      "query": "?view=hf-propagation-live",
+      "firstImportMs": 12.089,
+      "repeatImportMs": 0.017,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "normal_logging",
+      "view": "station-control",
+      "query": "?view=station-control",
+      "firstImportMs": 61.175,
+      "repeatImportMs": 0.02,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "normal_logging",
+      "view": "cw",
+      "query": "?view=cw",
+      "firstImportMs": 29.947,
+      "repeatImportMs": 0.017,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "normal_logging",
+      "view": "rotor",
+      "query": "?view=rotor",
+      "firstImportMs": 83.136,
+      "repeatImportMs": 0.017,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "normal_logging",
+      "view": "station-status",
+      "query": "?view=station-status",
+      "firstImportMs": 14.276,
+      "repeatImportMs": 0.015,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "normal_logging",
+      "view": "connection-doctor",
+      "query": "?view=connection-doctor",
+      "firstImportMs": 17.287,
+      "repeatImportMs": 0.043,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "normal_logging",
+      "view": "propagation",
+      "query": "?view=propagation",
+      "firstImportMs": 26.028,
+      "repeatImportMs": 0.015,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "normal_logging",
+      "view": "station-identity",
+      "query": "?view=station-identity",
+      "firstImportMs": 16.231,
+      "repeatImportMs": 0.014,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "normal_logging",
+      "view": "alerts",
+      "query": "?view=alerts",
+      "firstImportMs": 44.373,
+      "repeatImportMs": 0.014,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "normal_logging",
+      "view": "antenna",
+      "query": "?view=antenna",
+      "firstImportMs": 21.745,
+      "repeatImportMs": 0.013,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting",
+      "view": "cw-decode",
+      "query": "?scope=contesting&view=cw-decode",
+      "firstImportMs": 0.035,
+      "repeatImportMs": 0.006,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting",
+      "view": "active-qso",
+      "query": "?scope=contesting&view=active-qso",
+      "firstImportMs": 240.49,
+      "repeatImportMs": 0.035,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting",
+      "view": "call-history",
+      "query": "?scope=contesting&view=call-history",
+      "firstImportMs": 62.186,
+      "repeatImportMs": 0.029,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting",
+      "view": "qrz-details",
+      "query": "?scope=contesting&view=qrz-details",
+      "firstImportMs": 0.028,
+      "repeatImportMs": 0.011,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting",
+      "view": "group-chat",
+      "query": "?scope=contesting&view=group-chat",
+      "firstImportMs": 57.44,
+      "repeatImportMs": 0.032,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting",
+      "view": "band-maps",
+      "query": "?scope=contesting&view=band-maps",
+      "firstImportMs": 0.015,
+      "repeatImportMs": 0.017,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting",
+      "view": "world-map",
+      "query": "?scope=contesting&view=world-map",
+      "firstImportMs": 0.026,
+      "repeatImportMs": 0.082,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting",
+      "view": "callsign-intelligence",
+      "query": "?scope=contesting&view=callsign-intelligence",
+      "firstImportMs": 0.017,
+      "repeatImportMs": 0.012,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting",
+      "view": "monitor",
+      "query": "?scope=contesting&view=monitor",
+      "firstImportMs": 0.043,
+      "repeatImportMs": 0.018,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting",
+      "view": "score-reporting",
+      "query": "?scope=contesting&view=score-reporting",
+      "firstImportMs": 0.012,
+      "repeatImportMs": 0.011,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting",
+      "view": "messages",
+      "query": "?scope=contesting&view=messages",
+      "firstImportMs": 0.019,
+      "repeatImportMs": 0.011,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting",
+      "view": "propagation",
+      "query": "?scope=contesting&view=propagation",
+      "firstImportMs": 0.017,
+      "repeatImportMs": 0.01,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting",
+      "view": "awards",
+      "query": "?scope=contesting&view=awards",
+      "firstImportMs": 0.022,
+      "repeatImportMs": 0.007,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting",
+      "view": "chaser-dx",
+      "query": "?scope=contesting&view=chaser-dx",
+      "firstImportMs": 0.011,
+      "repeatImportMs": 0.018,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting",
+      "view": "rotor",
+      "query": "?scope=contesting&view=rotor",
+      "firstImportMs": 0.016,
+      "repeatImportMs": 0.014,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting",
+      "view": "station-control",
+      "query": "?scope=contesting&view=station-control",
+      "firstImportMs": 0.01,
+      "repeatImportMs": 0.01,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting",
+      "view": "logbook",
+      "query": "?scope=contesting&view=logbook",
+      "firstImportMs": 0.013,
+      "repeatImportMs": 0.01,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting",
+      "view": "edit-contact",
+      "query": "?scope=contesting&view=edit-contact",
+      "firstImportMs": 0.012,
+      "repeatImportMs": 0.008,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting",
+      "view": "dx-cluster",
+      "query": "?scope=contesting&view=dx-cluster",
+      "firstImportMs": 0.017,
+      "repeatImportMs": 0.01,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting-dialog",
+      "view": "contest-setup",
+      "query": "?scope=contesting&view=contest-setup",
+      "firstImportMs": 1132.818,
+      "repeatImportMs": 0.025,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting-dialog",
+      "view": "contest-setup-operator",
+      "query": "?scope=contesting&view=contest-setup-operator",
+      "firstImportMs": 11.34,
+      "repeatImportMs": 0.023,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting-dialog",
+      "view": "contest-setup-station",
+      "query": "?scope=contesting&view=contest-setup-station",
+      "firstImportMs": 16.473,
+      "repeatImportMs": 0.027,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting-dialog",
+      "view": "contest-setup-configuration",
+      "query": "?scope=contesting&view=contest-setup-configuration",
+      "firstImportMs": 0.035,
+      "repeatImportMs": 0.009,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting-dialog",
+      "view": "contest-setup-macros",
+      "query": "?scope=contesting&view=contest-setup-macros",
+      "firstImportMs": 0.014,
+      "repeatImportMs": 0.007,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting-dialog",
+      "view": "contest-setup-keys",
+      "query": "?scope=contesting&view=contest-setup-keys",
+      "firstImportMs": 0.009,
+      "repeatImportMs": 0.007,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting-dialog",
+      "view": "contest-setup-rover",
+      "query": "?scope=contesting&view=contest-setup-rover",
+      "firstImportMs": 8.366,
+      "repeatImportMs": 0.021,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting-dialog",
+      "view": "contest-setup-about",
+      "query": "?scope=contesting&view=contest-setup-about",
+      "firstImportMs": 0.016,
+      "repeatImportMs": 0.006,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting-dialog",
+      "view": "contest-setup-digital",
+      "query": "?scope=contesting&view=contest-setup-digital",
+      "firstImportMs": 30.906,
+      "repeatImportMs": 0.027,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting-dialog",
+      "view": "contest-log-transfer",
+      "query": "?scope=contesting&view=contest-log-transfer",
+      "firstImportMs": 18.168,
+      "repeatImportMs": 0.029,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting-dialog",
+      "view": "contest-log-review",
+      "query": "?scope=contesting&view=contest-log-review",
+      "firstImportMs": 67.601,
+      "repeatImportMs": 0.031,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting-dialog",
+      "view": "contest-analytics",
+      "query": "?scope=contesting&view=contest-analytics",
+      "firstImportMs": 135.245,
+      "repeatImportMs": 0.024,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    },
+    {
+      "scope": "contesting-dialog",
+      "view": "contest-recorder",
+      "query": "?scope=contesting&view=contest-recorder",
+      "firstImportMs": 14.582,
+      "repeatImportMs": 0.022,
+      "dataReadyMs": null,
+      "dataReadCount": 0
+    }
+  ],
+  "cacheMeasurements": [
+    {
+      "method": "opportunities_snapshot",
+      "syntheticRequestDelayMs": 25,
+      "coldMs": 25.938,
+      "warmMs": 0.034,
+      "coldReadCount": 1,
+      "warmAdditionalReadCount": 0
+    },
+    {
+      "method": "logbook_catalog",
+      "syntheticRequestDelayMs": 25,
+      "coldMs": 26.355,
+      "warmMs": 0.037,
+      "coldReadCount": 1,
+      "warmAdditionalReadCount": 0
+    },
+    {
+      "method": "logbook_list",
+      "syntheticRequestDelayMs": 25,
+      "coldMs": 25.623,
+      "warmMs": 0.021,
+      "coldReadCount": 1,
+      "warmAdditionalReadCount": 0
+    }
+  ],
+  "pending": [
+    "Native time to first valid data for every window",
+    "Separate cold WebView launch and warm native show measurements",
+    "HM Control uses its separate native HTML entry"
+  ]
+}

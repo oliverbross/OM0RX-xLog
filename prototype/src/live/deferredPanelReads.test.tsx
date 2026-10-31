@@ -89,7 +89,7 @@ describe("deferred local panel reads", () => {
     act(frame); expect(request).not.toHaveBeenCalled();
     act(frame); expect(request).not.toHaveBeenCalled();
     await act(async () => { idle({ didTimeout: false, timeRemaining: () => 50 }); });
-    expect(request.mock.calls.map(([method]) => method)).toEqual(["opportunities_snapshot", "logbook_catalog"]);
+    expect(request.mock.calls.map(([method]) => method)).toEqual(["opportunities_snapshot", "logbook_catalog", "logbook_list"]);
     expect(screen.queryByRole("region", { name: "Chaser and DX calendar" })).toBeNull();
     expect(screen.queryByRole("region", { name: "Station intelligence" })).toBeNull();
   });
@@ -111,10 +111,10 @@ describe("deferred local panel reads", () => {
     view.rerender(<Desk enabled revision={0} />);
     act(frame); act(frame);
     await act(async () => { idles.get(next)!({ didTimeout: false, timeRemaining: () => 50 }); });
-    expect(request).toHaveBeenCalledTimes(2);
+    expect(request).toHaveBeenCalledTimes(3);
     view.rerender(<Desk enabled={false} revision={1} />);
     await panelRequest("logbook_catalog", params);
-    expect(request).toHaveBeenCalledTimes(3);
+    expect(request).toHaveBeenCalledTimes(4);
   });
 
   it("coalesces pending warm reads, retains local results and leaves filtered reads fresh", async () => {
@@ -172,5 +172,28 @@ describe("deferred local panel reads", () => {
     retry.warm(); await Promise.resolve();
     await retry.request("opportunities_snapshot");
     expect(fail).toHaveBeenCalledTimes(3);
+  });
+
+  it("bounds optional warm work across rapid contact revisions while visible demand stays immediate", async () => {
+    vi.useFakeTimers(); const frame = scheduledFrames();
+    vi.stubGlobal("requestIdleCallback", vi.fn((callback: IdleRequestCallback) => { callback({ didTimeout: false, timeRemaining: () => 50 }); return 1; }));
+    vi.stubGlobal("cancelIdleCallback", vi.fn());
+    const request = vi.fn(async () => catalogue);
+    let read!: ReturnType<typeof useDeferredPanelReads>;
+    function Desk({ revision, workspace }: { revision: number; workspace: string }) {
+      read = useDeferredPanelReads(request, `${workspace}:${revision}`, true, workspace); return null;
+    }
+    const view = render(<Desk revision={0} workspace="a" />);
+    await act(async () => { frame(); frame(); }); expect(request).toHaveBeenCalledTimes(3);
+    for (let revision = 1; revision <= 10; revision++) {
+      view.rerender(<Desk revision={revision} workspace="a" />); act(frame); act(frame);
+    }
+    await act(async () => { await vi.advanceTimersByTimeAsync(59_999); });
+    expect(request).toHaveBeenCalledTimes(3);
+    await read("logbook_catalog", params); expect(request).toHaveBeenCalledTimes(4);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(request).toHaveBeenCalledTimes(6);
+    view.rerender(<Desk revision={0} workspace="b" />);
+    await act(async () => { frame(); frame(); }); expect(request).toHaveBeenCalledTimes(9);
   });
 });

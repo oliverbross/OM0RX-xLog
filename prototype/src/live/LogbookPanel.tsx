@@ -190,8 +190,11 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
     return () => { preparation.current++; };
   }, [onRequest, search, selectedID]);
 
-  async function readPage(pageOffset: number, pageSearch: string) {
+  async function readPage(pageOffset: number, pageSearch: string, firstReady?: (page: LogbookPage) => void) {
     const first = result<LogbookPage>(await onRequest("logbook_list", { search: pageSearch, offset: pageOffset, limit: Math.min(requestPageSize, pageSize) }));
+    // A warmed first chunk can paint while the remaining bounded frames arrive.
+    // Keep the requested page size; navigation remains busy until the page settles.
+    firstReady?.({ ...first, limit: pageSize });
     const remainingOffsets: number[] = [];
     for (let next = pageOffset + requestPageSize; next < Math.min(first.total, pageOffset + pageSize); next += requestPageSize) remainingOffsets.push(next);
     const rest = await Promise.all(remainingOffsets.map(async next => result<LogbookPage>(
@@ -210,7 +213,9 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
     setExportSelection([]);
     setLoading(true);
     setError("");
-    const load = () => retryStartupRead(() => readPage(offset, search), () => !cancelled)
+    const load = () => retryStartupRead(() => readPage(offset, search, first => {
+      if (!cancelled && (!sameQuery || !page) && offset < first.total) setPage(first);
+    }), () => !cancelled)
       .then((response) => {
         if (!cancelled) {
           if (offset > 0 && offset >= response.total) setOffset(Math.max(0, Math.floor((response.total - 1) / pageSize) * pageSize));

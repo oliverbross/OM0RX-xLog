@@ -1,17 +1,24 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import { useDocumentVisible } from "./useDocumentVisible";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
 const catalogueParams = { offset: 0, limit: 5, search: "", delivery_state: "" };
+const firstLogbookPage = { search: "", offset: 0, limit: 20 };
 
 function localKey(method: string, params?: Record<string, unknown>): string | null {
   if (method === "opportunities_snapshot" && (!params || Object.keys(params).length === 0)) return method;
+  // Five demand-filled frames retain at most the first 100 unfiltered contacts.
+  // Only the first 20 are prewarmed; navigation can join later pending frames.
+  if (method === "logbook_list" && params && Object.keys(params).length === 3 && params.search === ""
+    && params.limit === 20 && Number.isSafeInteger(params.offset) && Number(params.offset) >= 0
+    && Number(params.offset) < 100 && Number(params.offset) % 20 === 0) return `${method}:${params.offset}`;
   if (method === "logbook_catalog" && params && Object.keys(params).length === 4
     && Object.entries(catalogueParams).every(([key, value]) => params[key] === value)) return method;
   return null;
 }
 
 /** Retain local panel reads for the current logbook revision; Chaser expires at its normal poll interval. */
-export function createDeferredPanelReads(request: Request) {
+export function createDeferredPanelReads(request: Request, warmLogbook = false) {
   type Entry = { promise: Promise<any>; startedAt: number; settledAt?: number };
   const pending = new Map<string, Entry>();
   let latestSnapshotTime = -Infinity;
@@ -46,8 +53,26 @@ export function createDeferredPanelReads(request: Request) {
     }, () => { if (pending.get(key) === entry) pending.delete(key); });
     return entry.promise;
   };
+  const invalidate = () => {
+    pending.clear(); warmed = false; latestSnapshotTime = -Infinity; latestSnapshotOrder = 0;
+  };
   return {
     request: ((method, params) => {
+      // Import batches can change rows before the parent receives its revision
+      // notification, including an uncertain reply. Never replay their old page.
+      if (method === "logbook_import_adif") {
+        invalidate();
+        return request(method, params).finally(invalidate);
+      }
+      // A measured viewport may need only the beginning of a retained frame.
+      // Reuse those exact rows without widening any new worker request.
+      if (method === "logbook_list" && params && Object.keys(params).length === 3 && params.search === ""
+        && Number.isSafeInteger(params.limit) && Number(params.limit) > 0 && Number(params.limit) < 20
+        && Number.isSafeInteger(params.offset) && Number(params.offset) >= 0 && Number(params.offset) < 100 && Number(params.offset) % 20 === 0) {
+        const frame = pending.get(`logbook_list:${params.offset}`);
+        if (frame) return frame.promise.then(value => Array.isArray(value?.qsos)
+          ? { ...value, qsos: value.qsos.slice(0, Number(params.limit)), limit: params.limit } : value);
+      }
       const key = localKey(method, params);
       // Share the visible panel's work across remounts; warm() never starts feeds.
       if (method === "opportunities_refresh" && params?.automatic === true
@@ -68,22 +93,37 @@ export function createDeferredPanelReads(request: Request) {
       void Promise.allSettled([
         load("opportunities_snapshot", "opportunities_snapshot"),
         load("logbook_catalog", "logbook_catalog", catalogueParams),
+        ...(warmLogbook ? [load("logbook_list:0", "logbook_list", firstLogbookPage)] : []),
       ]);
     },
+    invalidate,
   };
 }
 
-export function useDeferredPanelReads(request: Request, revision: number, enabled: boolean): Request {
-  // A logbook mutation retires both retained results and their pending promises.
-  const reads = useMemo(() => createDeferredPanelReads(request), [request, revision]);
+export function useDeferredPanelReads(request: Request, revision: number | string, enabled: boolean, workspace = "current"): Request {
+  const visible = useDocumentVisible();
+  const background = useRef({ workspace, lastWarm: -Infinity });
+  if (background.current.workspace !== workspace) background.current = { workspace, lastWarm: -Infinity };
+  // The caller includes workspace and saved-settings identity in its revision.
+  // A mutation retires retained results and pending promises together.
+  const reads = useMemo(() => createDeferredPanelReads(request, true), [request, revision]);
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !visible) return;
     let frame = 0, idle: number | undefined, timer: number | undefined;
+    const warm = () => { background.current.lastWarm = Date.now(); reads.warm(); };
+    const schedule = () => {
+      if (typeof window.requestIdleCallback === "function") idle = window.requestIdleCallback(warm);
+      else timer = window.setTimeout(warm, 0);
+    };
     // Two frames allow Operator Desk to paint before even scheduling optional local work.
     frame = window.requestAnimationFrame(() => {
       frame = window.requestAnimationFrame(() => {
-        if (typeof window.requestIdleCallback === "function") idle = window.requestIdleCallback(() => reads.warm());
-        else timer = window.setTimeout(() => reads.warm(), 0);
+        // The catalogue is expensive after a contact change. New revisions
+        // replace this queued batch, with at most one optional batch per minute
+        // per workspace. Visible demand never waits for this background budget.
+        const delay = Math.max(0, 60_000 - (Date.now() - background.current.lastWarm));
+        if (delay) timer = window.setTimeout(schedule, delay);
+        else schedule();
       });
     });
     return () => {
@@ -91,6 +131,6 @@ export function useDeferredPanelReads(request: Request, revision: number, enable
       if (idle !== undefined) window.cancelIdleCallback(idle);
       if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [reads, enabled]);
+  }, [reads, enabled, visible, workspace]);
   return reads.request;
 }

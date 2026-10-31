@@ -1,12 +1,38 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { StrictMode } from "react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import HFPropagationLive from "./HFPropagationLive";
 import { loadWindowSurface } from "../windowSurface";
 import { DetachedHFPropagationLiveSurface } from "./DetachedHFPropagationLiveSurface";
 
 beforeEach(() => localStorage.clear());
-afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.useRealTimers(); });
+
+it("accepts asynchronous public data after StrictMode replays the window lifecycle", async () => {
+  const transport = vi.fn(async (source: string) => source === "swpc_sfi" ? '[{"flux":145}]' : "[]");
+  render(<StrictMode><HFPropagationLive transport={transport} /></StrictMode>);
+  expect(await screen.findByText("7/7 products live")).toBeTruthy();
+  expect(screen.getByText("145")).toBeTruthy();
+});
+
+it("pauses hidden public feeds and resumes only when their retained interval expires", async () => {
+  vi.useFakeTimers(); let visible = true;
+  vi.spyOn(document, "visibilityState", "get").mockImplementation(() => visible ? "visible" : "hidden");
+  const transport = vi.fn(async () => "[]");
+  render(<HFPropagationLive transport={transport} />); await act(async () => {});
+  const firstBatch = transport.mock.calls.length;
+  expect(firstBatch).toBeGreaterThan(7);
+  visible = false; await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+  await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+  visible = true; await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+  expect(transport).toHaveBeenCalledTimes(firstBatch);
+  visible = false; await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+  await act(async () => { await vi.advanceTimersByTimeAsync(180_000); });
+  expect(transport).toHaveBeenCalledTimes(firstBatch);
+  visible = true; await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+  expect(transport).toHaveBeenCalledTimes(firstBatch * 2);
+});
 
 it("loads the detached propagation surface without mounting the station workspace", async () => {
   expect(await loadWindowSurface("?view=hf-propagation-live")).toBe(DetachedHFPropagationLiveSurface);

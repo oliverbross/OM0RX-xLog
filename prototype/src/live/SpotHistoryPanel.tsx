@@ -5,6 +5,7 @@ import { SpotHistoryColumnHeader, SpotHistoryColumns, useSpotHistoryColumns } fr
 import { clusterBandColors, clusterModeColors, clusterStatusCode, paletteColor } from "./clusterPalette";
 import { orderedSpotHistoryColumns, type SpotHistoryColumn } from "./spotHistoryColumnPreferences";
 import { countryDisplay } from "./countryDisplay";
+import { useDocumentVisible } from "./useDocumentVisible";
 import "./SpotHistoryPanel.css";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
@@ -69,6 +70,7 @@ function Distribution({ label, buckets }: { label: string; buckets: Bucket[] }) 
 }
 
 export function SpotHistoryPanel({ request }: { request: Request }) {
+  const visible = useDocumentVisible();
   const id = useId();
   const [columnPreferences, setColumnPreferences] = useSpotHistoryColumns();
   const [columnsOpen, setColumnsOpen] = useState(false);
@@ -111,6 +113,7 @@ export function SpotHistoryPanel({ request }: { request: Request }) {
   }, [capacity, browse.limit, page?.watermark]);
 
   useEffect(() => {
+    if (!visible) return;
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
@@ -123,7 +126,7 @@ export function SpotHistoryPanel({ request }: { request: Request }) {
     };
     void poll();
     return () => { active = false; clearTimeout(timer); };
-  }, []);
+  }, [visible]);
 
   useEffect(() => {
     const version = ++queryVersion.current;

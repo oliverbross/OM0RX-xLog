@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
+import { useDocumentVisible } from "./useDocumentVisible";
 
 type Data = Record<string, any>;
 /** Keep the graphical surface stable while telemetry refreshes or disconnects. */
@@ -12,12 +13,15 @@ export default function Conditions({ propagation, request, weatherKey = "", comp
   const [weather, setWeather] = useState<Data | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const visible = useDocumentVisible();
   const refreshWeather = useRef<() => void>(() => {});
   useEffect(() => {
-    let disposed = false, pending = false;
     setWeather(null); setError(""); setBusy(false);
+  }, [request, weatherKey, includeWeather]);
+  useEffect(() => {
+    let disposed = false, pending = false;
     refreshWeather.current = () => {};
-    if (!includeWeather || !weatherKey) return;
+    if (!visible || !includeWeather || !weatherKey) return;
     const update = async () => {
       if (disposed || pending || !weatherKey) return;
       pending = true; setBusy(true);
@@ -32,7 +36,7 @@ export default function Conditions({ propagation, request, weatherKey = "", comp
     void update();
     const timer = setInterval(() => { void update(); }, 15 * 60_000);
     return () => { disposed = true; clearInterval(timer); };
-  }, [request, weatherKey, includeWeather]);
+  }, [request, weatherKey, includeWeather, visible]);
   const color = (condition: string) => /good/i.test(condition) ? "#38d5a4" : /fair/i.test(condition) ? "#ffc269" : /poor/i.test(condition) ? "#ff716a" : "#607284";
   const stale = value?.stale || (!propagation?.bands?.length && value);
   const sourceTitle = `${value?.source || "N0NBH / HamQSL"}${value?.updated_at ? ` · ${new Date(value.updated_at * 1000).toLocaleString()}` : " · Awaiting propagation data"}${stale ? " · last known" : ""}`;

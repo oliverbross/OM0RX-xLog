@@ -8,6 +8,7 @@ import { bandFromFrequency, callsignContinent, cleanCall, cleanLocator, contestB
   type OwnRBNSpot, type PropagationSpot, type SolarConditions } from "./hfPropagationModel";
 import HFPropagationCanvas, { type HFPropagationCanvasPanel } from "./HFPropagationCanvas";
 import { loadOwnRBNPickups } from "./ownRbnFeed";
+import { useDocumentVisible } from "./useDocumentVisible";
 import { hfPropagationCanvasLayoutKey, hfPropagationLegacyLayoutKey, readHFPropagationCanvasLayout,
   type HFPropagationCanvasLayout } from "./hfPropagationCanvasLayout";
 import "./HFPropagationLive.css";
@@ -44,6 +45,7 @@ function formatUTC(time = Date.now()) { return new Date(time).toLocaleTimeString
 function bandLabel(key: string) { return propagationBands.find(band => band.key === key)?.label || key; }
 
 export default function HFPropagationLive({ initialOwnCall = "", initialLocator = "", transport = nativeHFPropagationTransport, detached = false }: Props) {
+  const visible = useDocumentVisible();
   const [settings, setSettings] = useState<PropagationSettings>(() => {
     try { return readPropagationSettings(localStorage.getItem(settingsKey), initialOwnCall, initialLocator); }
     catch { return defaultPropagationSettings(initialOwnCall, initialLocator); }
@@ -58,7 +60,7 @@ export default function HFPropagationLive({ initialOwnCall = "", initialLocator 
   const [solar, setSolar] = useState<SolarConditions>(emptySolar), [sources, setSources] = useState(emptySources);
   const [loading, setLoading] = useState(false), [error, setError] = useState(""), [nextFetch, setNextFetch] = useState(0), [analysisNow, setAnalysisNow] = useState(Date.now());
   const mounted = useRef(true), fetching = useRef(false), initial = useRef(true);
-  useEffect(() => () => { mounted.current = false; }, []);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => { try { localStorage.setItem(settingsKey, JSON.stringify(settings)); } catch { /* Keep current session settings. */ } }, [settings]);
   useEffect(() => {
     try { localStorage.setItem(hfPropagationCanvasLayoutKey, JSON.stringify(canvasLayout)); setLayoutStorageError(""); }
@@ -144,9 +146,9 @@ export default function HFPropagationLive({ initialOwnCall = "", initialLocator 
     if (mounted.current) { setLoading(false); setNextFetch(Date.now() + 120_000); }
     initial.current = false; fetching.current = false;
   }, [transport, updateSource]);
-  useEffect(() => { void refresh(); }, [refresh]);
-  useEffect(() => { const timer = window.setInterval(() => setAnalysisNow(Date.now()), 30_000); return () => clearInterval(timer); }, []);
-  useEffect(() => { if (!nextFetch) return; const timer = window.setTimeout(() => void refresh(), Math.max(0, nextFetch - Date.now())); return () => clearTimeout(timer); }, [nextFetch, refresh]);
+  useEffect(() => { if (visible && (!nextFetch || nextFetch <= Date.now())) void refresh(); }, [refresh, visible]);
+  useEffect(() => { if (!visible) return; setAnalysisNow(Date.now()); const timer = window.setInterval(() => setAnalysisNow(Date.now()), 30_000); return () => clearInterval(timer); }, [visible]);
+  useEffect(() => { if (!visible || !nextFetch) return; const timer = window.setTimeout(() => void refresh(), Math.max(0, nextFetch - Date.now())); return () => clearTimeout(timer); }, [nextFetch, refresh, visible]);
 
   const matrix = useMemo(() => matrixCounts(spots, settings, analysisNow), [spots, settings, analysisNow]);
   const activity = useMemo(() => perMinuteSeries(spots, settings, analysisNow), [spots, settings, analysisNow]);
