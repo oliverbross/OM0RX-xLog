@@ -1,5 +1,5 @@
 type Json = Record<string, any>;
-export const acceptanceStation = { operatorCall: "K1TEST", stationCall: "K1TEST/P", gridSquare: "AA00AA", stationLocation: "Isolated acceptance fixture", defaultPower: "100" } as const;
+export const acceptanceStation = { operatorCall: "K1TEST", stationCall: "K1TEST/P", gridSquare: "FN31PR", stationLocation: "Isolated acceptance fixture", defaultPower: "100" } as const;
 export function validFirstRunReadback(value: Json): boolean {
   return value.settings?.onboardingCompleted === true && value.settings.logbookMode === "local" && value.settings.automaticSync === false &&
     Object.entries(acceptanceStation).every(([key, expected]) => value.settings[key] === expected) &&
