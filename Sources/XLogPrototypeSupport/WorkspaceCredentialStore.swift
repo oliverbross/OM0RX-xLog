@@ -19,7 +19,7 @@ struct WorkspaceCredentialStore {
     }
     let service: String
     /// Worker reads are non-interactive by default. Only an explicitly
-    /// user-started operation may opt into a Keychain authorization dialog.
+    /// user-started operation may opt into an operating-system vault dialog.
     func load(_ account: Account) throws -> String? {
         try load(account, allowInteraction: false)
     }
@@ -28,7 +28,8 @@ struct WorkspaceCredentialStore {
         return try SecretStore(service: service).load(SecretStore.Account(rawValue: account.rawValue)!,
                                                       allowInteraction: allowInteraction)
         #else
-        return try NativeCredentialStore(service: service).load(account.rawValue)
+        return try NativeCredentialStore(service: service).load(account.rawValue,
+                                                                allowInteraction: allowInteraction)
         #endif
     }
     func contains(_ account: Account) throws -> Bool {

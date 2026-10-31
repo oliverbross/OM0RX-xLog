@@ -16,6 +16,10 @@ size_t xlog_vault_max_secret_bytes(void);
  * blobs, not domain passwords. No enumeration, file fallback or remote access. */
 int xlog_vault_load(const char *service, const char *account,
                     uint8_t **bytes, size_t *count, uint32_t *native_code);
+/* The default load above never requests a Secret Service unlock prompt.
+ * Interaction is reserved for explicitly user-started operations. */
+int xlog_vault_load_with_interaction(const char *service, const char *account,
+                    int allow_interaction, uint8_t **bytes, size_t *count, uint32_t *native_code);
 int xlog_vault_save(const char *service, const char *account,
                     const uint8_t *bytes, size_t count, uint32_t *native_code);
 int xlog_vault_remove(const char *service, const char *account, uint32_t *native_code);

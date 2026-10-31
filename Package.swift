@@ -7,6 +7,17 @@ import Foundation
 // stay on the original manifest branch. Never build the Mac app on other OSes.
 let portableOnly = ProcessInfo.processInfo.environment["XLOG_PORTABLE_ONLY"] == "1"
 
+#if os(Linux)
+let platformVaultDependencies: [Target.Dependency] = ["CSecretService"]
+let platformVaultTargets: [Target] = [
+    .systemLibrary(name: "CSecretService", pkgConfig: "libsecret-1",
+                   providers: [.apt(["libsecret-1-dev"]), .yum(["libsecret-devel"])]),
+]
+#else
+let platformVaultDependencies: [Target.Dependency] = []
+let platformVaultTargets: [Target] = []
+#endif
+
 #if os(macOS)
 let portableDependencies: [Package.Dependency] = []
 let portableCrypto: [Target.Dependency] = []
@@ -74,12 +85,13 @@ var prototypeSupportDependencies: [Target.Dependency] = [
 ]
 prototypeSupportDependencies.append(contentsOf: portableCrypto)
 prototypeSupportDependencies.append(contentsOf: liveIntegrationDependencies)
-var portableTargets = nativeTransferTargets
+var portableTargets = nativeTransferTargets + platformVaultTargets
 portableTargets.append(contentsOf: prototypeCoreTargets)
 portableTargets.append(contentsOf: [
     .systemLibrary(name: "CSQLitePrototype", pkgConfig: sqlitePkgConfig, providers: [.apt(["libsqlite3-dev"])]),
     .target(name: "CClusterSocket", linkerSettings: [.linkedLibrary("ws2_32", .when(platforms: [.windows]))]),
-    .target(name: "CPlatformVault", linkerSettings: [.linkedLibrary("Advapi32", .when(platforms: [.windows]))]),
+    .target(name: "CPlatformVault", dependencies: platformVaultDependencies,
+            linkerSettings: [.linkedLibrary("Advapi32", .when(platforms: [.windows]))]),
     .target(name: "XClusterIntegrationCore", dependencies: ["CClusterSocket", "XCWCore"]),
     .target(name: "XStationIntegrationCore"),
     .target(name: "XCWCore", dependencies: cwProcessDependencies),

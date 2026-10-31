@@ -18,7 +18,7 @@ final class NativeCredentialStoreTests: XCTestCase {
     }
 
     func testUnsupportedNativeBackendDoesNotPretendASecretIsMissingOrRemoved() throws {
-        #if !os(Windows)
+        #if !os(Windows) && !os(Linux)
         XCTAssertFalse(NativeCredentialStore.supported)
         let store = NativeCredentialStore(service: "fixture")
         for operation in [ { _ = try store.load("account") },
@@ -31,10 +31,17 @@ final class NativeCredentialStoreTests: XCTestCase {
         #endif
     }
 
-    func testWindowsNativeRoundTripExactIdentityIsolationAndDeletion() throws {
-        #if os(Windows)
+    func testNativeRoundTripExactIdentityIsolationAndDeletion() throws {
+        #if os(Windows) || os(Linux)
         try XCTSkipUnless(ProcessInfo.processInfo.environment["XLOG_TEST_NATIVE_VAULT"] == "1",
                           "Native vault writes require the dedicated disposable CI fixture opt-in.")
+        #if os(Linux)
+        let environment = ProcessInfo.processInfo.environment
+        let fixtureRoot = environment["XLOG_TEST_LINUX_VAULT_ROOT"] ?? ""
+        try XCTSkipUnless(!fixtureRoot.isEmpty && environment["XDG_DATA_HOME"] == fixtureRoot + "/data"
+                          && environment["DBUS_SESSION_BUS_ADDRESS"] != nil,
+                          "Linux vault writes require the isolated D-Bus/keyring test runner.")
+        #endif
         XCTAssertTrue(NativeCredentialStore.supported)
         let service = "com.oliverbross.xlog.ci." + UUID().uuidString
         let first = NativeCredentialStore(service: service)
@@ -69,7 +76,7 @@ final class NativeCredentialStoreTests: XCTestCase {
         try first.remove("Account") // Missing deletion is idempotent.
         XCTAssertEqual(try first.load("account"), "fixture-1-é秘密\0end")
         #else
-        throw XCTSkip("Windows Credential Manager requires a native Windows runner.")
+        throw XCTSkip("Native vault round trips require a Windows or isolated Linux runner.")
         #endif
     }
 }

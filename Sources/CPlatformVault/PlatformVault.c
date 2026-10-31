@@ -5,19 +5,27 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <wincred.h>
+#elif defined(__linux__)
+#include <libsecret/secret.h>
 #endif
 
 static int valid_identity(const char *value) {
     if (!value || !value[0]) return 0;
     for (size_t i = 0; i <= 128; i++) {
-        if (!value[i]) return 1;
+        if (!value[i]) {
+#ifdef __linux__
+            return g_utf8_validate(value, (gssize)i, NULL);
+#else
+            return 1;
+#endif
+        }
         if ((unsigned char)value[i] < 32 || (unsigned char)value[i] == 127) return 0;
     }
     return 0;
 }
 
 int xlog_vault_supported(void) {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__linux__)
     return 1;
 #else
     return 0;
@@ -70,8 +78,58 @@ static int failure(DWORD code, uint32_t *native_code) {
 }
 #endif
 
+#ifdef __linux__
+/* Schema plus exact UTF-8 attributes scope every lookup/deletion to this one
+ * application identity. No other accounts or collection contents are listed. */
+static const SecretSchema credential_schema = {
+    .name = "com.oliverbross.xlog.Credential.v1",
+    .flags = SECRET_SCHEMA_NONE,
+    .attributes = {
+        {"service", SECRET_SCHEMA_ATTRIBUTE_STRING},
+        {"account", SECRET_SCHEMA_ATTRIBUTE_STRING},
+        {NULL, 0}
+    }
+};
+
+static GHashTable *credential_attributes(const char *service, const char *account) {
+    GHashTable *attributes = g_hash_table_new(g_str_hash, g_str_equal);
+    g_hash_table_insert(attributes, "service", (gpointer)service);
+    g_hash_table_insert(attributes, "account", (gpointer)account);
+    return attributes;
+}
+
+static int secret_failure(GError *error, uint32_t *native_code) {
+    int result = XLOG_VAULT_FAILED;
+    if (error) {
+        if (native_code) *native_code = (uint32_t)error->code;
+        if (error->domain == G_IO_ERROR || error->domain == G_DBUS_ERROR ||
+            g_error_matches(error, SECRET_ERROR, SECRET_ERROR_IS_LOCKED) ||
+            g_error_matches(error, SECRET_ERROR, SECRET_ERROR_NO_SUCH_OBJECT)) {
+            result = XLOG_VAULT_UNAVAILABLE;
+        }
+        g_error_free(error);
+    }
+    return result;
+}
+
+static GList *credential_items(const char *service, const char *account,
+                              SecretSearchFlags flags, GError **error) {
+    GHashTable *attributes = credential_attributes(service, account);
+    GList *items = secret_service_search_sync(NULL, &credential_schema, attributes,
+                                             flags, NULL, error);
+    g_hash_table_unref(attributes);
+    return items;
+}
+#endif
+
 int xlog_vault_load(const char *service, const char *account,
                     uint8_t **bytes, size_t *count, uint32_t *native_code) {
+    return xlog_vault_load_with_interaction(service, account, 0, bytes, count, native_code);
+}
+
+int xlog_vault_load_with_interaction(const char *service, const char *account,
+                    int allow_interaction, uint8_t **bytes, size_t *count, uint32_t *native_code) {
+    (void)allow_interaction;
     if (bytes) *bytes = NULL;
     if (count) *count = 0;
     if (native_code) *native_code = 0;
@@ -101,6 +159,48 @@ int xlog_vault_load(const char *service, const char *account,
     CredFree(item);
     *bytes = copy;
     return XLOG_VAULT_OK;
+#elif defined(__linux__)
+    GError *error = NULL;
+    /* LOAD_SECRETS loads unlocked matches only. Never add UNLOCK for background
+     * reads: locked credentials must be unavailable, not missing or prompting. */
+    SecretSearchFlags flags = SECRET_SEARCH_ALL | SECRET_SEARCH_LOAD_SECRETS;
+    if (allow_interaction) flags |= SECRET_SEARCH_UNLOCK;
+    GList *items = credential_items(service, account, flags, &error);
+    if (error) {
+        g_list_free_full(items, g_object_unref);
+        return secret_failure(error, native_code);
+    }
+    if (!items) return XLOG_VAULT_NOT_FOUND;
+    /* Duplicate exact identities across collections are ambiguous. Do not
+     * silently select a possibly stale credential from a different collection. */
+    int result = XLOG_VAULT_FAILED;
+    SecretValue *value = NULL;
+    if (!items->next) {
+        SecretItem *item = SECRET_ITEM(items->data);
+        value = secret_item_get_secret(item);
+        if (secret_item_get_locked(item) || !value) {
+            result = XLOG_VAULT_UNAVAILABLE;
+        } else {
+            gsize length = 0;
+            const gchar *data = secret_value_get(value, &length);
+            if (length > xlog_vault_max_secret_bytes() || (length && !data)) {
+                result = XLOG_VAULT_INVALID;
+            } else {
+                uint8_t *copy = malloc(length ? length : 1);
+                if (copy) {
+                    if (length) memcpy(copy, data, length);
+                    *bytes = copy;
+                    *count = length;
+                    result = XLOG_VAULT_OK;
+                }
+            }
+        }
+    }
+    /* SecretValue owns a secure allocation; unref clears/frees it. Our returned
+     * copy is wiped by xlog_vault_value_destroy after the Swift conversion. */
+    if (value) secret_value_unref(value);
+    g_list_free_full(items, g_object_unref);
+    return result;
 #else
     return XLOG_VAULT_UNAVAILABLE;
 #endif
@@ -126,6 +226,17 @@ int xlog_vault_save(const char *service, const char *account,
     DWORD code = saved ? ERROR_SUCCESS : GetLastError();
     free(target);
     return saved ? XLOG_VAULT_OK : failure(code, native_code);
+#elif defined(__linux__)
+    GHashTable *attributes = credential_attributes(service, account);
+    /* Explicit byte length preserves embedded NULs and the 2560-byte boundary. */
+    SecretValue *value = secret_value_new((const gchar *)bytes, (gssize)count,
+                                         "application/octet-stream");
+    GError *error = NULL;
+    gboolean saved = secret_service_store_sync(NULL, &credential_schema, attributes,
+        SECRET_COLLECTION_DEFAULT, "OM0RX-xLog credential", value, NULL, &error);
+    secret_value_unref(value);
+    g_hash_table_unref(attributes);
+    return saved ? XLOG_VAULT_OK : secret_failure(error, native_code);
 #else
     return XLOG_VAULT_UNAVAILABLE;
 #endif
@@ -141,6 +252,27 @@ int xlog_vault_remove(const char *service, const char *account, uint32_t *native
     DWORD code = removed ? ERROR_SUCCESS : GetLastError();
     free(target);
     return removed || code == ERROR_NOT_FOUND ? XLOG_VAULT_OK : failure(code, native_code);
+#elif defined(__linux__)
+    GError *error = NULL;
+    GList *items = credential_items(service, account, SECRET_SEARCH_ALL | SECRET_SEARCH_UNLOCK, &error);
+    if (error) {
+        g_list_free_full(items, g_object_unref);
+        return secret_failure(error, native_code);
+    }
+    int result = XLOG_VAULT_OK;
+    for (GList *cursor = items; cursor; cursor = cursor->next) {
+        SecretItem *item = SECRET_ITEM(cursor->data);
+        if (secret_item_get_locked(item)) {
+            result = XLOG_VAULT_UNAVAILABLE;
+            break;
+        }
+        if (!secret_item_delete_sync(item, NULL, &error)) {
+            result = secret_failure(error, native_code);
+            break;
+        }
+    }
+    g_list_free_full(items, g_object_unref);
+    return result;
 #else
     return XLOG_VAULT_UNAVAILABLE;
 #endif

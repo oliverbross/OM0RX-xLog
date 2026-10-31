@@ -8,13 +8,16 @@ struct NativeCredentialStore: Sendable {
     static var supported: Bool { xlog_vault_supported() != 0 }
     static var maximumBytes: Int { Int(xlog_vault_max_secret_bytes()) }
 
-    func load(_ account: String) throws -> String? {
+    /// Background reads never unlock a Linux keyring. Only a user-started
+    /// operation may request the operating system's authorization dialog.
+    func load(_ account: String, allowInteraction: Bool = false) throws -> String? {
         try validate(account)
         var bytes: UnsafeMutablePointer<UInt8>?
         var count = 0
         var nativeCode: UInt32 = 0
         let result = service.withCString { service in account.withCString { account in
-            xlog_vault_load(service, account, &bytes, &count, &nativeCode)
+            xlog_vault_load_with_interaction(service, account, allowInteraction ? 1 : 0,
+                                             &bytes, &count, &nativeCode)
         } }
         defer { xlog_vault_value_destroy(bytes, count) }
         if result == XLOG_VAULT_NOT_FOUND { return nil }
