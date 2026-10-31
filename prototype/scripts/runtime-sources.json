@@ -1,5 +1,12 @@
 {
   "schema": 1,
+  "macos-xz-source": {
+    "version": "5.8.4",
+    "url": "https://github.com/tukaani-project/xz/releases/download/v5.8.4/xz-5.8.4.tar.gz",
+    "sha256": "0014c7886930454fe8bd4228665b51af55eeae560ea135c9c4cd33f55b2591d9",
+    "bytes": 2799797,
+    "source": "https://github.com/tukaani-project/xz/releases/tag/v5.8.4"
+  },
   "windows-python-licenses": {
     "version": "20261026",
     "url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261026/python-licenses.rst",
