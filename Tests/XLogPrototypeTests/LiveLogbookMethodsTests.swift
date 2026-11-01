@@ -17,7 +17,9 @@ struct LiveLogbookMethodsTests {
         _ = try service.handle(method: "workspace_create", params: ["mode": "empty"])
         _ = try service.handle(method: "settings_load", params: [:])
         let database = try service.openedDatabase()
-        defer { database.close() }
+        // Windows forbids moving an open SQLite database. Keep the service's
+        // cached workspace, so its next read must still reject the redirection.
+        database.close()
         let moved = root.appendingPathComponent("held-workspace")
         try FileManager.default.moveItem(at: service.workspaceDirectoryURL, to: moved)
         try FileManager.default.createSymbolicLink(at: service.workspaceDirectoryURL, withDestinationURL: moved)
