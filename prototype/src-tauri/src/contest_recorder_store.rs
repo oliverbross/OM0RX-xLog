@@ -254,6 +254,8 @@ pub struct Archive {
     journal: File,
     #[cfg(unix)]
     directory_identity: (u64, u64),
+    #[cfg(windows)]
+    directory_identity: WindowsDirectoryIdentity,
 }
 #[derive(Clone)]
 pub struct Snapshot {
@@ -274,6 +276,62 @@ fn directory_identity(path: &Path) -> Result<(u64, u64)> {
     use std::os::unix::fs::MetadataExt;
     let m = fs::metadata(path).map_err(err)?;
     Ok((m.dev(), m.ino()))
+}
+#[cfg(windows)]
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct WindowsDirectoryIdentity {
+    volume_serial_number: u64,
+    file_id: [u8; 16],
+}
+#[cfg(windows)]
+fn directory_identity(path: &Path) -> Result<WindowsDirectoryIdentity> {
+    use std::{
+        ffi::c_void,
+        os::windows::{
+            fs::{MetadataExt, OpenOptionsExt},
+            io::AsRawHandle,
+        },
+    };
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GetFileInformationByHandleEx(
+            handle: *mut c_void,
+            information_class: i32,
+            information: *mut c_void,
+            size: u32,
+        ) -> i32;
+    }
+    const FILE_READ_ATTRIBUTES: u32 = 0x80;
+    const FILE_FLAG_BACKUP_SEMANTICS: u32 = 0x0200_0000;
+    const FILE_FLAG_OPEN_REPARSE_POINT: u32 = 0x0020_0000;
+    const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
+    const FILE_ID_INFO: i32 = 18;
+    let directory = OpenOptions::new()
+        .access_mode(FILE_READ_ATTRIBUTES)
+        .custom_flags(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT)
+        .open(path)
+        .map_err(err)?;
+    let metadata = directory.metadata().map_err(err)?;
+    if !metadata.is_dir() || metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+        return Err("Recorder destination is not a regular directory".into());
+    }
+    let mut identity = WindowsDirectoryIdentity {
+        volume_serial_number: 0,
+        file_id: [0; 16],
+    };
+    if unsafe {
+        GetFileInformationByHandleEx(
+            directory.as_raw_handle(),
+            FILE_ID_INFO,
+            &mut identity as *mut WindowsDirectoryIdentity as *mut c_void,
+            std::mem::size_of::<WindowsDirectoryIdentity>() as u32,
+        )
+    } == 0
+    {
+        return Err(err(std::io::Error::last_os_error()));
+    }
+    Ok(identity)
 }
 pub fn header(rate: u32, channels: u16, frames: u64) -> Result<[u8; 44]> {
     let bytes = frames
@@ -390,7 +448,7 @@ impl Archive {
             config:config.clone(),start_utc_ms:utc_ms(),frames:0,saved_frames:0,status:"starting".into(),segments:vec![],gaps:vec![],cursor:0,
             time_basis:"Local callback arrival / monotonic frame order; hardware latency and distant RF timing unverified".into(),
             consent:"Explicit Start; no restart auto-start; user-managed retention; no automatic pruning".into(),controlled_test:false};
-        #[cfg(unix)]
+        #[cfg(any(unix, windows))]
         let directory_identity = directory_identity(&dir)?;
         let result = Self {
             dir,
@@ -402,7 +460,7 @@ impl Archive {
             active_first: 0,
             segment_frames: config.rate as u64 * 60,
             journal,
-            #[cfg(unix)]
+            #[cfg(any(unix, windows))]
             directory_identity,
         };
         result.checkpoint()?;
@@ -509,7 +567,7 @@ impl Archive {
             file.sync_all().map_err(err)?;
         }
         let journal = OpenOptions::new().append(true).open(path).map_err(err)?;
-        #[cfg(unix)]
+        #[cfg(any(unix, windows))]
         let directory_identity = directory_identity(&dir)?;
         Ok(Self {
             segment_frames: manifest.config.rate as u64 * 60,
@@ -521,13 +579,13 @@ impl Archive {
             active_frames: 0,
             active_first: 0,
             journal,
-            #[cfg(unix)]
+            #[cfg(any(unix, windows))]
             directory_identity,
         })
     }
     fn check_destination(&self) -> Result<()> {
         safe_path(&self.dir)?;
-        #[cfg(unix)]
+        #[cfg(any(unix, windows))]
         if directory_identity(&self.dir)? != self.directory_identity {
             return Err(
                 "Recording directory/volume changed; no alternate destination permitted".into(),
@@ -1118,6 +1176,32 @@ mod tests {
         let saved: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
         assert_eq!(saved, json!({"frames": 2, "status": "stopped"}));
         assert_eq!(fs::read_dir(&root).unwrap().count(), 1);
+    }
+    #[cfg(any(unix, windows))]
+    #[test]
+    fn admitted_directory_replacement_rejects_writes_before_any_bytes_change() {
+        let (_temp, root) = root();
+        let mut archive = archive(&root, 1);
+        archive.append(&signal(10, 1)).unwrap();
+        archive.flush_tail().unwrap();
+        let admitted = archive.dir.clone();
+        let retained = admitted.with_extension("retained-original");
+        let manifest = fs::read(admitted.join("manifest.json")).unwrap();
+        let journal = fs::read(admitted.join("events.jsonl")).unwrap();
+        let media = fs::read(segment_path(&admitted, 0, true)).unwrap();
+        let frames = archive.manifest.frames;
+        fs::rename(&admitted, &retained).unwrap();
+        fs::create_dir(&admitted).unwrap();
+
+        let expected = "Recording directory/volume changed; no alternate destination permitted";
+        assert_eq!(archive.append(&[123]).unwrap_err(), expected);
+        assert_eq!(archive.event(json!({"type": "must-not-publish"})).unwrap_err(), expected);
+        assert_eq!(archive.checkpoint().unwrap_err(), expected);
+        assert_eq!(archive.manifest.frames, frames);
+        assert_eq!(fs::read_dir(&admitted).unwrap().count(), 0);
+        assert_eq!(fs::read(retained.join("manifest.json")).unwrap(), manifest);
+        assert_eq!(fs::read(retained.join("events.jsonl")).unwrap(), journal);
+        assert_eq!(fs::read(segment_path(&retained, 0, true)).unwrap(), media);
     }
     #[cfg(windows)]
     #[test]
