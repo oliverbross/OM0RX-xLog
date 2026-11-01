@@ -61,14 +61,14 @@ let prototypeCoreTargets: [Target] = [
                  "TCIIQFrame.swift", "FlexIQTransport.swift", "FlexIQResources.swift", "FlexIQSubscription.swift"]),
     .target(name: "XLogPortableCore", dependencies: portableCrypto + ["CSQLitePrototype"], path: "Sources/XLogCore",
         exclude: ["DXCCBoundaries.swift", "FlexSpotForwarder.swift",
-                  "QRZClient.swift", "ReferenceDataUpdater.swift", "SecretStore.swift",
+                  "QRZClient.swift", "SecretStore.swift",
                   "Solar.swift", "TransmitPowerCapture.swift", "XCatClient.swift"],
         sources: ["ADIF.swift", "Models.swift", "QSOADIF.swift", "SemanticQSOIdentity.swift", "OnlineLogDelivery.swift", "WavelogClient.swift", "SyncEngine.swift",
                   "LogbookDatabase.swift", "HMControlLogbook.swift", "ContestLogTransfer.swift", "SpotHistoryDatabase.swift", "OperatorDraft.swift", "OperatorDraftPower.swift", "SpotDraftActivation.swift", "LogbookContact.swift", "WorkspaceLayout.swift", "IntegrationWorkspace.swift", "Settings.swift", "CWProfile.swift",
                   "BackupManager.swift", "BackupEnvelope.swift", "NativeBackupRestoreOwner.swift", "RemoteBackupPlanning.swift", "FTPBackupConfiguration.swift", "SFTPBackupConfiguration.swift", "RemoteBackupRetentionReview.swift", "RemoteBackupAuthorization.swift", "RemoteBackupScheduler.swift", "RemoteBackupOwner.swift", "RemoteBackupHostDriver.swift", "RemoteBackupLocalAdapters.swift", "DropboxBackupTransport.swift", "DropboxBackupHTTPClient.swift", "GoogleDriveBackupTransport.swift", "GoogleDriveBackupHTTPClient.swift", "OneDriveBackupTransport.swift", "OneDriveBackupHTTPClient.swift", "LocalFilePermissions.swift", "LocalFilePath.swift", "CTYResolver.swift", "Geo.swift",
                   "OperatingSupport.swift", "OperatorIntelligence.swift", "AwardCatalog.swift",
                   "AwardRegistry.swift", "AwardReferences.swift", "ClusterSpotFeed.swift",
-                  "ActivationReferenceDirectory.swift", "OpportunityFeeds.swift", "WeatherClient.swift"],
+                  "ActivationReferenceDirectory.swift", "OpportunityFeeds.swift", "WeatherClient.swift", "ReferenceDataUpdater.swift"],
         resources: [.process("Resources")])
 ]
 #endif

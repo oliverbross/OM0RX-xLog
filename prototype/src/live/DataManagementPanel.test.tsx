@@ -11,6 +11,38 @@ const deferred = <T,>() => { let resolve!: (value: T) => void; let reject!: (err
   return { promise: new Promise<T>((yes, no) => { resolve = yes; reject = no; }), resolve, reject }; };
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
+describe("reference source capabilities", () => {
+  it("keeps the Wavelog catalogue usable when only that source is supported", async () => {
+    const request = vi.fn(async (method: string, _params?: Record<string, unknown>) => {
+      if (method === "backup_list") return listing;
+      if (method === "reference_status") return { ...reference, available_sources: ["wavelog_catalog"] };
+      if (method === "reference_refresh") return { status: "Updating wavelog_catalog" };
+      throw new Error(`Unexpected ${method}`);
+    });
+    render(<DataManagementPanel section="references" onRequest={request} onChanged={vi.fn()} />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Wavelog catalog" }).hasAttribute("disabled")).toBe(false));
+    for (const name of ["Club Log + LoTW", "POTA / SOTA / IOTA / WWFF"]) {
+      const button = screen.getByRole("button", { name });
+      expect(button.hasAttribute("disabled")).toBe(true);
+      fireEvent.click(button);
+    }
+    expect(request.mock.calls.some(([method]) => method === "reference_refresh")).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Wavelog catalog" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("reference_refresh", { source: "wavelog_catalog" }));
+    expect(request.mock.calls.filter(([method]) => method === "reference_refresh")).toHaveLength(1);
+  });
+
+  it("does not enable refresh actions before capabilities have arrived or for an empty capability set", async () => {
+    const status = deferred<any>();
+    const request = vi.fn(async (method: string) => method === "backup_list" ? listing : status.promise);
+    render(<DataManagementPanel section="references" onRequest={request} onChanged={vi.fn()} />);
+    const names = ["Club Log + LoTW", "POTA / SOTA / IOTA / WWFF", "Wavelog catalog"];
+    for (const name of names) expect(screen.getByRole("button", { name }).hasAttribute("disabled")).toBe(true);
+    await act(async () => status.resolve({ ...reference, available_sources: [] }));
+    for (const name of names) expect(screen.getByRole("button", { name }).hasAttribute("disabled")).toBe(true);
+  });
+});
+
 describe("verified external backup workflow", () => {
   it("keeps restore bound to the latest inspected backup when an older reply arrives late", async () => {
     const a = deferred<any>(), b = deferred<any>();
@@ -92,7 +124,7 @@ describe("verified external backup workflow", () => {
   it("states normal-log backup inclusions and contest/output exclusions", async () => {
     render(<DataManagementPanel section="backups" onRequest={vi.fn(async (method: string) => method === "backup_list" ? listing : reference)} onChanged={vi.fn()} />);
     expect(await screen.findByText(/Included in new local backups: the normal logbook SQLite snapshot/)).toBeTruthy();
-    expect(screen.getByText(/Excluded: Keychain credentials, live radio\/output ownership and transient contest activation state/)).toBeTruthy();
+    expect(screen.getByText(/Excluded: credentials held in the system credential store, live radio\/output ownership and transient contest activation state/)).toBeTruthy();
   });
 });
 

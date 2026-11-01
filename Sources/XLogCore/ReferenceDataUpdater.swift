@@ -1,6 +1,15 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
+#if os(macOS)
 import zlib
+#endif
 
 public struct ReferenceDataValidator: Codable, Equatable, Sendable {
     public var eTag: String?
@@ -154,7 +163,13 @@ public actor ReferenceDataUpdater {
     }
 
     public static func wavelogCatalogURL(_ base: URL) -> URL? {
-        var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
+        // Share the QSO client's normalization for a pasted API v2 URL. The
+        // original URL still supplies the stricter catalogue credential guards.
+        guard let normalized = try? WavelogConfiguration(baseURL: base, token: "wl2_catalog_url", stationID: 1).baseURL,
+              let original = URLComponents(url: base, resolvingAgainstBaseURL: false),
+              original.user == nil, original.password == nil,
+              original.query == nil, original.fragment == nil else { return nil }
+        var components = URLComponents(url: normalized, resolvingAgainstBaseURL: false)
         let path = components?.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")) ?? ""
         guard components?.scheme?.lowercased() == "https", components?.host != nil,
               components?.user == nil, components?.password == nil,
@@ -192,16 +207,17 @@ public actor ReferenceDataUpdater {
 
     /// Metadata alone cannot establish cache availability: files may have been
     /// removed or damaged since their last successful check.
-    public func unavailableCachedSources() -> Set<String> {
+    public func unavailableCachedSources(sources: Set<String>? = nil) -> Set<String> {
         var unavailable = Set<String>()
-        for (name, minimumBytes) in [("cty.xml", 10_000), ("lotw-user-activity.csv", 1_000)] {
+        for (name, minimumBytes) in [("cty.xml", 10_000), ("lotw-user-activity.csv", 1_000)]
+            where sources?.contains(name) ?? true {
             if validatedCache(name: name, minimumBytes: minimumBytes) == nil { unavailable.insert(name) }
         }
         let catalogName = "wavelog-catalog.json"
-        if validatedCache(name: catalogName, minimumBytes: 0) == nil {
+        if (sources?.contains(catalogName) ?? true), validatedCache(name: catalogName, minimumBytes: 0) == nil {
             unavailable.insert(catalogName)
         }
-        for kind in Self.activationSourceURLs.keys {
+        for kind in Self.activationSourceURLs.keys where sources?.contains(kind.fileName) ?? true {
             if validatedCache(name: kind.fileName, minimumBytes: 10_000, activationKind: kind) == nil {
                 unavailable.insert(kind.fileName)
             }
@@ -696,6 +712,7 @@ public actor ReferenceDataUpdater {
     }
 
     private func gunzip(_ data: Data) throws -> Data {
+        #if os(macOS)
         var stream = z_stream()
         guard inflateInit2_(&stream, 15 + 32, ZLIB_VERSION, Int32(MemoryLayout<z_stream>.size)) == Z_OK else {
             throw URLError(.cannotDecodeContentData)
@@ -720,5 +737,10 @@ public actor ReferenceDataUpdater {
             guard status == Z_STREAM_END else { throw URLError(.cannotDecodeContentData) }
             return output
         }
+        #else
+        // The portable worker advertises only Wavelog catalogue refresh. Its
+        // JSON transport needs no gzip/CTY provider or extra native dependency.
+        throw URLError(.cannotDecodeContentData)
+        #endif
     }
 }

@@ -171,8 +171,8 @@ public actor LiveWorker {
     private let onlineLogs: LiveOnlineLogDeliveryService
     private let logbookMethods: LiveLogbookMethods
     private var rtcScores: RTCScoreReportingService?
-    #if os(macOS)
     private let references: LiveReferenceMethods
+    #if os(macOS)
     private let cwDecode: LiveCWDecodeMethods
     #endif
     private let localAcceptance: Bool
@@ -284,9 +284,7 @@ public actor LiveWorker {
         services = LiveServiceMethods(logbook: logbook)
         self.onlineLogs = onlineLogs ?? LiveOnlineLogDeliveryService(logbook: logbook,
             backgroundOwnershipAllowed: { operatingModule == .normalLogging })
-        #if os(macOS)
         references = LiveReferenceMethods(logbook: logbook)
-        #endif
         let cluster = cluster ?? (ownsProcessSingletons && runtimeProfile.externalIOAllowed && !localAcceptance
             && logbook === LiveLogbookMethods.shared && operatingModule == .normalLogging
             ? .shared : LiveClusterMethods(logbook: logbook,
@@ -383,9 +381,7 @@ public actor LiveWorker {
         guard !localAcceptance, runtimeProfile.externalIOAllowed, !terminalShutdown else { return }
         // Shared read-only/reference observation remains available to either
         // operator module. Normal draft mutation owners are gated below.
-        #if os(macOS)
         await references.startAutomaticChecks()
-        #endif
         guard !terminalShutdown, !Task.isCancelled,
               operatingModule == .normalLogging else { return }
         await startPowerCapture()
@@ -446,8 +442,8 @@ public actor LiveWorker {
         var contestSpotsRetired = true
         await remoteBackup.terminate()
         await services.beginTermination()
-        #if os(macOS)
         await references.terminate()
+        #if os(macOS)
         if ownsProcessSingletons && runtimeProfile.externalIOAllowed && !localAcceptance {
             await LiveWSJTXBridge.shared.stopForShutdown()
             await LiveFldigiBridge.shared.stopForShutdown()
@@ -711,8 +707,8 @@ public actor LiveWorker {
                     workspaceTransitionCount += 1
                     powerCapture.suspend(true)
                     await onlineLogs.suspendForOwnershipChange()
-                    #if os(macOS)
                     await references.suspendForWorkspaceChange()
+                    #if os(macOS)
                     if ownsProcessSingletons {
                         await LiveWSJTXBridge.shared.suspendForWorkspaceChange()
                         await LiveFldigiBridge.shared.suspendForWorkspaceChange()
@@ -732,8 +728,8 @@ public actor LiveWorker {
                     // A rejected restore still owns the original workspace;
                     // rebuild its invalidated projection without hiding error.
                     if changingWorkspace {
-                        #if os(macOS)
                         await references.finishWorkspaceChange()
+                        #if os(macOS)
                         if ownsProcessSingletons && normalBackgroundEnabled {
                             await LiveWSJTXBridge.shared.finishWorkspaceChange()
                         }
@@ -752,8 +748,8 @@ public actor LiveWorker {
                     throw error
                 }
                 if changingWorkspace {
-                    #if os(macOS)
                     await references.finishWorkspaceChange()
+                    #if os(macOS)
                     if ownsProcessSingletons && normalBackgroundEnabled {
                         await LiveWSJTXBridge.shared.finishWorkspaceChange()
                     }
@@ -771,9 +767,7 @@ public actor LiveWorker {
                 let draftLogged = method == "logbook_operator_draft_apply" && params["action"] as? String == "save"
                     && result["status"] as? String == "applied"
                 let contactChanged = method == "logbook_contact_apply" && result["status"] as? String == "applied"
-                #if os(macOS)
                 if method == "settings_save" { await references.resetAutomaticDeadline() }
-                #endif
                 let imported = method == "logbook_import_adif" && params["action"] as? String != "preview"
                 if normalBackgroundEnabled && (draftLogged || contactChanged || imported || ["workspace_create", "logbook_save", "logbook_delete", "logbook_undo", "backup_restore"].contains(method)) {
                     queueContactRefresh()
@@ -817,9 +811,9 @@ public actor LiveWorker {
                     await onlineLogs.finishOwnershipChange()
                     if normalBackgroundEnabled { await onlineLogs.requestDelivery() }
                 }
-                #if os(macOS)
                 if method == "secret_save" { await references.resetAutomaticDeadline() }
-                #endif
+            } else if method.hasPrefix("reference_") {
+                result = try await references.handle(method: method, params: params)
             } else {
                 #if os(macOS)
                 if method.hasPrefix("cw_decode_") {
@@ -829,8 +823,6 @@ public actor LiveWorker {
                     result = try await cwDecode.handle(method: method, params: params)
                 } else if method == LiveConnectionDoctorMethods.method {
                     result = try LiveConnectionDoctorMethods.handle(params)
-                } else if method.hasPrefix("reference_") {
-                    result = try await references.handle(method: method, params: params)
                 } else if method.hasPrefix("station_") {
                 result = try await LiveStationMethods.handle(method, params: params, registry: stationRegistry ?? .shared)
                 } else if method.hasPrefix("spot_bridge_") {
@@ -974,6 +966,7 @@ public actor LiveWorker {
         return ["mode": mode, "platform": platform, "synthetic_only": false,
                 "version": "0.4.0-alpha.9", "local_logbook": true,
                 "platform_services": services, "public_opportunities": true, "live_cluster": true,
+                "wavelog_sync": true, "wavelog_catalog": true,
                 "public_conditions": true, "local_callsign_lookup": true, "station_io": false,
                 "connections_require_explicit_action": true]
     }

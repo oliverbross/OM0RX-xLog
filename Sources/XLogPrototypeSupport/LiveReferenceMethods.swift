@@ -1,6 +1,13 @@
-#if os(macOS)
 import Foundation
+import CoreFoundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+#if os(macOS)
 import XLogCore
+#else
+import XLogPortableCore
+#endif
 
 /// Integrated workspace reference cache. A native timer owns automatic checks;
 /// constructing this actor or reading status never starts network activity.
@@ -18,6 +25,8 @@ actor LiveReferenceMethods {
     private var workspaceTransitions = 0
     private var workspaceRevision = 0
     private let scheduleOperation: (@Sendable () async throws -> Void)?
+    typealias CredentialLoader = @Sendable (String, WorkspaceCredentialStore.Account, Bool) throws -> String?
+    private let credentialLoader: CredentialLoader
     private var validatedCache: (files: [String: FileIdentity], unavailable: Set<String>)?
     private var lastResult = "Not refreshed in this session"
     private struct FileIdentity: Equatable {
@@ -28,11 +37,31 @@ actor LiveReferenceMethods {
     private var cachedDirectory: (path: String, files: [ActivationReferenceKind: FileIdentity], value: ActivationReferenceDirectory)?
     private let logReviewReferences = LogReviewReferences()
 
+    static var availableSources: [String] {
+        #if os(macOS)
+        ["clublog_lotw", "activations", "wavelog_catalog"]
+        #else
+        ["wavelog_catalog"]
+        #endif
+    }
+
+    private static var allowedScheduledSources: Set<String>? {
+        #if os(macOS)
+        nil
+        #else
+        ["wavelog-catalog.json"]
+        #endif
+    }
+
     init(logbook: LiveLogbookMethods = .shared, session: URLSession = .shared,
-         scheduleOperation: (@Sendable () async throws -> Void)? = nil) {
+         scheduleOperation: (@Sendable () async throws -> Void)? = nil,
+         credentialLoader: CredentialLoader? = nil) {
         self.logbook = logbook
         self.session = session
         self.scheduleOperation = scheduleOperation
+        self.credentialLoader = credentialLoader ?? { service, account, allowInteraction in
+            try WorkspaceCredentialStore(service: service).load(account, allowInteraction: allowInteraction)
+        }
     }
 
     func startAutomaticChecks() {
@@ -105,6 +134,11 @@ actor LiveReferenceMethods {
         guard !stopped, workspaceTransitions == 0 else {
             throw WorkerFailure("reference_unavailable", "Reference services are stopping or changing workspace.")
         }
+        #if !os(macOS)
+        guard ["reference_status", "reference_configure", "reference_refresh", "reference_schedule"].contains(method) else {
+            throw WorkerFailure("platform_pending", "This reference service is not available on this platform.")
+        }
+        #endif
         let directory = try logbook.referenceDirectoryURL()
         switch method {
         case "reference_log_review":
@@ -134,6 +168,9 @@ actor LiveReferenceMethods {
         case "reference_refresh":
             guard Set(params.keys) == ["source"], let source = params["source"] as? String,
                   ["clublog_lotw", "activations", "wavelog_catalog"].contains(source) else { throw invalid() }
+            guard Self.availableSources.contains(source) else {
+                throw WorkerFailure("platform_pending", "This reference source is not available on this platform.")
+            }
             _ = try logbook.openedDatabase()
             guard refreshTask == nil, !planning else { throw WorkerFailure("reference_busy", "A reference update is already running.") }
             let settings = try logbook.currentSettings()
@@ -141,9 +178,9 @@ actor LiveReferenceMethods {
                 throw WorkerFailure("reference_configuration_required", "Choose Wavelog mode before refreshing its catalog.")
             }
             let updater = try ReferenceDataUpdater(directory: directory, session: session)
-            let secrets = SecretStore(service: try logbook.currentKeychainService())
-            let clubKey = source == "clublog_lotw" ? (try secrets.load(.clubLogAPIKey) ?? "") : ""
-            let token = source == "wavelog_catalog" ? (try secrets.load(.wavelogToken) ?? "") : ""
+            let service = try logbook.currentKeychainService()
+            let clubKey = source == "clublog_lotw" ? (try credentialLoader(service, .clubLogAPIKey, true) ?? "") : ""
+            let token = source == "wavelog_catalog" ? (try credentialLoader(service, .wavelogToken, true) ?? "") : ""
             guard source != "wavelog_catalog" || !token.isEmpty else {
                 throw WorkerFailure("reference_configuration_required", "Save an integrated Wavelog token before refreshing its catalog.")
             }
@@ -185,9 +222,12 @@ actor LiveReferenceMethods {
             defer { if !leaseTransferred { lease.release() } }
             _ = try logbook.openedDatabase()
             let settings = try logbook.currentSettings()
-            let secrets = SecretStore(service: try logbook.currentKeychainService())
-            let clubKey = try secrets.load(.clubLogAPIKey) ?? ""
-            let token = settings.logbookMode == .wavelog ? (try secrets.load(.wavelogToken) ?? "") : ""
+            let service = try logbook.currentKeychainService()
+            let otherSourcesAvailable = Self.availableSources.contains("clublog_lotw")
+            // Scheduled checks must never open an authorization dialog or unlock
+            // a keyring. Only an explicit refresh above may request interaction.
+            let clubKey = otherSourcesAvailable ? (try credentialLoader(service, .clubLogAPIKey, false) ?? "") : ""
+            let token = settings.logbookMode == .wavelog ? (try credentialLoader(service, .wavelogToken, false) ?? "") : ""
             let updater = try ReferenceDataUpdater(directory: directory, session: session)
             let clubURL = URL(string: settings.clubLogCTYURL)
             let lotwURL = URL(string: settings.lotwActivityURL)
@@ -197,10 +237,10 @@ actor LiveReferenceMethods {
                let requestURL = ReferenceDataUpdater.clubLogRequestURL(clubURL, apiKey: clubKey) {
                 expectedIdentities["cty.xml"] = ReferenceDataUpdater.sourceIdentity(for: requestURL)
             }
-            if let lotwURL {
+            if otherSourcesAvailable, let lotwURL {
                 expectedIdentities["lotw-user-activity.csv"] = ReferenceDataUpdater.sourceIdentity(for: lotwURL)
             }
-            for kind in [ActivationReferenceKind.pota, .sota, .iota, .wwff] {
+            for kind in [ActivationReferenceKind.pota, .sota, .iota, .wwff] where Self.availableSources.contains("activations") {
                 if let url = ReferenceDataUpdater.activationSourceURLs[kind] {
                     expectedIdentities[kind.fileName] = ReferenceDataUpdater.sourceIdentity(for: url)
                 }
@@ -215,7 +255,8 @@ actor LiveReferenceMethods {
                 state: await updater.currentState(), now: Date(),
                 clubLogConfigured: expectedIdentities["cty.xml"] != nil,
                 wavelogConfigured: expectedIdentities["wavelog-catalog.json"] != nil,
-                expectedIdentities: expectedIdentities, unavailableSources: unavailable
+                expectedIdentities: expectedIdentities, unavailableSources: unavailable,
+                allowedSources: Self.allowedScheduledSources
             )
             let due = plan.due
             let next = plan.nextCheckAt.map { ISO8601DateFormatter().string(from: $0) } ?? NSNull() as Any
@@ -266,6 +307,11 @@ actor LiveReferenceMethods {
     }
 
     private func unavailableCaches(updater: ReferenceDataUpdater, directory: URL) async throws -> Set<String> {
+        #if !os(macOS)
+        // The only portable source is a small JSON catalogue. Do not parse or
+        // schedule unsupported CTY/activity/activation downloads as a side effect.
+        return await updater.unavailableCachedSources(sources: Self.allowedScheduledSources)
+        #else
         var files: [String: FileIdentity] = [:]
         for name in ["cty.xml", "lotw-user-activity.csv", "wavelog-catalog.json"]
             + [ActivationReferenceKind.pota, .sota, .iota, .wwff].map(\.fileName) {
@@ -281,16 +327,22 @@ actor LiveReferenceMethods {
         let unavailable = await updater.unavailableCachedSources()
         validatedCache = (files, unavailable)
         return unavailable
+        #endif
     }
 
     private func status(_ state: ReferenceDataState, directory: URL) throws -> [String: Any] {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         let stateJSON = try JSONSerialization.jsonObject(with: encoder.encode(state))
+        #if os(macOS)
         let downloaded = directory.appendingPathComponent("cty.xml")
         let usingDownloadedCTY = FileManager.default.fileExists(atPath: downloaded.path)
             && (try? CTYResolver(xmlURL: downloaded)) != nil
+        #else
+        let usingDownloadedCTY = false
+        #endif
         return ["running": refreshTask != nil, "status": lastResult,
+                "available_sources": Self.availableSources,
                 "automatic_check": try logbook.automaticReferenceChecks() as Any? ?? NSNull(),
                 "cty_source": usingDownloadedCTY ? "workspace_download" : "bundled",
                 "state": stateJSON]
@@ -399,4 +451,3 @@ actor LiveReferenceMethods {
         WorkerFailure("invalid_params", "Invalid reference-data request.")
     }
 }
-#endif

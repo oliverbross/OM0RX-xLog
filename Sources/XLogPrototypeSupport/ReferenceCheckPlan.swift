@@ -1,6 +1,9 @@
-#if os(macOS)
 import Foundation
+#if os(macOS)
 import XLogCore
+#else
+import XLogPortableCore
+#endif
 
 /// Pure scheduling decision. A legacy `updatedAt` is not evidence of a
 /// successful validated check, so only per-source checkedAt advances the
@@ -15,7 +18,8 @@ struct ReferenceCheckPlan: Equatable {
     static func make(state: ReferenceDataState, now: Date,
                      clubLogConfigured: Bool, wavelogConfigured: Bool,
                      expectedIdentities: [String: String] = [:],
-                     unavailableSources: Set<String> = []) -> Self {
+                     unavailableSources: Set<String> = [],
+                     allowedSources: Set<String>? = nil) -> Self {
         let sources: [(String, Bool)] = [
             ("cty.xml", clubLogConfigured),
             ("lotw-user-activity.csv", true),
@@ -27,7 +31,7 @@ struct ReferenceCheckPlan: Equatable {
         ]
         var due: [String] = []
         var next: Date?
-        for (source, enabled) in sources where enabled {
+        for (source, enabled) in sources where enabled && (allowedSources?.contains(source) ?? true) {
             let metadata = state.sourceMetadata[source]
             let sourceChanged = expectedIdentities[source].map {
                 state.validators[source]?.sourceIdentity != $0
@@ -46,4 +50,3 @@ struct ReferenceCheckPlan: Equatable {
         return Self(due: due, nextCheckAt: next)
     }
 }
-#endif

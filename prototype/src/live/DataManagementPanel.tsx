@@ -25,6 +25,7 @@ type ReferenceStatus = {
   status: string;
   cty_source: string;
   state: Record<string, any>;
+  available_sources?: string[];
 };
 export function safeReferenceSource(value: unknown): string {
   if (typeof value !== "string" || !value.trim()) return "Not reported";
@@ -149,6 +150,9 @@ export function DataManagementPanel({ onRequest, onChanged, workspaceGeneration 
     ...["pota", "sota", "iota", "wwff", "castle"].map(id => ({ id, name: id === "castle" ? "Castle / COTA" : id.toUpperCase(), file: activationFiles[id], checked: state.activationUpdatedAt?.[id], bytes: state.activationBytes?.[id], source: activationSources[id], group: id === "castle" ? "unsupported" : "activations" })),
   ];
   const activeGroup = /^Updating (clublog_lotw|activations|wavelog_catalog)$/.exec(reference?.status ?? "")?.[1];
+  const sourceAvailable = (source: string) => reference !== null &&
+    (reference.available_sources === undefined ||
+      (Array.isArray(reference.available_sources) && reference.available_sources.includes(source)));
   return <section className="live-data-management" aria-label="Data management">
     <h2><DatabaseBackup size={15} /> {section === "references" ? "Reference data status" : section === "backups" ? "Verified backups" : "Backups and reference data"}</h2>
     <p className="secondary">These tools operate on the integrated working copy. The original xLog database and installed apps remain untouched.</p>
@@ -162,7 +166,7 @@ export function DataManagementPanel({ onRequest, onChanged, workspaceGeneration 
           await reload(); await inspect(created.name);
           setMessage(`Verified backup created: ${created.manifest.qsoCount.toLocaleString()} QSOs.`);
         })}><Archive size={14} /> Create backup</button></div>
-      <p>Included in new local backups: the normal logbook SQLite snapshot, non-secret settings and workspace preferences, reference cache when shown, and SQLite-safe Contesting/Python database snapshots when present. Excluded: Keychain credentials, live radio/output ownership and transient contest activation state.</p>
+      <p>Included in new local backups: the normal logbook SQLite snapshot, non-secret settings and workspace preferences, reference cache when shown, and SQLite-safe Contesting/Python database snapshots when present. Excluded: credentials held in the system credential store, live radio/output ownership and transient contest activation state.</p>
       <button type="button" disabled={busy} onClick={() => void act(async () => {
         const sourcePath = await pickBackup();
         if (!sourcePath) return;
@@ -216,7 +220,9 @@ export function DataManagementPanel({ onRequest, onChanged, workspaceGeneration 
       })}</tbody></table></div>
       <div className="live-data-refresh-actions">
         {[["clublog_lotw", "Club Log + LoTW"], ["activations", "POTA / SOTA / IOTA / WWFF"], ["wavelog_catalog", "Wavelog catalog"]].map(([source, label]) =>
-          <button key={source} type="button" disabled={busy || reference?.running} onClick={() => void act(async () => {
+          <button key={source} type="button" disabled={busy || reference?.running || !sourceAvailable(source)}
+            title={reference && !sourceAvailable(source) ? "This reference source is not available on this platform." : undefined}
+            onClick={() => void act(async () => {
             const started = await onRequest("reference_refresh", { source });
             setReference((current) => ({ ...(current ?? { cty_source: "unknown", state: {} }), running: true, status: started.status }));
             setMessage(`${label} update started. Progress appears here.`);

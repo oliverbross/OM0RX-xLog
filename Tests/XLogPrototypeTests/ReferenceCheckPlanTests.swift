@@ -1,11 +1,32 @@
-#if os(macOS)
 import Foundation
 import Testing
+#if os(macOS)
 import XLogCore
+#else
+import XLogPortableCore
+#endif
 @testable import XLogPrototypeSupport
 
 @Suite("Automatic reference check planning")
 struct ReferenceCheckPlanTests {
+    @Test("A Wavelog-only capability never schedules or inherits deadlines from other sources")
+    func wavelogOnlyCapability() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let allowed: Set<String> = ["wavelog-catalog.json"]
+        let first = ReferenceCheckPlan.make(state: .init(), now: now,
+            clubLogConfigured: true, wavelogConfigured: true, allowedSources: allowed)
+        #expect(first.due == ["wavelog-catalog.json"])
+        var state = ReferenceDataState()
+        state.sourceMetadata["wavelog-catalog.json"] = .init(checkedAt: now, status: "up_to_date")
+        let fresh = ReferenceCheckPlan.make(state: state, now: now,
+            clubLogConfigured: true, wavelogConfigured: true, allowedSources: allowed)
+        #expect(fresh.due.isEmpty)
+        #expect(fresh.nextCheckAt == now.addingTimeInterval(3_600))
+        let disabled = ReferenceCheckPlan.make(state: state, now: now,
+            clubLogConfigured: true, wavelogConfigured: false, allowedSources: allowed)
+        #expect(disabled.due.isEmpty)
+        #expect(disabled.nextCheckAt == nil)
+    }
     private static let sources = [
         "cty.xml", "lotw-user-activity.csv", "pota-parks.csv", "sota-summits.csv",
         "iota-groups.json", "wwff-directory.csv", "wavelog-catalog.json",
@@ -193,4 +214,3 @@ struct ReferenceCheckPlanTests {
         #expect(due.nextCheckAt == now.addingTimeInterval(3_540))
     }
 }
-#endif
