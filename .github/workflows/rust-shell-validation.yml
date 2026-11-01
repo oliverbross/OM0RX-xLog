@@ -1,0 +1,166 @@
+name: Rust shell validation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-shell-validation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  rust-shell:
+    name: Rust shell (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, ubuntu-24.04, windows-2022]
+    env:
+      CARGO_BUILD_JOBS: '2'
+      CARGO_TERM_COLOR: never
+      RUST_BACKTRACE: '1'
+      XLOG_SOURCE_COMMIT: ${{ github.sha }}
+      # Same compile-only context as contest-portability.yml. This disables
+      # packaging sidecars; worker lifecycle tests own their sh/cmd fixtures.
+      TAURI_CONFIG: '{"productName":"OM0RX-xLog Contesting Test","identifier":"com.oliverbross.xlog.contesting-test","bundle":{"active":false,"externalBin":[]}}'
+    steps:
+      - name: Enable Windows checkout long paths
+        if: runner.os == 'Windows'
+        run: git config --global core.longpaths true
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install supported fixture Python
+        uses: actions/setup-python@v5
+        id: python
+        with:
+          python-version: '3.12.4'
+      - name: Linux native compile dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libcurl4-openssl-dev libxml2-dev libicu-dev libssl-dev libudev-dev
+      - name: Restore isolated Rust contract cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ${{ runner.temp }}/rust-shell-target
+          key: rust-shell-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('prototype/src-tauri/Cargo.lock') }}
+      - name: Record exact source and native fixture toolchains
+        shell: bash
+        env:
+          XLOG_TEST_PYTHON: ${{ steps.python.outputs.python-path }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/rust-shell-evidence"
+          rustc --version --verbose | tee "$RUNNER_TEMP/rust-shell-evidence/rust-toolchain.log"
+          cargo --version --verbose | tee "$RUNNER_TEMP/rust-shell-evidence/cargo-toolchain.log"
+          node -e 'const c=JSON.parse(process.env.TAURI_CONFIG); if(c.productName!=="OM0RX-xLog Contesting Test"||c.identifier!=="com.oliverbross.xlog.contesting-test"||c.bundle?.active!==false||!Array.isArray(c.bundle?.externalBin)||c.bundle.externalBin.length!==0) process.exit(1)'
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, subprocess, sys
+          assert sys.version_info[:3] == (3, 12, 4), sys.version
+          selected = subprocess.check_output([os.environ['XLOG_TEST_PYTHON'], '-c', 'import sys; print(sys.version)'], text=True).strip()
+          assert selected == sys.version, (selected, sys.version)
+          head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          assert head == os.environ['GITHUB_SHA']
+          receipt = {'sourceCommit': head, 'python': sys.version, 'selectedFixturePython': selected,
+                     'cargoLockSHA256': hashlib.sha256(pathlib.Path('prototype/src-tauri/Cargo.lock').read_bytes()).hexdigest(),
+                     'scope': 'Rust contracts and pinned loopback dummy Hamlib only; no Swift/frontend suite, app, installer or hardware qualification'}
+          destination = pathlib.Path(os.environ['RUNNER_TEMP']) / 'rust-shell-evidence/source-and-scope.json'
+          destination.write_text(json.dumps(receipt, indent=2) + '\n')
+          print(json.dumps(receipt))
+          PY
+      - name: Stage pinned Hamlib helpers (macOS)
+        if: runner.os == 'macOS'
+        run: bash prototype/scripts/stage-hamlib-macos.sh
+      - name: Stage pinned Hamlib helpers (Linux)
+        if: runner.os == 'Linux'
+        run: bash prototype/scripts/stage-hamlib-linux.sh
+      - name: Stage pinned Hamlib helpers (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./prototype/scripts/stage-hamlib-windows.ps1
+      - name: Full locked Rust contract suite
+        working-directory: prototype/src-tauri
+        shell: bash
+        env:
+          XLOG_TEST_PYTHON: ${{ steps.python.outputs.python-path }}
+        run: |
+          set -euo pipefail
+          cargo test --locked --jobs 2 --target-dir "$RUNNER_TEMP/rust-shell-target" 2>&1 | tee "$RUNNER_TEMP/rust-shell-evidence/cargo-full.log"
+      - name: Contesting-test feature admission contracts
+        working-directory: prototype/src-tauri
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --locked --jobs 2 --target-dir "$RUNNER_TEMP/rust-shell-target" --bin xlog-prototype --features contesting-test contesting_test_native_admission_tests:: 2>&1 | tee "$RUNNER_TEMP/rust-shell-evidence/cargo-contest-admission.log"
+      - name: Explicit pinned Hamlib dummy lifecycle (Unix)
+        if: runner.os != 'Windows'
+        working-directory: prototype/src-tauri
+        shell: bash
+        run: |
+          set -euo pipefail
+          target=$(rustc -vV | sed -n 's/^host: //p')
+          test -n "$target"
+          export XLOG_TEST_RIGCTLD="$PWD/binaries/rigctld-$target"
+          export XLOG_TEST_ROTCTLD="$PWD/binaries/rotctld-$target"
+          test -x "$XLOG_TEST_RIGCTLD"
+          test -x "$XLOG_TEST_ROTCTLD"
+          "$XLOG_TEST_RIGCTLD" --version
+          "$XLOG_TEST_ROTCTLD" --version
+          cargo test --locked --jobs 2 --target-dir "$RUNNER_TEMP/rust-shell-target" --test hamlib_dummy 2>&1 | tee "$RUNNER_TEMP/rust-shell-evidence/cargo-hamlib-dummy.log"
+      - name: Explicit pinned Hamlib dummy lifecycle (Windows)
+        if: runner.os == 'Windows'
+        working-directory: prototype/src-tauri
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:XLOG_TEST_RIGCTLD = Join-Path $PWD 'binaries/rigctld-x86_64-pc-windows-msvc.exe'
+          $env:XLOG_TEST_ROTCTLD = Join-Path $PWD 'binaries/rotctld-x86_64-pc-windows-msvc.exe'
+          foreach ($helper in @($env:XLOG_TEST_RIGCTLD, $env:XLOG_TEST_ROTCTLD)) {
+            if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) { throw "Pinned helper missing: $helper" }
+            & $helper --version
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          $target = Join-Path $env:RUNNER_TEMP 'rust-shell-target'
+          $log = Join-Path $env:RUNNER_TEMP 'rust-shell-evidence/cargo-hamlib-dummy.log'
+          cargo test --locked --jobs 2 --target-dir $target --test hamlib_dummy 2>&1 | Tee-Object -FilePath $log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify actual completed Rust and dummy test records
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, pathlib, re
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'rust-shell-evidence'
+          counts = {}
+          for name in ('cargo-full', 'cargo-contest-admission', 'cargo-hamlib-dummy'):
+              text = (root / (name + '.log')).read_text(encoding='utf-8-sig')
+              results = [tuple(map(int, row)) for row in re.findall(r'test result: ok\. (\d+) passed; (\d+) failed; (\d+) ignored;', text)]
+              assert results and sum(row[0] for row in results) > 0, name
+              assert all(row[1] == 0 for row in results), name
+              counts[name] = {'passed': sum(row[0] for row in results), 'failed': 0, 'ignored': sum(row[2] for row in results)}
+          full = (root / 'cargo-full.log').read_text(encoding='utf-8-sig')
+          for test in ('actual_python_commit_correction_delete_retry_and_durable_admission', 'export_independently_decodes_order_and_preserves_original_hashes'):
+              assert re.search(r'test [^\n]*' + test + r' \.\.\. ok', full), test
+          assert counts['cargo-contest-admission']['passed'] == 7, counts
+          dummy = (root / 'cargo-hamlib-dummy.log').read_text(encoding='utf-8-sig')
+          assert re.search(r'test opt_in_dummy_daemons_read_back_radio_and_rotor \.\.\. ok', dummy)
+          (root / 'completed-test-counts.json').write_text(json.dumps(counts, indent=2) + '\n')
+          print(json.dumps(counts, indent=2))
+          PY
+      - name: Retain Rust-only diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-shell-${{ runner.os }}-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/rust-shell-evidence
+            prototype/src-tauri/binaries/hamlib-4.7.2-notices/PROVENANCE.*
+            prototype/src-tauri/binaries/hamlib-4.7.2-*.sha256
+          if-no-files-found: error
