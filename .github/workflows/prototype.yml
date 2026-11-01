@@ -132,6 +132,22 @@ jobs:
         id: linux_c_vault
         if: runner.os == 'Linux'
         run: python3 prototype/scripts/test-linux-vault.py
+      - name: Compile portable native test fixtures early (Unix)
+        if: runner.os != 'Windows'
+        env:
+          XLOG_PORTABLE_ONLY: '1'
+          XLOG_CONTEST_PYTHON: ${{ steps.contest-python.outputs.python-path }}
+        run: swift build --build-tests --scratch-path .build/prototype-tests --jobs 2
+      - name: Compile portable native test fixtures early (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          XLOG_PORTABLE_ONLY: '1'
+          XLOG_CONTEST_PYTHON: ${{ steps.contest-python.outputs.python-path }}
+          XLOG_TEST_NATIVE_VAULT: '1'
+        run: |
+          swift build --build-tests --scratch-path .build/prototype-tests --jobs 2 -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
+          exit $LASTEXITCODE
       - name: Frontend tests and build
         working-directory: prototype
         env:
