@@ -18,10 +18,21 @@ import Testing
         try Data("first".utf8).write(to: first)
         try Data("second".utf8).write(to: second)
         let originalFirst = try Data(contentsOf: first), originalSecond = try Data(contentsOf: second)
+        #if os(macOS)
         // A normalizing filesystem may expose only one spelling. Supply both
         // directory entries while retaining real metadata and FileHandle reads.
         let manager = CanonicalDuplicateDirectoryFileManager()
         manager.entries = [first, second]
+        #else
+        // The URL-listing API is not open in corelibs Foundation. Exercise the
+        // native fixture filesystem and prove it exposes both UTF-8 spellings.
+        let manager = FileManager.default
+        let names = try manager.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
+            .map { Array($0.lastPathComponent.utf8) }
+        #expect(names.count == 2)
+        #expect(names.contains(Array(firstName.utf8)))
+        #expect(names.contains(Array(secondName.utf8)))
+        #endif
         #expect(throws: XLogBackupError.self) { try BackupPackageSeal.capture(root, fileManager: manager) }
         #expect(try Data(contentsOf: first) == originalFirst)
         #expect(try Data(contentsOf: second) == originalSecond)
@@ -248,6 +259,7 @@ import Testing
     }
 }
 
+#if os(macOS)
 private final class CanonicalDuplicateDirectoryFileManager: FileManager, @unchecked Sendable {
     var entries: [URL] = []
     override func contentsOfDirectory(at url: URL, includingPropertiesForKeys keys: [URLResourceKey]?,
@@ -255,6 +267,7 @@ private final class CanonicalDuplicateDirectoryFileManager: FileManager, @unchec
         entries
     }
 }
+#endif
 
 private final class DirectoryCreationFileManager: FileManager, @unchecked Sendable {
     var recursiveRequests: [Bool] = []
