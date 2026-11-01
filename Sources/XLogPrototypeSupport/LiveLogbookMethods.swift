@@ -1518,10 +1518,8 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 }
                 let retainedRotorConfiguration = try db.rotorConfiguration(seed: .defaults)
                 let reference = try referenceDirectoryURL()
-                #if os(macOS)
                 let referenceLease = try ReferenceRefreshLease(directory: reference)
                 defer { referenceLease.release() }
-                #endif
                 let recovery = try workspaceSubdirectory("Recovery", create: true)
                 let rollbackName = "pre-restore-\(UUID().uuidString).\(XLogBackupManager.packageExtension)"
                 let rollback = recovery.appendingPathComponent(rollbackName)
