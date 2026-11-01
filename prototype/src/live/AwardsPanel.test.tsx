@@ -27,6 +27,8 @@ const catalogue = { reference_date: "2026-09-01", research_date: "2026-09-30", t
   ],
 };
 const makeRequest = () => vi.fn(async (method: string) => method === "logbook_stats" ? stats : catalogue);
+const refreshFailure = (code: string) => Object.assign(new Error("Native read failed"), { code });
+const held = <T,>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; };
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe("native Insights and Awards presentation", () => {
@@ -142,5 +144,144 @@ describe("native Insights and Awards presentation", () => {
     await screen.findByRole("article", { name: "All Japan Districts detail" });
     view.rerender(<AwardsPanel request={request} refresh={1} />);
     await waitFor(() => expect(request.mock.calls.filter(([method]) => method === "logbook_stats")).toHaveLength(2));
+  });
+
+  it("retains same-workspace data during a quiet superseded retry", async () => {
+    vi.useFakeTimers();
+    const calls = new Map<string, number>();
+    const request = vi.fn(async (method: string) => {
+      const call = (calls.get(method) ?? 0) + 1; calls.set(method, call);
+      if (call === 2) throw refreshFailure("logbook_refresh_superseded");
+      return method === "logbook_stats" ? { ...stats, workspace_generation: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", awards: { ...stats.awards,
+        achievements: [{ ...stats.awards.achievements[0], current: call === 1 ? 67 : 68 }] } }
+        : { ...catalogue, workspace_generation: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" };
+    });
+    let view!: ReturnType<typeof render>;
+    await act(async () => { view = render(<AwardsPanel request={request} refresh={0} readScope="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" />); });
+    await act(async () => { view.rerender(<AwardsPanel request={request} refresh={1} readScope="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" />); });
+    expect(screen.getByRole("article", { name: "All Japan Districts detail" })).toBeTruthy();
+    expect(screen.getByRole("progressbar", { name: "DXCC milestone" }).getAttribute("aria-valuenow")).toBe("67");
+    expect(screen.queryByRole("alert")).toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    expect(screen.getByRole("progressbar", { name: "DXCC milestone" }).getAttribute("aria-valuenow")).toBe("68");
+    expect(calls.get("logbook_stats")).toBe(3);
+    expect(calls.get("logbook_catalog")).toBe(3);
+  });
+
+  it("clears retired workspace data and reloads seeded totals without the old expectation", async () => {
+    vi.useFakeTimers();
+    const nextStats = held<any>();
+    let catalogueCalls = 0;
+    const request = vi.fn(async (method: string) => {
+      if (method === "logbook_stats") return nextStats.promise;
+      catalogueCalls++;
+      if (catalogueCalls === 1) return { ...catalogue, workspace_generation: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" };
+      if (catalogueCalls === 2) throw refreshFailure("logbook_refresh_retired");
+      return { ...catalogue, workspace_generation: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" };
+    });
+    let view!: ReturnType<typeof render>;
+    await act(async () => { view = render(<AwardsPanel request={request} refresh={0} initialStats={stats.awards} />); });
+    await act(async () => { view.rerender(<AwardsPanel request={request} refresh={1} initialStats={stats.awards} />); });
+    expect(screen.queryByRole("article", { name: "All Japan Districts detail" })).toBeNull();
+    expect(screen.queryByRole("progressbar", { name: "DXCC milestone" })).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(request.mock.calls.filter(([method]) => method === "logbook_stats")).toHaveLength(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    await act(async () => { nextStats.resolve({ ...stats, workspace_generation: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" }); });
+    expect(screen.getByRole("article", { name: "All Japan Districts detail" })).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("ignores a late sibling response from the retired generation", async () => {
+    vi.useFakeTimers();
+    const lateStats = held<any>();
+    const calls = new Map<string, number>();
+    const request = vi.fn(async (method: string) => {
+      const call = (calls.get(method) ?? 0) + 1; calls.set(method, call);
+      if (call === 2) {
+        if (method === "logbook_stats") return lateStats.promise;
+        throw refreshFailure("logbook_refresh_retired");
+      }
+      return { ...(method === "logbook_stats" ? stats : catalogue), workspace_generation: call === 1 ? "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" : "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" };
+    });
+    let view!: ReturnType<typeof render>;
+    await act(async () => { view = render(<AwardsPanel request={request} refresh={0} />); });
+    await act(async () => { view.rerender(<AwardsPanel request={request} refresh={1} />); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    expect(screen.getByRole("article", { name: "All Japan Districts detail" })).toBeTruthy();
+    await act(async () => { lateStats.resolve({ ...stats, workspace_generation: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" }); });
+    expect(screen.queryByRole("progressbar", { name: "DXCC milestone" })).toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    expect(screen.getByRole("progressbar", { name: "DXCC milestone" })).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("clears settled data immediately when the known workspace scope changes", async () => {
+    const next = held<any>();
+    let current = false;
+    const request = vi.fn(async (method: string) => current ? next.promise :
+      { ...(method === "logbook_stats" ? stats : catalogue), workspace_generation: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" });
+    const view = render(<AwardsPanel request={request} refresh={0} readScope="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" initialStats={stats.awards} />);
+    await screen.findByRole("article", { name: "All Japan Districts detail" });
+    current = true;
+    view.rerender(<AwardsPanel request={request} refresh={0} readScope="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" initialStats={stats.awards} />);
+    expect(screen.queryByRole("article", { name: "All Japan Districts detail" })).toBeNull();
+    expect(screen.queryByRole("progressbar", { name: "DXCC milestone" })).toBeNull();
+    expect(request.mock.calls.filter(([method]) => method === "logbook_stats")).toHaveLength(1);
+    view.unmount();
+    await act(async () => { next.resolve({ ...stats, workspace_generation: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" }); });
+  });
+
+  it.each(["logbook_refresh_superseded", "logbook_refresh_retired"])("bounds %s retries and leaves an explicit quiet retry", async code => {
+    vi.useFakeTimers();
+    const request = vi.fn<(method: string) => Promise<any>>(async () => { throw refreshFailure(code); });
+    await act(async () => { render(<AwardsPanel request={request} refresh={0} />); });
+    await act(async () => { await vi.runAllTimersAsync(); });
+    expect(request.mock.calls.filter(([method]) => method === "logbook_stats")).toHaveLength(2);
+    expect(request.mock.calls.filter(([method]) => method === "logbook_catalog")).toHaveLength(2);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("button", { name: "Retry totals" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retry library" })).toBeTruthy();
+    request.mockImplementation(async (method: string) => method === "logbook_stats" ? stats : catalogue);
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Retry library" })); });
+    expect(screen.getByRole("article", { name: "All Japan Districts detail" })).toBeTruthy();
+  });
+
+  it.each(["io_error", "corrupt_record", "workspace_required", "unsafe_workspace", "worker_stopping"])("keeps %s visible without automatic retry", async code => {
+    vi.useFakeTimers();
+    const request = vi.fn(async (_method: string) => { throw refreshFailure(code); });
+    await act(async () => { render(<AwardsPanel request={request} refresh={0} />); });
+    await act(async () => { await vi.runAllTimersAsync(); });
+    expect(screen.getAllByRole("alert")).toHaveLength(2);
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it("cancels scheduled retries on unmount and remounts with fresh read state", async () => {
+    vi.useFakeTimers();
+    const request = vi.fn<(method: string) => Promise<any>>(async () => { throw refreshFailure("logbook_refresh_superseded"); });
+    let view!: ReturnType<typeof render>;
+    await act(async () => { view = render(<AwardsPanel request={request} refresh={0} />); });
+    view.unmount();
+    await act(async () => { await vi.runAllTimersAsync(); });
+    expect(request).toHaveBeenCalledTimes(2);
+    request.mockImplementation(async method => method === "logbook_stats" ? stats : catalogue);
+    await act(async () => { render(<AwardsPanel request={request} refresh={0} />); });
+    expect(screen.getByRole("article", { name: "All Japan Districts detail" })).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(request).toHaveBeenCalledTimes(4);
+  });
+
+  it("retires an old filter's scheduled retry when the query changes", async () => {
+    vi.useFakeTimers();
+    const request = vi.fn(async (method: string, params?: Record<string, unknown>) => {
+      if (method === "logbook_stats") return stats;
+      if (!params?.catalogue_group) throw refreshFailure("logbook_refresh_superseded");
+      return catalogue;
+    });
+    await act(async () => { render(<AwardsPanel request={request} refresh={0} />); });
+    await act(async () => { fireEvent.change(screen.getByLabelText("Region"), { target: { value: "europe" } }); });
+    await act(async () => { await vi.runAllTimersAsync(); });
+    expect(request.mock.calls.filter(([method]) => method === "logbook_catalog")).toHaveLength(2);
+    expect(screen.getByRole("article", { name: "All Japan Districts detail" })).toBeTruthy();
   });
 });

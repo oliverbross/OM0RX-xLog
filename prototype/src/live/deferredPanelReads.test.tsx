@@ -220,6 +220,44 @@ describe("deferred local panel reads", () => {
     finishCatalogue(catalogue);
   });
 
+  it("keeps expected generation metadata behind the usable page and separates cached authorities", async () => {
+    let finishPage!: (value: unknown) => void;
+    const request = vi.fn((method: string, _params?: Record<string, unknown>) => method === "logbook_list"
+      ? new Promise(resolve => { finishPage = resolve; }) : Promise.resolve(catalogue));
+    const reads = createDeferredPanelReads(request, true);
+    const a = { ...params, expected_generation: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" };
+    const b = { ...params, expected_generation: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" };
+    const first = reads.request("logbook_catalog", a);
+    expect(reads.request("logbook_catalog", a)).toBe(first);
+    const other = reads.request("logbook_catalog", b);
+    expect(other).not.toBe(first);
+    const totals = reads.request("logbook_stats", { expected_generation: a.expected_generation });
+    expect(request.mock.calls.map(([method]) => method)).toEqual(["logbook_list"]);
+    finishPage(firstPage);
+    await Promise.all([first, other, totals]);
+    expect(request).toHaveBeenCalledWith("logbook_catalog", a);
+    expect(request).toHaveBeenCalledWith("logbook_catalog", b);
+    expect(request).toHaveBeenCalledWith("logbook_stats", { expected_generation: a.expected_generation });
+    expect(request.mock.calls.filter(([method]) => method === "logbook_list")).toHaveLength(1);
+  });
+
+  it("drops old unscoped warm data before a retired expectation retries in the replacement workspace", async () => {
+    const previous = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", current = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    let restored = false;
+    const request = vi.fn(async (method: string, values?: Record<string, unknown>) => {
+      if (method === "logbook_list") return firstPage;
+      if (restored && values?.expected_generation) throw Object.assign(new Error("retired"), { code: "logbook_refresh_retired" });
+      return { ...catalogue, workspace_generation: restored ? current : previous };
+    });
+    const reads = createDeferredPanelReads(request, true);
+    expect((await reads.request("logbook_catalog", params)).workspace_generation).toBe(previous);
+    restored = true;
+    await expect(reads.request("logbook_catalog", { ...params, expected_generation: previous })).rejects.toMatchObject({ code: "logbook_refresh_retired" });
+    expect((await reads.request("logbook_catalog", params)).workspace_generation).toBe(current);
+    expect(request.mock.calls.filter(([method]) => method === "logbook_list")).toHaveLength(2);
+    expect(request.mock.calls.filter(([method]) => method === "logbook_catalog")).toHaveLength(3);
+  });
+
   it("retires aggregate work still waiting for a page when its workspace/revision scope changes", async () => {
     let finishPage!: (value: unknown) => void;
     const request = vi.fn((_method: string) => new Promise(resolve => { finishPage = resolve; }));

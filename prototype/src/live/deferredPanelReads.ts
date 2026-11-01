@@ -12,8 +12,14 @@ function localKey(method: string, params?: Record<string, unknown>): string | nu
   if (method === "logbook_list" && params && Object.keys(params).length === 3 && params.search === ""
     && params.limit === 20 && Number.isSafeInteger(params.offset) && Number(params.offset) >= 0
     && Number(params.offset) < 100 && Number(params.offset) % 20 === 0) return `${method}:${params.offset}`;
-  if (method === "logbook_catalog" && params && Object.keys(params).length === 4
-    && Object.entries(catalogueParams).every(([key, value]) => params[key] === value)) return method;
+  if (method === "logbook_catalog" && params
+    && Object.keys(params).length === (params.expected_generation === undefined ? 4 : 5)
+    && (params.expected_generation === undefined || typeof params.expected_generation === "string")
+    && Object.entries(catalogueParams).every(([key, value]) => params[key] === value)) {
+    // The expectation is authority metadata, not a catalogue filter. Preserve
+    // first-page admission without sharing a promise across different owners.
+    return params.expected_generation === undefined ? method : `${method}:${params.expected_generation}`;
+  }
   return null;
 }
 
@@ -25,6 +31,16 @@ export function createDeferredPanelReads(request: Request, warmLogbook = false) 
   let latestSnapshotOrder = 0, order = 0;
   let warmed = false;
   let scopeVersion = 0;
+  let scopeFailure = "logbook_refresh_superseded";
+  const nativeRead = (method: string, params?: Record<string, unknown>) => {
+    const version = scopeVersion;
+    const response = params ? request(method, params) : request(method);
+    if (method !== "logbook_stats" && method !== "logbook_catalog") return response;
+    return response.catch(cause => {
+      if (version === scopeVersion && cause?.code === "logbook_refresh_retired") invalidate("logbook_refresh_retired");
+      throw cause;
+    });
+  };
   const retainSnapshot = (value: any, entry: Entry, responseOrder: number, key: string) => {
     const generatedAt = Date.parse(value?.generated_at);
     if (!Array.isArray(value?.items) || !Number.isFinite(generatedAt)) return;
@@ -46,7 +62,7 @@ export function createDeferredPanelReads(request: Request, warmLogbook = false) 
       return existing.promise;
     }
     const responseOrder = ++order, version = scopeVersion;
-    const invoke = () => params ? request(method, params) : request(method);
+    const invoke = () => nativeRead(method, params);
     // The worker serializes these reads. Await the page response, rather than
     // just invoking it first: worker tasks may otherwise admit the aggregate first.
     const pageFirst = warmLogbook && (method === "logbook_catalog" || method === "opportunities_snapshot");
@@ -61,14 +77,15 @@ export function createDeferredPanelReads(request: Request, warmLogbook = false) 
   };
   function afterFirstPage(version: number, invoke: () => Promise<any>) {
     return load("logbook_list:0", "logbook_list", firstLogbookPage).then(page => {
-      if (version !== scopeVersion) throw new Error("The panel read scope changed.");
+      if (version !== scopeVersion) throw Object.assign(new Error("The panel read scope changed."), { code: scopeFailure });
       if (!Array.isArray(page?.qsos) || !Number.isSafeInteger(page?.total) || page.total < 0) {
         throw new Error("The first logbook page did not finish loading.");
       }
       return invoke();
     });
   }
-  const invalidate = () => {
+  const invalidate = (code = "logbook_refresh_superseded") => {
+    scopeFailure = code;
     scopeVersion++;
     pending.clear(); warmed = false; latestSnapshotTime = -Infinity; latestSnapshotOrder = 0;
   };
@@ -76,7 +93,7 @@ export function createDeferredPanelReads(request: Request, warmLogbook = false) 
     request: ((method, params) => {
       if (method === "logbook_stats" && warmLogbook) {
         const version = scopeVersion;
-        return afterFirstPage(version, () => params ? request(method, params) : request(method));
+        return afterFirstPage(version, () => nativeRead(method, params));
       }
       // Import batches can change rows before the parent receives its revision
       // notification, including an uncertain reply. Never replay their old page.
@@ -104,7 +121,7 @@ export function createDeferredPanelReads(request: Request, warmLogbook = false) 
         const key = `manual:${++order}`;
         return load(key, method, params).finally(() => { pending.delete(key); });
       }
-      return key ? load(key, method, params) : request(method, params);
+      return key ? load(key, method, params) : nativeRead(method, params);
     }) as Request,
     warm() {
       if (warmed) return;

@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Award, BookOpen, CheckCircle2, Clock3, ExternalLink, Search, PanelsTopLeft } from "lucide-react";
 import "./AwardsPanel.css";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
-type Props = { request: Request; refresh: number; initialStats?: AwardsStats | null; onUndock?: () => void; onDock?: () => void; taskOnly?: boolean };
+type Props = { request: Request; refresh: number; readScope?: string; initialStats?: AwardsStats | null; onUndock?: () => void; onDock?: () => void; taskOnly?: boolean };
 type Counts = Record<string, number>;
 type AwardsStats = {
   qso_count: number; dxcc_worked: number; dxcc_confirmed: number;
@@ -35,6 +35,52 @@ type Catalogue = {
   offset: number; limit: number; programmes: RawProgramme[]; items: RuleItem[];
   delivery_counts?: Record<string, number>;
 };
+
+type AggregateAuthority = { version: number; generation?: string };
+type AggregateRead = { retry: () => void; cancel: () => void };
+const aggregateRetryDelays = [150] as const;
+const retiredRead = () => Object.assign(new Error("The award read authority changed."), { code: "logbook_refresh_retired" });
+
+/** Only native aggregate retirements are retryable. Each effect owns at most
+ * two attempts, including recovery requested by its companion read. */
+export function startAggregateRead(options: {
+  read: (generation?: string) => Promise<any>; authority: AggregateAuthority; start?: boolean;
+  retire: (version: number) => void; accept: (value: any) => void;
+  failed: () => void; waiting: () => void; settled?: () => void;
+}): AggregateRead {
+  let active = true, running = false, attempts = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const retry = () => {
+    if (!active || running || timer !== undefined || attempts > aggregateRetryDelays.length) return;
+    running = true; attempts++;
+    const version = options.authority.version;
+    const expectedGeneration = options.authority.generation;
+    void options.read(expectedGeneration).then(response => {
+      if (!active) return;
+      const value = response?.result ?? response;
+      const generation = typeof value?.workspace_generation === "string" ? value.workspace_generation : undefined;
+      if (version !== options.authority.version || generation && (
+        expectedGeneration && generation !== expectedGeneration ||
+        options.authority.generation && generation !== options.authority.generation
+      )) throw retiredRead();
+      if (generation) options.authority.generation = generation;
+      options.accept(value);
+      options.settled?.();
+    }).catch(cause => {
+      if (!active) return;
+      const code = cause && typeof cause === "object" ? cause.code : undefined;
+      if (code !== "logbook_refresh_superseded" && code !== "logbook_refresh_retired") {
+        options.failed(); options.settled?.(); return;
+      }
+      if (code === "logbook_refresh_retired") options.retire(version);
+      const delay = aggregateRetryDelays[attempts - 1];
+      if (delay === undefined) { options.waiting(); options.settled?.(); return; }
+      timer = setTimeout(() => { timer = undefined; retry(); }, delay);
+    }).finally(() => { running = false; });
+  };
+  if (options.start !== false) retry();
+  return { retry, cancel: () => { active = false; clearTimeout(timer); timer = undefined; } };
+}
 
 const deliveryLabels: Record<string, string> = {
   implemented: "Live calculation", trackingOnly: "Research tracking", blocked: "Blocked", historical: "Historical",
@@ -122,7 +168,7 @@ function MixSection({ title, counts, limit }: { title: string; counts: Counts; l
   return <div className="awards-mix-section"><h4>{title}</h4>{sorted.length ? sorted.map(([name, count]) => <div className="awards-mix-row" key={name}><span>{name}</span><div aria-hidden="true"><i style={{ width: `${Math.max(2, count / largest * 100)}%` }} /></div><b>{format(count)}</b></div>) : <p>No contacts yet.</p>}</div>;
 }
 
-export function AwardsPanel({ request, refresh, initialStats, onUndock, onDock, taskOnly = false }: Props) {
+export function AwardsPanel({ request, refresh, readScope, initialStats, onUndock, onDock, taskOnly = false }: Props) {
   const [stats, setStats] = useState<AwardsStats | null>(initialStats ?? null);
   const [catalogue, setCatalogue] = useState<Catalogue | null>(null);
   const [search, setSearch] = useState("");
@@ -137,8 +183,29 @@ export function AwardsPanel({ request, refresh, initialStats, onUndock, onDock, 
   const [catalogueError, setCatalogueError] = useState("");
   const [statsRetry, setStatsRetry] = useState(0);
   const [catalogueRetry, setCatalogueRetry] = useState(0);
+  const [statsWaiting, setStatsWaiting] = useState(false), [catalogueWaiting, setCatalogueWaiting] = useState(false);
   const [loading, setLoading] = useState(false);
+  const authority = useRef<AggregateAuthority>({ version: 0, generation: readScope });
+  const priorScope = useRef(readScope), latestInitialStats = useRef(initialStats);
+  const retiredInitialStats = useRef<AwardsStats | null | undefined>(undefined);
+  const reads = useRef<{ stats?: AggregateRead; catalogue?: AggregateRead }>({});
+  latestInitialStats.current = initialStats;
   const pageSize = 5;
+
+  const retire = (version: number, recover = true) => {
+    if (version !== authority.current.version) return;
+    authority.current.version++; authority.current.generation = undefined;
+    retiredInitialStats.current = latestInitialStats.current;
+    setStats(null); setCatalogue(null); setStatsWaiting(true); setCatalogueWaiting(true);
+    if (recover) { reads.current.stats?.retry(); reads.current.catalogue?.retry(); }
+  };
+  useLayoutEffect(() => {
+    if (priorScope.current === readScope) return;
+    priorScope.current = readScope;
+    // Clear before paint; a previous workspace's settled data has no authority.
+    retire(authority.current.version, false);
+    authority.current.generation = readScope;
+  }, [readScope]);
 
   useEffect(() => {
     const nextSearch = search.trim();
@@ -147,25 +214,35 @@ export function AwardsPanel({ request, refresh, initialStats, onUndock, onDock, 
     return () => window.clearTimeout(timer);
   }, [search, debouncedSearch]);
   useEffect(() => {
-    let active = true;
-    setStatsError("");
-    if (initialStats && statsRetry === 0) { setStats(initialStats); return; }
-    void request("logbook_stats").then((value) => { if (active) setStats((value?.result ?? value)?.awards ?? null); })
-      .catch(() => { if (active) setStatsError("Award totals are unavailable. Retry after opening the integrated logbook."); });
-    return () => { active = false; };
-  }, [request, refresh, statsRetry, initialStats]);
+    setStatsError(""); setStatsWaiting(false);
+    const seeded = !!initialStats && statsRetry === 0 && initialStats !== retiredInitialStats.current;
+    if (seeded) setStats(initialStats!);
+    const read = startAggregateRead({
+      read: generation => generation ? request("logbook_stats", { expected_generation: generation }) : request("logbook_stats"),
+      authority: authority.current, start: !seeded, retire,
+      accept: value => { setStats(value?.awards ?? null); setStatsWaiting(false); },
+      failed: () => setStatsError("Award totals are unavailable. Retry after opening the integrated logbook."),
+      waiting: () => setStatsWaiting(true),
+    });
+    reads.current.stats = read;
+    return () => { read.cancel(); if (reads.current.stats === read) reads.current.stats = undefined; };
+  }, [request, refresh, readScope, statsRetry, initialStats]);
   useEffect(() => {
-    let active = true;
-    setLoading(true); setCatalogueError("");
+    setLoading(true); setCatalogueError(""); setCatalogueWaiting(false);
     const params: Record<string, unknown> = { offset, limit: pageSize, search: debouncedSearch, delivery_state: delivery };
     if (group) params.catalogue_group = group;
     if (mode) params.mode_facet = mode;
     if (role) params.role_facet = role;
-    void request("logbook_catalog", params).then((value) => { if (active) setCatalogue(value?.result ?? value); })
-      .catch(() => { if (active) setCatalogueError("Awards library is unavailable. Check the worker and retry."); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [request, refresh, offset, debouncedSearch, delivery, group, mode, role, catalogueRetry]);
+    const read = startAggregateRead({
+      read: generation => request("logbook_catalog", generation ? { ...params, expected_generation: generation } : params),
+      authority: authority.current, retire,
+      accept: value => { setCatalogue(value); setCatalogueWaiting(false); },
+      failed: () => setCatalogueError("Awards library is unavailable. Check the worker and retry."),
+      waiting: () => setCatalogueWaiting(true), settled: () => setLoading(false),
+    });
+    reads.current.catalogue = read;
+    return () => { read.cancel(); if (reads.current.catalogue === read) reads.current.catalogue = undefined; };
+  }, [request, refresh, readScope, offset, debouncedSearch, delivery, group, mode, role, catalogueRetry]);
 
   const programmes = useMemo(() => (catalogue?.programmes ?? []).map(programmeFrom), [catalogue]);
   const selected = programmes.find((programme) => programme.id === selectedID) ?? programmes[0];
@@ -181,6 +258,7 @@ export function AwardsPanel({ request, refresh, initialStats, onUndock, onDock, 
       {onDock && <button type="button" onClick={onDock}><PanelsTopLeft size={14} />Dock back</button>}
     </div></header>}
     {statsError && <p className="awards-error" role="alert">{statsError} <button type="button" onClick={() => setStatsRetry((value) => value + 1)}>Retry totals</button></p>}
+    {statsWaiting && !statsError && <p role="status">Award totals are updating. <button type="button" onClick={() => setStatsRetry(value => value + 1)}>Retry totals</button></p>}
     <ProgressOverview stats={stats} />
     <section className="awards-section awards-library" aria-label="Awards library"><h3>Awards library</h3>
       {catalogue && <div className="awards-summary" aria-label="Awards library summary"><div><b>{format(catalogue.catalogue_total)}</b><span>Library</span></div>{deliveryOptions.slice(1).map(([key, label]) => <div key={key}><b className={`awards-summary-${key}`}>{catalogue.delivery_counts?.[key] == null ? "—" : format(catalogue.delivery_counts[key])}</b><span>{label.replace(" calculations", "").replace("Research ", "")}</span></div>)}</div>}
@@ -192,7 +270,8 @@ export function AwardsPanel({ request, refresh, initialStats, onUndock, onDock, 
       </div>
       <p className="awards-filter-note">Mode and role facets use only explicit wording in the reviewed source record.</p>
       {catalogueError && <p className="awards-error" role="alert">{catalogueError} <button type="button" onClick={() => setCatalogueRetry((value) => value + 1)}>Retry library</button></p>}
-      {!catalogue && !catalogueError && <p className="awards-empty" role="status">Loading award programmes…</p>}
+      {catalogueWaiting && !catalogueError && <p role="status">Awards library is updating. <button type="button" onClick={() => setCatalogueRetry(value => value + 1)}>Retry library</button></p>}
+      {!catalogue && !catalogueError && !catalogueWaiting && <p className="awards-empty" role="status">Loading award programmes…</p>}
       {catalogue && <><div className="awards-browser"><div className="awards-list"><div className="awards-list-head"><strong>{format(total)} programmes</strong>{filtered && <button type="button" onClick={() => { setSearch(""); setDebouncedSearch(""); setDelivery(""); setGroup(""); setMode(""); setRole(""); setOffset(0); }}>Clear filters</button>}</div>
         {loading && <p className="awards-loading" role="status">Updating library…</p>}
         {!loading && programmes.length === 0 && <p className="awards-empty">{filtered ? "No award programmes match these filters." : "Award programmes are unavailable for this logbook."}</p>}

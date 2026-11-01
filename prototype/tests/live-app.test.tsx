@@ -83,6 +83,33 @@ it("resumes an explicitly incomplete setup with saved identity while keeping the
   expect(calls.request.mock.calls.some(([method]) => method === "workspace_create" || method === "settings_save")).toBe(false);
 });
 
+it.each(["logbook_refresh_superseded", "logbook_refresh_retired"])("quietly retries only the %s Main totals retirement", async code => {
+  vi.useFakeTimers();
+  try {
+    exists = true;
+    const previous = calls.request.getMockImplementation()!;
+    const expected: Record<string, unknown>[] = [];
+    calls.request.mockImplementation(async (method: string, params: Record<string, unknown> = {}) => {
+      if (method === "logbook_stats") {
+        expected.push(params);
+        if (expected.length === 1) throw Object.assign(new Error("aggregate changed"), { code });
+        return { ok: true, result: { workspace_generation: testWorkspaceGeneration, logbook_revision: 2, stats: { qso_count: 42 } } };
+      }
+      const reply = await previous(method, params);
+      if (method === "workspace_status") return { ...reply, result: { ...reply.result, generation: testWorkspaceGeneration } };
+      return reply;
+    });
+    await act(async () => { render(<LiveApp />); });
+    expect(expected).toEqual([{ expected_generation: testWorkspaceGeneration }]);
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    expect(expected).toEqual([{ expected_generation: testWorkspaceGeneration },
+      code === "logbook_refresh_retired" ? {} : { expected_generation: testWorkspaceGeneration }]);
+    expect(screen.queryByText("aggregate changed")).toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+    expect(expected).toHaveLength(2);
+  } finally { vi.useRealTimers(); }
+});
+
 it("settles a stalled callsign lookup instead of leaving intelligence pending", async () => {
   vi.useFakeTimers();
   try {

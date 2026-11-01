@@ -44,7 +44,7 @@ import { DetachedWorldMapSurface } from "./live/DetachedWorldMapSurface";
 import { DetachedBandMapsSurface } from "./live/DetachedBandMapsSurface";
 import type { BandMapViewPreferences } from "./live/BandMaps";
 import { mergeBandMapPreferenceIntent } from "./live/detachedBandMapPreferences";
-import IntegratedAwards from "./live/AwardsPanel";
+import IntegratedAwards, { startAggregateRead } from "./live/AwardsPanel";
 import { useDeferredPanelReads } from "./live/deferredPanelReads";
 import QSOEditor from "./live/QSOEditor";
 import { ContactDeleteAction } from "./live/ContactDeleteAction";
@@ -912,13 +912,22 @@ function MainLiveApp() {
   useEffect(() => {
     if (monitor || workspace?.workspace_exists !== true) return;
     let active = true;
+    const authority = { version: 0, generation: typeof workspace.generation === "string" ? workspace.generation as string : undefined };
     // This scope waits for its first page before admitting aggregate scans. A
     // later revision retires both the queued read and this response publication.
-    void retryStartupRead(() => panelRequest("logbook_stats"), () => active).then(totals => {
-      if (active) setStats(totals);
-    }).catch(() => { /* The visible logbook owns retry and terminal feedback. */ });
-    return () => { active = false; };
-  }, [monitor, workspace?.workspace_exists, panelRequest]);
+    const read = startAggregateRead({
+      authority,
+      read: generation => retryStartupRead(() => panelRequest("logbook_stats", generation ? { expected_generation: generation } : undefined), () => active),
+      retire: version => {
+        if (version !== authority.version) return;
+        authority.version++; authority.generation = undefined; setStats(null);
+      },
+      accept: totals => setStats(totals),
+      failed: () => { /* The visible logbook owns retry and terminal feedback. */ },
+      waiting: () => {},
+    });
+    return () => { active = false; read.cancel(); };
+  }, [monitor, workspace?.workspace_exists, workspace?.generation, panelRequest]);
   useEffect(() => {
     if (workspace?.workspace_exists !== true) return;
     return watchSyncCompletion(request, () => setRefresh(value => value + 1));
@@ -1401,7 +1410,7 @@ function MainLiveApp() {
         "band-maps": { title: "Band maps", content: deskBands },
         "dx-cluster": { title: "DX Cluster", content: <ClusterPanel passive snapshot={cluster} selectedSpotId={selected} onRequest={request} onSelect={selectSpot} onUndock={() => void openDetachedCluster().catch(e => setError(e.message))} /> },
         logbook: { title: "Logbook", content: <LogbookPanel onRequest={panelRequest} readScope={panelReadScope} refreshKey={refresh} mutations={logbookMutations} onWorkingChange={logbookWorkingChanged} onChanged={() => setRefresh(n => n + 1)} onUndock={() => void openDetachedLogbook().catch(cause => setError(cause.message))} onEdit={editLoggedContact} /> },
-        awards: { title: "Awards", content: <IntegratedAwards request={panelRequest} refresh={refresh} initialStats={stats?.awards} onUndock={() => void openDetachedAwards().catch(cause => setError(cause.message))} /> },
+        awards: { title: "Awards", content: <IntegratedAwards request={panelRequest} refresh={refresh} readScope={workspace?.generation} initialStats={stats?.workspace_generation === workspace?.generation ? stats?.awards : undefined} onUndock={() => void openDetachedAwards().catch(cause => setError(cause.message))} /> },
         "spot-history": { title: "Spot History", content: <SpotHistoryPanel request={request} /> },
       }} traditional={<><OperatorDesk {...deskProps} /><div className="live-desk-bottom"><OperatorWorkspace map={<DeskMapLogbook map={<div className="live-map">{map}</div>}
         logbook={<LogbookPanel columnContext="desk" onRequest={panelRequest} readScope={panelReadScope} refreshKey={refresh} mutations={logbookMutations}
@@ -1440,7 +1449,7 @@ function MainLiveApp() {
           {stationProvider === viewProvider && activeRadio ? <><AgentConnectionSetup key={activeRadio} radioId={activeRadio} followSelection connections /><TCIObservation key={activeRadio} radioId={activeRadio} snapshot={station} /></> : <p>Apply Direct TCI selection to review its saved configuration.</p>}</section> : activeRadio && viewProvider === "hamlib" ? <HamlibPanel key={activeRadio} radioId={activeRadio} request={viewedStationRequest} snapshot={stationProvider === viewProvider ? station : null} /> :
           activeRadio && viewProvider === "direct_flex_lan" ? <DirectFlexPanel key={activeRadio} radioId={activeRadio} request={viewedStationRequest} snapshot={stationProvider === viewProvider ? station : null} /> :
           activeRadio ? <StationPanel key={activeRadio} radioId={activeRadio} remoteSelected={stationProvider === viewProvider} snapshot={stationProvider === viewProvider ? station : null} onRequest={viewedStationRequest} onSnapshot={value => { if (stationProvider === viewProvider && provider.current === viewProvider) setStation(value); }} independentRotor /> : <p role="status">Loading active radio routing…</p>}</>}</>}
-      {view === "Awards" && <IntegratedAwards request={panelRequest} refresh={refresh} initialStats={stats?.awards} onUndock={() => void openDetachedAwards().catch(cause => setError(cause.message))} />}
+      {view === "Awards" && <IntegratedAwards request={panelRequest} refresh={refresh} readScope={workspace?.generation} initialStats={stats?.workspace_generation === workspace?.generation ? stats?.awards : undefined} onUndock={() => void openDetachedAwards().catch(cause => setError(cause.message))} />}
       {view === "Settings" && settings && <ServiceSettings values={settings} savedValues={settingsState.base?.settings} request={request}
         onChanged={value => settingsSession.edit(value)} onSave={async value => { await settingsSession.save(value); await draftSession.refresh(); }}
         saving={settingsState.saving} pending={!!settingsState.pending} conflict={!!settingsState.conflict}
