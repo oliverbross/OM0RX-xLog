@@ -679,6 +679,7 @@ impl Archive {
         Ok(())
     }
     pub fn flush_tail(&mut self) -> Result<()> {
+        self.check_destination()?;
         if let Some(file) = self.active.as_mut() {
             file.seek(SeekFrom::Start(0)).map_err(err)?;
             file.write_all(&header(
@@ -776,6 +777,7 @@ impl Archive {
         if events.is_empty() {
             return Ok(());
         }
+        self.check_destination()?;
         for event in events {
             let seq = event["sequence"].as_u64().ok_or("Invalid audit sequence")?;
             if seq <= self.manifest.cursor {
@@ -833,6 +835,7 @@ impl Archive {
     }
     /// Repair to a NEW file, retaining the partial original. No fabricated samples.
     pub fn recover(&mut self) -> Result<()> {
+        self.check_destination()?;
         let id = self.manifest.segments.len() as u32;
         // Rename may have succeeded before manifest publication: verify and adopt it.
         let final_path = segment_path(&self.dir, id, false);
@@ -1202,6 +1205,108 @@ mod tests {
         assert_eq!(fs::read(retained.join("manifest.json")).unwrap(), manifest);
         assert_eq!(fs::read(retained.join("events.jsonl")).unwrap(), journal);
         assert_eq!(fs::read(segment_path(&retained, 0, true)).unwrap(), media);
+    }
+    #[cfg(any(unix, windows))]
+    fn directory_bytes(directory: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
+        fs::read_dir(directory).unwrap().map(|entry| {
+            let entry = entry.unwrap();
+            (PathBuf::from(entry.file_name()), fs::read(entry.path()).unwrap())
+        }).collect()
+    }
+    #[cfg(any(unix, windows))]
+    fn recorder_state(archive: &mut Archive) -> Value {
+        let position = archive.active.as_mut().map(|file| file.stream_position().unwrap());
+        json!({"manifest":archive.manifest,"links":archive.links,"admissions":archive.admissions,
+            "activeFrames":archive.active_frames,"activeFirst":archive.active_first,"activePosition":position})
+    }
+    #[cfg(any(unix, windows))]
+    #[test]
+    fn replaced_directory_rejects_unflushed_tail_finalization_and_finish_before_any_mutation() {
+        for operation in ["flush_tail", "finalize_segment", "finish"] {
+            let (_temp, root) = root();
+            let mut archive = archive(&root, 1);
+            archive.append(&signal(10, 1)).unwrap();
+            let admitted = archive.dir.clone();
+            let retained = admitted.with_extension("retained-original");
+            let original = directory_bytes(&admitted);
+            assert_eq!(&original[&PathBuf::from("000000.partial")][40..44], &0u32.to_le_bytes());
+            assert_eq!(archive.manifest.saved_frames, 0);
+            let state = recorder_state(&mut archive);
+            fs::rename(&admitted, &retained).unwrap();
+            fs::create_dir(&admitted).unwrap();
+            fs::write(admitted.join("replacement-owner"), b"do not modify").unwrap();
+            let replacement = directory_bytes(&admitted);
+
+            let result = match operation {
+                "flush_tail" => archive.flush_tail(),
+                "finalize_segment" => archive.finalize_segment(),
+                "finish" => archive.finish("stopped", Some("must not publish")),
+                _ => unreachable!(),
+            };
+            assert_eq!(result.unwrap_err(), "Recording directory/volume changed; no alternate destination permitted", "{operation}");
+            assert_eq!(recorder_state(&mut archive), state, "{operation}");
+            assert_eq!(directory_bytes(&retained), original, "{operation}");
+            assert_eq!(directory_bytes(&admitted), replacement, "{operation}");
+        }
+    }
+    #[cfg(any(unix, windows))]
+    #[test]
+    fn replaced_directory_rejects_copied_partial_recovery_before_publication_or_state_changes() {
+        let (_temp, root) = root();
+        let mut archive = archive(&root, 1);
+        archive.append(&signal(10, 1)).unwrap();
+        archive.flush_tail().unwrap();
+        let key = (archive.manifest.log_id.clone(), archive.manifest.capture_id.clone());
+        drop(archive);
+        let mut archive = Archive::load(&root, &key.0, &key.1).unwrap();
+        let admitted = archive.dir.clone();
+        let retained = admitted.with_extension("retained-original");
+        let original = directory_bytes(&admitted);
+        let state = recorder_state(&mut archive);
+        fs::rename(&admitted, &retained).unwrap();
+        fs::create_dir(&admitted).unwrap();
+        for (name, bytes) in &original {
+            fs::write(admitted.join(name), bytes).unwrap();
+        }
+        fs::write(admitted.join("replacement-owner"), b"do not modify").unwrap();
+        let replacement = directory_bytes(&admitted);
+
+        assert_eq!(archive.recover().unwrap_err(), "Recording directory/volume changed; no alternate destination permitted");
+        assert_eq!(recorder_state(&mut archive), state);
+        assert_eq!(directory_bytes(&retained), original);
+        assert_eq!(directory_bytes(&admitted), replacement);
+    }
+    #[cfg(any(unix, windows))]
+    #[test]
+    fn replaced_directory_preserves_bookmarks_and_audit_cursor_on_rejected_writes() {
+        let (_temp, root) = root();
+        let mut archive = archive(&root, 1);
+        archive.append(&signal(10, 1)).unwrap();
+        let mut changed_link = archive.manual("retained note").unwrap();
+        changed_link.note = "must not replace the retained note".into();
+        let admitted = archive.dir.clone();
+        let retained = admitted.with_extension("retained-original");
+        let original = directory_bytes(&admitted);
+        let state = recorder_state(&mut archive);
+        fs::rename(&admitted, &retained).unwrap();
+        fs::create_dir(&admitted).unwrap();
+        fs::write(admitted.join("replacement-owner"), b"do not modify").unwrap();
+        let replacement = directory_bytes(&admitted);
+        let remote = json!({"engine":"not1mm-python","sessionID":archive.manifest.log_id,
+            "events":[{"sequence":1,"qsoID":uuid::Uuid::new_v4().to_string(),"kind":"commit","local":false}]});
+
+        for operation in ["manual", "save_link", "reconcile"] {
+            let result = match operation {
+                "manual" => archive.manual("must not publish").map(|_| ()),
+                "save_link" => archive.save_link(changed_link.clone()),
+                "reconcile" => archive.reconcile(&remote, &BTreeMap::new()),
+                _ => unreachable!(),
+            };
+            assert_eq!(result.unwrap_err(), "Recording directory/volume changed; no alternate destination permitted", "{operation}");
+            assert_eq!(recorder_state(&mut archive), state, "{operation}");
+            assert_eq!(directory_bytes(&retained), original, "{operation}");
+            assert_eq!(directory_bytes(&admitted), replacement, "{operation}");
+        }
     }
     #[cfg(windows)]
     #[test]
