@@ -144,7 +144,7 @@ struct AwardCatalogProjectionTests {
     func selectedNULFields() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
-        let db = try LogbookDatabase(url: root.appendingPathComponent("nul.sqlite"))
+        let db = try LogbookDatabase(url: root.appendingPathComponent("embedded-null-fields.sqlite"))
         defer { try? db.close() }
         try db.save(QSO(call: "TEST/BY1QH/P", band: "20m", mode: "CW", submode: "é\0after", dxcc: 339,
                         state: "01\0é", county: "0102\0é", propagationMode: "SAT\0é",
