@@ -7,6 +7,50 @@ import Testing
 #endif
 
 @Suite struct BackupEnvelopePortableTests {
+    #if os(Windows)
+    @Test(arguments: [249, 259, 260])
+    func nativeWindowsDirectoryBoundariesPreserveUnicodeBytesAndRejectFileCollisions(units: Int) throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: root) }
+        func nativeUnits(_ url: URL) -> Int {
+            url.withUnsafeFileSystemRepresentation { $0.map { String(cString: $0).utf16.count } ?? 0 }
+        }
+        func directory(_ prefix: String) throws -> URL {
+            let base = root.appendingPathComponent(prefix)
+            let padding = units - nativeUnits(base)
+            try #require(padding >= 0)
+            let url = root.appendingPathComponent(prefix + String(repeating: "x", count: padding))
+            #expect(nativeUnits(url) == units)
+            return url
+        }
+        let materialized = try directory("sealed-é秘-")
+        let bytes = Data("{\"fixture\":\"é秘\"}".utf8)
+        let files = ["nested/é秘.json": bytes]
+        try BackupPackageSeal.materialize(files, at: materialized, fileManager: .default)
+        #expect(try BackupPackageSeal.capture(materialized, fileManager: .default) == files)
+        do {
+            try LocalFilePermissions.createDirectoryWithoutParents(at: materialized, fileManager: .default)
+            Issue.record("Exclusive directory creation accepted an existing directory")
+        } catch {
+            #expect((error as NSError).code == CocoaError.fileWriteFileExists.rawValue)
+            #expect((error as NSError).userInfo[NSUnderlyingErrorKey] as? NSError != nil)
+        }
+        let parent = try directory("parents-é秘-")
+        let leaf = parent.appendingPathComponent("leaf")
+        try LocalFilePermissions.createDirectoryWithParents(at: leaf, fileManager: .default)
+        try LocalFilePermissions.createDirectoryWithParents(at: leaf, fileManager: .default)
+        var isDirectory: ObjCBool = false
+        #expect(FileManager.default.fileExists(atPath: leaf.path, isDirectory: &isDirectory) && isDirectory.boolValue)
+        let collision = try directory("file-é秘-")
+        try bytes.write(to: collision)
+        #expect(throws: CocoaError.self) {
+            try LocalFilePermissions.createDirectoryWithParents(at: collision.appendingPathComponent("blocked"), fileManager: .default)
+        }
+        #expect(try Data(contentsOf: collision) == bytes)
+    }
+    #endif
+
     @Test func captureRejectsCanonicallyEquivalentNamesBeforeDictionaryInsertion() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)

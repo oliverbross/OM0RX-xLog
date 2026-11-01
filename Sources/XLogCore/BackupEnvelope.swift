@@ -198,8 +198,8 @@ internal struct BackupPackageSeal: Codable, Equatable {
         guard Set(files.keys.map { $0.precomposedStringWithCanonicalMapping.lowercased() }).count == files.count else {
             throw XLogBackupError.invalidPackage("payload filenames are ambiguous")
         }
-        try fileManager.createDirectory(at: root, withIntermediateDirectories: false,
-                                        attributes: LocalFilePermissions.directoryAttributes)
+        try LocalFilePermissions.createDirectoryWithoutParents(at: root,
+            attributes: LocalFilePermissions.directoryAttributes, fileManager: fileManager)
         for path in files.keys.sorted() {
             guard validPath(path) else { throw XLogBackupError.invalidPackage("unsafe payload path") }
             let url = root.appendingPathComponent(path)
