@@ -251,6 +251,140 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         try lock.withLock { try body(powerWorkspaceID()) }
     }
 
+    func aggregateQuery(method: String, params: [String: Any]) throws -> LiveLogbookAggregateQuery {
+        let kind: LogbookAggregateKind
+        switch method {
+        case "logbook_stats":
+            kind = .statistics
+            try requireKeys(params, allowed: ["expected_generation"])
+        case "logbook_catalog":
+            kind = .catalogue
+            try requireKeys(params, allowed: ["limit", "offset", "search", "delivery_state", "catalogue_group",
+                "mode_facet", "role_facet", "expected_generation"])
+        default: throw invalid()
+        }
+        let expected: String?
+        if let raw = params["expected_generation"] {
+            guard let text = raw as? String, text.utf8.count <= 36, let value = UUID(uuidString: text) else { throw invalid() }
+            expected = value.uuidString.lowercased()
+        } else { expected = nil }
+        var query = LiveLogbookAggregateQuery(kind: kind, expectedGeneration: expected)
+        if kind == .catalogue {
+            query.limit = try integer(params, "limit", default: 20, range: 1...25)
+            query.offset = try integer(params, "offset", default: 0, range: 0...Int(Int32.max))
+            query.search = try string(params, "search", max: 120) ?? ""
+            query.delivery = try string(params, "delivery_state", max: 40) ?? ""
+            query.group = try string(params, "catalogue_group", max: 32) ?? ""
+            query.mode = try string(params, "mode_facet", max: 16) ?? ""
+            query.role = try string(params, "role_facet", max: 16) ?? ""
+        }
+        return query
+    }
+
+    func aggregateReadOwner(expectedGeneration: String? = nil) throws -> LiveLogbookAggregateOwner {
+        try lock.withLock {
+            if let expectedGeneration {
+                // A detached view carrying old progress must clear it before a
+                // cold reopen/full integrity scan, not after heavy admission.
+                try validateWorkspaceLocation()
+                guard try storedEditGeneration() == expectedGeneration else { throw LiveLogbookAggregateChange.retired }
+            }
+            let db = try readyDatabase()
+            let generation = try editGeneration(validatedDatabase: db)
+            guard expectedGeneration == nil || expectedGeneration == generation else { throw LiveLogbookAggregateChange.retired }
+            return LiveLogbookAggregateOwner(database: db, generation: generation, authority: try db.aggregateReadAuthority())
+        }
+    }
+
+    private func validateAggregateOwner(_ owner: LiveLogbookAggregateOwner) throws {
+        guard database === owner.database,
+              !fileManager.fileExists(atPath: workspaceURL.appendingPathComponent(".restore-incomplete").path) else {
+            throw LiveLogbookAggregateChange.retired
+        }
+        try validateWorkspaceLocation()
+        guard try editGeneration(createIfMissing: false, validatedDatabase: owner.database) == owner.generation else {
+            throw LiveLogbookAggregateChange.retired
+        }
+        let current = try owner.database.aggregateReadAuthority()
+        guard current.fileIdentity == owner.authority.fileIdentity else { throw LiveLogbookAggregateChange.retired }
+        guard current.revision == owner.authority.revision else { throw LiveLogbookAggregateChange.superseded }
+    }
+
+    func confirmAggregateOwner(_ owner: LiveLogbookAggregateOwner) throws {
+        do { try lock.withLock { try validateAggregateOwner(owner) } }
+        catch let change as LiveLogbookAggregateChange { throw change.failure }
+        catch let change as LogbookAggregateReadError {
+            switch change {
+            case .superseded: throw LiveLogbookAggregateChange.superseded.failure
+            case .retired: throw LiveLogbookAggregateChange.retired.failure
+            }
+        }
+        catch LogbookDatabaseError.syncBusy { throw LiveLogbookAggregateChange.superseded.failure }
+    }
+
+    func acceptAggregate(_ result: LogbookAggregateResult, owner: LiveLogbookAggregateOwner) throws {
+        try lock.withLock {
+            try validateAggregateOwner(owner)
+            guard result.authority.fileIdentity == owner.authority.fileIdentity else { throw LiveLogbookAggregateChange.retired }
+            guard result.authority.revision == owner.authority.revision else { throw LiveLogbookAggregateChange.superseded }
+            guard try owner.database.publishAggregateResult(result) else { throw LiveLogbookAggregateChange.superseded }
+        }
+    }
+
+    func renderAggregate(_ result: LogbookAggregateResult, owner: LiveLogbookAggregateOwner,
+                         query: LiveLogbookAggregateQuery) throws -> [String: Any] {
+        try lock.withLock {
+            try validateAggregateOwner(owner)
+            guard result.authority == owner.authority, result.request.kind == query.kind else {
+                throw LogbookDatabaseError.corruptRecord
+            }
+            var response: [String: Any]
+            switch result.value {
+            case let .statistics(value):
+                guard query.kind == .statistics else { throw LogbookDatabaseError.corruptRecord }
+                response = try statisticsJSON(stats: value.stats, awards: value.awards,
+                    statuses: value.dxccStatuses, database: owner.database)
+            case let .catalogue(value):
+                guard query.kind == .catalogue else { throw LogbookDatabaseError.corruptRecord }
+                response = try catalogJSON(value, offset: query.offset, limit: query.limit,
+                    search: query.search, delivery: query.delivery, group: query.group, mode: query.mode, role: query.role)
+            }
+            // Settings/CTY/queue shaping above uses today's owner context. Check
+            // again after it, never against the old readonly transaction.
+            try validateAggregateOwner(owner)
+            response["workspace_generation"] = owner.generation
+            response["logbook_revision"] = owner.authority.revision
+            return response
+        }
+    }
+
+    private func statisticsJSON(stats: LogbookStats, awards: AwardProgressSnapshot, statuses source: [Int: String],
+                                database db: LogbookDatabase) throws -> [String: Any] {
+        var statuses = Dictionary(try currentCTYResolver().entities.map { (String($0.adif), "needed") }, uniquingKeysWith: { first, _ in first })
+        for (adif, status) in source { statuses[String(adif)] = status }
+        let settings = try currentSettings()
+        let home: Any = MaidenheadLocator.coordinate(settings.gridSquare).map {
+            ["lat": $0.latitude, "lon": $0.longitude, "call": settings.stationCall, "grid": settings.gridSquare] as [String: Any]
+        } as Any? ?? NSNull()
+        return ["stats": ["qso_count": stats.qsoCount, "dxcc_count": stats.dxccCount,
+                          "confirmed_count": stats.confirmedCount, "this_year_count": stats.thisYearCount],
+                "dxcc_statuses": statuses, "map_home": home, "awards": awardJSON(awards),
+                "pending_sync_count": try db.pendingSyncCount(), "outbox_count": try db.outboxCount()]
+    }
+
+    /// Compatibility callers are synchronous; the persistent worker routes these
+    /// two methods through LiveLogbookAggregateReads instead of its owner lane.
+    private func synchronousAggregate(method: String, params: [String: Any]) throws -> [String: Any] {
+        let query = try aggregateQuery(method: method, params: params)
+        let owner = try aggregateReadOwner(expectedGeneration: query.expectedGeneration)
+        let cancellation = LogbookAggregateCancellation()
+        let snapshot = try LogbookDatabase.readAggregateSnapshot(at: owner.database.url, authority: owner.authority,
+            request: try LogbookAggregateRequest.current(query.kind), cancellation: cancellation)
+        let result = try snapshot.evaluate(cancellation: cancellation)
+        try acceptAggregate(result, owner: owner)
+        return try renderAggregate(result, owner: owner, query: query)
+    }
+
     #if canImport(XLogCore)
     /// Source-only confirmation owner. No renderer route or replay capability is
     /// exposed until this batch has its own durable operation receipt contract.
@@ -973,33 +1107,9 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 guard let saved = try db.lookup(localID: id) else { throw WorkerFailure("not_found", "Updated QSO was not found.") }
                 return ["qso": try json(saved)]
             case "logbook_stats":
-                try requireKeys(params, allowed: [])
-                let db = try readyDatabase()
-                let stats = try db.stats()
-                let awards = try db.awardProgress()
-                var statuses = Dictionary(try currentCTYResolver().entities.map { (String($0.adif), "needed") }, uniquingKeysWith: { first, _ in first })
-                for (adif, status) in try db.dxccMapStatuses() { statuses[String(adif)] = status }
-                let settings = try currentSettings()
-                let home: Any = MaidenheadLocator.coordinate(settings.gridSquare).map {
-                    ["lat": $0.latitude, "lon": $0.longitude, "call": settings.stationCall, "grid": settings.gridSquare] as [String: Any]
-                } as Any? ?? NSNull()
-                return ["stats": ["qso_count": stats.qsoCount, "dxcc_count": stats.dxccCount,
-                                  "confirmed_count": stats.confirmedCount, "this_year_count": stats.thisYearCount],
-                        "dxcc_statuses": statuses, "map_home": home,
-                        "awards": awardJSON(awards),
-                        "pending_sync_count": try db.pendingSyncCount(),
-                        "outbox_count": try db.outboxCount()]
+                return try synchronousAggregate(method: method, params: params)
             case "logbook_catalog":
-                try requireKeys(params, allowed: ["limit", "offset", "search", "delivery_state", "catalogue_group", "mode_facet", "role_facet"])
-                let limit = try integer(params, "limit", default: 20, range: 1...25)
-                let offset = try integer(params, "offset", default: 0, range: 0...Int(Int32.max))
-                let catalog = try readyDatabase().awardCatalog()
-                return try catalogJSON(catalog, offset: offset, limit: limit,
-                                       search: try string(params, "search", max: 120) ?? "",
-                                       delivery: try string(params, "delivery_state", max: 40) ?? "",
-                                       group: try string(params, "catalogue_group", max: 32) ?? "",
-                                       mode: try string(params, "mode_facet", max: 16) ?? "",
-                                       role: try string(params, "role_facet", max: 16) ?? "")
+                return try synchronousAggregate(method: method, params: params)
             case "logbook_previous":
                 try requireKeys(params, allowed: ["call", "limit"], required: ["call"])
                 guard let call = try string(params, "call", max: 32), !call.isEmpty else { throw invalid() }
@@ -1749,6 +1859,19 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         if let validatedDatabase {
             guard validatedDatabase === database else { throw WorkerFailure("workspace_changed", "The validated workspace changed.") }
         } else { _ = try readyDatabase() }
+        let stored = try storedEditGeneration()
+        if let stored, !rotate { return stored }
+        guard createIfMissing else {
+            throw WorkerFailure("workspace_identity_unavailable", "Open the current contact before requesting read-only findings.")
+        }
+        let url = workspaceURL.appendingPathComponent("edit-generation.json")
+        let value = UUID()
+        try JSONEncoder().encode(value).write(to: url, options: .atomic)
+        try LocalFilePermissions.protectFile(url, fileManager: fileManager)
+        return value.uuidString.lowercased()
+    }
+
+    private func storedEditGeneration() throws -> String? {
         let url = workspaceURL.appendingPathComponent("edit-generation.json")
         let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
         if fileManager.fileExists(atPath: url.path) || values?.isSymbolicLink == true {
@@ -1760,15 +1883,9 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
             guard let value = try? JSONDecoder().decode(UUID.self, from: data) else {
                 throw WorkerFailure("unsafe_workspace", "Workspace edit identity is invalid; editing is unavailable.")
             }
-            if !rotate { return value.uuidString.lowercased() }
+            return value.uuidString.lowercased()
         }
-        guard createIfMissing else {
-            throw WorkerFailure("workspace_identity_unavailable", "Open the current contact before requesting read-only findings.")
-        }
-        let value = UUID()
-        try JSONEncoder().encode(value).write(to: url, options: .atomic)
-        try LocalFilePermissions.protectFile(url, fileManager: fileManager)
-        return value.uuidString.lowercased()
+        return nil
     }
 
     /// Codable omits nil properties; the bridge makes unavailable evidence explicit.

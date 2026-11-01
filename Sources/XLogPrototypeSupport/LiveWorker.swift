@@ -154,6 +154,7 @@ public actor LiveWorker {
     private let powerDelivery: NativeDraftPowerDelivery
     private var powerSelectionSequence: [String: UInt64] = ["radio1": 0, "radio2": 0]
     private let logbookLane: LogbookLane
+    private let aggregateReads: LiveLogbookAggregateReads
     private let contestLane: ContestLane?
     private let contestLaneInitializationError: ContestLaneError?
     private let pythonContestLane: PythonContestLane?
@@ -207,12 +208,15 @@ public actor LiveWorker {
           operatingModule: WorkerOperatingModule = .normalLogging,
           contestDeclarativeDefinitions: [ContestDeclarativeDefinition]? = nil,
           pythonContestConfiguration: PythonContestHostConfiguration? = nil,
-          stationRegistry: StationRadioRegistry? = nil) {
+          stationRegistry: StationRadioRegistry? = nil,
+          aggregateEvaluator: LiveLogbookAggregateEvaluator? = nil) {
         self.powerCapture = powerCapture
         self.powerDelivery = powerDelivery
         self.logbookMethods = logbook
         let createdLogbookLane = LogbookLane(service: logbook, power: powerCapture)
         logbookLane = createdLogbookLane
+        if let aggregateEvaluator { aggregateReads = LiveLogbookAggregateReads(service: logbook, evaluate: aggregateEvaluator) }
+        else { aggregateReads = LiveLogbookAggregateReads(service: logbook) }
         contestLogTransfer = ContestLogTransferService(logbook: logbook)
         // The packaged Contesting Test process owns a real bundled Python lane.
         // Keep the retired Swift lane only as a compatibility fixture for
@@ -312,6 +316,8 @@ public actor LiveWorker {
 
     func beginTerminalShutdown() async {
         terminalShutdown = true
+        let readers = aggregateReads
+        async let aggregateRetirement: Void = readers.terminate()
         #if os(macOS)
         await cwDecode.terminate()
         #endif
@@ -325,6 +331,7 @@ public actor LiveWorker {
         onlineLogKickTask = nil
         remoteBackup.beginTermination()
         await onlineLogs.beginTermination()
+        await aggregateRetirement
     }
 
     private func cancelContactRefresh() {
@@ -402,6 +409,7 @@ public actor LiveWorker {
 
     private func externalContactChanged() async {
         guard operatingModule == .normalLogging, !terminalShutdown else { return }
+        await aggregateReads.observeContactChange()
         queueContactRefresh()
         queueOnlineLogDelivery()
     }
@@ -680,6 +688,13 @@ public actor LiveWorker {
                     // retired by a newer provider handover or connection fence.
                     result = ["accepted": activeAdmission == .applied, "superseded": activeAdmission != .applied]
                 }
+            } else if method == "logbook_stats" || method == "logbook_catalog" {
+                guard !terminalShutdown else { throw WorkerFailure("worker_stopping", "The worker is shutting down.") }
+                let reply = try await aggregateReads.handle(method: method, params: params)
+                guard !terminalShutdown else { throw WorkerFailure("worker_stopping", "The worker is shutting down.") }
+                // No await separates this last owner fence from serialization.
+                try logbookMethods.confirmAggregateOwner(reply.owner)
+                result = reply.payload
             } else if method == "hm_control_logbook" || method == "cluster_history" || method.hasPrefix("spot_draft_") || method.hasPrefix("workspace_") || method.hasPrefix("logbook_") || method.hasPrefix("settings_") || method.hasPrefix("backup_") {
                 #if os(macOS)
                 let cwCallsign=method=="spot_draft_apply" && (params["spot"] as? [String:Any])?["cwCallsign"] != nil
@@ -716,6 +731,10 @@ public actor LiveWorker {
                     #endif
                     await cluster.invalidateContactsForWorkspaceChange()
                 }
+                // Readonly SQLite handles must be closed before replacement on
+                // every platform/profile, including isolated acceptance workers.
+                let changingAggregateWorkspace = ["workspace_create", "backup_restore"].contains(method)
+                if changingAggregateWorkspace { await aggregateReads.suspendForWorkspaceChange() }
                 do {
                     #if os(macOS)
                     if cwCallsign {result=try await logbookLane.applyCWCallsign(params:params,resolver:cwDecode)}
@@ -725,6 +744,7 @@ public actor LiveWorker {
                     #endif
                 }
                 catch {
+                    if changingAggregateWorkspace { await aggregateReads.finishWorkspaceChange() }
                     // A rejected restore still owns the original workspace;
                     // rebuild its invalidated projection without hiding error.
                     if changingWorkspace {
@@ -747,6 +767,7 @@ public actor LiveWorker {
                     }
                     throw error
                 }
+                if changingAggregateWorkspace { await aggregateReads.finishWorkspaceChange() }
                 if changingWorkspace {
                     await references.finishWorkspaceChange()
                     #if os(macOS)
@@ -769,6 +790,9 @@ public actor LiveWorker {
                 let contactChanged = method == "logbook_contact_apply" && result["status"] as? String == "applied"
                 if method == "settings_save" { await references.resetAutomaticDeadline() }
                 let imported = method == "logbook_import_adif" && params["action"] as? String != "preview"
+                if draftLogged || contactChanged || imported || ["logbook_save", "logbook_delete", "logbook_undo"].contains(method) {
+                    await aggregateReads.observeContactChange()
+                }
                 if normalBackgroundEnabled && (draftLogged || contactChanged || imported || ["workspace_create", "logbook_save", "logbook_delete", "logbook_undo", "backup_restore"].contains(method)) {
                     queueContactRefresh()
                 }
@@ -802,6 +826,9 @@ public actor LiveWorker {
                         }
                     }
                     result = serviceResult
+                    if method == "sync_summary", let revision = result["logbook_revision"] as? Int64 {
+                        await aggregateReads.observeRevision(revision)
+                    }
                 }
                 catch {
                     if fencesOnlineDelivery { await onlineLogs.finishOwnershipChange() }
