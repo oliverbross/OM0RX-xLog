@@ -454,20 +454,42 @@ function MainLiveApp() {
   const recoveryVisible = useWorkspaceRecovery(recoveryRequired,
     canChangeMode(true) && !deskLayout.state.pending && !deskLayout.state.saving);
   const separateWindows = workspace?.workspace_exists === true && workspaceMode(deskLayout.state.snapshot) === "windows" && !recoveryVisible;
+  const presentationLayout = deskLayout.state;
+  const presentationWorkspaceExists = workspace?.workspace_exists === true;
+  const presentationWorkspaceGeneration = typeof workspace?.generation === "string" ? workspace.generation : null;
   useEffect(() => {
-    const state = deskLayout.state;
-    if (!state.snapshot || state.saving || workspace?.workspace_exists !== true) return;
+    const state = deskLayout.session.getSnapshot();
+    if (!state.snapshot || state.saving || !presentationWorkspaceExists) return;
+    // Read the session at admission: a newer layout may have arrived since the
+    // render that requested this presentation. Its own render will present it.
+    if (state.snapshot.generation !== presentationLayout.snapshot?.generation ||
+        state.snapshot.revision !== presentationLayout.snapshot?.revision ||
+        !!state.pending !== !!presentationLayout.pending ||
+        state.pending?.base.generation !== presentationLayout.pending?.base.generation ||
+        state.pending?.base.revision !== presentationLayout.pending?.base.revision ||
+        !!state.conflict !== !!presentationLayout.conflict ||
+        state.conflict?.generation !== presentationLayout.conflict?.generation ||
+        state.conflict?.revision !== presentationLayout.conflict?.revision ||
+        state.workspaceChanged !== presentationLayout.workspaceChanged ||
+        !!state.error !== !!presentationLayout.error) return;
+    let active = true;
     void presentWorkspaceMode(state.snapshot, separateWindows)
       .then(() => {
+        if (!active) return;
         const previous = presentationError.current; presentationError.current = "";
         if (previous) setError(current => current === previous ? "" : current);
       })
       .catch(cause => {
+        if (!active) return;
         const message = cause instanceof Error ? cause.message : typeof cause === "string" && cause.trim() ? cause : "Workspace mode presentation failed.";
         presentationError.current = message; setError(message);
       });
-  }, [deskLayout.state.snapshot, deskLayout.state.pending, deskLayout.state.saving,
-      deskLayout.state.conflict, deskLayout.state.workspaceChanged, separateWindows, workspace]);
+    return () => { active = false; };
+  }, [deskLayout.session, presentationLayout.snapshot?.generation, presentationLayout.snapshot?.revision,
+      !!presentationLayout.pending, presentationLayout.pending?.base.generation, presentationLayout.pending?.base.revision,
+      presentationLayout.saving, !!presentationLayout.conflict, presentationLayout.conflict?.generation,
+      presentationLayout.conflict?.revision, presentationLayout.workspaceChanged, !!presentationLayout.error, separateWindows, recoveryVisible,
+      presentationWorkspaceExists, presentationWorkspaceGeneration]);
   const acceptsInput = useCallback(() => normalActive.current && !moduleTransitioning.current && !readingRadio.current && !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookWorkingRef.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput(), [draftSession, contactSession]);
   const normalTransitionBlockReason = useCallback(() => {
     const current = draftSession.getSnapshot(), contact = contactSession.getSnapshot(), mutation = logbookMutations.getSnapshot();
