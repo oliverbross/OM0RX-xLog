@@ -950,6 +950,20 @@ impl Snapshot {
     pub fn coverage(&self, start: u64, end: u64) -> String {
         coverage(&self.dir, &self.manifest, start, end)
     }
+    /// One IPC response only; no verification state survives this call.
+    pub fn coverage_batch(&self, intervals: &[(u64, u64)]) -> Result<Vec<String>> {
+        if intervals.len() > 500 {
+            return Err("Query up to 500 coverage intervals".into());
+        }
+        #[cfg(windows)]
+        {
+            Ok(coverage_batch_with(&self.dir, &self.manifest, intervals, verified))
+        }
+        #[cfg(not(windows))]
+        {
+            Ok(intervals.iter().map(|&(start, end)| self.coverage(start, end)).collect())
+        }
+    }
     pub fn media_path(&self, segment: &Segment) -> PathBuf {
         if segment.recovered {
             self.dir.join(format!("{:06}.recovered.wav", segment.id))
@@ -1091,17 +1105,18 @@ impl Snapshot {
         Ok(dir)
     }
 }
-fn coverage(dir: &Path, m: &Manifest, start: u64, end: u64) -> String {
+fn coverage_range_status(m: &Manifest, start: u64, end: u64) -> Option<&'static str> {
     if start >= end || start >= m.frames {
-        return "unavailable".into();
+        Some("unavailable")
+    } else if end > m.frames {
+        Some(if m.status == "recording" { "pending-tail" } else { "partial" })
+    } else {
+        None
     }
-    if end > m.frames {
-        return if m.status == "recording" {
-            "pending-tail"
-        } else {
-            "partial"
-        }
-        .into();
+}
+fn coverage(dir: &Path, m: &Manifest, start: u64, end: u64) -> String {
+    if let Some(status) = coverage_range_status(m, start, end) {
+        return status.into();
     }
     for s in &m.segments {
         let path = if s.recovered {
@@ -1113,6 +1128,9 @@ fn coverage(dir: &Path, m: &Manifest, start: u64, end: u64) -> String {
             return "file missing/corrupt".into();
         }
     }
+    coverage_tail(dir, m, end)
+}
+fn coverage_tail(dir: &Path, m: &Manifest, end: u64) -> String {
     let finalized = m
         .segments
         .last()
@@ -1129,6 +1147,47 @@ fn coverage(dir: &Path, m: &Manifest, start: u64, end: u64) -> String {
         }
     }
     "available".into()
+}
+// Production uses this only for Windows. The test build exercises the same
+// interval algorithm on every host; Unix IPC keeps its original per-row path.
+#[cfg(any(windows, test))]
+fn coverage_batch_with(
+    dir: &Path,
+    m: &Manifest,
+    intervals: &[(u64, u64)],
+    mut verify: impl FnMut(&Path, &Segment) -> bool,
+) -> Vec<String> {
+    let mut statuses: Vec<_> = intervals.iter()
+        .map(|&(start, end)| coverage_range_status(m, start, end))
+        .collect();
+    if intervals.is_empty() { return Vec::new(); }
+    for segment in &m.segments {
+        if !intervals.iter().enumerate().any(|(index, &(start, end))| {
+            statuses[index].is_none() && segment.first_frame < end
+                && segment.first_frame + segment.frames > start
+        }) {
+            continue;
+        }
+        let path = if segment.recovered {
+            dir.join(format!("{:06}.recovered.wav", segment.id))
+        } else {
+            segment_path(dir, segment.id, false)
+        };
+        // This exact path/expected bytes/hash entry is checked once and used
+        // only by its intersecting rows in this immutable snapshot response.
+        if !verify(&path, segment) {
+            for (index, &(start, end)) in intervals.iter().enumerate() {
+                if statuses[index].is_none()
+                    && segment.first_frame < end
+                    && segment.first_frame + segment.frames > start {
+                    statuses[index] = Some("file missing/corrupt");
+                }
+            }
+        }
+    }
+    intervals.iter().enumerate().map(|(index, &(_, end))| {
+        statuses[index].map(str::to_owned).unwrap_or_else(|| coverage_tail(dir, m, end))
+    }).collect()
 }
 fn read_range(
     path: &Path,
@@ -1174,6 +1233,102 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let path = temp.path().canonicalize().unwrap();
         (temp, path)
+    }
+    #[test]
+    fn coverage_batch_preserves_range_tail_statuses_and_request_limit() {
+        let (_temp, root) = root();
+        let mut archive = archive(&root, 1);
+        archive.append(&signal(10, 1)).unwrap();
+        archive.flush_tail().unwrap();
+        let intervals = [(0, 0), (10, 11), (0, 11), (0, 10), (2, 8)];
+        for recording in [false, true] {
+            archive.manifest.status = if recording { "recording" } else { "stopped" }.into();
+            let snapshot = archive.snapshot();
+            let expected: Vec<_> = intervals.iter().map(|&(a, b)| snapshot.coverage(a, b)).collect();
+            assert_eq!(coverage_batch_with(&snapshot.dir, &snapshot.manifest, &intervals, verified), expected);
+            assert_eq!(snapshot.coverage_batch(&intervals).unwrap(), expected);
+        }
+        let snapshot = archive.snapshot();
+        let partial = segment_path(&archive.dir, 0, true);
+        drop(archive); // Close fixture-owned active handles before Windows removal.
+        fs::remove_file(partial).unwrap();
+        assert_eq!(coverage_batch_with(&snapshot.dir, &snapshot.manifest, &[(0, 10)], verified), ["file missing/corrupt"]);
+        assert!(snapshot.coverage_batch(&vec![(0, 1); 501]).is_err());
+        assert!(snapshot.coverage_batch(&[]).unwrap().is_empty());
+    }
+    #[test]
+    fn coverage_batch_preserves_finalized_and_recovered_segment_results() {
+        let (_temp, root) = root();
+        let mut archive = archive(&root, 1);
+        archive.segment_frames = 10;
+        archive.append(&signal(20, 1)).unwrap();
+        archive.finish("stopped", None).unwrap();
+        let mut snapshot = archive.snapshot();
+        let intervals = [(0, 5), (5, 15), (10, 20), (0, 21), (20, 21)];
+        fs::rename(snapshot.media_path(&snapshot.manifest.segments[0]),
+            snapshot.dir.join("000000.recovered.wav")).unwrap();
+        snapshot.manifest.segments[0].recovered = true;
+        for corrupt_second in [false, true] {
+            if corrupt_second { snapshot.manifest.segments[1].hash = "0".repeat(64); }
+            let expected: Vec<_> = intervals.iter().map(|&(a, b)| snapshot.coverage(a, b)).collect();
+            assert_eq!(coverage_batch_with(&snapshot.dir, &snapshot.manifest, &intervals, verified), expected);
+            assert_eq!(snapshot.coverage_batch(&intervals).unwrap(), expected);
+        }
+    }
+    #[cfg(windows)]
+    #[test]
+    fn windows_coverage_batch_reads_overlapping_media_once_and_next_response_is_fresh() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let (_temp, root) = root();
+        let mut cfg = config(2);
+        cfg.rate = 48000;
+        let mut archive = Archive::create(&root, &uuid::Uuid::new_v4().to_string(), cfg).unwrap();
+        archive.append(&signal(48000 * 60, 2)).unwrap();
+        archive.finish("stopped", None).unwrap();
+        let snapshot = archive.snapshot();
+        assert_eq!(snapshot.manifest.segments.len(), 1);
+        let media = snapshot.media_path(&snapshot.manifest.segments[0]);
+        let original = fs::read(&media).unwrap();
+        let metadata = fs::metadata(&media).unwrap();
+        let original_stamp = stamp(&metadata);
+        let original_modified = metadata.modified().unwrap();
+        let intervals = vec![(0, 48000 * 55); 100];
+        let started = std::time::Instant::now();
+        let (mut reads, mut bytes) = (0usize, 0u64);
+        let first = coverage_batch_with(&snapshot.dir, &snapshot.manifest, &intervals, |path, segment| {
+            reads += 1;
+            bytes += segment.bytes;
+            verified(path, segment)
+        });
+        assert!(first.iter().all(|status| status == "available"));
+        assert_eq!(reads, 1);
+        assert_eq!(bytes, original.len() as u64);
+        eprintln!("coverage_batch_timing {}", json!({"rows":intervals.len(),"freshSegmentReads":reads,
+            "bytes":bytes,"elapsedMicros":started.elapsed().as_micros()}));
+
+        let mut corrupt = original.clone();
+        corrupt[44] ^= 1;
+        let mut writer = OpenOptions::new().write(true).truncate(true).open(&media).unwrap();
+        writer.write_all(&corrupt).unwrap();
+        writer.sync_all().unwrap();
+        drop(writer);
+        let attributes = OpenOptions::new().access_mode(0x100).open(&media).unwrap();
+        attributes.set_times(fs::FileTimes::new().set_modified(original_modified)).unwrap();
+        drop(attributes);
+        assert_eq!(stamp(&fs::metadata(&media).unwrap()), original_stamp);
+        let trace = readonly_integrity_trace(&media, &original);
+        let started = std::time::Instant::now();
+        let mut next_reads = 0;
+        let next = coverage_batch_with(&snapshot.dir, &snapshot.manifest, &intervals, |path, segment| {
+            next_reads += 1;
+            verified(path, segment)
+        });
+        let elapsed = started.elapsed();
+        assert_eq!(next_reads, 1);
+        assert!(next.iter().all(|status| status == "file missing/corrupt"), "trace={trace}; next={next:?}");
+        eprintln!("coverage_batch_fresh_response {}", json!({"rows":intervals.len(),"freshSegmentReads":next_reads,
+            "bytes":original.len(),"elapsedMicros":elapsed.as_micros()}));
+        assert!(snapshot.coverage_batch(&intervals).unwrap().iter().all(|status| status == "file missing/corrupt"));
     }
     #[test]
     fn atomic_manifest_requires_existing_parent_and_replaces_complete_document() {

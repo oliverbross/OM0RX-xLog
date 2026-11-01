@@ -1098,28 +1098,18 @@ impl Recorder {
                     .collect();
                 links.sort_unstable_by_key(|l| std::cmp::Reverse((l.frame, l.id.as_str())));
                 let total = links.len();
-                let rows: Vec<_> = links
-                    .into_iter()
-                    .skip(offset)
-                    .take(limit)
-                    .map(|l| {
-                        let mut value = serde_json::to_value(l).unwrap();
-                        value["coverage"] = json!(if l.deleted {
-                            "tombstoned".into()
-                        } else {
-                            a.coverage(
-                                l.frame.saturating_sub(
-                                    a.manifest.config.pre_seconds as u64
-                                        * a.manifest.config.rate as u64,
-                                ),
-                                l.frame
-                                    + a.manifest.config.post_seconds as u64
-                                        * a.manifest.config.rate as u64,
-                            )
-                        });
+                let links: Vec<_> = links.into_iter().skip(offset).take(limit).collect();
+                let intervals: Vec<_> = links.iter().map(|link| {
+                    if link.deleted { return (0, 0); }
+                    (link.frame.saturating_sub(a.manifest.config.pre_seconds as u64 * a.manifest.config.rate as u64),
+                     link.frame + a.manifest.config.post_seconds as u64 * a.manifest.config.rate as u64)
+                }).collect();
+                let rows: Vec<_> = links.into_iter().zip(a.coverage_batch(&intervals)?)
+                    .map(|(link, coverage)| {
+                        let mut value = serde_json::to_value(link).unwrap();
+                        value["coverage"] = json!(if link.deleted { "tombstoned".into() } else { coverage });
                         value
-                    })
-                    .collect();
+                    }).collect();
                 Ok(json!({"total":total,"offset":offset,"rows":rows}))
             }
             "links" => {
@@ -1150,11 +1140,18 @@ impl Recorder {
                 for key in keys {
                     let a = self.archive(&key)?;
                     let a = a.lock().map_err(|_| "Archive unavailable")?.snapshot();
-                    for id in ids {
+                    let links: Vec<_> = ids.iter().filter_map(|id| {
                         let id = id.as_str().unwrap();
-                        if let Some(link) = a.links.get(id) {
-                            result.insert(id.into(),json!({"status":if link.deleted{"tombstoned".into()}else{a.coverage(link.frame.saturating_sub(a.manifest.config.pre_seconds as u64*a.manifest.config.rate as u64),link.frame+a.manifest.config.post_seconds as u64*a.manifest.config.rate as u64)},"captureId":key.capture_id,"basis":link.basis}));
-                        }
+                        a.links.get(id).map(|link| (id, link))
+                    }).collect();
+                    let intervals: Vec<_> = links.iter().map(|(_, link)| {
+                        if link.deleted { return (0, 0); }
+                        (link.frame.saturating_sub(a.manifest.config.pre_seconds as u64 * a.manifest.config.rate as u64),
+                         link.frame + a.manifest.config.post_seconds as u64 * a.manifest.config.rate as u64)
+                    }).collect();
+                    for ((id, link), coverage) in links.into_iter().zip(a.coverage_batch(&intervals)?) {
+                        result.insert(id.into(),json!({"status":if link.deleted{"tombstoned".into()}else{coverage},
+                            "captureId":key.capture_id,"basis":link.basis}));
                     }
                 }
                 Ok(Value::Object(result))
