@@ -67,7 +67,18 @@ it("renders and saves actual Workspace Settings placements after a complete nati
     document: { version: 2, activePresetID: "traditional", presets: ["traditional", "windowed"].map(id => ({
       id, name: id === "traditional" ? "Traditional" : "Windowed", width: 1920, height: 1080, locked: true, snap: true, panels: structuredClone(panels),
     })) } };
-  native.invoke.mockResolvedValue({ ...applied(), supported: allNativeRoles, generation: snapshot.generation, revision: snapshot.revision, presetID: "traditional" });
+  const presentationTicket = 31;
+  native.invoke.mockImplementation(async (command: string, args?: Record<string, unknown>) => {
+    if (command === "workspace_windows_status") {
+      expect(args).toBeUndefined();
+      return { ...applied(), supported: allNativeRoles, generation: snapshot.generation, revision: snapshot.revision, presetID: "traditional" };
+    }
+    if (command === "workspace_presentation_begin") {
+      expect(args).toEqual({ kind: "layout" });
+      return presentationTicket;
+    }
+    throw new Error(`Unexpected native command: ${command}`);
+  });
   const request = vi.fn(async (method: string, params?: any) => {
     if (method === "workspace_layout_apply") snapshot = { ...snapshot, revision: snapshot.revision + 1, document: changedLayout(snapshot.document, params) };
     return { status: "applied", layout: structuredClone(snapshot) };
@@ -95,8 +106,15 @@ it("renders and saves actual Workspace Settings placements after a complete nati
   expect(snapshot.document.activePresetID).toBe("traditional");
   const saved = snapshot.document.presets.find(preset => !["traditional", "windowed"].includes(preset.id))!;
   expect(saved.panels.find(panel => panel.id === "logbook")?.placement).toBe("window");
+  const applyCalls = request.mock.calls.filter(([method]) => method === "workspace_layout_apply");
+  expect(applyCalls).toHaveLength(1);
+  expect(applyCalls[0][1]).toMatchObject({ generation: snapshot.generation, expectedRevision: 7, presentationTicket });
+  expect(native.invoke.mock.calls.filter(([method]) => method === "workspace_presentation_begin")).toHaveLength(1);
+  const beginIndex = native.invoke.mock.calls.findIndex(([method]) => method === "workspace_presentation_begin");
+  const applyIndex = request.mock.calls.findIndex(([method]) => method === "workspace_layout_apply");
+  expect(native.invoke.mock.invocationCallOrder[beginIndex]).toBeLessThan(request.mock.invocationCallOrder[applyIndex]);
   expect(request.mock.calls.every(([method]) => ["workspace_layout_load", "workspace_layout_apply"].includes(method))).toBe(true);
-  expect(native.invoke.mock.calls.every(([method]) => method === "workspace_windows_status")).toBe(true);
+  expect(native.invoke.mock.calls.every(([method]) => ["workspace_windows_status", "workspace_presentation_begin"].includes(method))).toBe(true);
 });
 
 it("is inert outside Tauri, including retry and focus", async () => {

@@ -176,12 +176,15 @@ it("keeps conflicting main-draft recovery visible across layout reloads until ex
   await act(async () => { await vi.advanceTimersByTimeAsync(900); });
   expect(screen.getByRole("alert", { name: "QSO draft recovery" })).toBeTruthy();
   expect(api.present.mock.calls.at(-1)![1]).toBe(false);
+  const retainedDraft = localStorage.getItem("xlog.integration.operatorDraft.main.v1");
+  expect(retainedDraft).not.toBeNull();
   api.present.mockClear();
   // A focus-triggered layout read returns a new object at the same revision.
   api.layout = { ...api.layout, state: { ...api.layout.state, snapshot: structuredClone(api.layout.state.snapshot) } };
   await act(async () => { fireEvent.focus(window); view.rerender(<LiveApp />); });
-  expect(api.present.mock.calls.length).toBeGreaterThan(0);
-  expect(api.present.mock.calls.every(([, hide]) => hide === false)).toBe(true);
+  expect(api.present).not.toHaveBeenCalled();
+  expect(screen.getByRole("alert", { name: "QSO draft recovery" })).toBeTruthy();
+  expect(localStorage.getItem("xlog.integration.operatorDraft.main.v1")).toBe(retainedDraft);
   radioFrequency = base.qso.frequencyHz;
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Use shared draft" })); });
   expect(screen.queryByRole("alert", { name: "QSO draft recovery" })).toBeNull();
