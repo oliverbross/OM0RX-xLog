@@ -3105,30 +3105,95 @@ public final class LogbookDatabase: @unchecked Sendable {
             // or WCSA school calls. The slash arm is a portable-call superset.
             // `save` maintains the indexed call column alongside record_json;
             // use it to avoid parsing every full JSON blob on a cold open.
-            let schools = try AwardCatalogEngine.candidateSchoolCalls()
-            let placeholders = Array(repeating: "?", count: schools.count).joined(separator: ",")
-            let entities = AwardCatalogEngine.candidateDXCCs.map(String.init).joined(separator: ",")
-            let sql = """
-                WITH candidates AS (
-                    SELECT local_id FROM qsos
-                    WHERE deleted_at IS NULL AND CAST(json_extract(record_json,'$.dxcc') AS INTEGER) IN (\(entities))
-                    UNION
-                    SELECT local_id FROM qsos INDEXED BY idx_qsos_call
-                    WHERE INSTR(call,'/') > 0 OR UPPER(TRIM(call)) IN (\(placeholders))
-                )
-                SELECT qsos.record_json FROM candidates JOIN qsos USING (local_id)
-                WHERE qsos.deleted_at IS NULL ORDER BY qsos.qso_start ASC;
-                """
-            let values = try withStatement(sql) { statement in
-                for (index, call) in schools.enumerated() {
-                    bind(call, to: Int32(index + 1), in: statement)
-                }
-                return try decodeRows(statement, as: AwardCatalogContact.self)
-            }
+            let values = try awardCatalogContacts()
             let catalog = try AwardCatalogEngine.compute(contacts: values)
             cachedAwardCatalog = catalog
             persistAggregate(catalog, key: cacheKey, revision: revision)
             return catalog
+        }
+    }
+
+    static func awardCatalogQuery(schoolCount: Int) -> String {
+        let placeholders = Array(repeating: "?", count: schoolCount).joined(separator: ",")
+        let entities = AwardCatalogEngine.candidateDXCCs.map(String.init).joined(separator: ",")
+        let fields = ["call", "start", "band", "mode", "submode", "dxcc", "state", "county",
+                      "qslReceived", "lotwReceived", "propagationMode", "extraFields"]
+        let columns = fields.map { field -> String in
+            let value = "json_extract(qsos.record_json,'$.\(field)')"
+            if field == "extraFields" {
+                return "CASE WHEN json_type(qsos.record_json,'$.extraFields') = 'object' THEN \(value) END"
+            }
+            let numeric = ["start", "dxcc"].contains(field)
+            let rejected = numeric ? "'true','false'" : "'array','object'"
+            return "CASE WHEN json_type(qsos.record_json,'$.\(field)') IN (\(rejected)) THEN \(numeric ? "''" : "NULL") ELSE \(value) END"
+        }.joined(separator: ",")
+        // CROSS JOIN fixes the outer loop: an ordinary JOIN can choose to walk
+        // every QSO in date order before probing the much smaller candidate set.
+        // rowid also makes the callsign arm covering instead of seeking the table.
+        return """
+            WITH candidates AS (
+                SELECT rowid AS candidate_rowid FROM qsos
+                WHERE deleted_at IS NULL AND CAST(json_extract(record_json,'$.dxcc') AS INTEGER) IN (\(entities))
+                UNION
+                SELECT rowid AS candidate_rowid FROM qsos INDEXED BY idx_qsos_call
+                WHERE INSTR(call,'/') > 0 OR UPPER(TRIM(call)) IN (\(placeholders))
+            )
+            SELECT \(columns), json_valid(qsos.record_json),
+                CASE WHEN instr(qsos.record_json,'\\u0000') > 0 THEN qsos.record_json END
+            FROM candidates CROSS JOIN qsos ON qsos.rowid = candidates.candidate_rowid
+            WHERE qsos.deleted_at IS NULL ORDER BY qsos.qso_start ASC;
+            """
+    }
+
+    func awardCatalogContacts() throws -> [AwardCatalogContact] {
+        try withDatabaseLock {
+            let schools = try AwardCatalogEngine.candidateSchoolCalls()
+            return try withStatement(Self.awardCatalogQuery(schoolCount: schools.count)) { statement in
+                for (index, call) in schools.enumerated() { bind(call, to: Int32(index + 1), in: statement) }
+                func text(_ column: Int32) throws -> String {
+                    guard sqlite3_column_type(statement, column) == SQLITE_TEXT,
+                          let value = sqlite3_column_text(statement, column),
+                          let text = String(bytes: UnsafeBufferPointer(start: value,
+                            count: Int(sqlite3_column_bytes(statement, column))), encoding: .utf8) else {
+                        throw LogbookDatabaseError.corruptRecord
+                    }
+                    return text
+                }
+                var values: [AwardCatalogContact] = [], step = sqlite3_step(statement)
+                while step == SQLITE_ROW {
+                    guard sqlite3_column_int(statement, 12) == 1 else { throw LogbookDatabaseError.corruptRecord }
+                    // JSON1 before SQLite 3.45 truncates extracted strings at NUL.
+                    // Preserve the complete decoder contract for those rare rows.
+                    if sqlite3_column_type(statement, 13) != SQLITE_NULL {
+                        guard let bytes = sqlite3_column_blob(statement, 13) else { throw LogbookDatabaseError.corruptRecord }
+                        values.append(try decoder.decode(AwardCatalogContact.self,
+                            from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 13)))))
+                    } else {
+                        guard [SQLITE_INTEGER, SQLITE_FLOAT].contains(sqlite3_column_type(statement, 1)) else {
+                            throw LogbookDatabaseError.corruptRecord
+                        }
+                        let start = sqlite3_column_double(statement, 1)
+                        guard start.isFinite else { throw LogbookDatabaseError.corruptRecord }
+                        let dxcc: Int?
+                        switch sqlite3_column_type(statement, 5) {
+                        case SQLITE_NULL: dxcc = nil
+                        case SQLITE_INTEGER: dxcc = Int(exactly: sqlite3_column_int64(statement, 5))
+                            guard dxcc != nil else { throw LogbookDatabaseError.corruptRecord }
+                        case SQLITE_FLOAT: dxcc = Int(exactly: sqlite3_column_double(statement, 5))
+                            guard dxcc != nil else { throw LogbookDatabaseError.corruptRecord }
+                        default: throw LogbookDatabaseError.corruptRecord
+                        }
+                        let extraFields = try decoder.decode([String: String].self, from: Data(try text(11).utf8))
+                        values.append(AwardCatalogContact(call: try text(0), start: Date(timeIntervalSinceReferenceDate: start),
+                            band: try text(2), mode: try text(3), submode: try text(4), dxcc: dxcc,
+                            state: try text(6), county: try text(7), qslReceived: try text(8), lotwReceived: try text(9),
+                            propagationMode: try text(10), extraFields: extraFields))
+                    }
+                    step = sqlite3_step(statement)
+                }
+                guard step == SQLITE_DONE else { throw error() }
+                return values
+            }
         }
     }
 

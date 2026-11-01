@@ -61,7 +61,7 @@ public struct AwardCatalogItem: Codable, Identifiable, Equatable, Sendable {
 /// The calculators depend on these ADIF fields, not the entire editable QSO.
 /// Keeping their input explicit makes cold catalogue reads smaller and makes
 /// any future rule's additional field dependency a compile-time change.
-public struct AwardCatalogContact: Decodable, Sendable {
+public struct AwardCatalogContact: Decodable, Equatable, Sendable {
     public let call: String
     public let start: Date
     public let band: String
@@ -80,6 +80,15 @@ public struct AwardCatalogContact: Decodable, Sendable {
         submode = qso.submode; dxcc = qso.dxcc; state = qso.state; county = qso.county
         qslReceived = qso.qslReceived; lotwReceived = qso.lotwReceived
         propagationMode = qso.propagationMode; extraFields = qso.extraFields
+    }
+
+    init(call: String, start: Date, band: String, mode: String, submode: String, dxcc: Int?,
+         state: String, county: String, qslReceived: String, lotwReceived: String,
+         propagationMode: String, extraFields: [String: String]) {
+        self.call = call; self.start = start; self.band = band; self.mode = mode
+        self.submode = submode; self.dxcc = dxcc; self.state = state; self.county = county
+        self.qslReceived = qslReceived; self.lotwReceived = lotwReceived
+        self.propagationMode = propagationMode; self.extraFields = extraFields
     }
 }
 
