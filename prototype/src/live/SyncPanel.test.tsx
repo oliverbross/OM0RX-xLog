@@ -83,6 +83,42 @@ describe("durable synchronization provenance", () => {
 });
 
 describe("Wavelog conflict merge", () => {
+  it.each(["Windows", "Linux"])("keeps %s Wavelog sync passive until the explicit single-writer action", async platform => {
+    const request = syncRequest(async (method: string) => {
+      if (method === "settings_load") return { settings: { wavelogURL: "https://example.invalid", wavelogStationID: 1 } };
+      if (method === "secret_status") return { "wavelog-token": true };
+      return { ...fixture(), platform, platform_services: false, wavelog_sync: true,
+        mode: "wavelog", sync_available: true, automatic_sync: false };
+    });
+    render(<SyncPanel request={request} onChanged={vi.fn()} />);
+    await screen.findByText("Automatic sync off");
+    await waitFor(() => expect((screen.getByRole("button", { name: "Check setup" }) as HTMLButtonElement).disabled).toBe(false));
+    expect(request.mock.calls.every(([method]) => method === "sync_status")).toBe(true);
+    expect((screen.getByRole("button", { name: "Synchronize now" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Check setup" }));
+    await screen.findByText(/Server authentication is not yet verified/);
+    expect(request.mock.calls.every(([method]) => ["sync_status", "settings_load", "secret_status"].includes(method))).toBe(true);
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByRole("button", { name: "Synchronize now" }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("sync_mutation", expect.objectContaining({
+      owner: fixture().mutation_owner, method: "sync_run", params: { confirm_single_writer: true },
+    })));
+    expect(request.mock.calls.filter(([method]) => method === "sync_mutation")).toHaveLength(1);
+  });
+  it.each(["Windows", "Linux"])("gives portable vault guidance when setup checks fail on %s without starting sync", async platform => {
+    const request = syncRequest(async (method: string) => {
+      if (method === "secret_status") throw new Error("Credential store locked");
+      if (method === "settings_load") return { settings: { wavelogURL: "https://example.invalid", wavelogStationID: 1 } };
+      return { ...fixture(), platform, platform_services: false, sync_available: true };
+    });
+    render(<SyncPanel request={request} onChanged={vi.fn()} />);
+    await waitFor(() => expect((screen.getByRole("button", { name: "Check setup" }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole("button", { name: "Check setup" }));
+    await screen.findByText(/unlock or approve access to the system credential store if needed/);
+    expect(screen.getByText(/no synchronization was started/)).toBeTruthy();
+    expect(screen.queryByText(/on this Mac|Keychain prompt/)).toBeNull();
+    expect(request.mock.calls.every(([method]) => ["sync_status", "settings_load", "secret_status"].includes(method))).toBe(true);
+  });
   it("keeps local mode passive and disables remote setup and synchronization", async () => {
     const request = syncRequest(async () => ({ ...fixture(), mode: "local", sync_available: false }));
     render(<SyncPanel request={request} onChanged={vi.fn()} />);

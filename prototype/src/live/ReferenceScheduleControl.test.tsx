@@ -7,6 +7,26 @@ import { referenceAutoCheckChanged, referenceAutoCheckKey } from "./referenceSch
 beforeEach(() => localStorage.clear());
 afterEach(cleanup);
 describe("native reference preference", () => {
+  it.each(["Windows", "Linux"])("saves the %s Wavelog-only automatic preference without starting a refresh", async platform => {
+    let enabled = false;
+    const request = vi.fn(async (method: string, params?: Record<string, any>) => {
+      if (method === "reference_configure") enabled = params?.enabled === true;
+      return { platform, platform_services: false, available_sources: ["wavelog_catalog"], automatic_check: enabled };
+    });
+    const view = render(<ReferenceScheduleControl visible request={request} />);
+    const checkbox = screen.getByRole("checkbox") as HTMLInputElement;
+    await waitFor(() => expect(checkbox.disabled).toBe(false));
+    expect(checkbox.checked).toBe(false);
+    expect(request).toHaveBeenCalledOnce();
+    fireEvent.click(checkbox);
+    await waitFor(() => expect(checkbox.checked).toBe(true));
+    expect(request).toHaveBeenCalledWith("reference_configure", { enabled: true });
+    expect(request.mock.calls.every(([method]) => ["reference_status", "reference_configure"].includes(method))).toBe(true);
+    view.unmount();
+    render(<ReferenceScheduleControl visible request={request} />);
+    await waitFor(() => expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(true));
+    expect(request.mock.calls.filter(([method]) => method === "reference_configure")).toHaveLength(1);
+  });
   it("loads the native preference instead of a stale legacy browser setting", async () => {
     localStorage.setItem(referenceAutoCheckKey, "true");
     const request = vi.fn(async () => ({ automatic_check: false }));

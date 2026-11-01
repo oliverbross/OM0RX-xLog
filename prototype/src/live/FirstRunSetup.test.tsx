@@ -18,6 +18,27 @@ it.each([false, true])("offers only providers supported by the worker platform s
   expect(!!screen.queryByRole("option", { name: "DCU-1 network rotator" })).toBe(available);
   expect(screen.getByRole("option", { name: /USB \/ Serial or network rotator/ })).toBeTruthy();
 });
+it.each(["Windows", "Linux"])("keeps Wavelog setup available on %s when direct station services are unavailable", async platform => {
+  const finish = vi.fn(async () => {}), catalogue = vi.fn();
+  render(<FirstRunSetup onFinish={finish} loadModels={catalogue}
+    loadCapabilities={async () => ({ platform, platform_services: false, wavelog_sync: true, wavelog_catalog: true })} />);
+  identity(); fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  await screen.findByText(/Direct station services are unavailable/);
+  expect(screen.queryByRole("option", { name: "Remote Station Agent" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Skip radio" }));
+  fireEvent.click(screen.getByRole("button", { name: "Skip rotator" }));
+  fireEvent.change(screen.getByLabelText("Setup logbook mode"), { target: { value: "wavelog" } });
+  fireEvent.change(screen.getByLabelText("Wavelog URL"), { target: { value: "https://wavelog.example.invalid" } });
+  fireEvent.change(screen.getByLabelText("Wavelog station ID"), { target: { value: "7" } });
+  fireEvent.change(screen.getByLabelText("Wavelog API v2 token (optional)"), { target: { value: "fixture-private-token" } });
+  expect(screen.getByText(/local working copy/)).toBeTruthy();
+  expect(screen.getByText(/system credential vault/)).toBeTruthy();
+  expect(finish).not.toHaveBeenCalled(); expect(catalogue).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Finish setup" }));
+  await waitFor(() => expect(finish).toHaveBeenCalledOnce());
+  expect(finish).toHaveBeenCalledWith(expect.objectContaining({ radio: "skip", rotor: "skip", logbookMode: "wavelog",
+    wavelogURL: "https://wavelog.example.invalid", wavelogStationID: "7", wavelogToken: "fixture-private-token" }));
+});
 it("keeps first run blank, makes hardware skippable, and saves only on explicit Finish", async () => {
   const finish = vi.fn(async () => {}), catalogue = vi.fn();
   render(<FirstRunSetup onFinish={finish} loadModels={catalogue} />);

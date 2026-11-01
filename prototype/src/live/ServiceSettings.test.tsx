@@ -16,6 +16,23 @@ function SettingsHarness({ values: initial, onSave = async () => {}, ...props }:
   return <ServiceSettings {...props} values={values} onChanged={setValues} onSave={onSave} />;
 }
 describe("grouped service settings", () => {
+  it.each(["Windows", "Linux"])("mounts Wavelog reference tools and native scheduling on %s without direct station services", async platform => {
+    const request = vi.fn(async (method: string) => {
+      if (method === "backup_list") return { backups: [] };
+      if (method === "reference_status") return { platform, platform_services: false, available_sources: ["wavelog_catalog"],
+        automatic_check: false, running: false, status: "Ready", cty_source: "bundled", state: {} };
+      if (method === "secret_status") return { "wavelog-token": false };
+      return {};
+    });
+    render(<SettingsHarness values={values} request={request} dataRequest={request} requestedTab="Reference data" />);
+    expect(await screen.findByRole("table", { name: "Reference dataset evidence" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Wavelog catalog" })).toBeTruthy();
+    const automatic = screen.getByRole("checkbox", { name: "Automatically check reference databases" }) as HTMLInputElement;
+    await waitFor(() => expect(automatic.disabled).toBe(false));
+    expect(automatic.checked).toBe(false);
+    expect(screen.getByText(/Credentials stay in the integrated app’s separate system credential store/)).toBeTruthy();
+    expect(request.mock.calls.every(([method]) => ["backup_list", "reference_status", "secret_status"].includes(method))).toBe(true);
+  });
   it("keeps unfinished CW Decode hidden by default and persists visibility only on Save", async () => {
     const saved = vi.fn(async () => {}), request = vi.fn();
     render(<SettingsHarness values={values} request={request} onSave={saved} />);
@@ -410,7 +427,7 @@ describe("grouped service settings", () => {
   it("keeps saved status honest when the presence check fails", async () => {
     const request = vi.fn(async () => { throw new Error("denied"); });
     render(<SettingsHarness values={values} request={request} requestedTab="Wavelog" />);
-    await screen.findByText("Saved credential status unavailable. Keychain access may need attention.");
+    await screen.findByText("Saved credential status unavailable. Access to the system credential store may need attention.");
     expect((screen.getByLabelText("Wavelog API v2 token") as HTMLInputElement).placeholder).toBe("");
   });
 

@@ -129,7 +129,7 @@ export default function SyncPanel({ request, onChanged, journalKey = "xlog.sync.
         ? `Setup incomplete: ${missing.join(", ")}. Open Settings; paste the token directly into its private credential field and save it there.`
         : "URL, station ID and saved token are present. Server authentication is not yet verified. Confirm the single writer, then enable automatic sync or synchronize now.");
     } catch {
-      if (mounted.current) setSetupMessage("Could not check setup. Review Settings and approve any Keychain prompt directly on this Mac; no synchronization was started.");
+      if (mounted.current) setSetupMessage("Could not check setup. Review Settings and unlock or approve access to the system credential store if needed; no synchronization was started.");
     } finally { if (mounted.current) setCheckingSetup(false); }
   };
   const conflicts: Conflict[] = state?.conflicts || [];

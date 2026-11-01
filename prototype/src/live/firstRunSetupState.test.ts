@@ -4,7 +4,7 @@ import { SettingsSession } from "./settingsSession";
 import { defaultRotorConfiguration, RotorConfigurationSession } from "./rotorConfigurationSession";
 
 const generation = "00000000-0000-4000-8000-000000000001";
-function fixture(existing = false, completed = false) {
+function fixture(existing = false, completed = false, saveSecret: () => Promise<void> = async () => {}) {
   let exists = existing, revision = 0, rotorRevision = 0;
   let values = { onboardingCompleted: completed, showCWDecode: false, operatorCall: "", stationCall: "", defaultPower: "100", logbookMode: "local", automaticSync: false };
   let configuration = defaultRotorConfiguration();
@@ -25,7 +25,7 @@ function fixture(existing = false, completed = false) {
       const snapshot = { generation, revision: rotorRevision, configuration };
       return { status: "applied", ...snapshot, receipt: { mutation: params, snapshot } };
     }
-    if (method === "secret_save") return {};
+    if (method === "secret_save") { await saveSecret(); return {}; }
     throw new Error(`Unexpected method ${method}`);
   });
   const settings = new SettingsSession(request), rotor = new RotorConfigurationSession(request);
@@ -63,6 +63,26 @@ describe("first-run setup transactions", () => {
     expect(state.saved()).toMatchObject({ logbookMode: "wavelog", wavelogStationID: 3, automaticSync: false, onboardingCompleted: true });
     for (const [method, params] of state.request.mock.calls) if (method === "settings_save") expect(JSON.stringify(params)).not.toContain("fixture-token");
     expect(state.request.mock.calls.some(([method]) => method.startsWith("sync_"))).toBe(false);
+  });
+  it("keeps setup pending after a vault failure and safely completes a retry after reopening", async () => {
+    const vault = vi.fn<() => Promise<void>>().mockRejectedValueOnce(new Error("Credential store locked")).mockResolvedValue(undefined);
+    const state = fixture(false, false, vault), station = vi.fn();
+    const values = { ...stationValues(), logbookMode: "wavelog" as const, wavelogURL: "https://example.invalid",
+      wavelogStationID: "3", wavelogToken: "fixture-private-token" };
+    await expect(completeFirstRunSetup(values, { ...state, station })).rejects.toThrow("Credential store locked");
+    expect(state.saved()).toMatchObject({ operatorCall: "K1ABC", logbookMode: "wavelog", automaticSync: false, onboardingCompleted: false });
+    expect(station).not.toHaveBeenCalled();
+    expect(state.request.mock.calls.filter(([method]) => method === "settings_save")
+      .every(([, params]) => params?.settings.onboardingCompleted === false)).toBe(true);
+
+    await completeFirstRunSetup(values, { request: state.request, settings: new SettingsSession(state.request),
+      rotor: new RotorConfigurationSession(state.request), station });
+    expect(state.saved()).toMatchObject({ operatorCall: "K1ABC", wavelogStationID: 3, automaticSync: false, onboardingCompleted: true });
+    expect(state.request.mock.calls.filter(([method]) => method === "workspace_create")).toHaveLength(1);
+    expect(vault).toHaveBeenCalledTimes(2); expect(station).not.toHaveBeenCalled();
+    expect(state.request.mock.calls.some(([method]) => /^(sync_|station_|workspace_rotor_)/.test(method))).toBe(false);
+    for (const [method, params] of state.request.mock.calls) if (method === "settings_save")
+      expect(JSON.stringify(params)).not.toContain("fixture-private-token");
   });
   it("saves passive radio and rotor configurations without connecting or moving", async () => {
     const state = fixture(), station = vi.fn(async (_radio: string, params: Record<string, any>) => params.action === "snapshot"

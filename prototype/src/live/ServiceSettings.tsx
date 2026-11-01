@@ -42,7 +42,7 @@ function Credential({ account, label, request, leadingField, visible = false, sh
   const statusRevision = useRef(0);
   useEffect(() => {
     // Presence metadata is read once on first display, never the saved secret.
-    // Merely mounting Settings or changing tabs does not repeatedly read Keychain.
+    // Merely mounting Settings or changing tabs does not repeatedly read the credential store.
     if (!showSavedStatus || !visible || checked.current) return;
     checked.current = true;
     const revision = statusRevision.current;
@@ -60,7 +60,7 @@ function Credential({ account, label, request, leadingField, visible = false, sh
       setValue(""); setStored("saved"); saveToast.show(`${label} saved securely.`); onChanged?.();
     } catch {
       setStored(current => current === "checking" ? "unavailable" : current);
-      saveToast.show(`Could not save ${label}. Check the app’s Keychain access and try again.`, "error");
+      saveToast.show(`Could not save ${label}. Check the app’s access to the system credential store and try again.`, "error");
     }
     finally { setBusy(false); }
   };
@@ -70,10 +70,10 @@ function Credential({ account, label, request, leadingField, visible = false, sh
     try {
       await request("secret_save", { account, value: "" });
       setValue(""); setStored("missing"); saveToast.show(`${label} removed securely.`); onChanged?.();
-    } catch { saveToast.show(`Could not remove ${label}. Check the app’s Keychain access and try again.`, "error"); }
+    } catch { saveToast.show(`Could not remove ${label}. Check the app’s access to the system credential store and try again.`, "error"); }
     finally { setBusy(false); }
   };
-  const status = stored === "saved" ? (savedStatus ?? "Saved securely. Not verified for this Wavelog URL and station ID.") : stored === "missing" ? (missingStatus ?? "No saved token. Enter your API v2 token.") : stored === "checking" ? "Checking saved credential…" : stored === "unavailable" ? "Saved credential status unavailable. Keychain access may need attention." : "";
+  const status = stored === "saved" ? (savedStatus ?? "Saved securely. Not verified for this Wavelog URL and station ID.") : stored === "missing" ? (missingStatus ?? "No saved token. Enter your API v2 token.") : stored === "checking" ? "Checking saved credential…" : stored === "unavailable" ? "Saved credential status unavailable. Access to the system credential store may need attention." : "";
   return <div className={`service-credential${leadingField ? " service-account-row" : ""}`}>{leadingField}<label>{label}<input type={inputType} aria-label={label} autoComplete="off" value={value} disabled={busy} maxLength={8192} placeholder={showSavedStatus && stored === "saved" ? (inputType === "password" ? "•••••••• — saved" : "Saved securely") : undefined}
     onChange={event => setValue(event.target.value)} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.stopPropagation(); void save(); } }} /></label>
     <button type="button" disabled={busy || !value} onClick={() => void save()}>{busy ? "Saving…" : `Save ${label}`}</button>
@@ -319,7 +319,7 @@ export default function ServiceSettings({ values, savedValues, request, onChange
       <div className="live-actions" hidden={!showFormSave}><button type="submit" className="primary">{saving ? "Saving settings…" : "Save settings"}</button></div>
     </fieldset></form>
     {(visibleTabs.includes("Reference data") || visibleTabs.includes("Backups")) && <div hidden={tab !== "Reference data" && tab !== "Backups"}>{dataRequest ? <Suspense fallback={<p>Loading data tools…</p>}><DataManagementPanel onRequest={dataRequest} onChanged={onDataChanged ?? (() => {})} workspaceGeneration={dataWorkspaceGeneration} visible={tab === "Reference data" || tab === "Backups"} section={tab === "Backups" ? "backups" : "references"} sourceSettings={savedValues ?? form} /></Suspense> : <p>Reference and backup tools are unavailable in this view.</p>}</div>}
-    <p className="service-security-note" hidden={!showAccountHelp && tab !== "Online logs" && tab !== "Display"}>Credentials stay in the integrated app’s separate macOS Keychain service. Existing application credentials are not changed. Never paste credentials into a support chat.</p>
+    <p className="service-security-note" hidden={!showAccountHelp && tab !== "Online logs" && tab !== "Display"}>Credentials stay in the integrated app’s separate system credential store. Existing application credentials are not changed. Never paste credentials into a support chat.</p>
     {saveToast.toast}
     </div></div>
   </section>;
