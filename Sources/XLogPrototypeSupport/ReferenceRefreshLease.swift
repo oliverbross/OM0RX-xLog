@@ -31,13 +31,13 @@ final class ReferenceRefreshLease {
         // handle closes. OPEN_ALWAYS never truncates an existing lock file.
         let opened = path.withCString(encodedAs: UTF16.self) {
             CreateFileW($0, DWORD(GENERIC_READ | GENERIC_WRITE), 0, nil, DWORD(OPEN_ALWAYS),
-                        DWORD(FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT), nil)
+                        DWORD(FILE_ATTRIBUTE_NORMAL) | DWORD(FILE_FLAG_OPEN_REPARSE_POINT), nil)
         }
         guard let opened, opened != HANDLE(bitPattern: -1) else { throw Self.busy }
         var info = BY_HANDLE_FILE_INFORMATION()
         guard GetFileType(opened) == DWORD(FILE_TYPE_DISK),
-              GetFileInformationByHandle(opened, &info) != 0,
-              info.dwFileAttributes & DWORD(FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT) == 0 else {
+              GetFileInformationByHandle(opened, &info),
+              info.dwFileAttributes & (DWORD(FILE_ATTRIBUTE_DIRECTORY) | DWORD(FILE_ATTRIBUTE_REPARSE_POINT)) == 0 else {
             CloseHandle(opened)
             throw Self.busy
         }
