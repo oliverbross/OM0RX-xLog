@@ -186,7 +186,7 @@ jobs:
           # Random fixture identities only, removed by the test's exact cleanup.
           XLOG_TEST_NATIVE_VAULT: '1'
         run: |
-          python3 prototype/scripts/portable-swift-lock.py run -- swift test --force-resolved-versions --scratch-path .build/prototype-tests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
+          python3 prototype/scripts/portable-swift-lock.py run -- swift test --force-resolved-versions --scratch-path .build/prototype-tests --no-parallel -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
           exit $LASTEXITCODE
       - name: Linux credential vault in a private Secret Service session
         if: ${{ always() && !cancelled() && runner.os == 'Linux' && steps.linux_c_vault.outcome == 'success' }}
