@@ -8,6 +8,7 @@ import OpportunitiesPanel from "./OpportunitiesPanel";
 const params = { offset: 0, limit: 5, search: "", delivery_state: "" };
 const snapshot = { generated_at: "2026-10-17T00:00:00Z", items: [], sources: [], total_available: 0, history_state: "ready" };
 const catalogue = { total_programmes: 0, catalogue_total: 192, programmes: [], items: [] };
+const firstPage = { qsos: [{ id: "synthetic", call: "N0PERF" }], total: 100_001, offset: 0, limit: 20 };
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 function scheduledFrames() {
@@ -82,14 +83,14 @@ describe("deferred local panel reads", () => {
     let idle!: IdleRequestCallback;
     vi.stubGlobal("requestIdleCallback", vi.fn((callback: IdleRequestCallback) => { idle = callback; return 1; }));
     vi.stubGlobal("cancelIdleCallback", vi.fn());
-    const request = vi.fn(async (method: string) => method === "opportunities_snapshot" ? snapshot : catalogue);
+    const request = vi.fn(async (method: string) => method === "logbook_list" ? firstPage : method === "opportunities_snapshot" ? snapshot : catalogue);
     function Desk() { useDeferredPanelReads(request, 0, true); return <main>Operator Desk</main>; }
     render(<Desk />);
     expect(request).not.toHaveBeenCalled();
     act(frame); expect(request).not.toHaveBeenCalled();
     act(frame); expect(request).not.toHaveBeenCalled();
     await act(async () => { idle({ didTimeout: false, timeRemaining: () => 50 }); });
-    expect(request.mock.calls.map(([method]) => method)).toEqual(["opportunities_snapshot", "logbook_catalog", "logbook_list"]);
+    expect(request.mock.calls.map(([method]) => method)).toEqual(["logbook_list", "opportunities_snapshot", "logbook_catalog"]);
     expect(screen.queryByRole("region", { name: "Chaser and DX calendar" })).toBeNull();
     expect(screen.queryByRole("region", { name: "Station intelligence" })).toBeNull();
   });
@@ -100,7 +101,7 @@ describe("deferred local panel reads", () => {
     let next = 0, panelRequest!: ReturnType<typeof createDeferredPanelReads>["request"];
     vi.stubGlobal("requestIdleCallback", vi.fn((callback: IdleRequestCallback) => { idles.set(++next, callback); return next; }));
     vi.stubGlobal("cancelIdleCallback", vi.fn((id: number) => idles.delete(id)));
-    const request = vi.fn(async () => catalogue);
+    const request = vi.fn(async (method: string) => method === "logbook_list" ? firstPage : catalogue);
     function Desk({ enabled, revision }: { enabled: boolean; revision: number }) {
       panelRequest = useDeferredPanelReads(request, revision, enabled); return null;
     }
@@ -114,7 +115,7 @@ describe("deferred local panel reads", () => {
     expect(request).toHaveBeenCalledTimes(3);
     view.rerender(<Desk enabled={false} revision={1} />);
     await panelRequest("logbook_catalog", params);
-    expect(request).toHaveBeenCalledTimes(4);
+    expect(request).toHaveBeenCalledTimes(5);
   });
 
   it("coalesces pending warm reads, retains local results and leaves filtered reads fresh", async () => {
@@ -178,7 +179,7 @@ describe("deferred local panel reads", () => {
     vi.useFakeTimers(); const frame = scheduledFrames();
     vi.stubGlobal("requestIdleCallback", vi.fn((callback: IdleRequestCallback) => { callback({ didTimeout: false, timeRemaining: () => 50 }); return 1; }));
     vi.stubGlobal("cancelIdleCallback", vi.fn());
-    const request = vi.fn(async () => catalogue);
+    const request = vi.fn(async (method: string) => method === "logbook_list" ? firstPage : catalogue);
     let read!: ReturnType<typeof useDeferredPanelReads>;
     function Desk({ revision, workspace }: { revision: number; workspace: string }) {
       read = useDeferredPanelReads(request, `${workspace}:${revision}`, true, workspace); return null;
@@ -190,10 +191,58 @@ describe("deferred local panel reads", () => {
     }
     await act(async () => { await vi.advanceTimersByTimeAsync(59_999); });
     expect(request).toHaveBeenCalledTimes(3);
-    await read("logbook_catalog", params); expect(request).toHaveBeenCalledTimes(4);
+    await read("logbook_catalog", params); expect(request).toHaveBeenCalledTimes(5);
     await act(async () => { await vi.advanceTimersByTimeAsync(1); });
     expect(request).toHaveBeenCalledTimes(6);
     view.rerender(<Desk revision={0} workspace="b" />);
     await act(async () => { frame(); frame(); }); expect(request).toHaveBeenCalledTimes(9);
+  });
+
+  it("resolves a usable foreground page before admitting stats, catalogue or optional history work", async () => {
+    let finishPage!: (value: unknown) => void, finishCatalogue!: (value: unknown) => void;
+    const request = vi.fn((method: string) => {
+      if (method === "logbook_list") return new Promise(resolve => { finishPage = resolve; });
+      if (method === "logbook_catalog") return new Promise(resolve => { finishCatalogue = resolve; });
+      return Promise.resolve(method === "opportunities_snapshot" ? snapshot : { stats: { qso_count: firstPage.total } });
+    });
+    const reads = createDeferredPanelReads(request, true);
+    reads.warm();
+    const stats = reads.request("logbook_stats");
+    const page = reads.request("logbook_list", { search: "", offset: 0, limit: 20 });
+    expect(request.mock.calls.map(([method]) => method)).toEqual(["logbook_list"]);
+    finishPage(firstPage);
+    expect(await page).toBe(firstPage);
+    await stats;
+    expect(request.mock.calls.map(([method]) => method)).toEqual(["logbook_list", "opportunities_snapshot", "logbook_catalog", "logbook_stats"]);
+    // A slow catalogue cannot hold the already usable page or start another list read.
+    expect(await reads.request("logbook_list", { search: "", offset: 0, limit: 20 })).toBe(firstPage);
+    expect(request.mock.calls.filter(([method]) => method === "logbook_list")).toHaveLength(1);
+    finishCatalogue(catalogue);
+  });
+
+  it("retires aggregate work still waiting for a page when its workspace/revision scope changes", async () => {
+    let finishPage!: (value: unknown) => void;
+    const request = vi.fn((_method: string) => new Promise(resolve => { finishPage = resolve; }));
+    const reads = createDeferredPanelReads(request, true);
+    reads.warm();
+    const stats = reads.request("logbook_stats");
+    reads.invalidate();
+    finishPage(firstPage);
+    await expect(stats).rejects.toThrow("scope changed");
+    await Promise.resolve();
+    expect(request.mock.calls.map(([method]) => method)).toEqual(["logbook_list"]);
+  });
+
+  it("does not admit aggregates after a malformed or failed first-page response", async () => {
+    for (const value of [catalogue, { qsos: [], total: -1 }]) {
+      const request = vi.fn(async () => value);
+      const reads = createDeferredPanelReads(request, true);
+      await expect(reads.request("logbook_stats")).rejects.toThrow("first logbook page");
+      expect(request).toHaveBeenCalledTimes(1);
+    }
+    const request = vi.fn().mockRejectedValue(new Error("private fixture unavailable"));
+    const reads = createDeferredPanelReads(request, true);
+    await expect(reads.request("logbook_stats")).rejects.toThrow("private fixture unavailable");
+    expect(request).toHaveBeenCalledTimes(1);
   });
 });

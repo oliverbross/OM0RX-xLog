@@ -89,10 +89,11 @@ function ConfirmationStatus({ service, sent, received, supportsReceived = true }
   </span>;
 }
 
-export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChanged, onUndock, onDock, onBusyChange, onWorkingChange, disabled = false, columnContext, taskToolbar = false }: {
+export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutations, onChanged, onUndock, onDock, onBusyChange, onWorkingChange, disabled = false, columnContext, taskToolbar = false }: {
   onRequest: Request;
   onEdit: (qso: QSO) => void;
   refreshKey: number;
+  readScope?: string;
   mutations: LogbookMutationSession;
   onChanged?: () => void;
   onUndock?: () => void; onDock?: () => void; onBusyChange?: (busy: boolean) => void; disabled?: boolean;
@@ -124,6 +125,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
     setColumnPreferences(current => ({ ...current, widths: { ...current.widths, [id]: width } }));
   }
   const [loading, setLoading] = useState(false);
+  const [readStale, setReadStale] = useState(false);
   const [working, setBusy] = useState(false);
   const localWorking = useRef(false), mounted = useRef(false), workingChanged = useRef(onWorkingChange), externallyDisabled = useRef(disabled);
   workingChanged.current = onWorkingChange;
@@ -147,7 +149,8 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
   useEffect(() => { onBusyChange?.(busy); }, [busy, onBusyChange]);
   const [error, setError] = useState("");
   const [readRetry, setReadRetry] = useState(0);
-  const loadedPage = useRef<readonly [string, Request] | null>(null);
+  const readIdentity = readScope ?? onRequest;
+  const loadedPage = useRef<readonly [string, number, number, string | Request] | null>(null);
   const [notice, setNotice] = useState("");
   const [importReview, setImportReview] = useState<{ name: string; encoding: ADIFImportEncoding; batches: string[]; fieldMetadata: (ADIFFieldMetadata | null)[][]; records: number; duplicates: number; generation: string; token: string } | null>(null);
   const [importEncoding, setImportEncoding] = useState<ADIFImportEncoding>("utf-8");
@@ -205,23 +208,28 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
     return { ...first, qsos: [...unique.values()], offset: pageOffset, limit: pageSize };
   }
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     let cancelled = false;
     const retained = loadedPage.current;
-    const sameQuery = retained?.[0] === search && retained[1] === onRequest;
-    if (!sameQuery) { setPage(null); setSelectedID(null); }
+    const sameAuthority = retained?.[0] === search && retained[3] === readIdentity;
+    const sameQuery = sameAuthority && retained[1] === offset && retained[2] === pageSize;
+    if (!sameQuery) { setPage(null); setReadStale(false); }
+    // Capacity changes re-anchor the selected contact. Keep its identity and
+    // reviewed Delete revision while the new bounded frames replace the page.
+    if (!sameAuthority) setSelectedID(null);
     setExportSelection([]);
     setLoading(true);
     setError("");
     const load = () => retryStartupRead(() => readPage(offset, search, first => {
-      if (!cancelled && (!sameQuery || !page) && offset < first.total) setPage(first);
+      if (!cancelled && (!sameQuery || !page) && offset < first.total) { setPage(first); setReadStale(false); }
     }), () => !cancelled)
       .then((response) => {
         if (!cancelled) {
           if (offset > 0 && offset >= response.total) setOffset(Math.max(0, Math.floor((response.total - 1) / pageSize) * pageSize));
           else {
             setPage(result<LogbookPage>(response));
-            loadedPage.current = [search, onRequest];
+            setReadStale(false);
+            loadedPage.current = [search, offset, pageSize, readIdentity];
             setSelectedID(current => response.qsos.some(qso => qso.id === current) ? current : null);
           }
         }
@@ -231,11 +239,12 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
         // A passive refresh may retain its page. A changed query must
         // never pass earlier rows off as its results after retries are exhausted.
         if (!sameQuery || !page) setError(startupReadFailureMessage(cause, "The logbook"));
+        else setReadStale(true);
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     void load();
     return () => { cancelled = true; };
-  }, [onRequest, search, offset, refreshKey, pageSize, readRetry]);
+  }, [onRequest, readIdentity, search, offset, refreshKey, pageSize, readRetry]);
 
   async function reload(pageOffset = offset) {
     setExportSelection([]);
@@ -245,7 +254,8 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
     } else if (!response.total && pageOffset > 0) setOffset(0);
     else {
       setPage(response);
-      loadedPage.current = [search, onRequest];
+      loadedPage.current = [search, pageOffset, pageSize, readIdentity];
+      setReadStale(false);
     }
   }
 
@@ -456,6 +466,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
         onApply={value => { cancelDelete(); setQuery(value); setOffset(0); setSearch(value); }} />}
       {error && <p className="live-logbook-feedback error" role="alert">{error} <button type="button" disabled={loading} onClick={() => setReadRetry(value => value + 1)}>Retry logbook</button></p>}
       {notice && <p className="live-logbook-feedback" role="status">{notice}</p>}
+    {readStale && !loading && <p className="live-logbook-feedback" role="status">Refresh unavailable. Showing the previous page. <button type="button" onClick={() => setReadRetry(value => value + 1)}>Retry logbook</button></p>}
       {importReview && <div className="live-logbook-feedback" role="group" aria-label="Review ADIF import">
         <p>Source encoding: {importReview.encoding === "utf-8" ? "UTF-8" : importReview.encoding === "windows-1252" ? "Windows-1252" : "ISO-8859-1"}. Review uses normalized UTF-8 ADI.</p>
         <p>{importReview.name} · {importReview.records.toLocaleString()} validated records. {updateDuplicates ? "Duplicate policy: update only selected fields of reviewed existing contacts." : "Duplicate policy: skip existing contacts and repeated records; existing fields remain unchanged."}</p>
@@ -543,7 +554,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, mutations, onChang
         {!loading && !error && !rows.length && <div className="live-logbook-empty">
           {search ? "No QSOs match this search. Try a callsign or clear the search." : "This working logbook is empty. Log a QSO or import an ADIF file to begin."}
         </div>}
-        {loading && <div className="live-logbook-empty" role="status">Loading logbook…</div>}
+          {loading && <div className="live-logbook-empty" role="status">{page ? "Updating logbook…" : "Loading logbook…"}</div>}
       </div>
       <footer className="live-logbook-footer">
         <span>{!page && loading ? "Loading logbook…" : !page && error ? "Logbook unavailable" : total ? `${offset + 1}–${Math.min(offset + rows.length, total)} of ${total.toLocaleString()}` : "0 contacts"}</span>

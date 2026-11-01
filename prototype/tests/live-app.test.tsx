@@ -49,6 +49,7 @@ beforeEach(() => {
       : method === "workspace_rotor_configuration_load" ? { revision: 0, generation: testWorkspaceGeneration, configuration: defaultRotorConfiguration() }
       : method === "workspace_preferences_load" ? testPreferenceSnapshot({ bandMapFontScale: 1.2 })
       : method === "logbook_stats" ? { stats: { qso_count: 0 } }
+      : method === "logbook_list" ? { qsos: [], total: 0, offset: 0, limit: 20 }
       : method === "logbook_draft" ? { qso: { id: "draft", start: "2026-10-12T00:00:00Z", call: "", band: "20m", mode: "SSB" } }
       : method === "lookup_call" ? { source: "No match" }
       : method === "logbook_previous" ? { qsos: [] } : {};

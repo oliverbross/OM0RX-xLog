@@ -90,8 +90,41 @@ describe("logbook read recovery", () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(7_850); });
     expect(request).toHaveBeenCalledTimes(8);
     expect(screen.getByText("OM0RX")).toBeTruthy();
+    expect(screen.getByText("Refresh unavailable. Showing the previous page.")).toBeTruthy();
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.queryByText("Logbook unavailable")).toBeNull();
+  });
+
+  it("retains a usable page while a new contact revision replaces its scoped request cache", async () => {
+    const original = vi.fn(async () => page());
+    let finish!: (value: unknown) => void;
+    const refreshed = vi.fn(() => new Promise(resolve => { finish = resolve; }));
+    const mutations = new LogbookMutationSession(original, () => {});
+    const view = render(<LogbookPanel mutations={mutations} onRequest={original} readScope="workspace-a:settings-1"
+      onEdit={vi.fn()} refreshKey={0} columnContext="desk" />);
+    await screen.findByText("OM0RX");
+    view.rerender(<LogbookPanel mutations={mutations} onRequest={refreshed} readScope="workspace-a:settings-1"
+      onEdit={vi.fn()} refreshKey={1} columnContext="desk" />);
+    expect(screen.getByText("OM0RX")).toBeTruthy();
+    expect(screen.getByText("Updating logbook…")).toBeTruthy();
+    expect(screen.queryByText("Loading logbook…")).toBeNull();
+    await act(async () => { finish(page([second])); });
+    await screen.findByText(/of 1/);
+    expect(screen.queryByText("OM0RX")).toBeNull();
+    expect(screen.getByText("VK8AA")).toBeTruthy();
+  });
+
+  it.each(["workspace-b:settings-1", "workspace-a:settings-2"])("clears retained contacts before reading authority scope %s", async scope => {
+    const original = vi.fn(async () => page());
+    const refreshed = vi.fn(() => new Promise(() => {}));
+    const mutations = new LogbookMutationSession(original, () => {});
+    const view = render(<LogbookPanel mutations={mutations} onRequest={original} readScope="workspace-a:settings-1"
+      onEdit={vi.fn()} refreshKey={0} columnContext="desk" />);
+    await screen.findByText("OM0RX");
+    view.rerender(<LogbookPanel mutations={mutations} onRequest={refreshed} readScope={scope}
+      onEdit={vi.fn()} refreshKey={1} columnContext="desk" />);
+    expect(screen.queryByText("OM0RX")).toBeNull();
+    expect(screen.queryByText("VK8AA")).toBeNull();
   });
 
   it("clears earlier search results and offers retry when the new query fails", async () => {

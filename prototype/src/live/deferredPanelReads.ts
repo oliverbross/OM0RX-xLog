@@ -24,6 +24,7 @@ export function createDeferredPanelReads(request: Request, warmLogbook = false) 
   let latestSnapshotTime = -Infinity;
   let latestSnapshotOrder = 0, order = 0;
   let warmed = false;
+  let scopeVersion = 0;
   const retainSnapshot = (value: any, entry: Entry, responseOrder: number, key: string) => {
     const generatedAt = Date.parse(value?.generated_at);
     if (!Array.isArray(value?.items) || !Number.isFinite(generatedAt)) return;
@@ -44,8 +45,13 @@ export function createDeferredPanelReads(request: Request, warmLogbook = false) 
       if (key.startsWith("refresh:") && existing.settledAt !== undefined) return load("opportunities_snapshot", "opportunities_snapshot");
       return existing.promise;
     }
-    const responseOrder = ++order;
-    const entry: Entry = { promise: params ? request(method, params) : request(method), startedAt: Date.now() };
+    const responseOrder = ++order, version = scopeVersion;
+    const invoke = () => params ? request(method, params) : request(method);
+    // The worker serializes these reads. Await the page response, rather than
+    // just invoking it first: worker tasks may otherwise admit the aggregate first.
+    const pageFirst = warmLogbook && (method === "logbook_catalog" || method === "opportunities_snapshot");
+    const promise = pageFirst ? afterFirstPage(version, invoke) : invoke();
+    const entry: Entry = { promise, startedAt: Date.now() };
     pending.set(key, entry);
     void entry.promise.then(value => {
       entry.settledAt = Date.now();
@@ -53,11 +59,25 @@ export function createDeferredPanelReads(request: Request, warmLogbook = false) 
     }, () => { if (pending.get(key) === entry) pending.delete(key); });
     return entry.promise;
   };
+  function afterFirstPage(version: number, invoke: () => Promise<any>) {
+    return load("logbook_list:0", "logbook_list", firstLogbookPage).then(page => {
+      if (version !== scopeVersion) throw new Error("The panel read scope changed.");
+      if (!Array.isArray(page?.qsos) || !Number.isSafeInteger(page?.total) || page.total < 0) {
+        throw new Error("The first logbook page did not finish loading.");
+      }
+      return invoke();
+    });
+  }
   const invalidate = () => {
+    scopeVersion++;
     pending.clear(); warmed = false; latestSnapshotTime = -Infinity; latestSnapshotOrder = 0;
   };
   return {
     request: ((method, params) => {
+      if (method === "logbook_stats" && warmLogbook) {
+        const version = scopeVersion;
+        return afterFirstPage(version, () => params ? request(method, params) : request(method));
+      }
       // Import batches can change rows before the parent receives its revision
       // notification, including an uncertain reply. Never replay their old page.
       if (method === "logbook_import_adif") {
@@ -107,6 +127,9 @@ export function useDeferredPanelReads(request: Request, revision: number | strin
   // The caller includes workspace and saved-settings identity in its revision.
   // A mutation retires retained results and pending promises together.
   const reads = useMemo(() => createDeferredPanelReads(request, true), [request, revision]);
+  // Retire queued aggregate admission when its authority scope changes. An
+  // already-running worker read is still fenced by the consumer's scope.
+  useEffect(() => () => reads.invalidate(), [reads]);
   useEffect(() => {
     if (!enabled || !visible) return;
     let frame = 0, idle: number | undefined, timer: number | undefined;

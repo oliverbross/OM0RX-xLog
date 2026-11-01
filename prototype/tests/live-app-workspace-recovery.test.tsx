@@ -34,12 +34,28 @@ beforeEach(() => {
         radio: { observed: true, connected: true, frequency_hz: radioFrequency, mode: "CW" } }
       : method === "cluster_snapshot" ? { snapshot: { spots: [], connectedClusters: 0 } }
       : method === "logbook_stats" ? { stats: { qso_count: 0 } }
+      : method === "logbook_list" ? { qsos: [], total: 0, offset: 0, limit: 20 }
       : method === "lookup_call" ? { source: "No match" }
       : method === "logbook_previous" ? { qsos: [] } : {};
     return { result };
   });
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); localStorage.clear(); });
+
+it("loads the first usable contact page before header aggregates without blocking the operator draft", async () => {
+  const backend = api.request.getMockImplementation()!;
+  const pages: ((value: unknown) => void)[] = [];
+  api.request.mockImplementation((method, params) => method === "logbook_list"
+    ? new Promise(resolve => { pages.push(resolve); }) : backend(method, params));
+  await act(async () => { render(<LiveApp />); });
+  expect(pages.length).toBeGreaterThan(0);
+  expect(api.request.mock.calls.some(([method]) => method === "logbook_operator_draft")).toBe(true);
+  expect(api.request.mock.calls.some(([method]) => method === "logbook_stats")).toBe(false);
+  await act(async () => {
+    for (const resolve of pages) resolve({ result: { qsos: [], total: 0, offset: 0, limit: 20 } });
+  });
+  expect(api.request.mock.calls.some(([method]) => method === "logbook_stats")).toBe(true);
+});
 
 it("keeps the normal blank draft passive while Contesting owns mutations, then seeds only after normal admission", async () => {
   api.normalActive = false;
