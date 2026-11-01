@@ -92,7 +92,7 @@ jobs:
           XLOG_TEST_PYTHON: ${{ steps.python.outputs.python-path }}
         run: |
           set -euo pipefail
-          cargo test --locked --jobs 2 --target-dir "$RUNNER_TEMP/rust-shell-target" 2>&1 | tee "$RUNNER_TEMP/rust-shell-evidence/cargo-full.log"
+          cargo test --locked --jobs 2 --target-dir "$RUNNER_TEMP/rust-shell-target" -- --show-output 2>&1 | tee "$RUNNER_TEMP/rust-shell-evidence/cargo-full.log"
       - name: Contesting-test feature admission contracts
         working-directory: prototype/src-tauri
         shell: bash
