@@ -1,5 +1,4 @@
 import Foundation
-import CoreFoundation
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
@@ -35,7 +34,9 @@ actor LiveReferenceMethods {
         let fileNumber: UInt64
     }
     private var cachedDirectory: (path: String, files: [ActivationReferenceKind: FileIdentity], value: ActivationReferenceDirectory)?
+    #if os(macOS)
     private let logReviewReferences = LogReviewReferences()
+    #endif
 
     static var availableSources: [String] {
         #if os(macOS)
@@ -141,12 +142,14 @@ actor LiveReferenceMethods {
         #endif
         let directory = try logbook.referenceDirectoryURL()
         switch method {
+        #if os(macOS)
         case "reference_log_review":
             return try logReviewReferences.review(params: params, directory: directory)
+        #endif
         case "reference_configure":
             guard Set(params.keys).isSubset(of: ["enabled", "only_if_unset"]),
-                  let enabled = params["enabled"] as? NSNumber, CFGetTypeID(enabled) == CFBooleanGetTypeID(),
-                  params["only_if_unset"] == nil || (params["only_if_unset"] as? NSNumber).map({ CFGetTypeID($0) == CFBooleanGetTypeID() }) == true else { throw invalid() }
+                  let enabled = params["enabled"] as? NSNumber, Self.isJSONBoolean(enabled),
+                  params["only_if_unset"] == nil || (params["only_if_unset"] as? NSNumber).map({ Self.isJSONBoolean($0) }) == true else { throw invalid() }
             let saved = try logbook.configureReferenceChecks(enabled: enabled.boolValue,
                 onlyIfUnset: params["only_if_unset"] as? Bool ?? false)
             resetAutomaticDeadline()
@@ -445,6 +448,13 @@ actor LiveReferenceMethods {
         catch { throw WorkerFailure("reference_data_invalid", "An installed reference directory could not be parsed.") }
         cachedDirectory = (directory.path, files, loaded)
         return loaded
+    }
+
+    private static func isJSONBoolean(_ number: NSNumber) -> Bool {
+        // Match the existing portable service boundary: Windows Foundation has
+        // no CoreFoundation type IDs, but JSON retains Bool versus numeric 0/1.
+        guard let encoded = try? JSONSerialization.data(withJSONObject: [number]) else { return false }
+        return encoded == Data("[true]".utf8) || encoded == Data("[false]".utf8)
     }
 
     private func invalid() -> WorkerFailure {

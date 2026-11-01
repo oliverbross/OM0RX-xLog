@@ -113,6 +113,35 @@ final class WavelogCatalogPortableTests: XCTestCase {
         }
     }
 
+    func testReferenceConfigurationRequiresRealJSONBooleansOnEveryPlatform() async throws {
+        let fixture = try Fixture(); defer { fixture.clean() }
+        CatalogueHTTPFixture.install { _ in XCTFail("Configuring automatic checks started a request"); return .init() }
+        let resolver = LiveReferenceMethods(logbook: fixture.logbook, session: fixture.session)
+        _ = try await resolver.handle(method: "reference_configure", params: ["enabled": false])
+        let lookalikes: [Any] = [NSNumber(value: 0), NSNumber(value: 1), NSNumber(value: Int8(0)),
+                                NSNumber(value: Int8(1)), NSNumber(value: 0.0), NSNumber(value: 1.0), "true", NSNull()]
+        for key in ["enabled", "only_if_unset"] {
+            for value in lookalikes {
+                var params: [String: Any] = ["enabled": true]
+                params[key] = value
+                do { _ = try await resolver.handle(method: "reference_configure", params: params); XCTFail("Accepted a non-boolean \(key)") }
+                catch { XCTAssertEqual((error as? WorkerFailure)?.code, "invalid_params") }
+                XCTAssertEqual(try fixture.logbook.automaticReferenceChecks(), false)
+            }
+        }
+        for (json, expected) in [
+            (#"{"enabled":true,"only_if_unset":true}"#, false),
+            (#"{"enabled":true,"only_if_unset":false}"#, true),
+            (#"{"enabled":false,"only_if_unset":false}"#, false)
+        ] {
+            let params = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+            let result = try await resolver.handle(method: "reference_configure", params: params)
+            XCTAssertEqual(result["automatic_check"] as? Bool, expected)
+        }
+        XCTAssertTrue(CatalogueHTTPFixture.recorded.isEmpty)
+        await resolver.terminate()
+    }
+
     func testAuthenticatedCatalogueConditionalCacheIsScopedToSourceAndToken() async throws {
         let fixture = try Fixture(); defer { fixture.clean() }
         let updater = try ReferenceDataUpdater(directory: fixture.directory, session: fixture.session)
@@ -325,6 +354,8 @@ final class WavelogCatalogPortableTests: XCTestCase {
             do { _ = try await resolver.handle(method: "reference_refresh", params: ["source": source]); XCTFail("Unsupported provider enabled") }
             catch { XCTAssertEqual((error as? WorkerFailure)?.code, "platform_pending") }
         }
+        do { _ = try await resolver.handle(method: "reference_log_review", params: [:]); XCTFail("Unsupported log review enabled") }
+        catch { XCTAssertEqual((error as? WorkerFailure)?.code, "platform_pending") }
         XCTAssertEqual(CatalogueHTTPFixture.recorded.count, 1)
         await resolver.terminate()
     }
