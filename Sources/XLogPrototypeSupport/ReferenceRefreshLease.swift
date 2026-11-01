@@ -30,7 +30,7 @@ final class ReferenceRefreshLease {
         // No sharing keeps the stable lock file exclusively owned until this
         // handle closes. OPEN_ALWAYS never truncates an existing lock file.
         let opened = path.withCString(encodedAs: UTF16.self) {
-            CreateFileW($0, DWORD(GENERIC_READ | GENERIC_WRITE), 0, nil, DWORD(OPEN_ALWAYS),
+            CreateFileW($0, DWORD(GENERIC_READ) | DWORD(GENERIC_WRITE), 0, nil, DWORD(OPEN_ALWAYS),
                         DWORD(FILE_ATTRIBUTE_NORMAL) | DWORD(FILE_FLAG_OPEN_REPARSE_POINT), nil)
         }
         guard let opened, opened != HANDLE(bitPattern: -1) else { throw Self.busy }
