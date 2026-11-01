@@ -664,8 +664,7 @@ fn workspace_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     // Window, Help, and macOS View/Fullscreen menus or keyboard shortcuts.
     let menu = Menu::default(app)?;
     replace_about_menu(app, &menu)?;
-    #[cfg(target_os = "macos")]
-    append_application_settings(app, &menu)?;
+    append_workspace_settings(app, &menu)?;
     let compact = MenuItem::with_id(
         app,
         COMPACT_WORKSPACE_MENU_ID,
@@ -922,28 +921,37 @@ fn window_menu_title(title: &str) -> String {
     title.trim_start_matches("OM0RX-xLog — ").to_string()
 }
 
-#[cfg(target_os = "macos")]
-fn append_application_settings(app: &tauri::AppHandle, menu: &Menu<tauri::Wry>) -> tauri::Result<()> {
+fn settings_menu_parent_name(app_name: &str, macos: bool) -> &str {
+    if macos { app_name } else { "Edit" }
+}
+
+fn append_workspace_settings(app: &tauri::AppHandle, menu: &Menu<tauri::Wry>) -> tauri::Result<()> {
     let app_name = &app.package_info().name;
-    let application = menu.items()?.iter().filter_map(|item| item.as_submenu().cloned())
-        .find(|submenu| submenu.text().is_ok_and(|text| text == *app_name))
-        .ok_or_else(|| tauri::Error::Io(std::io::Error::other("Application menu is unavailable")))?;
+    let parent_name = settings_menu_parent_name(app_name, cfg!(target_os = "macos"));
+    let parent = menu.items()?.iter().filter_map(|item| item.as_submenu().cloned())
+        .find(|submenu| submenu.text().is_ok_and(|text| text == parent_name))
+        .ok_or_else(|| tauri::Error::Io(std::io::Error::other("Settings parent menu is unavailable")))?;
     let settings = MenuItem::with_id(app, "workspace_screen_settings", "Settings…", true, Some("CmdOrCtrl+,"))?;
     let separator = PredefinedMenuItem::separator(app)?;
-    application.insert_items(&[&settings, &separator], 2)?;
-    // Muda's predefined macOS Quit invokes Cocoa terminate: directly, which
-    // bypasses cancellable Tauri ExitRequested. Keep Cmd-Q and the existing
-    // menu position, but enter our correlated draft/output preparation path.
-    let cocoa_quit = PredefinedMenuItem::quit(app, None)?;
-    // Predefined items have instance IDs, not stable IDs by command kind.
-    // Compare only predefined entries with the platform's exact Quit title.
-    let quit_title = cocoa_quit.text()?;
-    let position = application.items()?.iter().position(|item| item.as_predefined_menuitem()
-        .is_some_and(|item| item.text().is_ok_and(|title| title == quit_title)))
-        .ok_or_else(|| tauri::Error::Io(std::io::Error::other("Application Quit item is unavailable")))?;
-    let guarded_quit = MenuItem::with_id(app, "workspace_guarded_quit", quit_title, true, Some("CmdOrCtrl+Q"))?;
-    application.remove_at(position)?;
-    application.insert(&guarded_quit, position)?;
+    #[cfg(not(target_os = "macos"))]
+    parent.append_items(&[&separator, &settings])?;
+    #[cfg(target_os = "macos")]
+    {
+        parent.insert_items(&[&settings, &separator], 2)?;
+        // Muda's predefined macOS Quit invokes Cocoa terminate: directly, which
+        // bypasses cancellable Tauri ExitRequested. Keep Cmd-Q and the existing
+        // menu position, but enter our correlated draft/output preparation path.
+        let cocoa_quit = PredefinedMenuItem::quit(app, None)?;
+        // Predefined items have instance IDs, not stable IDs by command kind.
+        // Compare only predefined entries with the platform's exact Quit title.
+        let quit_title = cocoa_quit.text()?;
+        let position = parent.items()?.iter().position(|item| item.as_predefined_menuitem()
+            .is_some_and(|item| item.text().is_ok_and(|title| title == quit_title)))
+            .ok_or_else(|| tauri::Error::Io(std::io::Error::other("Application Quit item is unavailable")))?;
+        let guarded_quit = MenuItem::with_id(app, "workspace_guarded_quit", quit_title, true, Some("CmdOrCtrl+Q"))?;
+        parent.remove_at(position)?;
+        parent.insert(&guarded_quit, position)?;
+    }
     Ok(())
 }
 
@@ -4994,6 +5002,21 @@ mod workspace_layout_tests {
         assert_eq!(super::window_menu_title("OM0RX-xLog — Logbook"), "Logbook");
         assert_eq!(super::window_menu_title("OM0RX-xLog — Settings"), "Settings");
         assert_eq!(super::window_menu_title("OM0RX-xLog — HF Propagation live"), "HF Propagation live");
+    }
+
+    #[test]
+    fn settings_menu_has_one_native_parent_on_macos_windows_and_linux() {
+        assert_eq!(super::settings_menu_parent_name("OM0RX-xLog", true), "OM0RX-xLog");
+        assert_eq!(super::settings_menu_parent_name("OM0RX-xLog", false), "Edit");
+        let settings = crate::workspace_navigation::menu_screen("workspace_screen_settings").unwrap();
+        assert_eq!(settings.id, "settings");
+        assert_eq!(settings.shortcut.as_deref(), Some("CmdOrCtrl+,"));
+        // Other Station entries are intentional legacy routes into Settings
+        // tabs or the Radio/Online menus, not omitted visible menu entries.
+        let visible_station: Vec<_> = crate::workspace_navigation::screens().iter()
+            .filter(|screen| screen.group == "Station" && !screen.hidden)
+            .map(|screen| screen.id.as_str()).collect();
+        assert_eq!(visible_station, ["settings"]);
     }
 
     #[test]
