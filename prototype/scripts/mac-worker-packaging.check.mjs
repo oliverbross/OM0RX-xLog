@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { swiftWorkerBuildSystemArgs } from './swift-worker-build-system.mjs';
+import { swiftWorkerBuildSystemArgs, swiftWorkerBuildInvocation } from './swift-worker-build-system.mjs';
 import './mac-installer-refusal.check.mjs';
 
 // This standalone node:test gate uses .check.mjs so Vitest does not collect it.
@@ -12,12 +12,25 @@ test('Mac staging selects the same Xcode build system as the resource-bearing wo
   assert.deepEqual(swiftWorkerBuildSystemArgs('darwin'), ['--build-system', 'xcode']);
   assert.deepEqual(swiftWorkerBuildSystemArgs('linux'), []);
   assert.deepEqual(swiftWorkerBuildSystemArgs('win32'), []);
-  assert.match(source('stage-worker.mjs'), /\['build', \.\.\.swiftWorkerBuildSystemArgs\(process\.platform\),/);
+  assert.deepEqual(swiftWorkerBuildInvocation('darwin', '/repo', ['--show-bin-path']), {
+    executable: 'swift', args: ['build', '--build-system', 'xcode', '--show-bin-path'],
+  });
+  assert.match(source('stage-worker.mjs'), /swiftWorkerBuildInvocation\(process\.platform, root,/);
+});
+
+test('portable staging lookups use prepared forced pins while retaining their output', () => {
+  for (const platform of ['linux', 'win32']) {
+    const command = swiftWorkerBuildInvocation(platform, '/repo', ['--show-bin-path']);
+    assert.equal(command.executable, 'python3');
+    assert.deepEqual(command.args.slice(1), ['run', '--root', '/repo', '--', 'swift', 'build',
+      '--force-resolved-versions', '--show-bin-path']);
+    assert.match(command.args[0], /portable-swift-lock\.py$/);
+  }
 });
 
 test('worker build and bin-path discovery both use the Mac-only build-system wrapper', () => {
   const script = source('build-worker.sh');
-  assert.match(script, /if \[\[ "\$\(uname -s\)" == Darwin \]\]; then\s+swift build --build-system xcode "\$@"\s+else\s+swift build "\$@"/);
+  assert.match(script, /if \[\[ "\$\(uname -s\)" == Darwin \]\]; then\s+swift build --build-system xcode "\$@"\s+else\s+python3[^\n]+portable-swift-lock\.py" run --root[^\n]+\n\s+swift build --force-resolved-versions "\$@"/);
   assert.match(script, /worker_swift_build --package-path[^\n]+--product xlog-prototype-worker/);
   assert.match(script, /binary_dir="\$\(worker_swift_build --package-path[^\n]+--show-bin-path\)"/);
 });

@@ -3,11 +3,13 @@ import { cpSync, existsSync, mkdirSync, copyFileSync, rmSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { swiftWorkerBuildSystemArgs } from './swift-worker-build-system.mjs';
+import { swiftWorkerBuildInvocation } from './swift-worker-build-system.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const executable = `xlog-prototype-worker${process.platform === 'win32' ? '.exe' : ''}`;
-const binDir = execFileSync('swift', ['build', ...swiftWorkerBuildSystemArgs(process.platform), '--scratch-path', '.build/prototype-worker', '-c', 'release', '--show-bin-path'], {
+const invocation = swiftWorkerBuildInvocation(process.platform, root,
+  ['--scratch-path', '.build/prototype-worker', '-c', 'release', '--show-bin-path']);
+const binDir = execFileSync(invocation.executable, invocation.args, {
   cwd: root, env: { ...process.env, XLOG_PORTABLE_ONLY: '1' }, encoding: 'utf8',
 }).trim();
 const source = join(binDir, executable);

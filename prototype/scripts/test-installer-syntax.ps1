@@ -2,7 +2,7 @@
 $ErrorActionPreference = 'Stop'
 $scripts = @(
     'package-windows.ps1', 'package-windows-installer.ps1',
-    'accept-windows.ps1', 'accept-windows-installer.ps1'
+    'accept-windows.ps1', 'accept-windows-installer.ps1', 'build-worker.ps1'
 )
 foreach ($name in $scripts) {
     $tokens = $null

@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "resolvedFileVersion": 3,
+  "pins": [
+    {
+      "identity": "swift-crypto",
+      "kind": "remoteSourceControl",
+      "location": "https://github.com/apple/swift-crypto.git",
+      "state": {
+        "revision": "ffca28be3c9c6a86a579949d23f68818a4b9b5d8",
+        "version": "3.8.0"
+      }
+    }
+  ],
+  "provenance": {
+    "dependencyGraph": "SwiftPM resolve of exactly swift-crypto 3.8.0 produced this complete one-package pin set.",
+    "dependencySource": "https://github.com/apple/swift-crypto/tree/ffca28be3c9c6a86a579949d23f68818a4b9b5d8",
+    "originHashSource": "https://github.com/swiftlang/swift-package-manager/blob/swift-6.3.3-RELEASE/Sources/Workspace/Workspace%2BDependencies.swift#L263-L275",
+    "originHashScope": "One root Package.swift and no explicit additional root dependencies. Derive SHA256 from the actual UTF-8 manifest bytes; refuse versioned manifest variants.",
+    "generatedFile": "The root Package.resolved is generated and ignored. Portable Swift commands prepare, force-resolve and verify it; macOS keeps its dependency-free manifest behavior."
+  }
+}

@@ -9,7 +9,8 @@ worker_swift_build() {
   if [[ "$(uname -s)" == Darwin ]]; then
     swift build --build-system xcode "$@"
   else
-    swift build "$@"
+    python3 "$repo_root/prototype/scripts/portable-swift-lock.py" run --root "$repo_root" -- \
+      swift build --force-resolved-versions "$@"
   fi
 }
 worker_swift_build --package-path "$repo_root" --scratch-path "$repo_root/.build/prototype-worker" -c release "$@" --product xlog-prototype-worker

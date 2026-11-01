@@ -1,4 +1,7 @@
 .build/
+# Generated only by portable-swift-lock.py from the tracked full pin policy.
+# Every portable Swift command force-resolves and verifies its manifest/pins.
+/Package.resolved
 dist/
 .DS_Store
 *.xcuserstate

@@ -80,6 +80,7 @@ jobs:
           python3 prototype/scripts/test-runtime-artifacts.py
           python3 prototype/scripts/test-contest-host-staging.py
           python3 prototype/scripts/test-linux-vault-harness.py
+          python3 prototype/scripts/test-portable-swift-lock.py
       - name: Parse Windows installer scripts
         if: runner.os == 'Windows'
         shell: pwsh
@@ -93,7 +94,12 @@ jobs:
         env:
           XLOG_PORTABLE_ONLY: '1'
           XLOG_CONTEST_PYTHON: ${{ steps.python.outputs.python-path }}
-        run: swift test --scratch-path .build/prototype-tests --no-parallel
+        run: |
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            python3 prototype/scripts/portable-swift-lock.py run -- swift test --force-resolved-versions --scratch-path .build/prototype-tests --no-parallel
+          else
+            swift test --scratch-path .build/prototype-tests --no-parallel
+          fi
       - name: Complete portable Swift core (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -102,15 +108,23 @@ jobs:
           XLOG_CONTEST_PYTHON: ${{ steps.python.outputs.python-path }}
           XLOG_TEST_NATIVE_VAULT: '1'
         run: |
-          swift test --scratch-path .build/prototype-tests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
+          python3 prototype/scripts/portable-swift-lock.py run -- swift test --force-resolved-versions --scratch-path .build/prototype-tests -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
           exit $LASTEXITCODE
       - name: Linux Swift vault in a private Secret Service session
         if: ${{ always() && !cancelled() && runner.os == 'Linux' && steps.linux_c_vault.outcome == 'success' }}
         env:
           XLOG_PORTABLE_ONLY: '1'
         run: |
-          swift build --build-tests --scratch-path .build/prototype-tests
+          python3 prototype/scripts/portable-swift-lock.py run -- swift build --force-resolved-versions --build-tests --scratch-path .build/prototype-tests
           python3 prototype/scripts/test-linux-vault.py --swift-tests --swift-scratch-path .build/prototype-tests
+      - name: Upload portable Swift pin verification receipts
+        if: ${{ always() && runner.os != 'macOS' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: portable-swift-pins-${{ runner.os }}-${{ github.sha }}
+          if-no-files-found: warn
+          include-hidden-files: true
+          path: .build/portable-swift-lock-receipts/*.json
       - name: Save Swift test build cache
         if: always()
         uses: actions/cache/save@v4

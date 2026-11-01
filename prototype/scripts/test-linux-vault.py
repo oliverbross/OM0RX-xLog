@@ -127,7 +127,8 @@ def isolated_session(root, swift_tests, swift_scratch_path):
             raise RuntimeError("Fixture keyring persistence was absent or contained a plaintext secret")
         if swift_tests:
             env["XLOG_TEST_NATIVE_VAULT"] = "1"
-            swift_command = ["swift", "test"]
+            swift_command = [sys.executable, str(REPO / "prototype/scripts/portable-swift-lock.py"),
+                             "run", "--root", str(REPO), "--", "swift", "test", "--force-resolved-versions"]
             if swift_scratch_path is not None:
                 swift_command.extend(["--scratch-path", str(swift_scratch_path)])
             swift_command.extend(["--skip-build", "--filter", "NativeCredentialStoreTests"])
