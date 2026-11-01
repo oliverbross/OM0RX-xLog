@@ -71,6 +71,9 @@ def run_diagnostic(command, selected_filter, root):
 
 
 def main():
+    # GitHub's Windows pipe can default to a legacy codepage. Swift Testing
+    # emits UTF-8 markers/names; relay them without changing the child result.
+    sys.stdout.reconfigure(encoding='utf-8')
     if len(sys.argv) < 3 or sys.argv[1] != '--':
         raise SystemExit('Usage: native-core-diagnostic.py -- <native test command>')
     return run_diagnostic(sys.argv[2:], os.environ.get('XLOG_SWIFT_TEST_FILTER', ''), Path(__file__).resolve().parents[2])

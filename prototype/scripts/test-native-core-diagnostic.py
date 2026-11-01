@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import importlib.util
 import json
+import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -69,6 +71,23 @@ class NativeCoreDiagnosticTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(json.loads((self.root / 'argv.json').read_text()), [])
         self.assertEqual(proof['scope'], 'unfiltered-native-core')
+
+    def test_cli_relays_swift_testing_utf8_under_windows_legacy_stdout_encoding(self):
+        scripts = self.root / 'prototype/scripts'
+        scripts.mkdir(parents=True)
+        runner = scripts / 'native-core-diagnostic.py'
+        runner.write_text(Path(diagnostic.__file__).read_text(encoding='utf-8'), encoding='utf-8')
+        output = '◇ Test "Žilina" started.\n✔ Test "Žilina" passed after 0.001 seconds.\n'
+        self.script.write_text(f'import sys\nsys.stdout.buffer.write({output!r}.encode("utf-8"))\n', encoding='utf-8')
+        result = subprocess.run([sys.executable, str(runner), '--', sys.executable, str(self.script)],
+            cwd=self.root, env={**os.environ, 'PYTHONIOENCODING': 'cp1252', 'XLOG_SWIFT_TEST_FILTER': 'Fixture'},
+            capture_output=True, text=True, encoding='utf-8', timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        self.assertIn(output, result.stdout)
+        receipt = next((self.root / '.build/native-core-diagnostics').glob('*.json'))
+        proof = json.loads(receipt.read_text(encoding='utf-8'))
+        self.assertEqual(proof['actualCompletedTestRecords'], 1)
+        self.assertEqual(proof['completedTests'], [{'name': '"Žilina"', 'outcome': 'passed'}])
 
 
 if __name__ == '__main__':
