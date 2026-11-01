@@ -1188,13 +1188,11 @@ mod tests {
         archive.append(&signal(10, 1)).unwrap();
         archive.flush_tail().unwrap();
         let admitted = archive.dir.clone();
-        let retained = admitted.with_extension("retained-original");
         let manifest = fs::read(admitted.join("manifest.json")).unwrap();
         let journal = fs::read(admitted.join("events.jsonl")).unwrap();
         let media = fs::read(segment_path(&admitted, 0, true)).unwrap();
         let frames = archive.manifest.frames;
-        fs::rename(&admitted, &retained).unwrap();
-        fs::create_dir(&admitted).unwrap();
+        let retained = replace_admitted_directory_for_test(&mut archive);
 
         let expected = "Recording directory/volume changed; no alternate destination permitted";
         assert_eq!(archive.append(&[123]).unwrap_err(), expected);
@@ -1220,6 +1218,94 @@ mod tests {
             "activeFrames":archive.active_frames,"activeFirst":archive.active_first,"activePosition":position})
     }
     #[cfg(any(unix, windows))]
+    fn replace_admitted_directory_for_test(archive: &mut Archive) -> PathBuf {
+        let admitted = archive.dir.clone();
+        let retained = admitted.with_extension("retained-original");
+        let identity = archive.directory_identity;
+        let state = recorder_state(archive);
+        #[cfg(windows)]
+        let positions = {
+            // Windows refuses this move with live child handles. Close only
+            // during fixture reconstruction, then reopen the same retained
+            // files without replacing the admitted logical identity.
+            let active = archive.active.as_mut().map(|file| file.stream_position().unwrap());
+            let journal = archive.journal.stream_position().unwrap();
+            drop(archive.active.take());
+            drop(std::mem::replace(&mut archive.journal, tempfile::tempfile().unwrap()));
+            (active, journal)
+        };
+        fs::rename(&admitted, &retained).unwrap();
+        fs::create_dir(&admitted).unwrap();
+        #[cfg(windows)]
+        {
+            let partial = segment_path(&retained, archive.manifest.segments.len() as u32, true);
+            archive.active = positions.0.map(|position| {
+                let mut file = OpenOptions::new().read(true).write(true).open(&partial).unwrap();
+                file.seek(SeekFrom::Start(position)).unwrap();
+                file
+            });
+            let mut journal = OpenOptions::new().append(true).open(retained.join("events.jsonl")).unwrap();
+            journal.seek(SeekFrom::Start(positions.1)).unwrap();
+            drop(std::mem::replace(&mut archive.journal, journal));
+            assert_eq!(archive.journal.stream_position().unwrap(), positions.1);
+        }
+        assert_eq!(archive.directory_identity, identity);
+        assert_eq!(directory_identity(&retained).unwrap(), identity);
+        assert_ne!(directory_identity(&admitted).unwrap(), identity);
+        assert_eq!(recorder_state(archive), state);
+        retained
+    }
+    #[cfg(windows)]
+    fn native_integrity_trace(file: &File) -> Value {
+        use std::{ffi::c_void, os::windows::io::AsRawHandle};
+        #[repr(C)]
+        #[derive(Default)]
+        struct BasicInfo {
+            creation_time: i64,
+            last_access_time: i64,
+            last_write_time: i64,
+            change_time: i64,
+            attributes: u32,
+        }
+        #[link(name = "kernel32")]
+        extern "system" {
+            fn GetFileInformationByHandleEx(handle: *mut c_void, class: i32, output: *mut c_void, size: u32) -> i32;
+        }
+        let mut basic = BasicInfo::default();
+        let basic_ok = unsafe { GetFileInformationByHandleEx(file.as_raw_handle(), 0,
+            &mut basic as *mut BasicInfo as *mut c_void, std::mem::size_of::<BasicInfo>() as u32) } != 0;
+        let basic_error = (!basic_ok).then(|| std::io::Error::last_os_error().to_string());
+        let mut identity = WindowsDirectoryIdentity { volume_serial_number: 0, file_id: [0; 16] };
+        let identity_ok = unsafe { GetFileInformationByHandleEx(file.as_raw_handle(), 18,
+            &mut identity as *mut WindowsDirectoryIdentity as *mut c_void,
+            std::mem::size_of::<WindowsDirectoryIdentity>() as u32) } != 0;
+        let identity_error = (!identity_ok).then(|| std::io::Error::last_os_error().to_string());
+        // Observation only: timestamps do not prove that file bytes match.
+        json!({"basicOK":basic_ok,"basicError":basic_error,
+            "lastWriteTime":basic.last_write_time.to_string(),"changeTime":basic.change_time.to_string(),
+            "identityOK":identity_ok,"identityError":identity_error,
+            "volumeSerial":identity.volume_serial_number.to_string(),"fileId":identity.file_id})
+    }
+    #[cfg(not(windows))]
+    fn native_integrity_trace(_file: &File) -> Value { Value::Null }
+    fn readonly_integrity_trace(path: &Path, expected_bytes: &[u8]) -> Value {
+        // Clone the entry before coverage. Never invoke digest or change cache.
+        let cached = integrity_cache().lock().ok().and_then(|cache| cache.get(path).cloned());
+        let mut file = File::open(path).unwrap();
+        let before = stamp(&file.metadata().unwrap());
+        let native = native_integrity_trace(&file);
+        let mut bytes = Vec::new();
+        file.read_to_end(&mut bytes).unwrap();
+        let mut independent = Sha256::new();
+        independent.update(&bytes);
+        let hash = format!("{:x}", independent.finalize());
+        json!({"weakStamp":format!("{before:?}"),
+            "weakStampAfterRead":format!("{:?}",stamp(&file.metadata().unwrap())),
+            "cachedBeforeCoverage":cached.map(|(stamp,hash)|json!({"stamp":format!("{stamp:?}"),"hash":hash})),
+            "cachePoisoned":integrity_cache().is_poisoned(),"nativeSameHandle":native,
+            "independentSHA256":hash,"readbackLength":bytes.len(),"readbackMatchesOriginal":bytes==expected_bytes})
+    }
+    #[cfg(any(unix, windows))]
     #[test]
     fn replaced_directory_rejects_unflushed_tail_finalization_and_finish_before_any_mutation() {
         for operation in ["flush_tail", "finalize_segment", "finish"] {
@@ -1227,13 +1313,11 @@ mod tests {
             let mut archive = archive(&root, 1);
             archive.append(&signal(10, 1)).unwrap();
             let admitted = archive.dir.clone();
-            let retained = admitted.with_extension("retained-original");
             let original = directory_bytes(&admitted);
             assert_eq!(&original[&PathBuf::from("000000.partial")][40..44], &0u32.to_le_bytes());
             assert_eq!(archive.manifest.saved_frames, 0);
             let state = recorder_state(&mut archive);
-            fs::rename(&admitted, &retained).unwrap();
-            fs::create_dir(&admitted).unwrap();
+            let retained = replace_admitted_directory_for_test(&mut archive);
             fs::write(admitted.join("replacement-owner"), b"do not modify").unwrap();
             let replacement = directory_bytes(&admitted);
 
@@ -1260,11 +1344,9 @@ mod tests {
         drop(archive);
         let mut archive = Archive::load(&root, &key.0, &key.1).unwrap();
         let admitted = archive.dir.clone();
-        let retained = admitted.with_extension("retained-original");
         let original = directory_bytes(&admitted);
         let state = recorder_state(&mut archive);
-        fs::rename(&admitted, &retained).unwrap();
-        fs::create_dir(&admitted).unwrap();
+        let retained = replace_admitted_directory_for_test(&mut archive);
         for (name, bytes) in &original {
             fs::write(admitted.join(name), bytes).unwrap();
         }
@@ -1285,11 +1367,9 @@ mod tests {
         let mut changed_link = archive.manual("retained note").unwrap();
         changed_link.note = "must not replace the retained note".into();
         let admitted = archive.dir.clone();
-        let retained = admitted.with_extension("retained-original");
         let original = directory_bytes(&admitted);
         let state = recorder_state(&mut archive);
-        fs::rename(&admitted, &retained).unwrap();
-        fs::create_dir(&admitted).unwrap();
+        let retained = replace_admitted_directory_for_test(&mut archive);
         fs::write(admitted.join("replacement-owner"), b"do not modify").unwrap();
         let replacement = directory_bytes(&admitted);
         let remote = json!({"engine":"not1mm-python","sessionID":archive.manifest.log_id,
@@ -1320,7 +1400,11 @@ mod tests {
         safe_path(&canonical).unwrap();
         assert!(free_bytes(&canonical).unwrap() > 0);
         assert!(free_bytes(&canonical.join("missing-directory")).is_err());
-        assert!(safe_path(&canonical.join("..")).is_err());
+        let mut literal_parent = canonical.as_os_str().to_os_string();
+        literal_parent.push(r"\..");
+        let literal_parent = Path::new(&literal_parent);
+        assert!(literal_parent.components().any(|component| matches!(component, std::path::Component::ParentDir)));
+        assert!(safe_path(literal_parent).is_err());
 
         let other = root.join("other-capture");
         fs::create_dir(&other).unwrap();
@@ -1328,6 +1412,54 @@ mod tests {
         symlink_dir(&other, &alias).unwrap();
         assert!(safe_path(&alias.join("media.wav")).is_err());
         assert!(free_bytes(&alias).is_err());
+    }
+    #[cfg(windows)]
+    #[test]
+    fn windows_metadata_preserving_rewrite_must_not_reuse_cached_integrity() {
+        use std::{ffi::c_void, os::windows::{fs::OpenOptionsExt, io::AsRawHandle}};
+        #[repr(C)]
+        #[derive(Default)]
+        struct FileTime { low: u32, high: u32 }
+        #[link(name = "kernel32")]
+        extern "system" {
+            fn GetFileTime(handle: *mut c_void, created: *mut FileTime, accessed: *mut FileTime, written: *mut FileTime) -> i32;
+            fn SetFileTime(handle: *mut c_void, created: *const FileTime, accessed: *const FileTime, written: *const FileTime) -> i32;
+        }
+        let (_temp, root) = root();
+        let mut archive = archive(&root, 1);
+        archive.append(&signal(10, 1)).unwrap();
+        archive.finish("stopped", None).unwrap();
+        let media = archive.media_path(&archive.manifest.segments[0]);
+        let original = fs::read(&media).unwrap();
+        assert_eq!(archive.coverage(0, 10), "available");
+        let original_trace = readonly_integrity_trace(&media, &original);
+        let original_stamp = stamp(&fs::metadata(&media).unwrap());
+        let cached = integrity_cache().lock().unwrap().get(&media).cloned().unwrap();
+        assert_eq!(cached.1, archive.manifest.segments[0].hash);
+        let reader = File::open(&media).unwrap();
+        let mut original_write_time = FileTime::default();
+        assert_ne!(unsafe { GetFileTime(reader.as_raw_handle(), std::ptr::null_mut(),
+            std::ptr::null_mut(), &mut original_write_time) }, 0, "{}", std::io::Error::last_os_error());
+        drop(reader);
+
+        let mut corrupt = original.clone();
+        corrupt[44] ^= 1;
+        let mut writer = OpenOptions::new().write(true).truncate(true).open(&media).unwrap();
+        writer.write_all(&corrupt).unwrap();
+        writer.sync_all().unwrap();
+        drop(writer);
+        // Restore only the fixture file's LastWriteTime after its data writer
+        // closes. The current weak cache key must be identical despite bad bytes.
+        let attributes = OpenOptions::new().access_mode(0x100).open(&media).unwrap();
+        assert_ne!(unsafe { SetFileTime(attributes.as_raw_handle(), std::ptr::null(),
+            std::ptr::null(), &original_write_time) }, 0, "{}", std::io::Error::last_os_error());
+        drop(attributes);
+        let rewritten_stamp = stamp(&fs::metadata(&media).unwrap());
+        assert_eq!(rewritten_stamp, original_stamp);
+        let trace = readonly_integrity_trace(&media, &original);
+        let coverage = archive.coverage(0, 10);
+        assert_eq!(coverage, "file missing/corrupt",
+            "original_trace={original_trace}; original_weak_stamp={original_stamp:?}; original_cached={cached:?}; trace={trace}; coverage={coverage}");
     }
     #[cfg(windows)]
     #[test]
@@ -1594,10 +1726,15 @@ mod tests {
         changed[44] ^= 1;
         fs::write(&media, changed).unwrap();
         assert_eq!(a.coverage(0, 10), "file missing/corrupt");
+        let corrupt_trace = readonly_integrity_trace(&media, &original);
         fs::write(&media, &original[..50]).unwrap();
         assert_eq!(a.coverage(0, 10), "file missing/corrupt");
         fs::write(&media, &original).unwrap();
-        assert_eq!(a.coverage(0, 10), "available");
+        let restored_trace = readonly_integrity_trace(&media, &original);
+        let restored_coverage = a.coverage(0, 10);
+        assert_eq!(restored_coverage, "available",
+            "corrupt_trace={corrupt_trace}; restored_trace={restored_trace}; coverage={restored_coverage}; manifest_hash={}",
+            a.manifest.segments[0].hash);
         fs::write(&media, &original[..50]).unwrap();
         assert!(a.read_pcm(0, 10).is_err());
         fs::remove_file(&media).unwrap();
