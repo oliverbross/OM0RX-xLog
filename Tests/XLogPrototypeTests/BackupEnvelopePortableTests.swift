@@ -7,7 +7,39 @@ import Testing
 #endif
 
 @Suite struct BackupEnvelopePortableTests {
+    @Test func metadataPreservesRealFileTypesAndExactByteSizes() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let file = root.appendingPathComponent("é秘.bin")
+        let bytes = Data([0, 1, 2]) + Data("é秘".utf8)
+        try bytes.write(to: file)
+        let directory = try BackupPackageSeal.fileMetadata(at: root, fileManager: .default)
+        #expect(directory.isDirectory && !directory.isRegularFile && !directory.isSymbolicLink)
+        let regular = try BackupPackageSeal.fileMetadata(at: file, fileManager: .default)
+        #expect(regular.isRegularFile && !regular.isDirectory && !regular.isSymbolicLink)
+        #expect(regular.fileSize == bytes.count)
+    }
+
     #if os(Windows)
+    @Test func metadataRejectsMissingTypesAndInvalidRegularFileSizes() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("metadata-\(UUID().uuidString)")
+        let manager = BackupMetadataFileManager()
+        manager.fixtureAttributes = [.size: NSNumber(value: 1)]
+        #expect(throws: XLogBackupError.self) { try BackupPackageSeal.fileMetadata(at: url, fileManager: manager) }
+        let invalidSizes: [Any] = [NSNumber(value: true), NSNumber(value: -1), NSNumber(value: 1.5),
+                                   NSNumber(value: UInt64.max), "1"]
+        for size in invalidSizes {
+            manager.fixtureAttributes = [.type: FileAttributeType.typeRegular, .size: size]
+            #expect(throws: XLogBackupError.self) { try BackupPackageSeal.fileMetadata(at: url, fileManager: manager) }
+        }
+        manager.fixtureAttributes = [.type: FileAttributeType.typeRegular]
+        #expect(throws: XLogBackupError.self) { try BackupPackageSeal.fileMetadata(at: url, fileManager: manager) }
+        manager.fixtureAttributes = [.type: FileAttributeType.typeSymbolicLink]
+        let link = try BackupPackageSeal.fileMetadata(at: url, fileManager: manager)
+        #expect(link.isSymbolicLink && !link.isRegularFile && !link.isDirectory)
+    }
+
     @Test(arguments: [249, 259, 260])
     func nativeWindowsDirectoryBoundariesPreserveUnicodeBytesAndRejectFileCollisions(units: Int) throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -309,6 +341,15 @@ private final class CanonicalDuplicateDirectoryFileManager: FileManager, @unchec
     override func contentsOfDirectory(at url: URL, includingPropertiesForKeys keys: [URLResourceKey]?,
                                       options mask: FileManager.DirectoryEnumerationOptions = []) throws -> [URL] {
         entries
+    }
+}
+#endif
+
+#if os(Windows)
+private final class BackupMetadataFileManager: FileManager, @unchecked Sendable {
+    var fixtureAttributes: [FileAttributeKey: Any] = [:]
+    override func attributesOfItem(atPath path: String) throws -> [FileAttributeKey: Any] {
+        fixtureAttributes
     }
 }
 #endif

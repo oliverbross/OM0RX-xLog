@@ -65,6 +65,43 @@ public struct XLogBackupEnvelope: Sendable {
 }
 
 internal struct BackupPackageSeal: Codable, Equatable {
+    struct FileMetadata {
+        let isDirectory: Bool
+        let isRegularFile: Bool
+        let isSymbolicLink: Bool
+        let fileSize: Int?
+    }
+
+    static func fileMetadata(at url: URL, fileManager: FileManager) throws -> FileMetadata {
+        #if os(Windows)
+        guard let path = LocalFilePath.nativeFileSystemPath(for: url) else {
+            throw XLogBackupError.invalidPackage("invalid payload path")
+        }
+        // URL.resourceValues also asks corelibs for private stat attributes,
+        // whose Windows open omits the extended prefix. Public attributes use
+        // the NT-aware, non-following handle and the same file-type mapping.
+        let attributes = try fileManager.attributesOfItem(atPath: path)
+        guard let type = attributes[.type] as? FileAttributeType else {
+            throw XLogBackupError.invalidPackage("payload type is missing")
+        }
+        let size: Int?
+        if type == .typeRegular {
+            guard let number = attributes[.size] as? NSNumber,
+                  ["C", "s", "S", "i", "I", "l", "L", "q", "Q"].contains(String(cString: number.objCType)),
+                  let value = Int(number.stringValue), value >= 0 else {
+                throw XLogBackupError.invalidPackage("payload size is invalid")
+            }
+            size = value
+        } else { size = nil }
+        return FileMetadata(isDirectory: type == .typeDirectory, isRegularFile: type == .typeRegular,
+                            isSymbolicLink: type == .typeSymbolicLink, fileSize: size)
+        #else
+        let values = try url.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
+        return FileMetadata(isDirectory: values.isDirectory == true, isRegularFile: values.isRegularFile == true,
+                            isSymbolicLink: values.isSymbolicLink == true, fileSize: values.fileSize)
+        #endif
+    }
+
     struct Entry: Codable, Equatable {
         let path: String
         let byteCount: Int
@@ -124,8 +161,8 @@ internal struct BackupPackageSeal: Codable, Equatable {
 
     /// Reject links and special files. Never follows a package's link outside its root.
     static func capture(_ root: URL, fileManager: FileManager, excludingPaths: Set<String> = []) throws -> [String: Data] {
-        guard try root.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey]).isDirectory == true,
-              try root.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink != true else {
+        let rootValues = try fileMetadata(at: root, fileManager: fileManager)
+        guard rootValues.isDirectory == true, rootValues.isSymbolicLink != true else {
             throw XLogBackupError.invalidPackage("package must be a real directory")
         }
         var files: [String: Data] = [:]
@@ -135,7 +172,7 @@ internal struct BackupPackageSeal: Codable, Equatable {
             for url in try fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) {
                 let path = prefix + url.lastPathComponent
                 guard validPath(path) else { throw XLogBackupError.invalidPackage("unsafe payload path") }
-                let values = try url.resourceValues(forKeys: [.isSymbolicLinkKey, .isRegularFileKey, .isDirectoryKey, .fileSizeKey])
+                let values = try fileMetadata(at: url, fileManager: fileManager)
                 guard values.isSymbolicLink != true else { throw XLogBackupError.invalidPackage("symbolic links are unsupported") }
                 if values.isDirectory == true {
                     directories += 1

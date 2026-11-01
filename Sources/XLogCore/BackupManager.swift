@@ -232,7 +232,7 @@ public final class XLogBackupManager: @unchecked Sendable {
                 throw XLogBackupError.invalidPackage("contest data could not be inspected")
             }
             for case let source as URL in enumerator where source.pathExtension.lowercased() == "sqlite" {
-                let values = try source.resourceValues(forKeys: Set(keys))
+                let values = try BackupPackageSeal.fileMetadata(at: source, fileManager: fileManager)
                 guard values.isRegularFile == true, values.isSymbolicLink != true else {
                     throw XLogBackupError.invalidPackage("contest database path is unsafe")
                 }
@@ -602,7 +602,7 @@ public final class XLogBackupManager: @unchecked Sendable {
             .appendingPathComponent("xlog-legacy-restore-\(UUID().uuidString)", isDirectory: true))
         try BackupPackageSeal.materialize(metadata, at: snapshot.directory, fileManager: fileManager)
         try fileManager.copyItem(at: packageURL.appendingPathComponent("OM0RX-xLog.sqlite"), to: snapshot.databaseURL)
-        let values = try snapshot.databaseURL.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
+        let values = try BackupPackageSeal.fileMetadata(at: snapshot.databaseURL, fileManager: fileManager)
         guard values.isRegularFile == true, values.isSymbolicLink != true, let databaseBytes = values.fileSize else {
             throw XLogBackupError.invalidPackage("legacy database snapshot is not a regular file")
         }
@@ -770,7 +770,7 @@ public final class XLogBackupManager: @unchecked Sendable {
                                                       options: [.skipsHiddenFiles]) else { return [] }
         return try enumerator.compactMap { candidate -> URL? in
             guard let url = candidate as? URL, url.pathExtension.lowercased() == "sqlite" else { return nil }
-            let values = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+            let values = try BackupPackageSeal.fileMetadata(at: url, fileManager: fileManager)
             guard values.isRegularFile == true, values.isSymbolicLink != true else {
                 throw XLogBackupError.invalidPackage("contest database path is unsafe")
             }
