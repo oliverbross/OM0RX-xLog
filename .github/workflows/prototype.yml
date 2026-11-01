@@ -82,6 +82,7 @@ jobs:
           key: xlog-p1b-${{ runner.os }}-${{ hashFiles('prototype/src-tauri/Cargo.lock', 'Package.swift') }}-${{ github.sha }}
           restore-keys: |
             xlog-p1b-${{ runner.os }}-${{ hashFiles('prototype/src-tauri/Cargo.lock', 'Package.swift') }}-
+            xlog-p1b-${{ runner.os }}-
       - name: Linux build dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libcurl4-openssl-dev libxml2-dev libicu-dev libssl-dev libudev-dev libsecret-1-dev pkg-config dbus-x11 gnome-keyring
