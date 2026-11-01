@@ -374,6 +374,7 @@ fn stamp(meta: &fs::Metadata) -> IntegrityStamp {
         (meta.len(), meta.modified().ok(), 0, 0, 0, 0)
     }
 }
+#[cfg(any(not(windows), test))]
 fn integrity_cache() -> &'static std::sync::Mutex<BTreeMap<PathBuf, (IntegrityStamp, String)>> {
     static CACHE: std::sync::OnceLock<
         std::sync::Mutex<BTreeMap<PathBuf, (IntegrityStamp, String)>>,
@@ -391,18 +392,25 @@ fn verified(path: &Path, segment: &Segment) -> bool {
         return false;
     }
     let identity = stamp(&meta);
-    let cached = integrity_cache().lock().ok().and_then(|c| {
-        c.get(path)
-            .filter(|(s, _)| *s == identity)
-            .map(|(_, h)| h.clone())
-    });
-    cached
-        .or_else(|| digest(path).ok())
-        .is_some_and(|hash| hash == segment.hash)
+    #[cfg(not(windows))]
+    {
+        let cached = integrity_cache().lock().ok().and_then(|c| {
+            c.get(path)
+                .filter(|(s, _)| *s == identity)
+                .map(|(_, h)| h.clone())
+        });
+        if let Some(hash) = cached { return hash == segment.hash; }
+    }
+    // Windows metadata can remain identical across changed file bytes, even
+    // with FileIdInfo and ChangeTime. Hash this opened file on every check.
+    digest_open(path, file, identity).is_ok_and(|hash| hash == segment.hash)
 }
 fn digest(path: &Path) -> Result<String> {
-    let mut file = regular(path)?;
+    let file = regular(path)?;
     let before = stamp(&file.metadata().map_err(err)?);
+    digest_open(path, file, before)
+}
+fn digest_open(_path: &Path, mut file: File, before: IntegrityStamp) -> Result<String> {
     let mut hash = Sha256::new();
     let mut buf = [0; 65536];
     loop {
@@ -416,11 +424,12 @@ fn digest(path: &Path) -> Result<String> {
         return Err("Recorder media changed during verification".into());
     }
     let hash = format!("{:x}", hash.finalize());
+    #[cfg(not(windows))]
     if let Ok(mut cache) = integrity_cache().lock() {
         if cache.len() >= 8192 {
             cache.clear();
         }
-        cache.insert(path.into(), (before, hash.clone()));
+        cache.insert(_path.into(), (before, hash.clone()));
     }
     Ok(hash)
 }
@@ -1432,10 +1441,15 @@ mod tests {
         let media = archive.media_path(&archive.manifest.segments[0]);
         let original = fs::read(&media).unwrap();
         assert_eq!(archive.coverage(0, 10), "available");
-        let original_trace = readonly_integrity_trace(&media, &original);
         let original_stamp = stamp(&fs::metadata(&media).unwrap());
-        let cached = integrity_cache().lock().unwrap().get(&media).cloned().unwrap();
+        // Neither finalization nor coverage may publish a Windows cache entry.
+        assert!(!integrity_cache().lock().unwrap().contains_key(&media));
+        // Deliberately retain a matching stale entry in this fixture's unique
+        // path. Production Windows checks must ignore it without clearing it.
+        let cached = (original_stamp, archive.manifest.segments[0].hash.clone());
+        integrity_cache().lock().unwrap().insert(media.clone(), cached.clone());
         assert_eq!(cached.1, archive.manifest.segments[0].hash);
+        let original_trace = readonly_integrity_trace(&media, &original);
         let reader = File::open(&media).unwrap();
         let mut original_write_time = FileTime::default();
         assert_ne!(unsafe { GetFileTime(reader.as_raw_handle(), std::ptr::null_mut(),
@@ -1460,6 +1474,26 @@ mod tests {
         let coverage = archive.coverage(0, 10);
         assert_eq!(coverage, "file missing/corrupt",
             "original_trace={original_trace}; original_weak_stamp={original_stamp:?}; original_cached={cached:?}; trace={trace}; coverage={coverage}");
+        let corrupt_hash = digest(&media).unwrap();
+        assert_ne!(corrupt_hash, archive.manifest.segments[0].hash);
+        assert_eq!(integrity_cache().lock().unwrap().get(&media).cloned(), Some(cached));
+
+        // Also reject the inverse stale-negative result after restoring exact
+        // bytes and the same weak metadata. Fresh hashing must leave even a
+        // retained corrupt-hash entry untouched.
+        let cached_corrupt = (rewritten_stamp, corrupt_hash);
+        integrity_cache().lock().unwrap().insert(media.clone(), cached_corrupt.clone());
+        fs::write(&media, &original).unwrap();
+        let attributes = OpenOptions::new().access_mode(0x100).open(&media).unwrap();
+        assert_ne!(unsafe { SetFileTime(attributes.as_raw_handle(), std::ptr::null(),
+            std::ptr::null(), &original_write_time) }, 0, "{}", std::io::Error::last_os_error());
+        drop(attributes);
+        assert_eq!(stamp(&fs::metadata(&media).unwrap()), original_stamp);
+        let restored_trace = readonly_integrity_trace(&media, &original);
+        let restored_coverage = archive.coverage(0, 10);
+        assert_eq!(restored_coverage, "available", "restored_trace={restored_trace}; coverage={restored_coverage}");
+        assert_eq!(digest(&media).unwrap(), archive.manifest.segments[0].hash);
+        assert_eq!(integrity_cache().lock().unwrap().get(&media).cloned(), Some(cached_corrupt));
     }
     #[cfg(windows)]
     #[test]
