@@ -32,16 +32,19 @@ it("loads every actual window module independently and records first/repeat impo
   }
   const cacheMeasurements = [];
   for (const method of ["opportunities_snapshot", "logbook_catalog", "logbook_list"]) {
-    let count = 0;
-    const request = async () => { count++; await new Promise(resolve => setTimeout(resolve, 25)); return { generated_at: new Date().toISOString(), items: [], qsos: [], total: 69_527 }; };
+    const readMethods: string[] = [];
+    const request = async (requestedMethod: string) => { readMethods.push(requestedMethod); await new Promise(resolve => setTimeout(resolve, 25)); return { generated_at: new Date().toISOString(), items: [], qsos: [], total: 69_527 }; };
     const params = method === "logbook_list" ? { search: "", offset: 0, limit: 20 }
       : method === "logbook_catalog" ? { offset: 0, limit: 5, search: "", delivery_state: "" } : undefined;
     const reads = createDeferredPanelReads(request, true);
     const start = performance.now(); await reads.request(method, params); const coldMs = performance.now() - start;
-    const before = count, again = performance.now(); await reads.request(method, params);
+    const before = readMethods.length, again = performance.now(); await reads.request(method, params);
     cacheMeasurements.push({ method, syntheticRequestDelayMs: 25, coldMs: +coldMs.toFixed(3), warmMs: +(performance.now() - again).toFixed(3),
-      coldReadCount: before, warmAdditionalReadCount: count - before });
-    expect(count).toBe(1);
+      coldReadCount: before, coldReadMethods: readMethods.slice(0, before), warmAdditionalReadCount: readMethods.length - before });
+    // Optional reads wait for the usable first page; their warm repeat reuses
+    // both retained results without invoking either method again.
+    expect(readMethods).toEqual(method === "logbook_list" ? [method] : ["logbook_list", method]);
+    expect(readMethods.length - before).toBe(0);
   }
   const report = process.env.XLOG_WINDOW_READ_REPORT;
   if (report) {
