@@ -92,6 +92,34 @@ public struct AwardCatalogContact: Decodable, Equatable, Sendable {
     }
 }
 
+/// The one-pass JSON1 projection keeps the original field types and numeric
+/// date spelling. Keep the keyed decoder above for complete-record fallbacks.
+struct AwardCatalogSQLRow: Decodable {
+    let contact: AwardCatalogContact
+
+    init(from decoder: Decoder) throws {
+        var fields = try decoder.unkeyedContainer()
+        let call = try fields.decode(String.self)
+        let start = try fields.decode(Date.self)
+        let band = try fields.decode(String.self)
+        let mode = try fields.decode(String.self)
+        let submode = try fields.decode(String.self)
+        let dxcc = try fields.decodeIfPresent(Int.self)
+        let state = try fields.decode(String.self)
+        let county = try fields.decode(String.self)
+        let qslReceived = try fields.decode(String.self)
+        let lotwReceived = try fields.decode(String.self)
+        let propagationMode = try fields.decode(String.self)
+        let extraFields = try fields.decode([String: String].self)
+        guard fields.isAtEnd, start.timeIntervalSinceReferenceDate.isFinite else {
+            throw DecodingError.dataCorruptedError(in: fields, debugDescription: "Invalid award contact projection.")
+        }
+        contact = AwardCatalogContact(call: call, start: start, band: band, mode: mode, submode: submode,
+            dxcc: dxcc, state: state, county: county, qslReceived: qslReceived, lotwReceived: lotwReceived,
+            propagationMode: propagationMode, extraFields: extraFields)
+    }
+}
+
 public struct AwardCatalogSnapshot: Codable, Equatable, Sendable {
     public var items: [AwardCatalogItem]
     public var programmes: [AwardProgramme]

@@ -15,7 +15,8 @@ import Testing
 struct AwardCatalogProjectionTests {
     private func rawSQL(_ url: URL, _ query: String) throws {
         var handle: OpaquePointer?
-        guard sqlite3_open(url.path, &handle) == SQLITE_OK else { throw LogbookDatabaseError.open("fixture") }
+        guard let path = LocalFilePath.nativeFileSystemPath(for: url),
+              sqlite3_open(path, &handle) == SQLITE_OK else { throw LogbookDatabaseError.open("fixture") }
         defer { sqlite3_close(handle) }
         guard sqlite3_exec(handle, query, nil, nil, nil) == SQLITE_OK else {
             throw LogbookDatabaseError.sqlite(String(cString: sqlite3_errmsg(handle)))
@@ -61,7 +62,8 @@ struct AwardCatalogProjectionTests {
         let url = root.appendingPathComponent("plan.sqlite"), db = try LogbookDatabase(url: url)
         defer { try? db.close() }
         var handle: OpaquePointer?
-        guard sqlite3_open_v2(url.path, &handle, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else {
+        guard let path = LocalFilePath.nativeFileSystemPath(for: url),
+              sqlite3_open_v2(path, &handle, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else {
             throw LogbookDatabaseError.open("fixture")
         }
         defer { sqlite3_close(handle) }
@@ -81,8 +83,10 @@ struct AwardCatalogProjectionTests {
     }
 
     @Test("Projection rejects invalid scalar types just as the original decoder does", arguments: [
-        ("call", "{}"), ("start", "true"), ("dxcc", "true"), ("dxcc", "339.5"),
-        ("state", "[]"), ("extraFields", "\"{}\"")
+        ("call", "{}"), ("start", "true"), ("start", "\"1700000000\""),
+        ("dxcc", "true"), ("dxcc", "339.5"), ("dxcc", "\"339\""),
+        ("state", "[]"), ("submode", "null"), ("lotwReceived", "false"),
+        ("extraFields", "\"{}\""), ("extraFields", "[]"), ("extraFields", "{\"COMMENT\":true}")
     ])
     func rejectsInvalidTypes(field: String, value: String) throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -93,5 +97,59 @@ struct AwardCatalogProjectionTests {
         try rawSQL(url, "UPDATE qsos SET record_json=json_set(record_json,'$.\(field)',json('\(value)'));")
         #expect(throws: (any Error).self) { try db.fetchAll() }
         #expect(throws: (any Error).self) { try db.awardCatalogContacts() }
+    }
+
+    @Test("Missing constructor-default fields remain decoding errors", arguments: ["submode", "state", "extraFields"])
+    func missingRequiredFields(field: String) throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appendingPathComponent("missing.sqlite"), db = try LogbookDatabase(url: url)
+        defer { try? db.close() }
+        try db.save(QSO(call: "TEST/BY1QH/P", band: "20m", mode: "CW", dxcc: 339))
+        try rawSQL(url, "UPDATE qsos SET record_json=json_remove(record_json,'$.\(field)');")
+        #expect(throws: (any Error).self) { try db.fetchAll() }
+        #expect(throws: (any Error).self) { try db.awardCatalogContacts() }
+    }
+
+    @Test("Absent and null optional DXCC retain full-decoder semantics", arguments: ["absent", "null", "339.0"])
+    func optionalDXCC(value: String) throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appendingPathComponent("optional.sqlite"), db = try LogbookDatabase(url: url)
+        defer { try? db.close() }
+        try db.save(QSO(call: "TEST/BY1QH/P", band: "20m", mode: "CW", dxcc: 339))
+        let expression = value == "absent" ? "json_remove(record_json,'$.dxcc')"
+            : "json_set(record_json,'$.dxcc',json('\(value)'))"
+        try rawSQL(url, "UPDATE qsos SET record_json=\(expression);")
+        let expected = try db.fetchAll().map(AwardCatalogContact.init)
+        #expect(try db.awardCatalogContacts() == expected)
+    }
+
+    @Test("Variadic extraction preserves precise reference-date fractions", arguments: [
+        0.12345678912345678, -0.12345678912345678, 728_307_200.1234567
+    ])
+    func exactDates(seconds: Double) throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let db = try LogbookDatabase(url: root.appendingPathComponent("date.sqlite"))
+        defer { try? db.close() }
+        try db.save(QSO(call: "TEST/BY1QH/P", start: Date(timeIntervalSinceReferenceDate: seconds),
+                        band: "20m", mode: "CW", dxcc: 339))
+        let expected = try db.fetchAll().map(AwardCatalogContact.init)
+        #expect(expected.first?.start.timeIntervalSinceReferenceDate == seconds)
+        #expect(try db.awardCatalogContacts() == expected)
+    }
+
+    @Test("Complete-record fallback preserves selected Unicode and embedded NUL strings")
+    func selectedNULFields() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let db = try LogbookDatabase(url: root.appendingPathComponent("nul.sqlite"))
+        defer { try? db.close() }
+        try db.save(QSO(call: "TEST/BY1QH/P", band: "20m", mode: "CW", submode: "é\0after", dxcc: 339,
+                        state: "01\0é", county: "0102\0é", propagationMode: "SAT\0é",
+                        qslReceived: "Y\0é", lotwReceived: "V\0é", extraFields: ["COMMENT": "é\0after"]))
+        let expected = try db.fetchAll().map(AwardCatalogContact.init)
+        #expect(try db.awardCatalogContacts() == expected)
     }
 }
