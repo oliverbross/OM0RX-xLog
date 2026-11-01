@@ -624,7 +624,8 @@ public final class XLogBackupManager: @unchecked Sendable {
 
     private func validateLegacySnapshotAuthority(at url: URL, settings: XLogSettings) throws {
         var handle: OpaquePointer?
-        guard sqlite3_open_v2(url.path, &handle, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK,
+        guard let path = LocalFilePath.nativeFileSystemPath(for: url),
+              sqlite3_open_v2(path, &handle, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK,
               let handle else {
             sqlite3_close(handle)
             throw XLogBackupError.integrityFailed("legacy database authority could not be read")
@@ -772,14 +773,16 @@ public final class XLogBackupManager: @unchecked Sendable {
     private func snapshotSQLite(from source: URL, to destination: URL) throws {
         do {
             var input: OpaquePointer?, output: OpaquePointer?
-            guard sqlite3_open_v2(source.path, &input, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK,
+            guard let sourcePath = LocalFilePath.nativeFileSystemPath(for: source),
+                  sqlite3_open_v2(sourcePath, &input, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK,
                   let input else {
                 let message = input.map { String(cString: sqlite3_errmsg($0)) } ?? "unknown error"
                 sqlite3_close(input)
                 throw XLogBackupError.integrityFailed("could not open contest database: \(message)")
             }
             defer { sqlite3_close(input) }
-            guard sqlite3_open_v2(destination.path, &output, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK,
+            guard let destinationPath = LocalFilePath.nativeFileSystemPath(for: destination),
+                  sqlite3_open_v2(destinationPath, &output, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK,
                   let output else {
                 let message = output.map { String(cString: sqlite3_errmsg($0)) } ?? "unknown error"
                 sqlite3_close(output)
@@ -813,7 +816,8 @@ public final class XLogBackupManager: @unchecked Sendable {
 
     private func inspectSQLite(at url: URL) throws {
         var handle: OpaquePointer?
-        guard sqlite3_open_v2(url.path, &handle, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let handle else {
+        guard let path = LocalFilePath.nativeFileSystemPath(for: url),
+              sqlite3_open_v2(path, &handle, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let handle else {
             sqlite3_close(handle); throw XLogBackupError.integrityFailed("could not open contest database")
         }
         defer { sqlite3_close(handle) }
@@ -831,7 +835,8 @@ public final class XLogBackupManager: @unchecked Sendable {
     private func inspectDatabase(at url: URL) throws -> DatabaseInspection {
         var handle: OpaquePointer?
         let flags = SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX
-        guard sqlite3_open_v2(url.path, &handle, flags, nil) == SQLITE_OK, let handle else {
+        guard let path = LocalFilePath.nativeFileSystemPath(for: url),
+              sqlite3_open_v2(path, &handle, flags, nil) == SQLITE_OK, let handle else {
             let message = handle.map { String(cString: sqlite3_errmsg($0)) } ?? "could not open database"
             sqlite3_close(handle)
             throw XLogBackupError.integrityFailed(message)

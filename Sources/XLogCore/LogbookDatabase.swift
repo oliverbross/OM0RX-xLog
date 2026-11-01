@@ -152,12 +152,15 @@ public final class LogbookDatabase: @unchecked Sendable {
 
     public init(url: URL? = nil) throws {
         self.url = try url ?? Self.defaultURL()
+        guard let path = LocalFilePath.nativeFileSystemPath(for: self.url) else {
+            throw LogbookDatabaseError.open("Invalid database file path")
+        }
         try FileManager.default.createDirectory(
             at: self.url.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
         let flags = SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX
-        guard sqlite3_open_v2(self.url.path, &handle, flags, nil) == SQLITE_OK else {
+        guard sqlite3_open_v2(path, &handle, flags, nil) == SQLITE_OK else {
             let message = handle.map { String(cString: sqlite3_errmsg($0)) } ?? "unknown error"
             sqlite3_close(handle)
             throw LogbookDatabaseError.open(message)
@@ -183,6 +186,9 @@ public final class LogbookDatabase: @unchecked Sendable {
     public func backup(to destination: URL) throws {
         try withDatabaseLock {
             guard let handle else { throw LogbookDatabaseError.closed }
+            guard let path = LocalFilePath.nativeFileSystemPath(for: destination) else {
+                throw LogbookDatabaseError.open("Invalid backup file path")
+            }
             let fileManager = FileManager.default
             try fileManager.createDirectory(
                 at: destination.deletingLastPathComponent(),
@@ -194,7 +200,7 @@ public final class LogbookDatabase: @unchecked Sendable {
 
             var destinationHandle: OpaquePointer?
             let flags = SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX
-            guard sqlite3_open_v2(destination.path, &destinationHandle, flags, nil) == SQLITE_OK,
+            guard sqlite3_open_v2(path, &destinationHandle, flags, nil) == SQLITE_OK,
                   let destinationHandle else {
                 let message = destinationHandle.map { String(cString: sqlite3_errmsg($0)) } ?? "unknown error"
                 sqlite3_close(destinationHandle)

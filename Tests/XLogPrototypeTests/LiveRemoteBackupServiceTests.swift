@@ -539,6 +539,64 @@ import Testing
         #expect(await service.isRunning == false)
     }
 
+    @Test func deepUnicodeSnapshotPreservesSealedBytesAndRemovesPrivateStaging() async throws {
+        let (logbook, root, workspace) = try fixture()
+        defer { clean(logbook, root, workspace) }
+        try logbook.openedDatabase().save(QSO(call: "DEEP", band: "20m", mode: "CW"))
+        let generation = try logbook.withCurrentWorkspaceGeneration { $0 }
+        let destination = try plan(logbook).destination
+        func nativeUnits(_ url: URL) -> Int {
+            url.withUnsafeFileSystemRepresentation { representation in
+                guard let representation else { return 0 }
+                return String(cString: representation).utf16.count
+            }
+        }
+        let prefix = "é秘-"
+        // Darwin's filesystem representation decomposes accented characters;
+        // pad the actual native spelling rather than the Swift String length.
+        let padding = 150 - nativeUnits(workspace.directoryURL.appendingPathComponent(prefix))
+        try #require(padding >= 0, "Disposable temporary root must leave room for deep snapshot staging")
+        let staging = workspace.directoryURL.appendingPathComponent(prefix + String(repeating: "x", count: padding))
+        // Existing capture/validation directories remain below 248 UTF-16 code
+        // units; their SQLite filenames and journal suffixes cross MAX_PATH.
+        #expect(nativeUnits(staging) == 150)
+        let source = try RemoteBackupLocalSnapshotSource(workspace: logbook, stagingDirectory: staging)
+        let envelope = try await source.capture(workspaceGeneration: generation, destination: destination)
+        #expect(envelope.manifest.qsoCount == 1)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: staging.path).isEmpty)
+        let manager = XLogBackupManager()
+        #expect(try manager.validateRestoreEnvelope(envelope.data).identity == envelope.identity)
+        let package = root.appendingPathComponent("deep-round-trip.xlogbackup")
+        _ = try manager.materializeRestoreEnvelope(envelope.data, expectedIdentity: envelope.identity, at: package)
+        #expect(try manager.prepareEnvelope(at: package).data == envelope.data)
+        let reopened = try LogbookDatabase(url: package.appendingPathComponent("OM0RX-xLog.sqlite"))
+        defer { reopened.close() }
+        #expect(try reopened.fetch().map(\.call) == ["DEEP"])
+    }
+
+    @Test func localAndRemoteBackupCaptureWaitForTheReferenceRefreshLease() async throws {
+        let (logbook, root, workspace) = try fixture()
+        defer { clean(logbook, root, workspace) }
+        let reference = try logbook.referenceDirectoryURL()
+        let lease = try ReferenceRefreshLease(directory: reference)
+        defer { lease.release() }
+        let approved = try plan(logbook)
+        do {
+            _ = try logbook.handle(method: "backup_create", params: ["name": "blocked-by-reference"])
+            Issue.record("Local backup captured reference data while its refresh lease was held")
+        } catch { #expect((error as? WorkerFailure)?.code == "reference_busy") }
+        do {
+            _ = try await logbook.withActiveSnapshot(workspaceGeneration: approved.workspaceGeneration,
+                destination: approved.destination) { _ in true }
+            Issue.record("Remote backup captured reference data while its refresh lease was held")
+        } catch { #expect((error as? WorkerFailure)?.code == "reference_busy") }
+        lease.release()
+        _ = try logbook.handle(method: "backup_create", params: ["name": "after-reference-release"])
+        let captured = try await logbook.withActiveSnapshot(workspaceGeneration: approved.workspaceGeneration,
+            destination: approved.destination) { _ in true }
+        #expect(captured)
+    }
+
     @Test func revokedConsentIsCheckedAgainInsideCaptureLease() async throws {
         let (logbook, root, workspace) = try fixture()
         defer { clean(logbook, root, workspace) }

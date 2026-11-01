@@ -308,6 +308,29 @@ final class WavelogCatalogPortableTests: XCTestCase {
         XCTAssertThrowsError(try ReferenceRefreshLease(directory: fixture.directory))
     }
 
+    func testDeepUnicodeReferenceLeaseKeepsTheSameExclusiveIdentity() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let rootUnits = root.withUnsafeFileSystemRepresentation { $0.map { String(cString: $0).utf16.count } ?? 0 }
+        let prefix = "café-秘密-"
+        let padding = 244 - rootUnits - 1 - prefix.utf16.count
+        XCTAssertGreaterThanOrEqual(padding, 0)
+        guard padding >= 0 else { return }
+        let parent = root.appendingPathComponent(prefix + String(repeating: "x", count: padding))
+        try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
+        let directory = parent.appendingPathComponent("Reference Data")
+        let lock = parent.appendingPathComponent(".reference-refresh.lock")
+        XCTAssertGreaterThan(lock.withUnsafeFileSystemRepresentation { $0.map { String(cString: $0).utf16.count } ?? 0 }, 260)
+        let first = try ReferenceRefreshLease(directory: directory)
+        defer { first.release() }
+        XCTAssertThrowsError(try ReferenceRefreshLease(directory: directory))
+        first.release()
+        let second = try ReferenceRefreshLease(directory: directory)
+        second.release()
+        XCTAssertTrue(FileManager.default.fileExists(atPath: lock.path))
+        try FileManager.default.removeItem(at: root)
+    }
+
     func testWorkerAdvertisesAndRoutesWavelogWithoutBroadPlatformServices() async throws {
         let fixture = try Fixture(); defer { fixture.clean() }
         let worker = LiveWorker(logbook: fixture.logbook)

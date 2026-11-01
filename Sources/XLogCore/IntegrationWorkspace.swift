@@ -181,7 +181,8 @@ public enum IntegrationWorkspaceBootstrap {
 
     private static func open(_ url: URL, flags: Int32) throws -> OpaquePointer {
         var handle: OpaquePointer?
-        guard sqlite3_open_v2(url.path, &handle, flags | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK,
+        guard let path = LocalFilePath.nativeFileSystemPath(for: url),
+              sqlite3_open_v2(path, &handle, flags | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK,
               let handle else {
             let message = handle.map { String(cString: sqlite3_errmsg($0)) } ?? "open failed"
             sqlite3_close(handle)

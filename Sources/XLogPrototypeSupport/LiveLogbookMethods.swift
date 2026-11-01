@@ -303,10 +303,8 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 throw WorkerFailure("sync_busy", "Wait for synchronization to finish before backing up.")
             }
             let reference = try referenceDirectoryURL()
-            #if os(macOS)
             let referenceLease = try ReferenceRefreshLease(directory: reference)
             defer { referenceLease.release() }
-            #endif
             return try capture(RemoteBackupWorkspaceSnapshot(workspaceGeneration: workspaceGeneration,
                 destination: destination, database: readyDatabase(), settings: currentSettings(),
                 preferences: currentBackupPreferences(), referenceDataURL: reference,
@@ -1422,10 +1420,8 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 let root = try backupDirectory()
                 let package = root.appendingPathComponent(name).appendingPathExtension(XLogBackupManager.packageExtension)
                 let reference = try referenceDirectoryURL()
-                #if os(macOS)
                 let referenceLease = try ReferenceRefreshLease(directory: reference)
                 defer { referenceLease.release() }
-                #endif
                 let preview = try XLogBackupManager().create(
                     database: db, at: package, settings: try currentSettings(),
                     preferences: try currentBackupPreferences(),

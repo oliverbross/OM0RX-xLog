@@ -1,4 +1,9 @@
 import Foundation
+#if os(macOS)
+import XLogCore
+#else
+import XLogPortableCore
+#endif
 #if os(Windows)
 import WinSDK
 #elseif os(Linux)
@@ -19,7 +24,8 @@ final class ReferenceRefreshLease {
     init(directory: URL) throws {
         // Reference Data is replaced by restore. Keep the lock in its stable
         // workspace parent, outside both the backup payload and restore target.
-        let path = directory.deletingLastPathComponent().appendingPathComponent(".reference-refresh.lock").path
+        let url = directory.deletingLastPathComponent().appendingPathComponent(".reference-refresh.lock")
+        guard let path = LocalFilePath.nativeFileSystemPath(for: url) else { throw Self.busy }
         #if os(Windows)
         // No sharing keeps the stable lock file exclusively owned until this
         // handle closes. OPEN_ALWAYS never truncates an existing lock file.

@@ -177,7 +177,8 @@ public final class SpotHistoryDatabase: @unchecked Sendable {
         try fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: parent.path)
         #endif
         let flags = SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX | SQLITE_OPEN_NOFOLLOW
-        guard sqlite3_open_v2(url.path, &handle, flags, nil) == SQLITE_OK else {
+        guard let path = LocalFilePath.nativeFileSystemPath(for: url),
+              sqlite3_open_v2(path, &handle, flags, nil) == SQLITE_OK else {
             let reason = handle.map { String(cString: sqlite3_errmsg($0)) } ?? "open failed"
             sqlite3_close(handle); handle = nil; throw SpotHistoryDatabaseError.unavailable(reason)
         }
