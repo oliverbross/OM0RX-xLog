@@ -108,6 +108,9 @@ public final class LogbookDatabase: @unchecked Sendable {
     private var syncRunID: UUID?
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
+    private var aggregateReadOnly = false
+    private var aggregateReadCancellation: LogbookAggregateCancellation?
+    private var aggregateOpenedFileIdentity: Result<LogbookAggregateFileIdentity, Error>?
     private static let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
     private var cachedAggregateRevision: Int64?
     private var cachedStats: LogbookStats?
@@ -165,10 +168,45 @@ public final class LogbookDatabase: @unchecked Sendable {
             sqlite3_close(handle)
             throw LogbookDatabaseError.open(message)
         }
+        aggregateOpenedFileIdentity = Result {
+            guard let handle else { throw LogbookDatabaseError.closed }
+            return try LogbookAggregateFileIdentity.capture(connection: handle, at: self.url)
+        }
         sqlite3_busy_timeout(handle, 5_000)
         try execute("PRAGMA journal_mode=WAL;")
         try execute("PRAGMA foreign_keys=ON;")
         try migrate()
+    }
+
+    /// Existing-file aggregate connection only: no directory creation, journal
+    /// mode change, migration or persistent derived-cache publication.
+    private init(aggregateReadAt url: URL, cancellation: LogbookAggregateCancellation) throws {
+        self.url = url
+        aggregateReadOnly = true
+        aggregateReadCancellation = cancellation
+        guard let path = LocalFilePath.nativeFileSystemPath(for: url) else {
+            throw LogbookDatabaseError.open("Invalid aggregate database path")
+        }
+        let flags = SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX | SQLITE_OPEN_NOFOLLOW
+        guard sqlite3_open_v2(path, &handle, flags, nil) == SQLITE_OK, let handle else {
+            let message = handle.map { String(cString: sqlite3_errmsg($0)) } ?? "open failed"
+            sqlite3_close(handle)
+            self.handle = nil
+            throw LogbookDatabaseError.open(message)
+        }
+        do {
+            aggregateOpenedFileIdentity = .success(try LogbookAggregateFileIdentity.capture(connection: handle, at: url))
+            try cancellation.register(handle)
+            sqlite3_busy_timeout(handle, 100)
+            sqlite3_progress_handler(handle, 500, { context in
+                guard let context else { return 0 }
+                let cancellation = Unmanaged<LogbookAggregateCancellation>.fromOpaque(context).takeUnretainedValue()
+                cancellation.onSQLiteProgress?()
+                return cancellation.isCancelled ? 1 : 0
+            }, Unmanaged.passUnretained(cancellation).toOpaque())
+            try execute("PRAGMA query_only=ON;")
+            try cancellation.check()
+        } catch { close(); throw error }
     }
 
     deinit { close() }
@@ -178,6 +216,10 @@ public final class LogbookDatabase: @unchecked Sendable {
             guard let handle else { return }
             syncRunID = nil
             spotDraftLeaseID = nil
+            if let cancellation = aggregateReadCancellation {
+                cancellation.unregister(handle)
+                sqlite3_progress_handler(handle, 0, nil, nil)
+            }
             sqlite3_close_v2(handle)
             self.handle = nil
         }
@@ -2942,9 +2984,12 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func stats() throws -> LogbookStats {
+        try stats(yearStart: LogbookAggregateRequest.current(.statistics).yearStart)
+    }
+
+    private func stats(yearStart: TimeInterval) throws -> LogbookStats {
         try withDatabaseLock {
             try refreshAggregateCacheVersion()
-            let yearStart = Calendar(identifier: .gregorian).date(from: Calendar.current.dateComponents([.year], from: Date()))?.timeIntervalSince1970 ?? 0
             if let cachedStats, cachedStatsYearStart == yearStart { return cachedStats }
             let cacheKey = "stats-v1-\(yearStart)"
             if let value: LogbookStats = try persistedAggregate(cacheKey) {
@@ -2960,7 +3005,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 FROM qsos INDEXED BY idx_qsos_metrics_live WHERE deleted_at IS NULL;
                 """) { statement in
                     sqlite3_bind_double(statement, 1, yearStart)
-                    guard sqlite3_step(statement) == SQLITE_ROW else { return .empty }
+                    guard sqlite3_step(statement) == SQLITE_ROW else { throw error() }
                     return LogbookStats(
                         qsoCount: Int(sqlite3_column_int(statement, 0)),
                         dxccCount: Int(sqlite3_column_int(statement, 1)),
@@ -2979,6 +3024,101 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// used by native observers to wake logbook views after background imports.
     public func currentRevision() throws -> Int64 {
         try withDatabaseLock { try qsoRevision() }
+    }
+
+    public func aggregateReadAuthority() throws -> LogbookAggregateAuthority {
+        try withDatabaseLock {
+            guard let handle else { throw LogbookDatabaseError.closed }
+            guard sqlite3_get_autocommit(handle) != 0 else { throw LogbookDatabaseError.syncBusy }
+            let identity = try currentAggregateFileIdentity()
+            return LogbookAggregateAuthority(revision: try qsoRevision(),
+                fileIdentity: identity)
+        }
+    }
+
+    private func currentAggregateFileIdentity() throws -> LogbookAggregateFileIdentity {
+        guard let aggregateOpenedFileIdentity else { throw LogbookDatabaseError.closed }
+        let opened = try aggregateOpenedFileIdentity.get()
+        guard try LogbookAggregateFileIdentity.capture(at: url) == opened else { throw LogbookAggregateReadError.retired }
+        return opened
+    }
+
+    public static func readAggregateSnapshot(at url: URL, authority: LogbookAggregateAuthority,
+        request: LogbookAggregateRequest, cancellation: LogbookAggregateCancellation) throws -> LogbookAggregateSnapshot {
+        try cancellation.check()
+        guard try LogbookAggregateFileIdentity.capture(at: url) == authority.fileIdentity else {
+            throw LogbookAggregateReadError.retired
+        }
+        let readerURL = LogbookAggregateFileIdentity.canonicalReaderURL(url)
+        guard try LogbookAggregateFileIdentity.capture(at: readerURL) == authority.fileIdentity else {
+            throw LogbookAggregateReadError.retired
+        }
+        let reader = try LogbookDatabase(aggregateReadAt: readerURL, cancellation: cancellation)
+        defer { reader.close() }
+        do {
+            return try reader.withDatabaseReadSnapshot {
+                // This first read establishes the WAL snapshot before any heavy
+                // projection. Never replace this with the owner's later revision.
+                guard try reader.qsoRevision() == authority.revision else { throw LogbookAggregateReadError.superseded }
+                guard try reader.currentAggregateFileIdentity() == authority.fileIdentity else {
+                    throw LogbookAggregateReadError.retired
+                }
+                try cancellation.check()
+                try cancellation.afterSnapshotPinned?()
+                let payload: LogbookAggregateSnapshot.Payload
+                switch request.kind {
+                case .statistics:
+                    let stats = try reader.stats(yearStart: request.yearStart)
+                    let awards = try reader.awardProgress()
+                    let statuses = try reader.dxccMapStatuses()
+                    payload = .value(.statistics(LogbookStatisticsAggregate(stats: stats, awards: awards, dxccStatuses: statuses)))
+                case .catalogue:
+                    if let cached: AwardCatalogSnapshot = try reader.persistedAggregate(request.semanticKey) {
+                        payload = .value(.catalogue(cached))
+                    } else { payload = .contacts(try reader.awardCatalogContacts()) }
+                }
+                try cancellation.check()
+                return LogbookAggregateSnapshot(authority: authority, request: request, payload: payload)
+            }
+        } catch {
+            try cancellation.check()
+            throw error
+        }
+    }
+
+    /// Only the current primary owner publishes. The readonly connection never
+    /// creates cache rows, and a stale result never seeds the owner's memory.
+    public func publishAggregateResult(_ result: LogbookAggregateResult) throws -> Bool {
+        try withDatabaseLock {
+            guard let handle else { throw LogbookDatabaseError.closed }
+            guard !aggregateReadOnly, sqlite3_get_autocommit(handle) != 0 else { throw LogbookDatabaseError.syncBusy }
+            guard try currentAggregateFileIdentity() == result.authority.fileIdentity,
+                  try qsoRevision() == result.authority.revision else { return false }
+            switch (result.request.kind, result.value) {
+            case (.statistics, .statistics(let value)):
+                persistAggregate(value.stats, key: result.request.semanticKey, revision: result.authority.revision)
+                persistAggregate(value.awards, key: "award-progress-v1", revision: result.authority.revision)
+                persistAggregate(value.dxccStatuses, key: "dxcc-map-v1", revision: result.authority.revision)
+            case (.catalogue, .catalogue(let value)):
+                persistAggregate(value, key: result.request.semanticKey, revision: result.authority.revision)
+            default: throw LogbookDatabaseError.corruptRecord
+            }
+            guard try currentAggregateFileIdentity() == result.authority.fileIdentity,
+                  try qsoRevision() == result.authority.revision else { return false }
+            if cachedAggregateRevision != result.authority.revision {
+                invalidateQSOAggregates(hmChangedIDs: [])
+            }
+            // A later external commit is detected by the next ordinary read.
+            // Never label this result with a newer revision observed afterward.
+            cachedAggregateRevision = result.authority.revision
+            switch result.value {
+            case .statistics(let value):
+                cachedStats = value.stats; cachedStatsYearStart = result.request.yearStart
+                cachedAwards = value.awards; cachedDXCCStatuses = value.dxccStatuses
+            case .catalogue(let value): cachedAwardCatalog = value
+            }
+            return true
+        }
     }
 
     public func awardProgress() throws -> AwardProgressSnapshot {
@@ -3022,6 +3162,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 var workedGrids = Set<String>(), confirmedGrids = Set<String>()
                 var step = sqlite3_step(statement)
                 while step == SQLITE_ROW {
+                    try aggregateReadCancellation?.check()
                     result.qsoCount += 1
                     let isConfirmed = sqlite3_column_int(statement, 0) != 0
                     if isConfirmed { result.confirmedQSOs += 1 }
@@ -3086,9 +3227,13 @@ public final class LogbookDatabase: @unchecked Sendable {
                 GROUP BY CAST(json_extract(record_json,'$.dxcc') AS INTEGER);
                 """) { statement in
                     var result: [Int: String] = [:]
-                    while sqlite3_step(statement) == SQLITE_ROW {
+                    var step = sqlite3_step(statement)
+                    while step == SQLITE_ROW {
+                        try aggregateReadCancellation?.check()
                         result[Int(sqlite3_column_int(statement, 0))] = sqlite3_column_int(statement, 1) == 1 ? "confirmed" : "worked"
+                        step = sqlite3_step(statement)
                     }
+                    guard step == SQLITE_DONE else { throw error() }
                     return result
                 }
             cachedDXCCStatuses = value
@@ -3153,6 +3298,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 for (index, call) in schools.enumerated() { bind(call, to: Int32(index + 1), in: statement) }
                 var values: [AwardCatalogContact] = [], step = sqlite3_step(statement)
                 while step == SQLITE_ROW {
+                    try aggregateReadCancellation?.check()
                     guard sqlite3_column_int(statement, 1) == 1 else { throw LogbookDatabaseError.corruptRecord }
                     // JSON1 before SQLite 3.45 truncates extracted strings at NUL.
                     // Preserve the complete decoder contract for those rare rows.
@@ -3290,6 +3436,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     private func persistAggregate<T: Encodable>(_ value: T, key: String, revision: Int64) {
+        guard !aggregateReadOnly else { return }
         // An external writer may commit during calculation. Publish only if its
         // revision is still current in this atomic statement; otherwise a later
         // call recomputes. Cache write failure must not hide a valid calculation.

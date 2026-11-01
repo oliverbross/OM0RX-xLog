@@ -213,10 +213,12 @@ public enum AwardCatalogEngine {
         try compute(contacts: qsos.map(AwardCatalogContact.init))
     }
 
-    public static func compute(contacts qsos: [AwardCatalogContact]) throws -> AwardCatalogSnapshot {
+    public static func compute(contacts qsos: [AwardCatalogContact],
+                               cancellation: LogbookAggregateCancellation? = nil) throws -> AwardCatalogSnapshot {
+        try cancellation?.evaluationCheck()
         let reference = try loadReferenceData()
-        let confirmed = qsos.filter { isConfirmed($0, includeEQSL: true) }
-        let confirmedWithoutEQSL = qsos.filter { isConfirmed($0, includeEQSL: false) }
+        let confirmed = try qsos.filter { try cancellation?.evaluationCheck(); return isConfirmed($0, includeEQSL: true) }
+        let confirmedWithoutEQSL = try qsos.filter { try cancellation?.evaluationCheck(); return isConfirmed($0, includeEQSL: false) }
 
         var districts = Set<String>()
         var prefectures = Set<String>()
@@ -224,7 +226,9 @@ public enum AwardCatalogEngine {
         var jcg = Set<String>()
         var aja = Set<String>()
 
-        for original in confirmed where isJapan(original) {
+        for original in confirmed {
+            try cancellation?.evaluationCheck()
+            guard isJapan(original) else { continue }
             let mapped = japanFields(original)
             if let prefecture = mapped.prefecture, let district = district(for: prefecture) {
                 let callDistrict = mapped.call.hasPrefix("J") && mapped.call.count >= 3
@@ -270,6 +274,7 @@ public enum AwardCatalogEngine {
         var wapcByBand = Dictionary(uniqueKeysWithValues: wapcBands.map { ($0, Set<String>()) })
         var wapcByMode = ["CW": Set<String>(), "PHONE": Set<String>(), "DATA": Set<String>()]
         for qso in confirmedWithoutEQSL {
+            try cancellation?.evaluationCheck()
             guard let province = wapcProvince(qso), wapcProvinces.contains(province) else { continue }
             wapcMixed.insert(province)
             let band = qso.band.lowercased()
@@ -277,8 +282,8 @@ public enum AwardCatalogEngine {
             wapcByMode[modeGroup(qso), default: []].insert(province)
         }
 
-        let wcsa = wcsaProgress(qsos: confirmedWithoutEQSL, schools: reference.schools)
-        let worked = workedCounts(qsos: qsos, reference: reference)
+        let wcsa = try wcsaProgress(qsos: confirmedWithoutEQSL, schools: reference.schools, cancellation: cancellation)
+        let worked = try workedCounts(qsos: qsos, reference: reference, cancellation: cancellation)
         let jccTarget = nextMilestone(jcc.count, values: [100, 200, 300, 400, 500, 600, 700, 800])
         let jcgTarget = nextMilestone(jcg.count, values: [100, 200, 300, 400, 500])
         let ajaTarget = nextAJATarget(aja.count)
@@ -315,6 +320,7 @@ public enum AwardCatalogEngine {
             ),
         ]
         let registry = try AwardRegistry.programmes(progress: liveItems)
+        try cancellation?.evaluationCheck()
         return AwardCatalogSnapshot(
             items: liveItems,
             programmes: registry.items,
@@ -323,14 +329,17 @@ public enum AwardCatalogEngine {
         )
     }
 
-    private static func workedCounts(qsos: [AwardCatalogContact], reference: ReferenceData) -> [String: Int] {
+    private static func workedCounts(qsos: [AwardCatalogContact], reference: ReferenceData,
+                                     cancellation: LogbookAggregateCancellation?) throws -> [String: Int] {
         var districts = Set<String>()
         var prefectures = Set<String>()
         var jcc = Set<String>()
         var jcg = Set<String>()
         var aja = Set<String>()
 
-        for original in qsos where isJapan(original) {
+        for original in qsos {
+            try cancellation?.evaluationCheck()
+            guard isJapan(original) else { continue }
             let mapped = japanFields(original)
             if let prefecture = mapped.prefecture, let district = district(for: prefecture) {
                 let callDistrict = mapped.call.hasPrefix("J") && mapped.call.count >= 3
@@ -365,8 +374,12 @@ public enum AwardCatalogEngine {
         let activeGuns = Set(reference.entities.compactMap { code, entity in
             !entity.deleted && entity.type == "gun" ? code : nil
         })
-        let wapc = Set(qsos.compactMap(wapcProvince)).intersection(wapcProvinces)
-        let wcsa = wcsaProgress(qsos: qsos, schools: reference.schools)
+        let provinces = try qsos.compactMap { qso -> String? in
+            try cancellation?.evaluationCheck()
+            return wapcProvince(qso)
+        }
+        let wapc = Set(provinces).intersection(wapcProvinces)
+        let wcsa = try wcsaProgress(qsos: qsos, schools: reference.schools, cancellation: cancellation)
         return [
             "AJD": districts.count,
             "WAJA": prefectures.count,
@@ -454,10 +467,12 @@ public enum AwardCatalogEngine {
         return "DATA"
     }
 
-    private static func wcsaProgress(qsos: [AwardCatalogContact], schools: [String: String]) -> (schoolCount: Int, slotCount: Int) {
+    private static func wcsaProgress(qsos: [AwardCatalogContact], schools: [String: String],
+                                     cancellation: LogbookAggregateCancellation?) throws -> (schoolCount: Int, slotCount: Int) {
         var schoolCalls = Set<String>()
         var slots = Set<String>()
         for qso in qsos {
+            try cancellation?.evaluationCheck()
             let call = qso.call.trimmedUpper
             guard let school = ([call] + call.split(separator: "/").map(String.init)).first(where: { schools[$0] != nil }) else { continue }
             let mode = qso.mode.trimmedUpper
