@@ -1,8 +1,9 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Grip, X } from "lucide-react";
 import { adjustPanel, customDeskPreset, fitPanelHeight, resizeEdges, resizePanel, type ResizeEdge } from "./canvasGeometry";
-import { panelMinimum, type LayoutPreset, type LayoutState, type PanelLayout, type WorkspacePanelID, type WorkspaceLayoutSession } from "./workspaceLayoutSession";
+import { panelMinimum, type LayoutPreset, type LayoutSnapshot, type LayoutState, type PanelLayout, type WorkspacePanelID, type WorkspaceLayoutSession } from "./workspaceLayoutSession";
 import "./OperatorCanvas.css";
+import { beginWorkspacePresentation } from "./workspaceLayoutTransport";
 
 export type CanvasPanel = { title: string; content: ReactNode; required?: boolean; safetyAction?: ReactNode };
 type Props = { panels: Partial<Record<WorkspacePanelID, CanvasPanel>>; traditional: ReactNode; state: LayoutState;
@@ -25,6 +26,18 @@ export default function OperatorCanvas({ panels, traditional, state, session, su
     try { await action(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Layout change failed."); }
     finally { performing.current = false; onChangeInFlight?.(false); setWorking(false); }
   };
+  const performChange = (action: (ticket: number | undefined, base: LayoutSnapshot) => Promise<void>) => perform(async () => {
+    const base = state.snapshot;
+    if (!base) throw new Error("Reload the saved layout before changing it.");
+    const reservation = beginWorkspacePresentation("layout");
+    const ticket = reservation === undefined ? undefined : await reservation;
+    await action(ticket, base);
+  });
+  const retryChange = () => perform(async () => {
+    const reservation = beginWorkspacePresentation("layout");
+    const ticket = reservation === undefined ? undefined : await reservation;
+    await session.retry(ticket);
+  });
   useEffect(() => {
     const measure = () => {
       const box = root.current?.getBoundingClientRect(), deskBox = desk.current?.getBoundingClientRect();
@@ -36,15 +49,20 @@ export default function OperatorCanvas({ panels, traditional, state, session, su
     const observer = new ResizeObserver(measure); observer.observe(root.current); observer.observe(desk.current);
     return () => observer.disconnect();
   }, []);
-  const selectLayout = (id: string) => void perform(async () => {
-    if (id === "custom" && !state.snapshot!.document.presets.some(preset => preset.id === id)) {
-      const base = state.snapshot!.document.presets.find(preset => preset.id === "traditional") ?? state.snapshot!.document.presets[0];
-      await session.apply({ action: "savePreset", presetID: id, preset: customDeskPreset(base, size.height, equipment) });
-      if (session.getSnapshot().pending) return;
+  const selectLayout = (id: string) => void performChange(async (ticket, admitted) => {
+    let base = admitted;
+    if (id === "custom" && !base.document.presets.some(preset => preset.id === id)) {
+      const original = base.document.presets.find(preset => preset.id === "traditional") ?? base.document.presets[0];
+      await session.applyAtBase({ action: "savePreset", presetID: id, preset: customDeskPreset(original, size.height, equipment) }, base, ticket);
+      const saved = session.getSnapshot();
+      if (saved.pending || saved.error) return;
+      if (!saved.snapshot || saved.snapshot.generation !== base.generation || saved.snapshot.revision !== base.revision + 1)
+        throw new Error("The workspace changed while the custom layout was saved. Reload and review it.");
+      base = saved.snapshot;
     }
-    await session.apply({ action: "activatePreset", presetID: id });
+    await session.applyAtBase({ action: "activatePreset", presetID: id }, base, ticket);
   });
-  const savePreset = (preset: LayoutPreset) => void perform(() => session.apply({ action: "savePreset", presetID: preset.id, preset }));
+  const savePreset = (preset: LayoutPreset) => void performChange((ticket, base) => session.applyAtBase({ action: "savePreset", presetID: preset.id, preset }, base, ticket));
   const visible = active?.panels.filter(panel => panel.placement === "canvas" && panels[panel.id]) ?? [];
   // An owned rotor must always keep a Stop path, even if an older layout hid it.
   // Measure the stable desk shell for presentation mode. The canvas work area
@@ -59,8 +77,8 @@ export default function OperatorCanvas({ panels, traditional, state, session, su
     const [minWidth, minHeight] = panelMinimum(id);
     const width = Math.min(active!.width, Math.max(minWidth, panel.rect.width)), height = Math.min(active!.height, Math.max(minHeight, panel.rect.height));
     const rect = { x: Math.max(0, Math.min(active!.width - width, panel.rect.x)), y: Math.max(0, Math.min(active!.height - height, panel.rect.y)), width, height };
-    void perform(() => session.apply({ action: "placePanel", presetID: active!.id, panel: { ...panel, placement: show ? "canvas" : "hidden",
-      rect: show ? rect : panel.rect, z: Math.min(10000, Math.max(...active!.panels.map(item => item.z)) + 1) } }));
+    void performChange((ticket, base) => session.applyAtBase({ action: "placePanel", presetID: active!.id, panel: { ...panel, placement: show ? "canvas" : "hidden",
+      rect: show ? rect : panel.rect, z: Math.min(10000, Math.max(...active!.panels.map(item => item.z)) + 1) } }, base, ticket));
     if (show) setCurrentPanel(id);
   };
   return <div ref={desk} className="configurable-desk">
@@ -80,14 +98,14 @@ export default function OperatorCanvas({ panels, traditional, state, session, su
     </div>
     {(error || state.error || subscriptionError) && <div className="canvas-recovery" role="alert"><span>{error || state.error || subscriptionError}</span>
       <button type="button" disabled={working || state.saving} onClick={() => void perform(() => session.refresh())}>Reload layout</button>
-      {state.pending && <><button type="button" disabled={working || state.saving || !!state.conflict || state.workspaceChanged} onClick={() => void perform(() => session.retry())}>Retry change</button>
+      {state.pending && <><button type="button" disabled={working || state.saving || !!state.conflict || state.workspaceChanged} onClick={() => void retryChange()}>Retry change</button>
         <button type="button" disabled={working || state.saving} onClick={() => void perform(() => session.discard())}>Use saved layout</button></>}
     </div>}
     {custom && showPanels && <fieldset className="canvas-panel-picker" disabled={blocked}><legend>Panels on this desk</legend>{Object.entries(panels).map(([id, panel]) => <label key={id}>
       <input type="checkbox" checked={visible.some(item => item.id === id) || !!panel?.required} disabled={panel?.required} onChange={event => changeVisibility(id as WorkspacePanelID, event.target.checked)} />{panel!.title}{panel?.required ? " · active device" : ""}</label>)}</fieldset>}
     <div ref={root} className={`canvas-work-area${custom ? " is-canvas" : ""}${compact ? " is-compact" : ""}`}>
       {!custom ? traditional : !visible.length ? <p className="canvas-empty">No panels shown. Choose Panels to add your working tools, or return to Traditional.</p> : visible.filter(panel => !required.some(([id]) => id === panel.id)).map(panel => <PanelFrame key={panel.id} panel={panel} preset={active} item={panels[panel.id]!} compact={compact} hidden={compact && panel.id !== selected}
-        disabled={blocked} revision={`${state.snapshot!.generation}:${state.snapshot!.revision}`} onChange={value => void perform(() => session.apply({ action: "placePanel", presetID: active.id, panel: value }))}
+        disabled={blocked} revision={`${state.snapshot!.generation}:${state.snapshot!.revision}`} onChange={value => void performChange((ticket, base) => session.applyAtBase({ action: "placePanel", presetID: active.id, panel: value }, base, ticket))}
         onHide={() => { changeVisibility(panel.id, false); toolbar.current?.focus(); }} />)}
     </div>
     {custom && required.map(([id, panel]) => <div className="canvas-required-panel" key={id}>{panel!.content}</div>)}

@@ -5,6 +5,7 @@ import { operatorWorkspaceKey, readWorkspacePreferences } from "./operatorWorksp
 import { useWorkspaceWindows } from "./useWorkspaceWindows";
 import { protectWorkspaceModeEditor } from "./workspaceMode";
 import { useSettingsSaveToast } from "./SettingsSaveToast";
+import { beginWorkspacePresentation } from "./workspaceLayoutTransport";
 
 const names: Record<WorkspacePanelID, string> = {
   "active-qso": "Active QSO", "log-qso": "Log QSO", logbook: "Logbook", "callsign-intelligence": "Callsign intelligence",
@@ -52,6 +53,11 @@ export default function WorkspaceSettings({ state, session, subscriptionError, a
     try { await action(); } catch (cause) { setMessage(cause instanceof Error ? cause.message : "The layout could not be saved. Reload and review it."); }
     finally { setWorking(false); }
   }
+  const runChange = (action: (ticket?: number) => Promise<void>) => run(async () => {
+    const reservation = beginWorkspacePresentation("layout");
+    const ticket = reservation === undefined ? undefined : await reservation;
+    await action(ticket);
+  });
   function begin(copy: boolean) {
     if (!snapshot || !selected || blocked) return;
     setMessage(""); setRemoval(null);
@@ -84,11 +90,11 @@ export default function WorkspaceSettings({ state, session, subscriptionError, a
     if (value === "canvas") fitCanvas(preset, panel);
     update(preset);
   }
-  async function save() {
+  async function save(ticket?: number) {
     if (!draft || blocked) return;
     const preset = { ...draft.preset, name: validatePresetName(draft.preset.name) };
     if (requiredRotor && preset.panels.find(panel => panel.id === "rotor")?.placement === "hidden") throw new Error("Show the connected rotor before saving this layout.");
-    await session.applyAtBase({ action: "savePreset", presetID: preset.id, preset }, draft.base);
+    await session.applyAtBase({ action: "savePreset", presetID: preset.id, preset }, draft.base, ticket);
     const result = session.getSnapshot();
     if (!result.pending && !result.error) { setSelection(preset.id); setDraft(null); saveToast.show(result.snapshot?.document.activePresetID === preset.id ? "Layout saved." : "Layout saved. Use layout to switch arrangements."); }
   }
@@ -99,8 +105,8 @@ export default function WorkspaceSettings({ state, session, subscriptionError, a
         {snapshot?.document.presets.map(preset => <option key={preset.id} value={preset.id}>{preset.name}{snapshot.document.activePresetID === preset.id ? " · active" : ""}</option>)}
       </select></label>
       <div className="workspace-preset-actions">
-        <button type="button" disabled={blocked || !!draft || !!removal || selected?.id === "windowed" || selected?.id === snapshot?.document.activePresetID} onClick={() => void run(async () => {
-          if (snapshot && selected) await session.applyAtBase(activatePreset(snapshot.document, selected.id), snapshot);
+        <button type="button" disabled={blocked || !!draft || !!removal || selected?.id === "windowed" || selected?.id === snapshot?.document.activePresetID} onClick={() => void runChange(async ticket => {
+          if (snapshot && selected) await session.applyAtBase(activatePreset(snapshot.document, selected.id), snapshot, ticket);
         })}>Use layout</button>
         <button type="button" disabled={blocked || !!draft || !!removal || (snapshot?.document.presets.length ?? 0) >= maxWorkspacePresets || selected?.id === "windowed"} onClick={() => begin(true)}>Duplicate layout</button>
         <button type="button" disabled={blocked || !!draft || !!removal || protectedPreset} onClick={() => begin(false)}>Edit layout</button>
@@ -119,11 +125,11 @@ export default function WorkspaceSettings({ state, session, subscriptionError, a
         onClick={() => void native.retry()}>Apply saved windows</button>
     </div>}
     {removal && <div className="workspace-remove"><p>Delete “{removal.name}”? Other layouts and your contacts stay unchanged.</p>
-      <button type="button" disabled={blocked} onClick={() => void run(async () => {
-        await session.applyAtBase(deletePreset(removal.base.document, removal.id), removal.base);
+      <button type="button" disabled={blocked} onClick={() => void runChange(async ticket => {
+        await session.applyAtBase(deletePreset(removal.base.document, removal.id), removal.base, ticket);
         if (!session.getSnapshot().pending && !session.getSnapshot().error) { setRemoval(null); setSelection(""); saveToast.show("Layout deleted."); }
       })}>Confirm delete</button> <button type="button" disabled={working || state.saving || !!state.pending} onClick={() => setRemoval(null)}>Cancel deletion</button></div>}
-    {draft && <form className="workspace-preset-editor" onSubmit={event => { event.preventDefault(); void run(save); }}>
+    {draft && <form className="workspace-preset-editor" onSubmit={event => { event.preventDefault(); void runChange(save); }}>
       <fieldset disabled={blocked}><label className="workspace-name">Layout name<input ref={nameInput} value={draft.preset.name} onChange={event => update({ name: event.target.value })} /></label>
         <div className="workspace-layout-options"><label><input type="checkbox" checked={draft.preset.locked} onChange={event => update({ locked: event.target.checked })} />Lock panel positions</label>
           <label><input type="checkbox" checked={draft.preset.snap} onChange={event => update({ snap: event.target.checked })} />Snap to grid</label></div>
@@ -148,8 +154,8 @@ export default function WorkspaceSettings({ state, session, subscriptionError, a
     {draft && message && !state.pending && <p>Your edits are retained. To review the current saved layout, cancel editing and open Edit layout again.</p>}
     {(state.pending || state.error || subscriptionError || !snapshot) && <div className="workspace-recovery">
       <button type="button" disabled={working || state.saving} onClick={() => void run(() => session.refresh())}>Reload saved layouts</button>
-      {state.pending && <><button type="button" disabled={working || state.saving || !!state.conflict || state.workspaceChanged} onClick={() => void run(async () => {
-        await session.retry();
+      {state.pending && <><button type="button" disabled={working || state.saving || !!state.conflict || state.workspaceChanged} onClick={() => void runChange(async ticket => {
+        await session.retry(ticket);
         if (!session.getSnapshot().pending && !session.getSnapshot().error) { if (draft) setSelection(draft.preset.id); setDraft(null); setRemoval(null); saveToast.show("Layout change confirmed."); }
       })}>Retry layout change</button>
         <button type="button" disabled={working || state.saving} onClick={() => void run(async () => { await session.discard(); if (!session.getSnapshot().pending && !session.getSnapshot().error) { setDraft(null); setRemoval(null); saveToast.show("Using saved layouts. Unsaved layout changes discarded."); } })}>Use saved layouts</button></>}

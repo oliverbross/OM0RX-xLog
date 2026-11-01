@@ -169,15 +169,15 @@ export class WorkspaceLayoutSession {
     })().finally(() => { this.reading = null; });
     return this.reading;
   };
-  async apply(change: LayoutChange) {
-    await this.applyWithBase(change);
+  async apply(change: LayoutChange, presentationTicket?: number) {
+    await this.applyWithBase(change, undefined, presentationTicket);
   }
   /** Full-preset edits must use the snapshot captured when editing began.
    * Never silently merge an outdated preset onto a newer shared workspace. */
-  async applyAtBase(change: LayoutChange, base: LayoutSnapshot) {
-    await this.applyWithBase(change, base);
+  async applyAtBase(change: LayoutChange, base: LayoutSnapshot, presentationTicket?: number) {
+    await this.applyWithBase(change, base, presentationTicket);
   }
-  private async applyWithBase(change: LayoutChange, base?: LayoutSnapshot) {
+  private async applyWithBase(change: LayoutChange, base?: LayoutSnapshot, presentationTicket?: number) {
     if (!this.state.snapshot || this.state.pending || this.state.saving || this.recovering || this.state.workspaceChanged)
       throw new Error("Resolve the current layout change before making another.");
     if (base && (!sameGeneration(this.state.snapshot.generation, base.generation) ||
@@ -188,14 +188,15 @@ export class WorkspaceLayoutSession {
       ...(this.scope === "normal_logging" ? {} : { scope: this.scope }) };
     // Recovery must be durable before sending a potentially successful write.
     this.journal(pending); this.update({ pending });
-    await this.send(pending);
+    await this.send(pending, presentationTicket);
   }
-  private async send(pending: LayoutJournal) {
+  private async send(pending: LayoutJournal, presentationTicket?: number) {
     this.epoch++; this.update({ saving: true, error: "", conflict: null });
     try {
       const response = await this.request("workspace_layout_apply", { ...pending.change,
         ...(this.scope === "normal_logging" ? {} : { scope: this.scope }),
-        expectedRevision: pending.base.revision, generation: pending.base.generation });
+        expectedRevision: pending.base.revision, generation: pending.base.generation,
+        ...(presentationTicket === undefined ? {} : { presentationTicket }) });
       if (response.status === "workspace_changed" &&
           (this.scope === "normal_logging" ? response.scope !== undefined : response.scope !== this.scope))
         throw new Error("The shared workspace layout scope could not be verified.");
@@ -216,7 +217,7 @@ export class WorkspaceLayoutSession {
     }
   }
   /** Explicit user action only, after a fresh read proves the base is still current. */
-  async retry() {
+  async retry(presentationTicket?: number) {
     if (this.state.saving || this.recovering) throw new Error("Wait for the current layout request.");
     this.recovering = true; this.epoch++;
     try {
@@ -229,7 +230,7 @@ export class WorkspaceLayoutSession {
       if (!snapshot || conflict || workspaceChanged || !sameGeneration(snapshot.generation, pending.base.generation) ||
           snapshot.revision !== pending.base.revision || !sameDocument(snapshot.document, pending.base.document))
         throw new Error("Review the changed workspace before retrying.");
-      await this.send(pending);
+      await this.send(pending, presentationTicket);
     } finally { this.recovering = false; if (this.again) void this.refresh(); }
   }
   async discard() {

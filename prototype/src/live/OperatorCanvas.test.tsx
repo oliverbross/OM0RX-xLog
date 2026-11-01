@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import OperatorCanvas from "./OperatorCanvas";
 import { adjustPanel, customDeskPreset, fitPanelHeight, resizeEdges, resizePanel } from "./canvasGeometry";
 import { changedLayout, panelMinimum, validLayoutDocument, workspacePanelIDs, WorkspaceLayoutSession, type LayoutSnapshot } from "./workspaceLayoutSession";
+import * as layoutTransport from "./workspaceLayoutTransport";
 function base(): LayoutSnapshot {
   const panels = workspacePanelIDs.map((id, z) => { const [width, height] = panelMinimum(id); return { id, z, placement: "hidden" as const, rect: { x: 0, y: 0, width, height } }; });
   const traditional = { id: "traditional", name: "Traditional", width: 1920, height: 800, locked: true, snap: true, panels };
@@ -63,13 +64,35 @@ it("announces layout admission synchronously and holds it until the awaited upda
   await waitFor(() => expect(changed).toHaveBeenLastCalledWith(false)); expect(screen.queryByLabelText("Draft text")).toBeNull();
 });
 it("creates a custom canvas without altering Traditional and commits activation only after save", async () => {
+  const begin = vi.spyOn(layoutTransport, "beginWorkspacePresentation").mockReturnValue(Promise.resolve(37));
   const { session, request, Harness } = setup(); await session.refresh(); render(<Harness />);
   fireEvent.change(screen.getByLabelText("Desk layout"), { target: { value: "custom" } });
   await screen.findByRole("button", { name: "Lock layout" });
   expect(request.mock.calls.filter(([method]) => method.endsWith("apply")).map(([, params]) => params.action)).toEqual(["savePreset", "activatePreset"]);
+  expect(begin).toHaveBeenCalledExactlyOnceWith("layout");
+  expect(request.mock.calls.filter(([method]) => method.endsWith("apply")).map(([, params]) => params.presentationTicket)).toEqual([37, 37]);
   expect(session.getSnapshot().snapshot?.document.presets[0]).toEqual(base().document.presets[0]);
   fireEvent.change(screen.getByLabelText("Desk layout"), { target: { value: "traditional" } });
   await screen.findByText("Traditional controls");
+});
+
+it.each(["revision", "generation"])("rejects a stale rendered canvas after %s changes during presentation reservation", async changed => {
+  let release!: (ticket: number) => void;
+  vi.spyOn(layoutTransport, "beginWorkspacePresentation").mockReturnValue(new Promise<number>(resolve => { release = resolve; }));
+  const { session, request, Harness } = setup(true);
+  await session.refresh(); render(<Harness />);
+  const before = structuredClone(session.getSnapshot().snapshot!);
+  fireEvent.click(screen.getByRole("button", { name: "Lock layout" }));
+  const replacement = structuredClone(before);
+  if (changed === "generation") replacement.generation = "87654321-1234-1234-1234-123456789abc";
+  else replacement.revision++;
+  replacement.document.presets[1].name = "New external layout";
+  request.mockResolvedValueOnce({ status: "applied", layout: replacement });
+  await act(async () => { await session.refresh(); release(37); });
+  await screen.findByText("The workspace changed after editing began. Reload and review it before saving.");
+  expect(request.mock.calls.filter(([method]) => method === "workspace_layout_apply")).toHaveLength(0);
+  expect(session.getSnapshot().snapshot).toEqual(replacement);
+  expect(session.getSnapshot().pending).toBeNull();
 });
 it("commits one keyboard move on key release, supports cancel, and keeps panel input mounted", async () => {
   const { session, request, Harness } = setup(true); await session.refresh(); render(<Harness />);

@@ -98,3 +98,68 @@ it("preserves native presentation rejection details so a retry can recover", asy
   native.invoke.mockRejectedValue("Separate windows did not finish opening");
   await expect(presentWorkspaceMode(fixture(), true)).rejects.toThrow("Separate windows did not finish opening");
 });
+
+it("marks automatic presentation passive and preserves a separate explicit retry at the same layout identity", async () => {
+  native.isTauri.mockReturnValue(true);
+  native.invoke.mockResolvedValue(undefined);
+  const snapshot = fixture();
+  await presentWorkspaceMode(snapshot, true);
+  await presentWorkspaceMode(snapshot, true, 7);
+  expect(native.invoke.mock.calls).toEqual([
+    ["workspace_mode_present", { generation: snapshot.generation, revision: snapshot.revision, hideMain: true }],
+    ["workspace_mode_present", { generation: snapshot.generation, revision: snapshot.revision, hideMain: true, presentationTicket: 7 }],
+  ]);
+});
+
+it("keeps explicit user intent with its queued presentation while a passive request is pending", async () => {
+  let release!: () => void;
+  let calls = 0;
+  const send = vi.fn(async (_snapshot: LayoutSnapshot, _hide: boolean, _ticket?: number) => {
+    if (++calls === 1) await new Promise<void>(resolve => { release = resolve; });
+  });
+  const present = orderedWorkspacePresenter(send), snapshot = fixture();
+  const passive = present(snapshot, true), explicit = present(snapshot, true, 7);
+  await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+  expect(send.mock.calls[0][2]).toBeUndefined();
+  release(); await Promise.all([passive, explicit]);
+  expect(send.mock.calls.map(([, , ticket]) => ticket)).toEqual([undefined, 7]);
+});
+
+it("marks an explicit same-mode request without replaying the persisted layout activation", async () => {
+  native.isTauri.mockReturnValue(true); native.invoke.mockResolvedValueOnce(7).mockResolvedValueOnce(8);
+  const f = await setup(), present = vi.fn(async (_snapshot: LayoutSnapshot, _hide: boolean, _ticket?: number) => {});
+  await switchWorkspaceMode(f.session, "windows", () => true, present);
+  const writes = f.request.mock.calls.filter(([method]) => method === "workspace_layout_apply").length;
+  await switchWorkspaceMode(f.session, "windows", () => true, present);
+  expect(f.request.mock.calls.filter(([method]) => method === "workspace_layout_apply")).toHaveLength(writes);
+  expect(present.mock.calls.map(([, hide, ticket]) => [hide, ticket])).toEqual([[true, 7], [true, 8]]);
+});
+
+it("reserves before layout persistence and never reclaims an older switch after Main opens", async () => {
+  native.isTauri.mockReturnValue(true);
+  let latestIntent = 7, hidden = false, release!: () => void, saved = fixture();
+  native.invoke.mockImplementation(async (command, args) => {
+    if (command === "workspace_presentation_begin") return latestIntent;
+    if (command === "workspace_mode_present") { if (args.presentationTicket === latestIntent) hidden = args.hideMain; return; }
+    throw new Error(command);
+  });
+  const journals: unknown[] = [];
+  const request = vi.fn(async (method: string, params?: any) => {
+    if (method === "workspace_layout_load") return { layout: structuredClone(saved) };
+    expect(native.invoke.mock.calls[0]).toEqual(["workspace_presentation_begin", { kind: "mode" }]);
+    expect(params.presentationTicket).toBe(7);
+    await new Promise<void>(resolve => { release = resolve; });
+    saved = { ...saved, revision: saved.revision + 1, document: changedLayout(saved.document, params) };
+    return { status: "applied", layout: structuredClone(saved) };
+  });
+  const session = new WorkspaceLayoutSession(request, journal => journals.push(journal));
+  await session.refresh();
+  const operation = switchWorkspaceMode(session, "windows", () => true);
+  await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2));
+  latestIntent = 8; // A later native Window -> Open Main admission.
+  release(); await operation;
+  expect(hidden).toBe(false);
+  expect(native.invoke.mock.calls.filter(([command]) => command === "workspace_presentation_begin")).toHaveLength(1);
+  expect(native.invoke.mock.calls.at(-1)?.[1]).toMatchObject({ presentationTicket: 7 });
+  expect(JSON.stringify(journals)).not.toContain("presentationTicket");
+});

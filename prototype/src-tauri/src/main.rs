@@ -53,6 +53,7 @@ mod logbook_events;
 mod detached_acceptance;
 mod workspace_windows;
 mod workspace_window_runtime;
+mod workspace_presentation;
 mod canvas_close;
 #[cfg(target_os = "macos")]
 mod macos_termination;
@@ -84,6 +85,7 @@ use tauri::{Emitter, LogicalSize, Manager};
 use tauri_plugin_notification::NotificationExt;
 use std::sync::{atomic::{AtomicBool, Ordering}, Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
+use workspace_presentation::{Intent as PresentationIntent, Request as PresentationRequest, WindowOutcome};
 
 static MAIN_CREATION: Mutex<()> = Mutex::new(());
 static CONTEST_SETUP_CREATION: Mutex<()> = Mutex::new(());
@@ -1002,15 +1004,45 @@ fn main_workspace(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow, String
 }
 
 fn ensure_main_workspace(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow, String> {
+    let presentation = PresentationRequest::claim(PresentationIntent::Focus)?;
     let main = main_workspace(app)?;
-    present_active_workspace(app)?;
+    present_active_workspace_with_presentation(app, presentation)?;
     Ok(main)
 }
 
-fn show_main_workspace(app: &tauri::AppHandle) -> Result<(), String> {
-    let _presentation = foreground_presentation_guard();
-    main_workspace(app)?;
-    present_requested_main_workspace(&MAIN_WORKSPACE_REOPENED, || present_active_workspace(app))
+fn show_main_workspace_with_presentation(app: &tauri::AppHandle, presentation: PresentationRequest) -> Result<(), String> {
+    if !presentation.is_current() { return Ok(()); }
+    let main = main_workspace(app)?;
+    deliver_presentation(app, presentation, move || {
+        present_requested_main_workspace(&MAIN_WORKSPACE_REOPENED, || present_main_window(&main))
+    }).map(|_| ())
+}
+
+// Queries, construction and guard admission happen on the blocking owner. Only
+// the final native effects execute here: off-thread Tauri setters otherwise
+// enqueue a later UI message after the caller's freshness check has expired.
+fn deliver_presentation<T: Send + 'static>(app: &tauri::AppHandle, presentation: PresentationRequest,
+    effect: impl FnOnce() -> Result<T, String> + Send + 'static) -> Result<Option<T>, String> {
+    let gate = workspace_presentation::DispatchGate::new();
+    let delivered = gate.clone();
+    let (send, receive) = std::sync::mpsc::sync_channel(1);
+    app.run_on_main_thread(move || {
+        // This guard is acquired only by the tiny UI callback, never by a
+        // blocking owner while it waits for native delivery.
+        let _foreground = foreground_presentation_guard();
+        let result = delivered.run(presentation.is_current() && !APP_EXITING.load(Ordering::Acquire), effect)
+            .transpose();
+        let _ = send.send(result);
+    }).map_err(|error| error.to_string())?;
+    match receive.recv_timeout(Duration::from_secs(5)) {
+        Ok(result) => result,
+        Err(_) => { gate.cancel(); Err("Native window presentation did not complete; retry the requested window.".into()) }
+    }
+}
+
+fn present_main_window(main: &tauri::WebviewWindow) -> Result<(), String> {
+    main.unminimize().and_then(|_| main.show()).and_then(|_| main.set_focus())
+        .map_err(|error| error.to_string())
 }
 
 fn present_requested_main_workspace(reopened: &AtomicBool,
@@ -1041,11 +1073,18 @@ fn main_workspace_menu_action(selected: &str) -> Result<(), String> {
 }
 
 async fn navigate_workspace(app: tauri::AppHandle, screen: String) -> Result<(), String> {
+    navigate_workspace_with_presentation(app, screen, PresentationRequest::claim(PresentationIntent::Focus)?).await
+}
+
+async fn navigate_workspace_with_presentation(app: tauri::AppHandle, screen: String, presentation: PresentationRequest) -> Result<(), String> {
+    if !presentation.is_current() { return Ok(()); }
     if workspace_navigation::contest_route(&screen).is_some() {
         app.state::<workspace_navigation::WorkspaceNavigation>().request(&screen)?;
         let foreground = workspace_navigation::contest_owner_foreground(&screen);
         return tauri::async_runtime::spawn_blocking(move || {
-            ensure_contest_setup_window(&app, foreground)?;
+            if !presentation.is_current() { return Ok(()); }
+            ensure_contest_setup_window_for(&app, foreground, None, true, presentation)?;
+            if !presentation.is_current() { return Ok(()); }
             app.emit_to("contest-setup", "xlog:workspace-navigation", ()).map_err(|error| error.to_string())
         }).await.map_err(|_| "Contest Setup window task failed".to_string())?;
     } else if screen.starts_with("workspace-mode-") {
@@ -1059,7 +1098,7 @@ async fn navigate_workspace(app: tauri::AppHandle, screen: String) -> Result<(),
         }).await.map_err(|_| "Workspace mode guard could not be checked.".to_string())??;
     } else if screen == "operating-goals" {
         // This read-only utility has no Canvas panel or persisted placement.
-        return open_detached_workspace(app, screen).await;
+        return open_detached_workspace_with_presentation(app, screen, presentation).await;
     } else if workspace_windows::supports(&screen) {
         let direct = tauri::async_runtime::spawn_blocking(|| {
             let id = format!("workspace-menu-mode-{}", uuid::Uuid::new_v4());
@@ -1067,7 +1106,7 @@ async fn navigate_workspace(app: tauri::AppHandle, screen: String) -> Result<(),
             Ok::<bool, String>(reply["id"] == id && reply["ok"] == true
                 && reply["result"]["layout"]["document"]["activePresetID"] == "windowed")
         }).await.map_err(|_| "Workspace mode could not be checked.".to_string()).unwrap_or(Ok(false))?;
-        if direct { return open_detached_workspace(app, screen).await; }
+        if direct { return open_detached_workspace_with_presentation(app, screen, presentation).await; }
     }
     // The event is only a wake-up. The main view reads the native state and
     // acknowledges a revision, so pre-listener clicks and old acks are safe.
@@ -1075,13 +1114,16 @@ async fn navigate_workspace(app: tauri::AppHandle, screen: String) -> Result<(),
         // An explicit Settings/Radio menu destination must reveal the main
         // renderer even while Contest remains the active operating module.
         // ensure_main_workspace presents the active contest and hides main.
-        let _presentation = foreground_presentation_guard();
-        present_main_navigation(&app.state::<workspace_navigation::WorkspaceNavigation>(),
-            &screen, &MAIN_WORKSPACE_REOPENED, || {
-                main_workspace(&app)?;
-                present_active_workspace(&app)?;
-                app.emit_to("main", "xlog:workspace-navigation", ()).map_err(|error| error.to_string())
-            })
+        if !presentation.is_current() { return Ok(()); }
+        let main = main_workspace(&app)?;
+        let native = app.clone();
+        deliver_presentation(&app, presentation, move || {
+            present_main_navigation(&native.state::<workspace_navigation::WorkspaceNavigation>(),
+                &screen, &MAIN_WORKSPACE_REOPENED, || {
+                    present_main_window(&main)?;
+                    native.emit_to("main", "xlog:workspace-navigation", ()).map_err(|error| error.to_string())
+                })
+        }).map(|_| ())
     }).await.map_err(|_| "Main workspace task failed".to_string())?
 }
 
@@ -1147,13 +1189,15 @@ fn contest_setup_window_config(foreground: bool, acceptance: bool,
 }
 
 fn ensure_contest_setup_window_for(app: &tauri::AppHandle, foreground: bool,
-    host_active: Option<&HostActiveContest>, query_missing: bool) -> Result<(), String> {
+    host_active: Option<&HostActiveContest>, query_missing: bool, presentation: PresentationRequest) -> Result<(), String> {
     let window = recover_singleton(&CONTEST_SETUP_CREATION, || app.get_webview_window("contest-setup"), || {
         let _module_admission = operating_module::owner()?.admit_current()?;
         let queried = if query_missing { query_host_active_contest()? } else { None };
         let effective_active = if query_missing { queried.as_ref() } else { host_active };
         let acceptance = app.state::<acceptance::Acceptance>().path.is_some();
-        let config = contest_setup_window_config(foreground, acceptance, effective_active);
+        // A slow host query/build cannot acquire focus before its original
+        // intent is rechecked at native delivery.
+        let config = contest_setup_window_config(false, acceptance, effective_active);
         let mut builder = tauri::WebviewWindowBuilder::from_config(app, &config)
             .map_err(|error| error.to_string())?;
         if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? {
@@ -1164,16 +1208,16 @@ fn ensure_contest_setup_window_for(app: &tauri::AppHandle, foreground: bool,
         Ok(window)
     })?;
     if foreground {
-        window.set_skip_taskbar(false).map_err(|error| error.to_string())?;
-        window.unminimize().map_err(|error| error.to_string())?;
-        window.show().map_err(|error| error.to_string())?;
-        window.set_focus().map_err(|error| error.to_string())?;
+        deliver_presentation(app, presentation, move || {
+            window.set_skip_taskbar(false).map_err(|error| error.to_string())?;
+            present_main_window(&window)
+        })?;
     }
     Ok(())
 }
 
 fn ensure_contest_setup_window(app: &tauri::AppHandle, foreground: bool) -> Result<(), String> {
-    ensure_contest_setup_window_for(app, foreground, None, true)
+    ensure_contest_setup_window_for(app, foreground, None, true, PresentationRequest::passive())
 }
 
 fn ensure_contest_analytics_window(app: &tauri::AppHandle) -> Result<(), String> {
@@ -1226,26 +1270,28 @@ fn ensure_contest_log_review_window(app: &tauri::AppHandle) -> Result<(), String
     window.set_focus().map_err(|error| error.to_string())
 }
 
-fn ensure_contest_log_transfer_window(app: &tauri::AppHandle) -> Result<(), String> {
+fn ensure_contest_log_transfer_window_with_presentation(app: &tauri::AppHandle, presentation: PresentationRequest) -> Result<(), String> {
     ensure_contest_setup_window(app, false)?;
     let window = recover_singleton(&MAIN_CREATION, || app.get_webview_window(contest_log_transfer::WINDOW), || {
         let mut builder = tauri::WebviewWindowBuilder::new(app, contest_log_transfer::WINDOW,
             tauri::WebviewUrl::App("index.html?view=contest-log-transfer&scope=contesting".into()))
             .title("OM0RX-xLog Contest — Import or Transfer Log")
-            .inner_size(720.0, 560.0).min_inner_size(520.0, 380.0).focused(true)
+            .inner_size(720.0, 560.0).min_inner_size(520.0, 380.0).focused(false).visible(false)
             .incognito(app.state::<acceptance::Acceptance>().path.is_some());
         if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? { builder = builder.data_directory(directory); }
         let window = runtime_profile::offline_webview(builder).build().map_err(|error| error.to_string())?;
         if app.state::<acceptance::Acceptance>().path.is_none() { detached_geometry::install(&window); }
         Ok(window)
     })?;
-    window.unminimize().map_err(|error| error.to_string())?;
-    window.show().map_err(|error| error.to_string())?;
-    window.set_focus().map_err(|error| error.to_string())?;
-    Ok(())
+    deliver_presentation(app, presentation, move || present_main_window(&window)).map(|_| ())
 }
 
 fn fulfill_module_restart_intent(app: &tauri::AppHandle) -> Result<(), String> {
+    fulfill_module_restart_intent_with_presentation(app, PresentationRequest::passive())
+}
+
+fn fulfill_module_restart_intent_with_presentation(app: &tauri::AppHandle, presentation: PresentationRequest) -> Result<(), String> {
+    if !presentation.is_current() { return Ok(()); }
     let directory = app.path().app_data_dir().map_err(|error| error.to_string())?;
     let pending = module_restart_intent::load(&directory)?;
     let contesting = operating_module::owner()?.snapshot()?["selected"] == "contesting";
@@ -1258,7 +1304,7 @@ fn fulfill_module_restart_intent(app: &tauri::AppHandle) -> Result<(), String> {
             | module_restart_intent::Decision::WaitForSetup | module_restart_intent::Decision::WaitForContest => Ok(()),
         module_restart_intent::Decision::OpenNormalMain => {
             app.state::<workspace_navigation::WorkspaceNavigation>().request("operator-desk")?;
-            show_main_workspace(app)?;
+            show_main_workspace_with_presentation(app, presentation)?;
             app.emit_to("main", "xlog:workspace-navigation", ()).map_err(|error| error.to_string())?;
             module_restart_intent::consume(&directory, destination)
         }
@@ -1273,13 +1319,13 @@ fn fulfill_module_restart_intent(app: &tauri::AppHandle) -> Result<(), String> {
                 .is_none_or(|pending| pending.screen != route) {
                 navigation.request(route)?;
             }
-            ensure_contest_setup_window(app, workspace_navigation::contest_owner_foreground(route))?;
+            ensure_contest_setup_window_for(app, workspace_navigation::contest_owner_foreground(route), None, true, presentation)?;
             app.emit_to(CONTEST_SETUP_WINDOW, "xlog:workspace-navigation", ())
                 .map_err(|error| error.to_string())
         }
         module_restart_intent::Decision::OpenContestLogTransfer => {
             contest_window_context::active()?;
-            ensure_contest_log_transfer_window(app)?;
+            ensure_contest_log_transfer_window_with_presentation(app, presentation)?;
             module_restart_intent::consume(&directory, destination)
         }
     }
@@ -1334,10 +1380,12 @@ fn workspace_mode_ready() -> Result<(), String> {
     Ok(())
 }
 
-fn wait_for_workspace_windows(app: &tauri::AppHandle, generation: &str, revision: u64) -> Result<(), String> {
-    let attempt = workspace_window_runtime::refresh(app, true)?;
+fn wait_for_workspace_windows(app: &tauri::AppHandle, generation: &str, revision: u64,
+    presentation: PresentationRequest) -> Result<(), String> {
+    let attempt = workspace_window_runtime::refresh_with_presentation(app, true, presentation)?;
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
+        if !presentation.is_current() { return Ok(()); }
         let status = workspace_window_runtime::status(app)?;
         if status["state"] == "error" || status["stopped"] == true {
             return Err(status["error"].as_str().unwrap_or("The separate windows could not be opened.").into());
@@ -1366,6 +1414,13 @@ fn normal_workspace_window(label: &str) -> bool {
 
 fn foreground_presentation_guard() -> std::sync::MutexGuard<'static, ()> {
     FOREGROUND_PRESENTATION.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+fn menu_presentation_request() -> Option<PresentationRequest> {
+    match PresentationRequest::claim(PresentationIntent::Focus) {
+        Ok(request) => Some(request),
+        Err(error) => { eprintln!("Could not reserve window presentation: {error}"); None }
+    }
 }
 
 fn hide_normal_workspace_during_contest(label: &str, main_reopened: bool) -> bool {
@@ -1403,36 +1458,49 @@ fn native_foreground(labels: &[String], contesting: bool, main_reopened: bool) -
 }
 
 fn present_active_workspace(app: &tauri::AppHandle) -> Result<(), String> {
+    present_active_workspace_with_presentation(app, PresentationRequest::passive())
+}
+
+fn present_active_workspace_with_presentation(app: &tauri::AppHandle, presentation: PresentationRequest) -> Result<(), String> {
+    if !presentation.is_current() { return Ok(()); }
     let labels = app.webview_windows().into_keys().collect::<Vec<_>>();
     let contesting = operating_module::owner()?.snapshot()?["selected"] == "contesting";
     let foreground = native_foreground(&labels, contesting,
         MAIN_WORKSPACE_REOPENED.load(Ordering::Acquire));
-    match foreground {
+    let (target, hide_main) = match foreground {
         NativeForeground::Contest(label) => {
-            if let Some(main) = app.get_webview_window("main") {
-                main.hide().map_err(|error| error.to_string())?;
-            }
             let contest = app.get_webview_window(&label).ok_or("The active contest window is unavailable.")?;
-            contest.unminimize().map_err(|error| error.to_string())?;
-            contest.show().and_then(|_| contest.set_focus()).map_err(|error| error.to_string())
+            (contest, true)
         }
         NativeForeground::ContestSetup => {
-            if let Some(main) = app.get_webview_window("main") {
-                main.hide().map_err(|error| error.to_string())?;
-            }
-            ensure_contest_setup_window(app, true)?;
+            ensure_contest_setup_window_for(app, false, None, true, presentation)?;
             let setup = app.get_webview_window(CONTEST_SETUP_WINDOW)
                 .ok_or("The active contest setup window is unavailable.")?;
-            setup.set_skip_taskbar(false).map_err(|error| error.to_string())?;
-            setup.unminimize().map_err(|error| error.to_string())?;
-            setup.show().and_then(|_| setup.set_focus()).map_err(|error| error.to_string())
+            (setup, true)
         }
-        NativeForeground::Main => {
-            let main = main_workspace(app)?;
-            main.unminimize().map_err(|error| error.to_string())?;
-            main.show().and_then(|_| main.set_focus()).map_err(|error| error.to_string())
+        NativeForeground::Main => (main_workspace(app)?, false),
+    };
+    let main = if hide_main { app.get_webview_window("main") } else { None };
+    deliver_presentation(app, presentation, move || {
+        // Authority cleanup may hide an obsolete normal workspace, but cannot
+        // activate a retained window without an actual user presentation.
+        if let Some(main) = main {
+            // A passive cleanup can share an already-claimed Main ticket but
+            // execute after that Main callback. Its captured target is only a
+            // hint; preserve the latest override at the actual hide boundary.
+            if hide_normal_workspace_during_contest(main.label(), MAIN_WORKSPACE_REOPENED.load(Ordering::Acquire)) {
+                main.hide().map_err(|error| error.to_string())?;
+            }
         }
-    }
+        let plan = workspace_presentation::existing_plan(presentation.intent(), presentation.is_current(),
+            target.is_visible().map_err(|error| error.to_string())?, target.is_minimized().map_err(|error| error.to_string())?);
+        if plan.show {
+            target.set_skip_taskbar(false).map_err(|error| error.to_string())?;
+            target.unminimize().and_then(|_| target.show()).map_err(|error| error.to_string())?;
+            if plan.focus { target.set_focus().map_err(|error| error.to_string())?; }
+        }
+        Ok(())
+    }).map(|_| ())
 }
 
 fn enters_contest_desk(label: &str, method: &str) -> bool {
@@ -1449,18 +1517,16 @@ where F: FnOnce() -> Result<(), String> + Send + 'static {
 }
 
 fn present_contest_desk(app: &tauri::AppHandle,
-    context: &contest_window_context::ContestWindowContext, attempt: u64) -> Result<(), String> {
-    // A contest transition may take several seconds. Clear the prior reopen
-    // intent before waiting so a later explicit menu command can win.
-    MAIN_WORKSPACE_REOPENED.store(false, Ordering::Release);
+    context: &contest_window_context::ContestWindowContext, attempt: u64,
+    presentation: PresentationRequest) -> Result<(), String> {
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
+        if !presentation.is_current() { return Ok(()); }
         let status = workspace_window_runtime::contest_status(app, context.clone())?;
         if status["state"] == "error" || status["stopped"] == true {
             return Err(status["error"].as_str().unwrap_or("The contest desk could not be opened.").into());
         }
         if status["state"] == "applied" && status["attempt"].as_u64().is_some_and(|value| value >= attempt) {
-            let _presentation = foreground_presentation_guard();
             let labels = app.webview_windows().into_keys().collect::<Vec<_>>();
             if !labels.iter().any(|label| label == "contest--active-qso") {
                 return Err("The contest desk did not open Main Logging; the xLog main window remains available.".into());
@@ -1468,22 +1534,17 @@ fn present_contest_desk(app: &tauri::AppHandle,
             if !labels.iter().any(|label| contest_desk_window(label)) {
                 return Err("The contest desk did not open a usable window; the xLog main window remains available.".into());
             }
-            let windows = app.webview_windows();
-            let main_reopened = MAIN_WORKSPACE_REOPENED.load(Ordering::Acquire);
-            for window in windows.values().filter(|window| hide_normal_workspace_during_contest(window.label(), main_reopened)) {
-                if window.label() == "main" { validate_editor_transition(window.label())?; }
-                window.hide().map_err(|error| error.to_string())?;
-            }
-            if main_reopened {
-                let main = main_workspace(app)?;
-                main.unminimize().map_err(|error| error.to_string())?;
-                main.show().and_then(|_| main.set_focus()).map_err(|error| error.to_string())?;
-                return Ok(());
-            }
+            let windows = app.webview_windows().into_values().collect::<Vec<_>>();
+            validate_editor_transition("main")?;
             let main_logging = app.get_webview_window("contest--active-qso")
                 .ok_or("The contest desk did not retain Main Logging; the xLog main window remains available.")?;
-            main_logging.show().and_then(|_| main_logging.set_focus()).map_err(|error| error.to_string())?;
-            return Ok(());
+            return deliver_presentation(app, presentation, move || {
+                MAIN_WORKSPACE_REOPENED.store(false, Ordering::Release);
+                for window in windows.iter().filter(|window| hide_normal_workspace_during_contest(window.label(), false)) {
+                    window.hide().map_err(|error| error.to_string())?;
+                }
+                present_main_window(&main_logging)
+            }).map(|_| ());
         }
         if Instant::now() >= deadline {
             return Err("The contest desk did not finish opening; the xLog main window remains available.".into());
@@ -1530,54 +1591,83 @@ fn workspace_navigation_ack(window: tauri::WebviewWindow, app: tauri::AppHandle,
 // its editor veto; it cannot choose a mode or submit hardware actions here.
 #[tauri::command]
 async fn workspace_mode_present(window: tauri::WebviewWindow, app: tauri::AppHandle,
-    generation: String, revision: u64, hide_main: bool) -> Result<(), String> {
+    generation: String, revision: u64, hide_main: bool, presentation_ticket: Option<u64>) -> Result<(), String> {
     if window.label() != "main" { return Err("Only the main workspace presents its mode.".into()); }
-    tauri::async_runtime::spawn_blocking(move || {
+    let presentation = match presentation_ticket {
+        Some(ticket) => PresentationRequest::reserved_mode(ticket)?,
+        None => PresentationRequest::passive(),
+    };
+    tauri::async_runtime::spawn_blocking(move || present_workspace_mode(&app, &generation, revision, hide_main, presentation))
+        .await.map_err(|error| format!("Workspace mode presentation failed: {error}"))?
+}
+
+fn present_workspace_mode(app: &tauri::AppHandle, generation: &str, revision: u64, hide_main: bool,
+    presentation: PresentationRequest) -> Result<(), String> {
         // This cache is only a presentation hint; SQLite remains authoritative.
         // Recover after a prior task panic instead of permanently disabling mode changes.
-        let mut presented_windows = recover_presentation_hint(&WORKSPACE_PRESENTATION);
+        let previous = *recover_presentation_hint(&WORKSPACE_PRESENTATION);
+        if !presentation.is_current() { return Ok(()); }
         let id = format!("workspace-mode-{}", uuid::Uuid::new_v4());
         let reply = worker::request(serde_json::json!({"id":id,"method":"workspace_layout_load","params":{}}))?;
+        if !presentation.is_current() { return Ok(()); }
         let layout = &reply["result"]["layout"];
         if reply["id"] != id || reply["ok"] != true || layout["generation"] != generation || layout["revision"] != revision {
             return Err("The workspace mode changed. Reload its saved layout before continuing.".into());
         }
+        if !presentation.is_current() { return Ok(()); }
         let windows = layout["document"]["activePresetID"] == "windowed";
-        let previous = *presented_windows;
-        let menu_hint = WorkspaceMenuHint::new(&WORKSPACE_MENU_WINDOWS, previous, windows);
-        let presentation = (|| -> Result<(), String> {
-            if !windows && previous { workspace_window_runtime::canvas(&app, &generation, revision, layout.clone())?; }
+        let result = (|| -> Result<(), String> {
+            if !windows && previous && presentation.intent() == PresentationIntent::ModeSwitch && presentation.is_current() {
+                workspace_window_runtime::canvas(&app, &generation, revision, layout.clone(), presentation)?;
+            }
             if let Some(main) = app.get_webview_window("main") {
-                if windows && hide_main {
+                let initial = workspace_presentation::mode_plan(presentation.intent(), presentation.is_current(),
+                    MAIN_WORKSPACE_REOPENED.load(Ordering::Acquire), windows, hide_main);
+                if initial.hide_main {
                     workspace_mode_ready()?;
-                    wait_for_workspace_windows(&app, &generation, revision)?;
-                    MAIN_WORKSPACE_REOPENED.store(false, Ordering::Release);
-                    main.hide().map_err(|error| error.to_string())?;
+                    wait_for_workspace_windows(&app, &generation, revision, presentation)?;
                 }
-                else if operating_module::owner()?.snapshot()?["selected"] != "contesting"
-                    && !main.is_visible().map_err(|error| error.to_string())?
-                    && !main.is_minimized().map_err(|error| error.to_string())? {
-                    // Saved-layout reconciliation runs in the background, including
-                    // after draft and logbook updates. Reveal a hidden canvas, but
-                    // leave activation/minimization to explicit Open/Dock/menu intent.
-                    main.show().map_err(|error| error.to_string())?;
+                if !presentation.is_current() { return Ok(()); }
+                let check_id = format!("workspace-mode-ready-{}", uuid::Uuid::new_v4());
+                let check = worker::request(serde_json::json!({"id":check_id,"method":"workspace_layout_load","params":{}}))?;
+                if check["id"] != check_id || check["ok"] != true || check["result"]["layout"] != *layout {
+                    return Err("The workspace mode changed during presentation. Reload its saved layout and retry.".into());
                 }
+                let contesting = operating_module::owner()?.snapshot()?["selected"] == "contesting";
+                // Admission stays off the UI loop. The logical CW reservation
+                // prevents a renderer arming between this check and delivery.
+                let reserved = initial.hide_main && presentation.is_current();
+                let cw = reserved.then(|| cw_session_backend::owner(app));
+                if let Some(cw) = cw.as_ref() { workspace_mode_ready()?; cw.reserve_idle_close(&["main"])?; }
+                let delivered = deliver_presentation(app, presentation, move || {
+                    let final_plan = workspace_presentation::mode_plan(presentation.intent(), presentation.is_current(),
+                        MAIN_WORKSPACE_REOPENED.load(Ordering::Acquire), windows, hide_main);
+                    if final_plan.hide_main {
+                        if final_plan.clear_main_override { MAIN_WORKSPACE_REOPENED.store(false, Ordering::Release); }
+                        main.hide().map_err(|error| error.to_string())?;
+                    } else if final_plan.reveal_main && !contesting { present_main_window(&main)?; }
+                    Ok(())
+                });
+                if let Some(cw) = cw { let _ = cw.allow_window("main"); }
+                delivered?;
             }
-            update_workspace_mode_checks(&app, windows)
+            let native = app.clone();
+            deliver_presentation(app, presentation, move || {
+                let mut hint = recover_presentation_hint(&WORKSPACE_PRESENTATION);
+                let menu_hint = WorkspaceMenuHint::new(&WORKSPACE_MENU_WINDOWS, *hint, windows);
+                update_workspace_mode_checks(&native, windows)?;
+                *hint = windows;
+                menu_hint.commit();
+                Ok(())
+            }).map(|_| ())
         })();
-        if let Err(error) = presentation {
-            // Publish rollback before the UI check update. An unwind also rolls
-            // back the atomic hint through Drop without making another UI call.
-            drop(menu_hint);
-            if let Err(restore_error) = update_workspace_mode_checks(&app, previous) {
-                eprintln!("Could not restore Workspace Mode menu checks: {restore_error}");
-            }
+        if let Err(error) = result {
+            // No old completion may roll back a newer intent's menu state.
+            let native = app.clone();
+            let _ = deliver_presentation(app, presentation, move || update_workspace_mode_checks(&native, previous));
             return Err(error);
         }
-        *presented_windows = windows;
-        menu_hint.commit();
         Ok(())
-    }).await.map_err(|error| format!("Workspace mode presentation failed: {error}"))?
 }
 
 fn recover_presentation_hint(mutex: &Mutex<bool>) -> std::sync::MutexGuard<'_, bool> {
@@ -1605,7 +1695,9 @@ fn workspace_canvas_close_ack(window: tauri::WebviewWindow, request: String, rea
 
 // Runs only on the serialized native window owner. Inventory includes manual
 // windows and each band-map instance, rather than only planner-managed roles.
-fn present_canvas_windows(app: &tauri::AppHandle, generation: &str, revision: u64) -> Result<(), String> {
+fn present_canvas_windows(app: &tauri::AppHandle, generation: &str, revision: u64,
+    presentation: PresentationRequest) -> Result<bool, String> {
+    if !presentation.is_current() { return Ok(false); }
     let windows = app.webview_windows().into_values().filter(|window| workspace_windows::supports(window.label())).collect::<Vec<_>>();
     let labels = windows.iter().map(|window| window.label().to_owned()).collect::<Vec<_>>();
     workspace_mode_ready()?;
@@ -1634,25 +1726,25 @@ fn present_canvas_windows(app: &tauri::AppHandle, generation: &str, revision: u6
     let mut reserved = false;
     let result = canvas_close::apply(&windows, || {
         preflight?;
+        if !presentation.is_current() { return Err(RETIRED_CANVAS.into()); }
         cw.reserve_idle_close(&["main", "cw"])?;
         reserved = true;
         // Show Canvas only after every renderer veto and native guard passed.
-        present_active_workspace(app)?;
+        present_active_workspace_with_presentation(app, presentation)?;
         Ok(())
     }, |window| {
         validate_editor_transition("main")?;
-        if window.label() == "cw" {
-            detached_geometry::flush(window);
-            window.destroy().map_err(|error| error.to_string())?;
-        } else {
-            // Existing renderer close handlers recheck unsaved/local input.
-            // A missed listener, refusal or failed command cannot claim success.
-            window.close().map_err(|error| error.to_string())?;
-        }
+        let window = window.clone();
+        let is_cw = window.label() == "cw";
+        if is_cw { detached_geometry::flush(&window); }
+        deliver_presentation(app, presentation, move || {
+            if is_cw { window.destroy() } else { window.close() }.map_err(|error| error.to_string())
+        })?.ok_or(RETIRED_CANVAS)?;
         Ok(())
     }, || {
         let deadline = Instant::now() + Duration::from_secs(3);
         loop {
+            if !presentation.is_current() { return Err(RETIRED_CANVAS.into()); }
             let remaining = app.webview_windows().into_keys().filter(|label| workspace_windows::supports(label)).collect::<Vec<_>>();
             if remaining.is_empty() { return Ok(()); }
             if Instant::now() >= deadline {
@@ -1662,12 +1754,16 @@ fn present_canvas_windows(app: &tauri::AppHandle, generation: &str, revision: u6
         }
     });
     if reserved { let _ = cw.allow_window("cw"); let _ = cw.allow_window("main"); }
-    result
+    match result { Ok(()) => Ok(true), Err(error) if error == RETIRED_CANVAS => Ok(false), Err(error) => Err(error) }
 }
 
-fn apply_workspace_layout(app: &tauri::AppHandle, layout: WorkspaceLayout) -> Result<(), String> {
-    let main = ensure_main_workspace(app)?;
-    (|| -> tauri::Result<()> {
+const RETIRED_CANVAS: &str = "The original Canvas presentation was superseded.";
+
+fn apply_workspace_layout(app: &tauri::AppHandle, layout: WorkspaceLayout, presentation: PresentationRequest) -> Result<(), String> {
+    if !presentation.is_current() { return Ok(()); }
+    let main = main_workspace(app)?;
+    deliver_presentation(app, presentation, move || {
+      (|| -> tauri::Result<()> {
         // A layout preset always targets the main workspace, even when a
         // monitor or detached map has focus on macOS's app-wide menu.
         if main.is_fullscreen()? {
@@ -1682,8 +1778,9 @@ fn apply_workspace_layout(app: &tauri::AppHandle, layout: WorkspaceLayout) -> Re
         main.set_size(layout.logical_size())?;
         main.center()?;
         Ok(())
-    })().map_err(|error| error.to_string())?;
-    present_active_workspace(app)
+      })().map_err(|error| error.to_string())?;
+      present_requested_main_workspace(&MAIN_WORKSPACE_REOPENED, || present_main_window(&main))
+    }).map(|_| ())
 }
 
 #[tauri::command]
@@ -2599,6 +2696,7 @@ fn worker_request_admission_module(label: &str, request: &serde_json::Value) -> 
 async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, request: serde_json::Value) -> Result<serde_json::Value, String> {
     // Only typed integration operations cross this boundary; never shell commands.
     let mut request = request;
+    let presentation_ticket = workspace_presentation::take_layout_ticket(&mut request)?;
     let method_value = request.get("method").and_then(|m| m.as_str()).unwrap_or("").to_owned();
     let method = method_value.as_str();
     validate_worker_request_caller(window.label(), &request)?;
@@ -2761,6 +2859,14 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         Some(contest_window_context::resolve_workspace(request["params"]["generation"].as_str()
             .ok_or("The contest workspace generation is missing.")?)?)
     } else { None };
+    let layout_presentation = match presentation_ticket {
+        Some(ticket) => PresentationRequest::reserved_reveal(ticket)?,
+        None => PresentationRequest::passive(),
+    };
+    // This is an admitted explicit contest-open action. Reserve before its
+    // first worker await, not after a slow host reply or restored-window build.
+    let contest_presentation = contest_window_ticket.as_ref()
+        .map(|_| PresentationRequest::claim(PresentationIntent::Focus)).transpose()?;
     let task_admission = module_admission.clone();
     let result = tauri::async_runtime::spawn_blocking(move || { let _module_admission = task_admission;
         let _output = if shared_output_acquisition { Some(carrier_tune::reserve_output()?) } else { None };
@@ -2783,8 +2889,10 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
             let runtime_app = app.clone();
             schedule_contest_desk_presentation(move || {
                 let presented = workspace_window_runtime::contest_context_changed_and_refresh(&runtime_app, context.clone())
-                    .and_then(|attempt| present_contest_desk(&runtime_app, &context, attempt));
-                if let Err(error) = fulfill_module_restart_intent(&runtime_app) {
+                    .and_then(|attempt| present_contest_desk(&runtime_app, &context, attempt,
+                        contest_presentation.expect("admitted contest presentation")));
+                if let Err(error) = fulfill_module_restart_intent_with_presentation(&runtime_app,
+                    contest_presentation.expect("admitted contest presentation")) {
                     eprintln!("Could not open the retained Contest destination: {error}");
                 }
                 presented
@@ -2832,12 +2940,31 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
         }
         let force = activate_layout && result.as_ref().is_ok_and(|response|
             response["ok"] == true && response["result"]["status"] == "applied");
+        let normal_layout = contest_layout_context.is_none();
         let refresh = match contest_layout_context {
-            Some(context) => workspace_window_runtime::contest_refresh(&app, context, force),
-            None => workspace_window_runtime::refresh(&app, force),
+            Some(context) => workspace_window_runtime::contest_refresh_with_presentation(&app, context, force, layout_presentation),
+            None => workspace_window_runtime::refresh_with_presentation(&app, force, layout_presentation),
         };
         if let Err(error) = refresh {
             eprintln!("Could not reconcile saved workspace windows: {error}");
+        }
+        // Settings/Canvas "Use layout" is an explicit gesture too. Reuse its
+        // reservation when returning to Canvas, without pre-empting the mode
+        // switch path's later frontend editor/canChange readback.
+        if normal_layout && activate_layout && layout_presentation.intent() == PresentationIntent::Reveal
+            && layout_presentation.is_current() {
+            if let Some(response) = result.as_ref().ok().filter(|response|
+                response["ok"] == true && response["result"]["status"] == "applied"
+                    && response["result"]["layout"]["document"]["activePresetID"] != "windowed") {
+                let layout = &response["result"]["layout"];
+                let generation = layout["generation"].as_str().ok_or("The activated layout generation is missing.")?.to_owned();
+                let revision = layout["revision"].as_u64().ok_or("The activated layout revision is missing.")?;
+                let native = app.clone();
+                tauri::async_runtime::spawn_blocking(move || present_workspace_mode(&native, &generation, revision,
+                    false, layout_presentation.as_mode_switch()))
+                    .await.map_err(|_| "Canvas presentation task failed".to_string())?
+                    .map_err(|error| format!("Layout saved; Canvas presentation needs attention. {error}"))?;
+            }
         }
     }
     result
@@ -3233,8 +3360,12 @@ fn validate_detached_open(label: &str) -> Result<(), String> {
 }
 
 async fn open_detached_workspace(app: tauri::AppHandle, kind: String) -> Result<(), String> {
+    open_detached_workspace_with_presentation(app, kind, PresentationRequest::claim(PresentationIntent::Focus)?).await
+}
+
+async fn open_detached_workspace_with_presentation(app: tauri::AppHandle, kind: String, presentation: PresentationRequest) -> Result<(), String> {
     let _module_admission = if matches!(kind.as_str(), "log-qso" | "logbook" | "cw") { Some(operating_module::owner()?.admit_selected(operating_module::OperatingModule::NormalLogging)?) } else { None };
-    tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission; workspace_window_runtime::open(&app, &kind) })
+    tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission; workspace_window_runtime::open_with_presentation(&app, &kind, presentation) })
         .await.map_err(|_| "Native workspace window task failed".to_string())?
 }
 
@@ -3298,8 +3429,8 @@ fn validate_hf_propagation_fetch_profile() -> Result<(), String> {
 }
 
 // Called only by the serialized native owner, never from the UI message loop.
-fn ensure_workspace_window(app: &tauri::AppHandle, kind: &str, focus: bool,
-    contest_context: Option<&contest_window_context::ContestWindowContext>) -> Result<bool, String> {
+fn ensure_workspace_window(app: &tauri::AppHandle, kind: &str, presentation: PresentationRequest,
+    contest_context: Option<&contest_window_context::ContestWindowContext>) -> Result<WindowOutcome, String> {
     let identity = workspace_windows::WorkspaceWindowIdentity::parse_native_label(kind)?;
     let role = if identity.scope == workspace_windows::WorkspaceWindowScope::NormalLogging {
         workspace_windows::surface_role(kind)
@@ -3322,13 +3453,26 @@ fn ensure_workspace_window(app: &tauri::AppHandle, kind: &str, focus: bool,
                 return Err("A previous contest window is still retiring; retry after it closes.".into());
             }
         }
-        if kind == "cw" && !existing.is_visible().unwrap_or(true) {
-            if let Some(owner) = cw_session_backend::existing() { owner.allow_window(kind)?; }
+        // On macOS show() itself makes the window key. A passive reconcile must
+        // not call it, even for a retained hidden or minimized window.
+        let visible = existing.is_visible().map_err(|error| error.to_string())?;
+        let minimized = existing.is_minimized().map_err(|error| error.to_string())?;
+        let plan = workspace_presentation::existing_plan(presentation.intent(), presentation.is_current(), visible, minimized);
+        if plan.show && presentation.is_current() {
+            if kind == "cw" && !visible {
+                if let Some(owner) = cw_session_backend::existing() { owner.allow_window(kind)?; }
+            }
+            let target = existing.clone();
+            deliver_presentation(app, presentation, move || {
+                let plan = workspace_presentation::existing_plan(presentation.intent(), presentation.is_current(),
+                    target.is_visible().map_err(|error| error.to_string())?, target.is_minimized().map_err(|error| error.to_string())?);
+                if plan.unminimize { target.unminimize().map_err(|error| error.to_string())?; }
+                if plan.show { target.show().map_err(|error| error.to_string())?; }
+                if plan.focus { target.set_focus().map_err(|error| error.to_string())?; }
+                Ok(())
+            })?;
         }
-        existing.unminimize().map_err(|e| e.to_string())?;
-        existing.show().map_err(|e| e.to_string())?;
-        if focus { existing.set_focus().map_err(|e| e.to_string())?; }
-        return Ok(false);
+        return workspace_window_outcome(&existing, false);
     }
     let suffix = if app.state::<acceptance::Acceptance>().path.is_some() { "&acceptance=local" } else { "" };
     let band = if identity.scope == workspace_windows::WorkspaceWindowScope::NormalLogging { workspace_windows::band_map_band(kind) } else { None };
@@ -3344,7 +3488,7 @@ fn ensure_workspace_window(app: &tauri::AppHandle, kind: &str, focus: bool,
         .title(title)
         .inner_size(if identity.scope == workspace_windows::WorkspaceWindowScope::NormalLogging && role == "band-maps" { 380.0 } else { spec.width }, spec.height)
         .min_inner_size(minimum_width, minimum_height)
-        .focused(focus)
+        .focused(false)
         .always_on_top(false)
         .incognito(app.state::<acceptance::Acceptance>().path.is_some());
     if let Some(directory) = app.state::<acceptance::Acceptance>().detached_browser_context()? {
@@ -3356,7 +3500,34 @@ fn ensure_workspace_window(app: &tauri::AppHandle, kind: &str, focus: bool,
     if app.state::<acceptance::Acceptance>().path.is_none() {
         detached_geometry::install(&detached);
     }
-    Ok(true)
+    // Construction can await the native event loop. A newer Open Main must win
+    // over an older window that only finished loading after that user action.
+    let target = detached.clone();
+    deliver_presentation(app, presentation, move || {
+        if workspace_presentation::focus_after_creation(presentation.intent(), presentation.is_current()) {
+            present_main_window(&target)?;
+        }
+        Ok(())
+    })?;
+    workspace_window_outcome(&detached, true)
+}
+
+fn workspace_window_outcome(window: &tauri::WebviewWindow, created: bool) -> Result<WindowOutcome, String> {
+    Ok(WindowOutcome { created, visible: window.is_visible().map_err(|error| error.to_string())?,
+        minimized: window.is_minimized().map_err(|error| error.to_string())? })
+}
+
+#[tauri::command]
+fn workspace_presentation_begin(window: tauri::WebviewWindow, kind: String) -> Result<u64, String> {
+    Ok(PresentationRequest::claim(presentation_intent_for_caller(window.label(), &kind)?)?.ticket())
+}
+
+fn presentation_intent_for_caller(label: &str, kind: &str) -> Result<PresentationIntent, String> {
+    match kind {
+        "mode" if label == "main" => Ok(PresentationIntent::ModeSwitch),
+        "layout" if matches!(label, "main" | "settings" | "contest-setup") => Ok(PresentationIntent::Reveal),
+        _ => return Err("This surface cannot reserve that presentation intent.".into()),
+    }
 }
 
 #[tauri::command]
@@ -3382,11 +3553,12 @@ fn workspace_windows_reconcile(window: tauri::WebviewWindow, app: tauri::AppHand
     session_i_d: Option<String>, workspace_generation: Option<String>) -> Result<serde_json::Value, String> {
     validate_workspace_window_scope_caller(window.label(), scope.as_deref(), true)?;
     let attempt = match scope.as_deref() {
-        None | Some("normal_logging") if session_i_d.is_none() && workspace_generation.is_none() => workspace_window_runtime::refresh(&app, true)?,
+        None | Some("normal_logging") if session_i_d.is_none() && workspace_generation.is_none() =>
+            workspace_window_runtime::refresh_with_presentation(&app, true, PresentationRequest::claim(PresentationIntent::Reveal)?)?,
         Some("contesting") => {
             let context = contest_window_context::resolve(session_i_d.as_deref().ok_or("Contest window reconcile requires a sessionID.")?,
                 workspace_generation.as_deref().ok_or("Contest window reconcile requires a workspaceGeneration.")?)?;
-            workspace_window_runtime::contest_refresh(&app, context, true)?
+            workspace_window_runtime::contest_refresh_with_presentation(&app, context, true, PresentationRequest::claim(PresentationIntent::Reveal)?)?
         }
         _ => return Err("Native workspace scope arguments are invalid.".into()),
     };
@@ -3398,7 +3570,8 @@ async fn contest_window_open(window: tauri::WebviewWindow, app: tauri::AppHandle
     operating_context: String, session_i_d: String, workspace_generation: String, panel_i_d: String) -> Result<(), String> {
     validate_contest_window_open(window.label(), &panel_i_d)?;
     let context = contest_surface_main_context(&window, &operating_context, &session_i_d, &workspace_generation)?;
-    tauri::async_runtime::spawn_blocking(move || workspace_window_runtime::contest_open(&app, context, &panel_i_d))
+    let presentation = PresentationRequest::claim(PresentationIntent::Focus)?;
+    tauri::async_runtime::spawn_blocking(move || workspace_window_runtime::contest_open_with_presentation(&app, context, &panel_i_d, presentation))
         .await.map_err(|_| "Contest window task failed".to_string())?
 }
 
@@ -3417,7 +3590,8 @@ async fn contest_window_toggle(window: tauri::WebviewWindow, app: tauri::AppHand
     validate_contest_window_toggle(window.label(), &panel_i_d)?;
     let context = contest_window_context::resolve(&session_i_d, &workspace_generation)?;
     if context.operating_context != operating_context { return Err("That contest window toggle belongs to an expired contest.".into()); }
-    tauri::async_runtime::spawn_blocking(move || workspace_window_runtime::contest_toggle(&app, context, &panel_i_d))
+    let presentation = PresentationRequest::claim(PresentationIntent::Focus)?;
+    tauri::async_runtime::spawn_blocking(move || workspace_window_runtime::contest_toggle_with_presentation(&app, context, &panel_i_d, presentation))
         .await.map_err(|_| "Contest window toggle task failed".to_string())?
 }
 
@@ -3929,22 +4103,28 @@ async fn contest_post_spot(window: tauri::WebviewWindow, app: tauri::AppHandle,
 
 #[tauri::command]
 async fn dock_detached_window(window: tauri::WebviewWindow, app: tauri::AppHandle) -> Result<(), String> {
-    let screen = detached_dock_screen(window.label())?;
+    let screen = detached_dock_screen(window.label())?.to_owned();
     validate_editor_transition(window.label())?;
+    let presentation = PresentationRequest::claim(PresentationIntent::Focus)?;
     if window.label() == "cw" {
         prepare_cw_close().await?;
         let result = async {
-            navigate_workspace(app, screen.into()).await?;
+            navigate_workspace_with_presentation(app.clone(), screen.into(), presentation).await?;
             detached_geometry::flush(&window);
-            window.destroy().map_err(|error| error.to_string())
+            tauri::async_runtime::spawn_blocking(move || {
+                let completed = deliver_presentation(&app, presentation, move || window.destroy().map_err(|error| error.to_string()))?;
+                if completed.is_none() { if let Some(owner) = cw_session_backend::existing() { owner.allow_window("cw")?; } }
+                Ok(())
+            }).await.map_err(|_| "Dock window task failed.".to_string())?
         }.await;
         if result.is_err() { if let Some(owner) = cw_session_backend::existing() { let _ = owner.allow_window("cw"); } }
         return result;
     }
     // The revisioned route survives a main view that has not subscribed yet.
-    navigate_workspace(app.clone(), screen.into()).await?;
-    window.close().map_err(|error| error.to_string())?;
-    present_active_workspace(&app)
+    navigate_workspace_with_presentation(app.clone(), screen.into(), presentation).await?;
+    tauri::async_runtime::spawn_blocking(move ||
+        deliver_presentation(&app, presentation, move || window.close().map_err(|error| error.to_string())).map(|_| ()))
+        .await.map_err(|_| "Dock window task failed.".to_string())?
 }
 
 fn local_history_reader(label: &str, method: &str) -> bool {
@@ -4039,15 +4219,22 @@ fn close_station_identity_window(window: tauri::WebviewWindow) -> Result<(), Str
 async fn close_main_window(window: tauri::WebviewWindow) -> Result<(), String> {
     if window.label() != "main" { return Err("Only the main workspace can close itself".into()); }
     validate_editor_transition(window.label())?;
+    let presentation = PresentationRequest::claim(PresentationIntent::Focus)?;
     detached_geometry::flush(&window);
     let app = window.app_handle().clone();
     let labels = app.webview_windows().into_keys().collect::<Vec<_>>();
     if contest_desk_is_open(labels.iter().map(String::as_str)) {
-        MAIN_WORKSPACE_REOPENED.store(false, Ordering::Release);
-        window.hide().map_err(|error| error.to_string())?;
-        return present_active_workspace(&app);
+        return tauri::async_runtime::spawn_blocking(move || {
+            deliver_presentation(&app, presentation, move || {
+                MAIN_WORKSPACE_REOPENED.store(false, Ordering::Release);
+                window.hide().map_err(|error| error.to_string())
+            })?;
+            present_active_workspace_with_presentation(&app, presentation)
+        }).await.map_err(|_| "Main window close task failed.".to_string())?;
     }
-    window.destroy().map_err(|error| error.to_string())
+    tauri::async_runtime::spawn_blocking(move ||
+        deliver_presentation(&app, presentation, move || window.destroy().map_err(|error| error.to_string())).map(|_| ()))
+        .await.map_err(|_| "Main window close task failed.".to_string())?
 }
 
 #[tauri::command]
@@ -4091,17 +4278,20 @@ async fn close_logbook_window(window: tauri::WebviewWindow) -> Result<(), String
 }
 
 fn start_retained_contest_workspace(app:&tauri::AppHandle)->Result<(),String>{
-    if let Some(main)=app.get_webview_window("main"){main.hide().map_err(|error|error.to_string())?;}
+    let presentation = PresentationRequest::claim(PresentationIntent::Focus)?;
+    if let Some(main)=app.get_webview_window("main") {
+        deliver_presentation(app, presentation, move || main.hide().map_err(|error| error.to_string()))?;
+    }
     let startup_app=app.clone();
     tauri::async_runtime::spawn_blocking(move||match query_host_active_contest(){
         Ok(active)=>{
-            if let Err(error)=ensure_contest_setup_window_for(&startup_app,active.is_none(),active.as_ref(),false){eprintln!("Contest startup unavailable: {error}");}
-            else if let Err(error)=fulfill_module_restart_intent(&startup_app){eprintln!("Could not replay the retained Contest destination: {error}");}
+            if let Err(error)=ensure_contest_setup_window_for(&startup_app,active.is_none(),active.as_ref(),false,presentation){eprintln!("Contest startup unavailable: {error}");}
+            else if let Err(error)=fulfill_module_restart_intent_with_presentation(&startup_app,presentation){eprintln!("Could not replay the retained Contest destination: {error}");}
         },
         Err(error)=>{
             eprintln!("Active contest startup query unavailable: {error}");
-            if let Err(error)=ensure_contest_setup_window_for(&startup_app,true,None,false){eprintln!("Contest Setup recovery unavailable: {error}");}
-            else if let Err(error)=fulfill_module_restart_intent(&startup_app){eprintln!("Could not replay the retained Contest destination: {error}");}
+            if let Err(error)=ensure_contest_setup_window_for(&startup_app,true,None,false,presentation){eprintln!("Contest Setup recovery unavailable: {error}");}
+            else if let Err(error)=fulfill_module_restart_intent_with_presentation(&startup_app,presentation){eprintln!("Could not replay the retained Contest destination: {error}");}
         }
     });
     Ok(())
@@ -4230,9 +4420,10 @@ fn main() {
         })
         .on_menu_event(|app, event| {
             if event.id().0 == "app_about" {
+                let Some(presentation) = menu_presentation_request() else { return; };
                 let app = app.clone();
                 tauri::async_runtime::spawn_blocking(move || {
-                    if let Err(error) = workspace_window_runtime::open(&app, "about") { eprintln!("Could not open About OM0RX-xLog: {error}"); }
+                    if let Err(error) = workspace_window_runtime::open_with_presentation(&app, "about", presentation) { eprintln!("Could not open About OM0RX-xLog: {error}"); }
                 });
                 return;
             }
@@ -4241,13 +4432,14 @@ fn main() {
                 return;
             }
             if event.id().0 == MAIN_WORKSPACE_MENU_ID {
+                let Some(presentation) = menu_presentation_request() else { return; };
                 let app = app.clone();
                 tauri::async_runtime::spawn_blocking(move || {
                     let result = operating_module::owner().and_then(|owner| owner.snapshot()).and_then(|module| {
                         let selected = module["selected"].as_str()
                             .ok_or_else(|| "The active operating module could not be verified.".to_string())?;
                         main_workspace_menu_action(selected)?;
-                        show_main_workspace(&app)
+                        show_main_workspace_with_presentation(&app, presentation)
                     });
                     if let Err(error) = result {
                         eprintln!("Could not open xLog main window: {error}");
@@ -4284,6 +4476,7 @@ fn main() {
                 return;
             }
             if event.id().0 == contest_log_transfer::MENU_ID {
+                let Some(presentation) = menu_presentation_request() else { return; };
                 let app = app.clone();
                 tauri::async_runtime::spawn_blocking(move || {
                     let module = operating_module::owner().and_then(|owner| owner.snapshot());
@@ -4295,7 +4488,7 @@ fn main() {
                             Ok(result) => report_module_switch_failure(&app, &result),
                             Err(error) => eprintln!("Could not switch to Contesting for log transfer: {error}"),
                         },
-                        Ok(_) => if let Err(error) = ensure_contest_log_transfer_window(&app) {
+                        Ok(_) => if let Err(error) = ensure_contest_log_transfer_window_with_presentation(&app, presentation) {
                             eprintln!("Could not open contest log transfer: {error}");
                         },
                         Err(error) => eprintln!("Could not read operating module: {error}"),
@@ -4331,62 +4524,70 @@ fn main() {
                 return;
             }
             if let Some(screen) = radio_menu_route(&event.id().0) {
+                let Some(presentation) = menu_presentation_request() else { return; };
                 let app = app.clone(); let screen = screen.to_owned();
                 tauri::async_runtime::spawn(async move {
-                    if let Err(error) = navigate_workspace(app, screen).await { eprintln!("Could not open radio settings: {error}"); }
+                    if let Err(error) = navigate_workspace_with_presentation(app, screen, presentation).await { eprintln!("Could not open radio settings: {error}"); }
                 });
                 return;
             }
             if let Some(screen) = online_menu_route(&event.id().0) {
+                let Some(presentation) = menu_presentation_request() else { return; };
                 let app = app.clone(); let screen = screen.to_owned();
                 tauri::async_runtime::spawn(async move {
-                    if let Err(error) = navigate_workspace(app, screen).await { eprintln!("Could not open online action: {error}"); }
+                    if let Err(error) = navigate_workspace_with_presentation(app, screen, presentation).await { eprintln!("Could not open online action: {error}"); }
                 });
                 return;
             }
             if let Some(screen) = logbook_menu_route(&event.id().0) {
+                let Some(presentation) = menu_presentation_request() else { return; };
                 let app = app.clone(); let screen = screen.to_owned();
                 tauri::async_runtime::spawn(async move {
-                    if let Err(error) = navigate_workspace(app, screen).await { eprintln!("Could not open logbook action: {error}"); }
+                    if let Err(error) = navigate_workspace_with_presentation(app, screen, presentation).await { eprintln!("Could not open logbook action: {error}"); }
                 });
                 return;
             }
             if let Some(kind) = logbook_menu_window(&event.id().0) {
+                let Some(presentation) = menu_presentation_request() else { return; };
                 let app = app.clone(); let kind = kind.to_owned();
                 tauri::async_runtime::spawn(async move {
-                    if let Err(error) = open_detached_workspace(app, kind).await { eprintln!("Could not open logbook window: {error}"); }
+                    if let Err(error) = open_detached_workspace_with_presentation(app, kind, presentation).await { eprintln!("Could not open logbook window: {error}"); }
                 });
                 return;
             }
             if let Some(mode) = workspace_navigation::mode_route(&event.id().0) {
+                let Some(presentation) = menu_presentation_request() else { return; };
                 let app = app.clone(); let mode = mode.to_owned();
                 tauri::async_runtime::spawn(async move {
-                    if let Err(error) = navigate_workspace(app, mode).await { eprintln!("Could not switch workspace mode: {error}"); }
+                    if let Err(error) = navigate_workspace_with_presentation(app, mode, presentation).await { eprintln!("Could not switch workspace mode: {error}"); }
                 });
                 return;
             }
             if let Some(screen) = workspace_navigation::menu_screen(&event.id().0) {
+                let Some(presentation) = menu_presentation_request() else { return; };
                 let app = app.clone(); let screen = screen.id.clone();
                 tauri::async_runtime::spawn(async move {
-                    if let Err(error) = navigate_workspace(app, screen).await { eprintln!("Could not open workspace screen: {error}"); }
+                    if let Err(error) = navigate_workspace_with_presentation(app, screen, presentation).await { eprintln!("Could not open workspace screen: {error}"); }
                 });
                 return;
             }
             if let Some(kind) = event.id().0.strip_prefix("workspace_window_") {
                 if workspace_windows::supports(kind) {
+                    let Some(presentation) = menu_presentation_request() else { return; };
                     let app = app.clone(); let kind = kind.to_owned();
                     tauri::async_runtime::spawn(async move {
                         // Native menu intent is trusted; renderer IPC must pass
                         // its own main-only caller gate before reaching this owner.
-                        let result = open_detached_workspace(app, kind).await;
+                        let result = open_detached_workspace_with_presentation(app, kind, presentation).await;
                         if let Err(error) = result { eprintln!("Could not open workspace window: {error}"); }
                     });
                 }
                 return;
             }
             if let Some(layout) = WorkspaceLayout::from_menu_id(&event.id().0) {
+                let Some(presentation) = menu_presentation_request() else { return; };
                 let app = app.clone();
-                tauri::async_runtime::spawn_blocking(move || if let Err(error) = apply_workspace_layout(&app, layout) {
+                tauri::async_runtime::spawn_blocking(move || if let Err(error) = apply_workspace_layout(&app, layout, presentation) {
                     eprintln!("Could not resize main workspace: {error}");
                 });
             }
@@ -4394,8 +4595,9 @@ fn main() {
     let builder = builder.plugin(tauri_plugin_notification::init());
     let builder = if acceptance::use_production_singleton(isolated) {
         builder.plugin(tauri_plugin_single_instance::init(|app, _, _| {
+            let Some(presentation) = menu_presentation_request() else { return; };
             let app = app.clone();
-            tauri::async_runtime::spawn_blocking(move || if let Err(error) = present_active_workspace(&app) {
+            tauri::async_runtime::spawn_blocking(move || if let Err(error) = show_main_workspace_with_presentation(&app, presentation) {
                 eprintln!("Could not recover active workspace: {error}");
             });
         }))
@@ -4527,7 +4729,7 @@ fn main() {
             contest_voice_prepare, contest_voice_ptt, contest_voice_profile_manifest, contest_voice_profile_preview,
             contest_voice_profile_write, contest_voice_profile_pick,
             contest_surface_action, contest_surface_diagnostic_report, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_owner_claim, contest_surface_publish, contest_surface_snapshot, contest_rotor_target,
-            workspace_mode_present, workspace_canvas_close_ack, set_cw_decode_menu_visibility, close_about_window,
+            workspace_mode_present, workspace_presentation_begin, workspace_canvas_close_ack, set_cw_decode_menu_visibility, close_about_window,
             workspace_navigation_snapshot, workspace_navigation_ack, hm_control_snapshot, hm_control_feed, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, contest_history_preview, contest_history_manager_request, contest_qrz_details_lookup, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,
             detached_cluster_ready, cluster_session_selection, contest_post_spot, dock_detached_window, close_logbook_window, close_qso_window, close_main_window, close_cw_window, show_cw_desk, close_rotor_window, show_rotor_desk, close_station_status_window, show_station_status_desk, close_propagation_window, show_propagation_desk, close_station_identity_window, show_station_identity_desk, close_alerts_window, show_alerts_desk, close_antenna_window, show_antenna_desk,
              hf_propagation_fetch,
@@ -4592,8 +4794,9 @@ fn main() {
             }
             #[cfg(target_os = "macos")]
             if matches!(event, tauri::RunEvent::Reopen { .. }) {
+                let Some(presentation) = menu_presentation_request() else { return; };
                 let app = app.clone();
-                tauri::async_runtime::spawn_blocking(move || if let Err(error) = present_active_workspace(&app) {
+                tauri::async_runtime::spawn_blocking(move || if let Err(error) = show_main_workspace_with_presentation(&app, presentation) {
                     eprintln!("Could not recover active workspace: {error}");
                 });
             }
@@ -4674,6 +4877,20 @@ mod workspace_layout_tests {
     use serde_json::json;
 
     #[test]
+    fn workspace_presentation_reservations_have_no_display_or_station_surface_admission() {
+        assert_eq!(super::presentation_intent_for_caller("main", "mode").unwrap(), super::PresentationIntent::ModeSwitch);
+        for label in ["main", "settings", "contest-setup"] {
+            assert_eq!(super::presentation_intent_for_caller(label, "layout").unwrap(), super::PresentationIntent::Reveal);
+        }
+        for label in ["hm-control", "awards", "logbook", "cw", "rotor", "station-control", "contest--active-qso"] {
+            assert!(super::presentation_intent_for_caller(label, "mode").is_err());
+            assert!(super::presentation_intent_for_caller(label, "layout").is_err());
+        }
+        assert!(super::presentation_intent_for_caller("settings", "mode").is_err());
+        assert!(super::presentation_intent_for_caller("main", "station_action").is_err());
+    }
+
+    #[test]
     fn unfinished_decode_menu_opt_in_covers_normal_and_contest_without_hiding_other_tools() {
         for id in ["cw-decode", "contest-window-cw-decode"] {
             assert!(!super::experimental_menu_includes_for(id, false));
@@ -4743,6 +4960,23 @@ mod workspace_layout_tests {
         assert!(!hide_normal_workspace_during_contest("main", true));
         assert!(hide_normal_workspace_during_contest("settings", true));
         assert!(!hide_normal_workspace_during_contest("contest--active-qso", true));
+    }
+    #[test]
+    fn same_ticket_passive_cleanup_preserves_a_just_delivered_main_open() {
+        let sequence = super::workspace_presentation::Sequence::new();
+        let main = sequence.claim(super::PresentationIntent::Focus).unwrap();
+        let passive = sequence.passive();
+        let reopened = std::sync::atomic::AtomicBool::new(false);
+        let labels = vec!["main".into(), "contest--active-qso".into()];
+        let captured_hide = matches!(native_foreground(&labels, true, false), NativeForeground::Contest(_));
+        assert!(captured_hide);
+        // Main's callback executes before cleanup queued under the same ticket.
+        super::present_requested_main_workspace(&reopened, || Ok(())).unwrap();
+        let gate = super::workspace_presentation::DispatchGate::new();
+        let hidden = gate.run(sequence.current(passive), || captured_hide &&
+            hide_normal_workspace_during_contest("main", reopened.load(std::sync::atomic::Ordering::Acquire)));
+        assert_eq!(hidden, Some(false));
+        assert!(sequence.current(main));
     }
 
     #[test]

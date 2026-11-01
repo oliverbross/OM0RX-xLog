@@ -2,9 +2,22 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { LayoutRequestRejected } from "./workspaceLayoutSession";
 
+/** Ephemeral native ordering only; never persisted or used as mutation authority. */
+export function beginWorkspacePresentation(kind: "mode" | "layout"): Promise<number> | undefined {
+  if (!isTauri()) return undefined;
+  return invoke<unknown>("workspace_presentation_begin", { kind }).then(ticket => {
+    if (!Number.isSafeInteger(ticket) || (ticket as number) <= 0) throw new Error("The native presentation ticket could not be verified.");
+    return ticket as number;
+  });
+}
+
 export async function requestWorkspaceLayout(method: "workspace_layout_load" | "workspace_layout_apply", params: Record<string, unknown> = {}): Promise<any> {
   if (!["workspace_layout_load", "workspace_layout_apply"].includes(method)) throw new Error("This operation is outside the workspace layout service.");
-  const request = { id: crypto.randomUUID(), method, params };
+  const { presentationTicket, ...workerParams } = params;
+  if (presentationTicket !== undefined && (method !== "workspace_layout_apply" || !Number.isSafeInteger(presentationTicket) || (presentationTicket as number) <= 0))
+    throw new Error("The native layout presentation ticket could not be verified.");
+  const request = { id: crypto.randomUUID(), method, params: workerParams,
+    ...(presentationTicket === undefined ? {} : { presentationTicket }) };
   let response;
   try { response = await invoke<any>("worker_request", { request }); }
   catch (cause) {

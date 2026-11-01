@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { connectWorkspaceLayout, requestWorkspaceLayout } from "./workspaceLayoutTransport";
+import { beginWorkspacePresentation, connectWorkspaceLayout, requestWorkspaceLayout } from "./workspaceLayoutTransport";
 import { LayoutRequestRejected } from "./workspaceLayoutSession";
 const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), isTauri: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke, isTauri: native.isTauri }));
@@ -47,4 +47,17 @@ it("reports a subscription failure and retains focus-read recovery", async () =>
   const dispose = connectWorkspaceLayout(changed, failed); await vi.advanceTimersByTimeAsync(100);
   expect(failed).toHaveBeenCalledOnce(); window.dispatchEvent(new Event("focus"));
   await vi.advanceTimersByTimeAsync(50); expect(changed).toHaveBeenCalledOnce(); dispose();
+});
+
+it("keeps presentation reservations outside Swift layout parameters and rejects invalid tickets", async () => {
+  native.invoke.mockImplementation(async (command, args) => command === "workspace_presentation_begin" ? 23
+    : { id: args.request.id, ok: true, result: { status: "applied" } });
+  const ticket = await beginWorkspacePresentation("layout");
+  await requestWorkspaceLayout("workspace_layout_apply", { action: "activatePreset", presetID: "windowed", presentationTicket: ticket });
+  expect(native.invoke.mock.calls[1][1].request).toMatchObject({ presentationTicket: 23,
+    params: { action: "activatePreset", presetID: "windowed" } });
+  expect(native.invoke.mock.calls[1][1].request.params).not.toHaveProperty("presentationTicket");
+  await expect(requestWorkspaceLayout("workspace_layout_load", { presentationTicket: 23 })).rejects.toThrow("presentation ticket");
+  native.invoke.mockResolvedValueOnce(0);
+  await expect(beginWorkspacePresentation("mode")).rejects.toThrow("ticket could not be verified");
 });

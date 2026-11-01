@@ -1,6 +1,7 @@
 //! One native owner for explicit opens and persisted-layout reconciliation.
 //! Renderer panel lists are deliberately absent from this interface.
 use crate::workspace_windows::{supports, Plan, WorkspaceWindowPlanner, WorkspaceWindowScope, SUPPORTED_WINDOWS};
+use crate::workspace_presentation::{Intent as PresentationIntent, Request as PresentationRequest, WindowOutcome};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::{
@@ -58,14 +59,16 @@ struct PendingOpen {
     label: String,
     scope: WorkspaceWindowScope,
     contest_context: Option<crate::contest_window_context::ContestWindowContext>,
+    presentation: PresentationRequest,
     reply: mpsc::Sender<Result<(), String>>,
 }
 struct PendingContestToggle {
     label: String,
     context: crate::contest_window_context::ContestWindowContext,
+    presentation: PresentationRequest,
     reply: mpsc::Sender<Result<(), String>>,
 }
-struct PendingCanvas { generation: String, revision: u64, layout: Value, reply: mpsc::Sender<Result<(), String>> }
+struct PendingCanvas { generation: String, revision: u64, layout: Value, presentation: PresentationRequest, reply: mpsc::Sender<Result<(), String>> }
 struct PendingContestReset {
     context: crate::contest_window_context::ContestWindowContext,
     reply: mpsc::Sender<Result<(), String>>,
@@ -80,6 +83,7 @@ struct PendingRefresh {
     contest_context: Option<crate::contest_window_context::ContestWindowContext>,
     force: bool,
     attempt: u64,
+    presentation: PresentationRequest,
 }
 #[derive(Default)]
 struct Queue {
@@ -145,6 +149,11 @@ impl Queue {
     }
     fn refresh(&mut self, scope: WorkspaceWindowScope,
         contest_context: Option<crate::contest_window_context::ContestWindowContext>, force: bool) -> Result<u64, String> {
+        self.refresh_with_presentation(scope, contest_context, force, PresentationRequest::passive())
+    }
+    fn refresh_with_presentation(&mut self, scope: WorkspaceWindowScope,
+        contest_context: Option<crate::contest_window_context::ContestWindowContext>, force: bool,
+        presentation: PresentationRequest) -> Result<u64, String> {
         // Allocation and queue insertion share the owner's queue lock. A
         // passive completion cannot satisfy an explicit caller's later ticket.
         let attempt = self
@@ -153,7 +162,9 @@ impl Queue {
             .filter(|attempt| *attempt <= MAX_ATTEMPT)
             .ok_or("Native workspace window attempts exhausted; restart the application.")?;
         let force = self.refresh.get(&scope).is_some_and(|refresh| refresh.force) || force;
-        self.refresh.insert(scope, PendingRefresh { scope, contest_context, force, attempt });
+        let presentation = crate::workspace_presentation::coalesce(
+            self.refresh.get(&scope).map(|refresh| refresh.presentation), presentation);
+        self.refresh.insert(scope, PendingRefresh { scope, contest_context, force, attempt, presentation });
         self.issued_attempt = attempt;
         Ok(attempt)
     }
@@ -173,11 +184,8 @@ impl Owner {
             }
             _ => return,
         }
-        // Never leave the operator with no usable surface if an asynchronous
-        // Separate Windows reconciliation fails after the main window hid.
-        if self.outcome.lock().is_ok_and(|outcomes| outcomes.get(&scope).is_some_and(|(_, outcome)| outcome["state"] == "error")) {
-            let _ = crate::present_active_workspace(&self.app);
-        }
+        // Publishing diagnostics carries no foreground authority. Automatic
+        // mode hide waits for successful readiness; recovery is an explicit open.
         // The payload is a wake only. Consumers read the native snapshot.
         let _ = self.app.emit("xlog:workspace-windows", ());
     }
@@ -249,8 +257,9 @@ impl Owner {
                 Some(Work::Canvas(canvas)) => {
                     let engine = engines.get_mut(&WorkspaceWindowScope::NormalLogging).expect("normal engine");
                     let result = engine.planner.plan(&canvas.layout, false).and_then(|plan| {
-                        crate::present_canvas_windows(&self.app, &canvas.generation, canvas.revision)?;
-                        engine.canvas_completed(&plan);
+                        if crate::present_canvas_windows(&self.app, &canvas.generation, canvas.revision, canvas.presentation)? {
+                            engine.canvas_completed(&plan);
+                        }
                         Ok(())
                     });
                     let _ = canvas.reply.send(result);
@@ -264,14 +273,14 @@ impl Owner {
                             let engine = engines.get_mut(&WorkspaceWindowScope::NormalLogging).expect("normal engine");
                             let mut host = SharedContestHost { app: self.app.clone(),
                                 context: open.contest_context.clone().expect("admitted contest context") };
-                            return engine.open(&mut host, &open.label);
+                            return engine.open_with_presentation(&mut host, &open.label, open.presentation);
                         }
                         let engine = engine_for(&mut engines, open.scope, open.contest_context.as_ref());
                         let remember = open.scope == WorkspaceWindowScope::Contesting
                             && open.label.starts_with(crate::workspace_windows::CONTEST_LABEL_PREFIX);
                         let mut host = NativeHost { app: self.app.clone(), scope: open.scope,
                             contest_context: open.contest_context.clone() };
-                        engine.open(&mut host, &open.label)?;
+                        engine.open_with_presentation(&mut host, &open.label, open.presentation)?;
                         if remember {
                             crate::contest_window_state::remember(
                                 &contest_window_state_directory(&self.app)?, &open.label, true)?;
@@ -282,14 +291,17 @@ impl Owner {
                 }
                 Some(Work::ContestToggle(toggle)) => {
                     let result = with_scope_admitted(WorkspaceWindowScope::Contesting, Some(&toggle.context), || {
+                        if !toggle.presentation.is_current() { return Ok(()); }
                         let engine = engines.get_mut(&WorkspaceWindowScope::Contesting)
                             .filter(|engine| engine.contest_context.as_ref() == Some(&toggle.context))
                             .ok_or("That native window request belongs to an expired contest context.")?;
                         if let Some(window) = self.app.get_webview_window(&toggle.label) {
                             if window.is_visible().map_err(|error| error.to_string())? {
-                                window.close().map_err(|error| error.to_string())?;
+                                if crate::deliver_presentation(&self.app, toggle.presentation,
+                                    move || window.close().map_err(|error| error.to_string()))?.is_none() { return Ok(()); }
                                 let deadline = Instant::now() + CONTEST_RETIRE_TIMEOUT;
                                 while self.app.get_webview_window(&toggle.label).is_some() {
+                                    if !toggle.presentation.is_current() { return Ok(()); }
                                     if Instant::now() >= deadline { return Err("The contest window did not close; try the shortcut again.".into()); }
                                     std::thread::sleep(Duration::from_millis(10));
                                 }
@@ -297,13 +309,13 @@ impl Owner {
                             } else {
                                 let mut host = NativeHost { app: self.app.clone(), scope: WorkspaceWindowScope::Contesting,
                                     contest_context: Some(toggle.context.clone()) };
-                                engine.open(&mut host, &toggle.label)?;
+                                engine.open_with_presentation(&mut host, &toggle.label, toggle.presentation)?;
                                 crate::contest_window_state::remember(&contest_window_state_directory(&self.app)?, &toggle.label, true)
                             }
                         } else {
                             let mut host = NativeHost { app: self.app.clone(), scope: WorkspaceWindowScope::Contesting,
                                 contest_context: Some(toggle.context.clone()) };
-                            engine.open(&mut host, &toggle.label)?;
+                            engine.open_with_presentation(&mut host, &toggle.label, toggle.presentation)?;
                             crate::contest_window_state::remember(&contest_window_state_directory(&self.app)?, &toggle.label, true)
                         }
                     });
@@ -321,7 +333,7 @@ impl Owner {
                                 .and_then(|directory| crate::contest_window_state::labels(&directory))
                                 .and_then(|labels| engine.restore_manual(&mut host, &labels))
                         } else { Ok(()) };
-                        let _ = restored.and_then(|_| engine.reconcile(&mut host, refresh.force))
+                        let _ = restored.and_then(|_| engine.reconcile_with_presentation(&mut host, refresh.force, refresh.presentation))
                             .or_else(|error| engine.fail(error));
                         self.publish(refresh.scope, refresh.contest_context.clone(), engine.outcome.clone());
                         Ok(())
@@ -407,25 +419,41 @@ fn owner(app: &AppHandle) -> Result<Arc<Owner>, String> {
 }
 /// Call from a blocking task; this waits for the one owner's explicit open.
 pub fn open(app: &AppHandle, label: &str) -> Result<(), String> {
+    if !supports(label) { return Err("Unknown native workspace window".into()); }
+    open_with_presentation(app, label, PresentationRequest::claim(PresentationIntent::Focus)?)
+}
+pub(crate) fn open_with_presentation(app: &AppHandle, label: &str, presentation: PresentationRequest) -> Result<(), String> {
     if !supports(label) {
         return Err("Unknown native workspace window".into());
     }
-    scoped_open(app, WorkspaceWindowScope::NormalLogging, None, label.into())
+    scoped_open(app, WorkspaceWindowScope::NormalLogging, None, label.into(), presentation)
 }
 /// Open one contest tool without reconciling or changing its saved layout.
 /// The serialized owner rechecks context admission before touching the window.
 pub fn contest_open(app: &AppHandle, context: crate::contest_window_context::ContestWindowContext,
     panel_id: &str) -> Result<(), String> {
+    crate::contest_window_context::admit(&context)?;
+    if crate::workspace_navigation::contest_window_panel(panel_id).is_none() { return Err("That contest window is not available.".into()); }
+    contest_open_with_presentation(app, context, panel_id, PresentationRequest::claim(PresentationIntent::Focus)?)
+}
+pub(crate) fn contest_open_with_presentation(app: &AppHandle, context: crate::contest_window_context::ContestWindowContext,
+    panel_id: &str, presentation: PresentationRequest) -> Result<(), String> {
     let panel = crate::workspace_navigation::contest_window_panel(panel_id)
         .ok_or("That contest window is not available.")?;
     crate::contest_window_context::admit(&context)?;
     let label = contest_open_label(panel)?;
-    scoped_open(app, WorkspaceWindowScope::Contesting, Some(context), label)
+    scoped_open(app, WorkspaceWindowScope::Contesting, Some(context), label, presentation)
 }
 /// Toggle one contest-owned native lifetime through the same serialized owner
 /// as menu opens and layout reconciliation.
 pub fn contest_toggle(app: &AppHandle, context: crate::contest_window_context::ContestWindowContext,
     panel_id: &str) -> Result<(), String> {
+    crate::contest_window_context::admit(&context)?;
+    contest_open_label(panel_id)?;
+    contest_toggle_with_presentation(app, context, panel_id, PresentationRequest::claim(PresentationIntent::Focus)?)
+}
+pub(crate) fn contest_toggle_with_presentation(app: &AppHandle, context: crate::contest_window_context::ContestWindowContext,
+    panel_id: &str, presentation: PresentationRequest) -> Result<(), String> {
     crate::contest_window_context::admit(&context)?;
     let label = contest_open_label(panel_id)?;
     if !label.starts_with(crate::workspace_windows::CONTEST_LABEL_PREFIX) {
@@ -437,7 +465,7 @@ pub fn contest_toggle(app: &AppHandle, context: crate::contest_window_context::C
         let mut queue = owner.queue.lock().map_err(|_| "Native workspace window queue unavailable")?;
         active()?;
         if queue.contest_toggles.len() >= MAX_OPENS { return Err("Native workspace windows are busy; try again.".into()); }
-        queue.contest_toggles.push_back(PendingContestToggle { label, context, reply });
+        queue.contest_toggles.push_back(PendingContestToggle { label, context, presentation, reply });
     }
     owner.wake.notify_one();
     received.recv().map_err(|_| "Native workspace window owner unavailable".to_owned())?
@@ -448,7 +476,8 @@ fn contest_open_label(panel: &str) -> Result<String, String> {
     Ok(crate::workspace_windows::WorkspaceWindowIdentity::new(WorkspaceWindowScope::Contesting, panel)?.native_label())
 }
 fn scoped_open(app: &AppHandle, scope: WorkspaceWindowScope,
-    contest_context: Option<crate::contest_window_context::ContestWindowContext>, label: String) -> Result<(), String> {
+    contest_context: Option<crate::contest_window_context::ContestWindowContext>, label: String,
+    presentation: PresentationRequest) -> Result<(), String> {
     let owner = owner(app)?;
     let (reply, received) = mpsc::channel();
     {
@@ -464,6 +493,7 @@ fn scoped_open(app: &AppHandle, scope: WorkspaceWindowScope,
             label,
             scope,
             contest_context,
+            presentation,
             reply,
         });
     }
@@ -474,14 +504,14 @@ fn scoped_open(app: &AppHandle, scope: WorkspaceWindowScope,
 }
 /// Serialized with manual opens and layout reconciliation; completion is the
 /// reply to this exact request, never an unrelated layout status notification.
-pub fn canvas(app: &AppHandle, generation: &str, revision: u64, layout: Value) -> Result<(), String> {
+pub fn canvas(app: &AppHandle, generation: &str, revision: u64, layout: Value, presentation: PresentationRequest) -> Result<(), String> {
     let owner = owner(app)?;
     let (reply, received) = mpsc::channel();
     {
         let mut queue = owner.queue.lock().map_err(|_| "Native workspace window queue unavailable")?;
         active()?;
         if !queue.canvas.is_empty() { return Err("A Canvas transition is already queued.".into()); }
-        queue.canvas.push_back(PendingCanvas { generation: generation.into(), revision, layout, reply });
+        queue.canvas.push_back(PendingCanvas { generation: generation.into(), revision, layout, presentation, reply });
     }
     owner.wake.notify_one();
     received.recv().map_err(|_| "Canvas transition owner unavailable".to_owned())?
@@ -554,14 +584,23 @@ fn contest_window_labels() -> Vec<String> {
 /// Coalesce wakes, retaining force and the latest accepted ticket. The returned
 /// ticket is queued; only a terminal status at or above it confirms completion.
 pub fn refresh(app: &AppHandle, force: bool) -> Result<u64, String> {
-    scoped_refresh(app, WorkspaceWindowScope::NormalLogging, None, force)
+    refresh_with_presentation(app, force, PresentationRequest::passive())
+}
+pub(crate) fn refresh_with_presentation(app: &AppHandle, force: bool, presentation: PresentationRequest) -> Result<u64, String> {
+    scoped_refresh(app, WorkspaceWindowScope::NormalLogging, None, force, presentation)
 }
 pub fn contest_refresh(app: &AppHandle, context: crate::contest_window_context::ContestWindowContext, force: bool) -> Result<u64, String> {
     crate::contest_window_context::admit(&context)?;
-    scoped_refresh(app, WorkspaceWindowScope::Contesting, Some(context), force)
+    contest_refresh_with_presentation(app, context, force, PresentationRequest::passive())
+}
+pub(crate) fn contest_refresh_with_presentation(app: &AppHandle, context: crate::contest_window_context::ContestWindowContext,
+    force: bool, presentation: PresentationRequest) -> Result<u64, String> {
+    crate::contest_window_context::admit(&context)?;
+    scoped_refresh(app, WorkspaceWindowScope::Contesting, Some(context), force, presentation)
 }
 fn scoped_refresh(app: &AppHandle, scope: WorkspaceWindowScope,
-    contest_context: Option<crate::contest_window_context::ContestWindowContext>, force: bool) -> Result<u64, String> {
+    contest_context: Option<crate::contest_window_context::ContestWindowContext>, force: bool,
+    presentation: PresentationRequest) -> Result<u64, String> {
     let owner = owner(app)?;
     let attempt = {
         let mut queue = owner
@@ -569,7 +608,7 @@ fn scoped_refresh(app: &AppHandle, scope: WorkspaceWindowScope,
             .lock()
             .map_err(|_| "Native workspace window queue unavailable")?;
         active()?;
-        queue.refresh(scope, contest_context, force)?
+        queue.refresh_with_presentation(scope, contest_context, force, presentation)?
     };
     owner.wake.notify_one();
     Ok(attempt)
@@ -670,8 +709,8 @@ pub fn shutdown() {
 trait Host {
     fn load(&mut self) -> Result<Value, String>;
     /// Returns true only when this operation built a fresh native lifetime.
-    fn show(&mut self, label: &str, focus: bool) -> Result<bool, String>;
-    fn hide(&mut self, label: &str) -> Result<(), String>;
+    fn show(&mut self, label: &str, presentation: PresentationRequest) -> Result<WindowOutcome, String>;
+    fn hide(&mut self, label: &str, presentation: PresentationRequest) -> Result<bool, String>;
     fn active(&self) -> Result<(), String>;
 }
 struct NativeHost {
@@ -685,12 +724,12 @@ struct SharedContestHost {
 }
 impl Host for SharedContestHost {
     fn load(&mut self) -> Result<Value, String> { Err("Shared contest tools do not reconcile layouts.".into()) }
-    fn show(&mut self, label: &str, focus: bool) -> Result<bool, String> {
+    fn show(&mut self, label: &str, presentation: PresentationRequest) -> Result<WindowOutcome, String> {
         self.active()?;
         if crate::workspace_navigation::contest_shared_window(label).is_none() { return Err("That tool is not a shared contest window.".into()); }
-        crate::ensure_workspace_window(&self.app, label, focus, None)
+        crate::ensure_workspace_window(&self.app, label, presentation, None)
     }
-    fn hide(&mut self, _label: &str) -> Result<(), String> { Err("Contest does not own shared service window retirement.".into()) }
+    fn hide(&mut self, _label: &str, _presentation: PresentationRequest) -> Result<bool, String> { Err("Contest does not own shared service window retirement.".into()) }
     fn active(&self) -> Result<(), String> {
         active()?;
         crate::contest_window_context::admit(&self.context)
@@ -710,22 +749,29 @@ impl Host for NativeHost {
         let response = crate::worker::request(json!({"id":id,"method":"workspace_layout_load","params":params}))?;
         checked_response(response, &id, self.scope, self.contest_context.as_ref().map(|context| context.workspace_generation.as_str()))
     }
-    fn show(&mut self, label: &str, focus: bool) -> Result<bool, String> {
+    fn show(&mut self, label: &str, presentation: PresentationRequest) -> Result<WindowOutcome, String> {
         self.active()?;
-        crate::ensure_workspace_window(&self.app, label, focus, self.contest_context.as_ref())
+        crate::ensure_workspace_window(&self.app, label, presentation, self.contest_context.as_ref())
     }
-    fn hide(&mut self, label: &str) -> Result<(), String> {
+    fn hide(&mut self, label: &str, presentation: PresentationRequest) -> Result<bool, String> {
         active()?;
         if let Some(window) = self.app.get_webview_window(label) {
             if label == "cw" {
                 if let Some(owner) = crate::cw_session_backend::existing() { owner.prepare_close(label)?; }
             }
-            if let Err(error) = window.hide() {
+            let delivered = crate::deliver_presentation(&self.app, presentation,
+                move || window.hide().map_err(|error| error.to_string()));
+            if let Err(error) = delivered {
                 if label == "cw" { if let Some(owner) = crate::cw_session_backend::existing() { let _ = owner.allow_window(label); } }
-                return Err(error.to_string());
+                return Err(error);
             }
+            let hidden = delivered?.is_some();
+            if !hidden && label == "cw" {
+                if let Some(owner) = crate::cw_session_backend::existing() { owner.allow_window(label)?; }
+            }
+            return Ok(hidden);
         }
-        Ok(())
+        Ok(true)
     }
     fn active(&self) -> Result<(), String> {
         active()?;
@@ -816,10 +862,13 @@ impl Engine {
         }
     }
     fn open<H: Host>(&mut self, host: &mut H, label: &str) -> Result<(), String> {
+        self.open_with_presentation(host, label, PresentationRequest::claim(PresentationIntent::Focus)?)
+    }
+    fn open_with_presentation<H: Host>(&mut self, host: &mut H, label: &str, presentation: PresentationRequest) -> Result<(), String> {
         // Manual menu commands have their own reply. They must not replace a
         // saved-layout failure or claim that its partial batch was completed.
         host.active()?;
-        if host.show(label, true)? {
+        if host.show(label, presentation)?.created {
             // A destroyed managed lifetime can still have an old callback
             // queued while this manual replacement is built. Ownership must
             // never pass through the reused label to the fresh manual window.
@@ -830,19 +879,22 @@ impl Engine {
     fn restore_manual<H: Host>(&mut self, host: &mut H, labels: &[String]) -> Result<(), String> {
         for label in labels {
             host.active()?;
-            if host.show(label, false)? { self.planner.forget_destroyed(label); }
+            if host.show(label, PresentationRequest::passive())?.created { self.planner.forget_destroyed(label); }
         }
         Ok(())
     }
     fn reconcile<H: Host>(&mut self, host: &mut H, force: bool) -> Result<(), String> {
-        let result = self.reconcile_inner(host, force);
+        self.reconcile_with_presentation(host, force, PresentationRequest::passive())
+    }
+    fn reconcile_with_presentation<H: Host>(&mut self, host: &mut H, force: bool, presentation: PresentationRequest) -> Result<(), String> {
+        let result = self.reconcile_inner(host, force, presentation);
         if let Err(error) = result {
             return self.fail(error);
         }
         self.outcome["state"] = json!("applied");
         Ok(())
     }
-    fn reconcile_inner<H: Host>(&mut self, host: &mut H, force: bool) -> Result<(), String> {
+    fn reconcile_inner<H: Host>(&mut self, host: &mut H, force: bool, presentation: PresentationRequest) -> Result<(), String> {
         host.active()?;
         let mut snapshot = host.load()?;
         let mut force = force;
@@ -853,9 +905,9 @@ impl Engine {
             self.record_plan(&plan);
             for label in &plan.show {
                 host.active()?;
-                host.show(label, false)?;
+                let observed = host.show(label, presentation)?;
                 self.planner.acknowledge_show(label)?;
-                self.record("shown", label);
+                if observed.usable() { self.record("shown", label); }
             }
             // Show operations can take time. Read the worker again before any
             // hides; a superseding layout must first get its own desired shows.
@@ -877,9 +929,10 @@ impl Engine {
             }
             for label in &plan.hide {
                 host.active()?;
-                host.hide(label)?;
-                self.planner.acknowledge_hide(label)?;
-                self.record("hidden", label);
+                if host.hide(label, presentation)? {
+                    self.planner.acknowledge_hide(label)?;
+                    self.record("hidden", label);
+                }
             }
             host.active()?;
             self.planner.complete(&plan);
@@ -983,6 +1036,9 @@ mod tests {
         operations: Vec<String>,
         fail_show: Option<String>,
         fresh_show: bool,
+        usable_show: bool,
+        completed_hide: bool,
+        presentations: Vec<PresentationIntent>,
         stopped: bool,
     }
     impl FakeHost {
@@ -993,6 +1049,9 @@ mod tests {
                 operations: vec![],
                 fail_show: None,
                 fresh_show: false,
+                usable_show: true,
+                completed_hide: true,
+                presentations: vec![],
                 stopped: false,
             }
         }
@@ -1005,18 +1064,19 @@ mod tests {
                 .pop_front()
                 .unwrap_or_else(|| self.last.clone()))
         }
-        fn show(&mut self, label: &str, focus: bool) -> Result<bool, String> {
+        fn show(&mut self, label: &str, presentation: PresentationRequest) -> Result<WindowOutcome, String> {
             self.active()?;
             if self.fail_show.as_deref() == Some(label) {
                 return Err(format!("show failed: {label}"));
             }
-            self.operations.push(format!("show:{label}:{focus}"));
-            Ok(self.fresh_show)
+            self.operations.push(format!("show:{label}:{}", presentation.intent() == PresentationIntent::Focus));
+            self.presentations.push(presentation.intent());
+            Ok(WindowOutcome { created: self.fresh_show, visible: self.usable_show, minimized: false })
         }
-        fn hide(&mut self, label: &str) -> Result<(), String> {
+        fn hide(&mut self, label: &str, _presentation: PresentationRequest) -> Result<bool, String> {
             self.active()?;
             self.operations.push(format!("hide:{label}"));
-            Ok(())
+            Ok(self.completed_hide)
         }
         fn active(&self) -> Result<(), String> {
             if self.stopped {
@@ -1073,6 +1133,25 @@ mod tests {
         reconcile(&mut engine, &mut host, false).unwrap();
         assert_eq!(host.operations, ["show:world-map:false", "hide:logbook"]);
         assert_eq!(engine.outcome["hidden"], json!(["logbook"]));
+    }
+    #[test]
+    fn force_planning_remains_passive_and_preserved_hidden_windows_are_not_shown() {
+        let mut engine = Engine::default();
+        let mut host = FakeHost::new(vec![layout(1, &["awards", "logbook"])]);
+        host.usable_show = false;
+        reconcile(&mut engine, &mut host, true).unwrap();
+        assert_eq!(host.presentations, [PresentationIntent::Passive, PresentationIntent::Passive]);
+        assert_eq!(engine.outcome["shown"], json!([]));
+    }
+    #[test]
+    fn a_retired_hide_delivery_is_not_reported_as_a_completed_native_effect() {
+        let mut engine = Engine::default();
+        let mut host = FakeHost::new(vec![layout(1, &["logbook"])]);
+        reconcile(&mut engine, &mut host, false).unwrap();
+        host.last = layout(2, &[]);
+        host.completed_hide = false;
+        reconcile(&mut engine, &mut host, false).unwrap();
+        assert_eq!(engine.outcome["hidden"], json!([]));
     }
     #[test]
     fn independent_band_windows_keep_instance_labels_and_survive_preset_reconciliation() {
@@ -1229,7 +1308,7 @@ mod tests {
                 scope: WorkspaceWindowScope::NormalLogging,
                 contest_context: None,
                 force: true,
-                attempt: 10002
+                attempt: 10002, ..
             }))
         ));
         assert!(queue.next().is_none());
@@ -1257,9 +1336,9 @@ mod tests {
         let (contest_reply, contest_received) = mpsc::channel();
         let (normal_reply, _normal_received) = mpsc::channel();
         queue.opens.push_back(PendingOpen { label: "contest--logbook".into(), scope: WorkspaceWindowScope::Contesting,
-            contest_context: Some(context), reply: contest_reply });
+            contest_context: Some(context), presentation: PresentationRequest::passive(), reply: contest_reply });
         queue.opens.push_back(PendingOpen { label: "logbook".into(), scope: WorkspaceWindowScope::NormalLogging,
-            contest_context: None, reply: normal_reply });
+            contest_context: None, presentation: PresentationRequest::passive(), reply: normal_reply });
         queue.reject_contest_work();
         assert!(contest_received.recv().unwrap().is_err());
         assert_eq!(queue.opens.len(), 1);
@@ -1388,7 +1467,7 @@ mod tests {
                 scope: WorkspaceWindowScope::NormalLogging,
                 contest_context: None,
                 force: true,
-                attempt: 3
+                attempt: 3, ..
             }))
         ));
         assert!(queue.next().is_none());
@@ -1408,7 +1487,7 @@ mod tests {
                 scope: WorkspaceWindowScope::NormalLogging,
                 contest_context: None,
                 force: false,
-                attempt: MAX_ATTEMPT
+                attempt: MAX_ATTEMPT, ..
             }))
         ));
         assert!(queue.next().is_none());

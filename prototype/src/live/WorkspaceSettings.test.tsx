@@ -8,6 +8,7 @@ import { customDeskPreset } from "./canvasGeometry";
 import { operatorWorkspaceKey } from "./operatorWorkspacePreferences";
 import { changedLayout, panelMinimum, workspacePanelIDs, WorkspaceLayoutSession, type LayoutChange, type LayoutSnapshot, type WorkspacePanelID } from "./workspaceLayoutSession";
 import type { WorkspaceWindowsStatus } from "./useWorkspaceWindows";
+import * as layoutTransport from "./workspaceLayoutTransport";
 
 const native = vi.hoisted(() => ({ status: null as WorkspaceWindowsStatus | null, error: "", retrying: false, retry: vi.fn(async () => {}) }));
 vi.mock("./useWorkspaceWindows", () => ({ useWorkspaceWindows: () => native }));
@@ -224,6 +225,7 @@ it("retains a draft and refuses a stale edit before journal or write after anoth
 });
 
 it.each(["retry", "discard"])("retains an unconfirmed draft and recovers only through explicit %s", async recovery => {
+  const begin = vi.spyOn(layoutTransport, "beginWorkspacePresentation").mockReturnValue(Promise.resolve(41));
   const context = setup(); await context.session.refresh(); render(<context.Workspace />);
   choose("custom"); fireEvent.click(button("Edit layout")); fireEvent.change(input("Layout name"), { target: { value: "Retained intent" } });
   context.request.mockResolvedValueOnce({ status: "applied", layout: fixture() });
@@ -232,11 +234,18 @@ it.each(["retry", "discard"])("retains an unconfirmed draft and recovers only th
   expect(context.session.getSnapshot().pending).not.toBeNull(); expect(input("Layout name").value).toBe("Retained intent");
   expect(button("Save layout").disabled).toBe(true); expect(button("Cancel editing").disabled).toBe(true);
   expect(screen.getByLabelText("Layout name").closest("fieldset")!.disabled).toBe(true);
+  await act(async () => fireEvent.click(button("Reload saved layouts")));
+  expect(begin).toHaveBeenCalledExactlyOnceWith("layout");
+  begin.mockReturnValue(Promise.resolve(42));
   fireEvent.click(button(recovery === "retry" ? "Retry layout change" : "Use saved layouts"));
   await screen.findByText(recovery === "retry" ? "Layout change confirmed." : "Using saved layouts. Unsaved layout changes discarded.");
   expect(context.session.getSnapshot().pending).toBeNull(); expect(screen.queryByLabelText("Layout name")).toBeNull();
   expect(context.current().document.presets[2].name).toBe(recovery === "retry" ? "Retained intent" : "Custom");
   expect(context.writes()).toHaveLength(recovery === "retry" ? 2 : 1);
+  expect(begin).toHaveBeenCalledTimes(recovery === "retry" ? 2 : 1);
+  expect(context.request.mock.calls.filter(([method]) => method === "workspace_layout_apply").map(([, params]) => params.presentationTicket))
+    .toEqual(recovery === "retry" ? [41, 42] : [41]);
+  expect(JSON.stringify(context.journal.mock.calls)).not.toContain("presentationTicket");
 });
 
 it("keeps service fields and credentials mounted across Workspace and saves layouts independently of settings", async () => {
