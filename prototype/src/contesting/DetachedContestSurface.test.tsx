@@ -1646,7 +1646,9 @@ it("fills a wide DXCC window with as many country blocks as its width permits",a
     expect(screen.getAllByRole("table")).toHaveLength(4);
     expect((document.querySelector(".contest-surface-matrix-blocks") as HTMLElement).style.gridTemplateColumns)
       .toBe("repeat(4,minmax(240px,1fr))");
-    Object.defineProperty(window,"innerWidth",{configurable:true,value:420});fireEvent(window,new Event("resize"));
+    await act(async()=>{
+      Object.defineProperty(window,"innerWidth",{configurable:true,value:420});fireEvent(window,new Event("resize"));
+    });
     expect(screen.getAllByRole("table")).toHaveLength(1);
     expect(screen.getAllByRole("rowheader")).toHaveLength(4);
   } finally {Object.defineProperty(window,"innerWidth",{configurable:true,value:priorWidth});}
