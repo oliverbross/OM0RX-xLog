@@ -543,6 +543,11 @@ import Testing
         let (logbook, root, workspace) = try fixture()
         defer { clean(logbook, root, workspace) }
         try logbook.openedDatabase().save(QSO(call: "DEEP", band: "20m", mode: "CW"))
+        let referencePath = "catalogue-fixture/é秘-" + String(repeating: "r", count: 40) + ".json"
+        let referenceBytes = Data("{\"fixture\":\"é秘\",\"stations\":[{\"station_id\":42}]}".utf8)
+        let reference = try logbook.referenceDirectoryURL().appendingPathComponent(referencePath)
+        try FileManager.default.createDirectory(at: reference.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try referenceBytes.write(to: reference, options: .atomic)
         let generation = try logbook.withCurrentWorkspaceGeneration { $0 }
         let destination = try plan(logbook).destination
         func nativeUnits(_ url: URL) -> Int {
@@ -557,18 +562,25 @@ import Testing
         let padding = 150 - nativeUnits(workspace.directoryURL.appendingPathComponent(prefix))
         try #require(padding >= 0, "Disposable temporary root must leave room for deep snapshot staging")
         let staging = workspace.directoryURL.appendingPathComponent(prefix + String(repeating: "x", count: padding))
-        // Existing capture/validation directories remain below 248 UTF-16 code
-        // units; their SQLite filenames and journal suffixes cross MAX_PATH.
+        // Keep the original staging depth. Both the SQLite files and the nested
+        // reference payload cross MAX_PATH inside the capture's temporary package.
         #expect(nativeUnits(staging) == 150)
+        let stagedReference = staging.appendingPathComponent("capture-" + String(repeating: "0", count: 36))
+            .appendingPathComponent(".xlogbackup-" + String(repeating: "0", count: 36))
+            .appendingPathComponent("Reference Data").appendingPathComponent(referencePath)
+        #expect(nativeUnits(stagedReference) > 260)
         let source = try RemoteBackupLocalSnapshotSource(workspace: logbook, stagingDirectory: staging)
         let envelope = try await source.capture(workspaceGeneration: generation, destination: destination)
         #expect(envelope.manifest.qsoCount == 1)
+        let payload = try JSONDecoder().decode(BackupPackageSeal.Payload.self, from: envelope.data)
+        #expect(payload.files["Reference Data/" + referencePath] == referenceBytes)
         #expect(try FileManager.default.contentsOfDirectory(atPath: staging.path).isEmpty)
         let manager = XLogBackupManager()
         #expect(try manager.validateRestoreEnvelope(envelope.data).identity == envelope.identity)
         let package = root.appendingPathComponent("deep-round-trip.xlogbackup")
         _ = try manager.materializeRestoreEnvelope(envelope.data, expectedIdentity: envelope.identity, at: package)
         #expect(try manager.prepareEnvelope(at: package).data == envelope.data)
+        #expect(try Data(contentsOf: package.appendingPathComponent("Reference Data").appendingPathComponent(referencePath)) == referenceBytes)
         let reopened = try LogbookDatabase(url: package.appendingPathComponent("OM0RX-xLog.sqlite"))
         defer { reopened.close() }
         #expect(try reopened.fetch().map(\.call) == ["DEEP"])

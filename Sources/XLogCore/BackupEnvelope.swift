@@ -149,7 +149,10 @@ internal struct BackupPackageSeal: Codable, Equatable {
                     guard size <= maximumBytes - total, files.count < 100_000 else {
                         throw XLogBackupError.invalidPackage("unsupported file or package exceeds staging limit")
                     }
-                    let handle = try FileHandle(forReadingFrom: url)
+                    guard files[path] == nil else {
+                        throw XLogBackupError.invalidPackage("payload filenames are ambiguous")
+                    }
+                    let handle = try openForReading(url)
                     defer { try? handle.close() }
                     var data = Data()
                     while let chunk = try handle.read(upToCount: min(1_048_576, maximumBytes - total - data.count + 1)), !chunk.isEmpty {
@@ -177,14 +180,31 @@ internal struct BackupPackageSeal: Codable, Equatable {
         return (seal, files)
     }
 
+    static func openForReading(_ url: URL) throws -> FileHandle {
+        #if os(Windows)
+        guard let path = LocalFilePath.nativeFileSystemPath(for: url) else {
+            throw CocoaError(.fileReadInvalidFileName)
+        }
+        if let handle = FileHandle(forReadingAtPath: path) { return handle }
+        // Preserve Foundation's existing throwing open error if the extended
+        // path could not be opened. Reads and handle closure stay with callers.
+        #endif
+        return try FileHandle(forReadingFrom: url)
+    }
+
     static func materialize(_ files: [String: Data], at root: URL, fileManager: FileManager) throws {
+        // Reject the same aliases as the package seal before a Windows write
+        // could overwrite one captured reference file with another.
+        guard Set(files.keys.map { $0.precomposedStringWithCanonicalMapping.lowercased() }).count == files.count else {
+            throw XLogBackupError.invalidPackage("payload filenames are ambiguous")
+        }
         try fileManager.createDirectory(at: root, withIntermediateDirectories: false,
                                         attributes: LocalFilePermissions.directoryAttributes)
         for path in files.keys.sorted() {
             guard validPath(path) else { throw XLogBackupError.invalidPackage("unsafe payload path") }
             let url = root.appendingPathComponent(path)
-            try fileManager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true,
-                                            attributes: LocalFilePermissions.directoryAttributes)
+            try LocalFilePermissions.createDirectoryWithParents(at: url.deletingLastPathComponent(),
+                attributes: LocalFilePermissions.directoryAttributes, fileManager: fileManager)
             try files[path]!.write(to: url, options: .atomic)
         }
     }

@@ -194,10 +194,10 @@ public final class XLogBackupManager: @unchecked Sendable {
         }
         try database.validateRestoredWavelogAuthority(settings: settings)
         let parent = packageURL.deletingLastPathComponent()
-        try fileManager.createDirectory(at: parent, withIntermediateDirectories: true)
+        try LocalFilePermissions.createDirectoryWithParents(at: parent, fileManager: fileManager)
         let temporary = parent.appendingPathComponent(".xlogbackup-\(UUID().uuidString)", isDirectory: true)
-        try fileManager.createDirectory(at: temporary, withIntermediateDirectories: true,
-                                        attributes: LocalFilePermissions.directoryAttributes)
+        try LocalFilePermissions.createDirectoryWithParents(at: temporary,
+            attributes: LocalFilePermissions.directoryAttributes, fileManager: fileManager)
         var committed = false
         defer { if !committed { try? fileManager.removeItem(at: temporary) } }
 
@@ -210,7 +210,15 @@ public final class XLogBackupManager: @unchecked Sendable {
         let referenceDestination = temporary.appendingPathComponent("Reference Data", isDirectory: true)
         var includesReferenceData = false
         if let referenceDataURL, fileManager.fileExists(atPath: referenceDataURL.path) {
+            #if os(Windows)
+            // Foundation's directory copy calls its path-limited recursive
+            // mkdir. Reuse the same bounded, link-rejecting payload capture and
+            // materialization already required for the completed package.
+            try BackupPackageSeal.materialize(BackupPackageSeal.capture(referenceDataURL, fileManager: fileManager),
+                at: referenceDestination, fileManager: fileManager)
+            #else
             try fileManager.copyItem(at: referenceDataURL, to: referenceDestination)
+            #endif
             includesReferenceData = true
         }
         var contestDatabaseCount = 0
@@ -240,8 +248,8 @@ public final class XLogBackupManager: @unchecked Sendable {
                 }
                 let relative = relativeComponents.joined(separator: "/")
                 let destination = destinationRoot.appendingPathComponent(relative)
-                try fileManager.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true,
-                                                attributes: LocalFilePermissions.directoryAttributes)
+                try LocalFilePermissions.createDirectoryWithParents(at: destination.deletingLastPathComponent(),
+                    attributes: LocalFilePermissions.directoryAttributes, fileManager: fileManager)
                 try snapshotSQLite(from: source, to: destination)
                 contestDatabaseCount += 1
             }
@@ -361,7 +369,7 @@ public final class XLogBackupManager: @unchecked Sendable {
     private func installDatabase(preview: XLogBackupPreview, to liveURL: URL,
                                  restoredSettings: XLogSettings?, stageSource: (URL) throws -> Void) throws -> URL? {
         let directory = liveURL.deletingLastPathComponent()
-        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        try LocalFilePermissions.createDirectoryWithParents(at: directory, fileManager: fileManager)
         let staging = directory.appendingPathComponent(".restore-\(UUID().uuidString).sqlite")
         let source = directory.appendingPathComponent(".restore-source-\(UUID().uuidString).sqlite")
         defer {
@@ -443,7 +451,7 @@ public final class XLogBackupManager: @unchecked Sendable {
             path.hasPrefix("Contesting/Python/") ? (String(path.dropFirst("Contesting/Python/".count)), data) : nil
         })
         let parent = liveURL.deletingLastPathComponent()
-        try fileManager.createDirectory(at: parent, withIntermediateDirectories: true)
+        try LocalFilePermissions.createDirectoryWithParents(at: parent, fileManager: fileManager)
         let staging = parent.appendingPathComponent(".contest-restore-\(UUID().uuidString)", isDirectory: true)
         defer { try? fileManager.removeItem(at: staging) }
         try BackupPackageSeal.materialize(contestFiles, at: staging, fileManager: fileManager)
@@ -497,7 +505,7 @@ public final class XLogBackupManager: @unchecked Sendable {
 
     private func installReferenceFiles(_ files: [String: Data], to liveURL: URL) throws -> URL? {
         let parent = liveURL.deletingLastPathComponent()
-        try fileManager.createDirectory(at: parent, withIntermediateDirectories: true)
+        try LocalFilePermissions.createDirectoryWithParents(at: parent, fileManager: fileManager)
         let staging = parent.appendingPathComponent(".reference-restore-\(UUID().uuidString)", isDirectory: true)
         let referenceFiles = Dictionary(uniqueKeysWithValues: files.compactMap { path, data in
             path.hasPrefix("Reference Data/") ? (String(path.dropFirst("Reference Data/".count)), data) : nil
@@ -692,8 +700,8 @@ public final class XLogBackupManager: @unchecked Sendable {
             return try inspect(at: packageURL)
         }
         let parent = packageURL.deletingLastPathComponent()
-        try fileManager.createDirectory(at: parent, withIntermediateDirectories: true,
-                                        attributes: LocalFilePermissions.directoryAttributes)
+        try LocalFilePermissions.createDirectoryWithParents(at: parent,
+            attributes: LocalFilePermissions.directoryAttributes, fileManager: fileManager)
         let staging = parent.appendingPathComponent(".remote-restore-\(UUID().uuidString)", isDirectory: true)
         var committed = false
         defer { if !committed { try? fileManager.removeItem(at: staging) } }
@@ -747,7 +755,7 @@ public final class XLogBackupManager: @unchecked Sendable {
     }
 
     private func sha256(of url: URL) throws -> String {
-        let handle = try FileHandle(forReadingFrom: url)
+        let handle = try BackupPackageSeal.openForReading(url)
         defer { try? handle.close() }
         var hasher = SHA256()
         while let data = try handle.read(upToCount: 1_048_576), !data.isEmpty {
