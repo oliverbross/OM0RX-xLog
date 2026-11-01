@@ -1283,7 +1283,12 @@ mod tests {
         let mut cfg = config(2);
         cfg.rate = 48000;
         let mut archive = Archive::create(&root, &uuid::Uuid::new_v4().to_string(), cfg).unwrap();
-        archive.append(&signal(48000 * 60, 2)).unwrap();
+        let pcm: Vec<i16> = (0..48000 * 60).flat_map(|frame| {
+            let sample = (frame % 16000) as i16;
+            [sample, -sample]
+        }).collect();
+        assert_eq!(pcm.len(), 48000 * 60 * 2);
+        archive.append(&pcm).unwrap();
         archive.finish("stopped", None).unwrap();
         let snapshot = archive.snapshot();
         assert_eq!(snapshot.manifest.segments.len(), 1);
