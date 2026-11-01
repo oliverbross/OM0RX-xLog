@@ -38,9 +38,9 @@ impl Journal {
         let parent=self.path.parent().ok_or("CW Entry storage is unavailable.")?;
         std::fs::create_dir_all(parent).map_err(|_|"CW Entry storage is unavailable.")?;
         let mut file=tempfile::NamedTempFile::new_in(parent).map_err(|_|"CW Entry journal cannot be saved.")?;
-        file.write_all(&bytes).and_then(|_|file.as_file().sync_all()).map_err(|_|"CW Entry journal cannot be saved.")?;
-        file.persist(&self.path).map_err(|_|"CW Entry journal cannot be replaced.")?;
-        std::fs::File::open(parent).and_then(|file|file.sync_all()).map_err(|_|"CW Entry journal durability is uncertain.")?;
+        file.write_all(&bytes).map_err(|_|"CW Entry journal cannot be saved.")?;
+        crate::durable_file::publish_temp(file,&self.path,crate::durable_file::PublishMode::Replace)
+            .map_err(|_|"CW Entry journal durability is uncertain.")?;
         Ok(())
     }
     fn insert(&mut self,intent:Intent)->Result<(),String>{
@@ -359,6 +359,17 @@ mod tests{
             let link=directory.path().join("link.json");std::os::unix::fs::symlink(&target,&link).unwrap();
             assert!(Journal::load(link).is_err());assert_eq!(std::fs::read(target).unwrap(),b"{}");
         }
+    }
+    #[test]
+    fn failed_journal_replacement_retains_the_pending_identity_and_existing_destination(){
+        let directory=tempfile::tempdir().unwrap();let path=directory.path().join("intent.json");
+        let mut journal=Journal::load(path.clone()).unwrap();
+        std::fs::create_dir(&path).unwrap();std::fs::write(path.join("retained"),b"preserve").unwrap();
+        let intent=retained();assert!(journal.insert(intent.clone()).is_err());
+        assert!(journal.pending());assert!(journal.saved.rows.contains_key(&intent.request.operation_id));
+        assert!(journal.insert(retained()).is_err());
+        assert_eq!(std::fs::read(path.join("retained")).unwrap(),b"preserve");
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(),1);
     }
     #[test]
     fn journal_validates_identity_and_retains_native_uppercase_track_ids(){

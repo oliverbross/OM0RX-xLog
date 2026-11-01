@@ -1,4 +1,5 @@
 //! Recorder-owned files only. No contest SQL, station controls, or audio devices.
+use crate::durable_file::{self, PublishMode};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -36,6 +37,12 @@ pub fn safe_path(path: &Path) -> Result<()> {
             return Err("Unsafe recorder path".into());
         }
         current.push(component);
+        #[cfg(windows)]
+        if matches!(component, std::path::Component::Prefix(_)) {
+            // A drive prefix is not a directory until RootDir is appended.
+            // Inspect that real root and every descendant on later iterations.
+            continue;
+        }
         match fs::symlink_metadata(&current) {
             Ok(meta) if meta.file_type().is_symlink() => {
                 return Err("Recorder paths cannot contain symbolic links".into())
@@ -66,9 +73,25 @@ pub fn atomic_json(path: &Path, value: &impl Serialize) -> Result<()> {
     let parent = path.parent().ok_or("Missing recorder directory")?;
     let mut file = tempfile::NamedTempFile::new_in(parent).map_err(err)?;
     serde_json::to_writer(&mut file, value).map_err(err)?;
-    file.as_file().sync_all().map_err(err)?;
-    file.persist(path).map_err(err)?;
-    File::open(parent).and_then(|f| f.sync_all()).map_err(err)
+    durable_file::publish_temp(file, path, PublishMode::Replace).map_err(err)
+}
+#[cfg(windows)]
+fn windows_directory_wide(path: &Path) -> Result<Vec<u16>> {
+    use std::os::windows::ffi::OsStrExt;
+    if !path.is_absolute() {
+        return Err("Recorder disk directory must be absolute".into());
+    }
+    let mut wide: Vec<u16> = path.as_os_str().encode_wide().collect();
+    if wide.contains(&0) {
+        return Err("Recorder disk directory contains NUL".into());
+    }
+    // GetDiskFreeSpaceExW requires a trailing separator for UNC shares.
+    const BACKSLASH: u16 = b'\\' as u16;
+    if wide.last() != Some(&BACKSLASH) {
+        wide.push(BACKSLASH);
+    }
+    wide.push(0);
+    Ok(wide)
 }
 pub fn free_bytes(path: &Path) -> Result<u64> {
     safe_path(path)?;
@@ -83,7 +106,35 @@ pub fn free_bytes(path: &Path) -> Result<u64> {
         let stat = unsafe { stat.assume_init() };
         Ok(stat.f_bavail as u64 * stat.f_frsize as u64)
     }
-    #[cfg(not(unix))]
+    #[cfg(windows)]
+    {
+        #[link(name = "kernel32")]
+        extern "system" {
+            fn GetDiskFreeSpaceExW(
+                directory: *const u16,
+                available_to_caller: *mut u64,
+                total: *mut u64,
+                total_free: *mut u64,
+            ) -> i32;
+        }
+        let canonical = path.canonicalize().map_err(err)?;
+        let directory = windows_directory_wide(&canonical)?;
+        let mut available = 0u64;
+        // The caller's quota-aware allowance matches statvfs.f_bavail.
+        if unsafe {
+            GetDiskFreeSpaceExW(
+                directory.as_ptr(),
+                &mut available,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            )
+        } == 0
+        {
+            return Err(err(std::io::Error::last_os_error()));
+        }
+        Ok(available)
+    }
+    #[cfg(not(any(unix, windows)))]
     {
         let _ = path;
         Err("Storage forecasting is unavailable on this platform".into())
@@ -596,7 +647,7 @@ impl Archive {
             if path.exists() {
                 return Err("Recorder refuses to overwrite an original".into());
             }
-            fs::rename(&partial, &path).map_err(err)?;
+            durable_file::move_noclobber(&partial, &path).map_err(err)?;
             let segment = Segment {
                 id,
                 first_frame: self.active_first,
@@ -774,12 +825,9 @@ impl Archive {
                             "{id:06}.interrupted-recovery-{}.wav",
                             uuid::Uuid::new_v4()
                         ));
-                        fs::rename(&path, retained).map_err(err)?;
+                        durable_file::move_noclobber(&path, &retained).map_err(err)?;
                     }
-                    out.persist_noclobber(&path).map_err(err)?;
-                    File::open(&self.dir)
-                        .and_then(|f| f.sync_all())
-                        .map_err(err)?;
+                    durable_file::publish_temp(out, &path, PublishMode::NoClobber).map_err(err)?;
                 }
             }
             let first = self
@@ -1056,6 +1104,62 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let path = temp.path().canonicalize().unwrap();
         (temp, path)
+    }
+    #[test]
+    fn atomic_manifest_requires_existing_parent_and_replaces_complete_document() {
+        let (_temp, root) = root();
+        let missing = root.join("removed-capture");
+        assert!(atomic_json(&missing.join("manifest.json"), &json!({"frames": 1})).is_err());
+        assert!(!missing.exists());
+
+        let path = root.join("manifest.json");
+        atomic_json(&path, &json!({"frames": 1, "status": "starting"})).unwrap();
+        atomic_json(&path, &json!({"frames": 2, "status": "stopped"})).unwrap();
+        let saved: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        assert_eq!(saved, json!({"frames": 2, "status": "stopped"}));
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 1);
+    }
+    #[cfg(windows)]
+    #[test]
+    fn windows_extended_path_checks_ancestors_and_forecasts_actual_available_space() {
+        use std::os::windows::{ffi::OsStrExt, fs::symlink_dir};
+        let (_temp, root) = root();
+        let directory = root.join("receiver-žluť-電台").join("recording-".repeat(23));
+        fs::create_dir_all(&directory).unwrap();
+        let canonical = directory.canonicalize().unwrap();
+        assert!(canonical.as_os_str().encode_wide().count() > 260);
+        safe_path(&canonical).unwrap();
+        assert!(free_bytes(&canonical).unwrap() > 0);
+        assert!(free_bytes(&canonical.join("missing-directory")).is_err());
+        assert!(safe_path(&canonical.join("..")).is_err());
+
+        let other = root.join("other-capture");
+        fs::create_dir(&other).unwrap();
+        let alias = root.join("linked-capture");
+        symlink_dir(&other, &alias).unwrap();
+        assert!(safe_path(&alias.join("media.wav")).is_err());
+        assert!(free_bytes(&alias).is_err());
+    }
+    #[cfg(windows)]
+    #[test]
+    fn windows_forecast_paths_preserve_unicode_unc_and_native_prefixes() {
+        let long = format!(r"\\?\C:\{}", "録音".repeat(180));
+        for text in [
+            r"\\?\C:\録音",
+            r"\\?\UNC\server\share-žluť",
+            r"\\server\share-電台\",
+            long.as_str(),
+        ] {
+            let wide = windows_directory_wide(Path::new(text)).unwrap();
+            assert_eq!(wide.last(), Some(&0));
+            assert_eq!(wide.iter().filter(|value| **value == 0).count(), 1);
+            assert_eq!(
+                String::from_utf16(&wide[..wide.len() - 1]).unwrap(),
+                format!("{}\\", text.trim_end_matches('\\'))
+            );
+        }
+        assert!(windows_directory_wide(Path::new("relative-capture")).is_err());
+        assert!(windows_directory_wide(Path::new("C:\\capture\0other")).is_err());
     }
     fn archive(root: &Path, channels: u16) -> Archive {
         Archive::create(root, &uuid::Uuid::new_v4().to_string(), config(channels)).unwrap()

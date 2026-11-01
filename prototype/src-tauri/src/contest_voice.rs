@@ -540,14 +540,12 @@ pub fn profile_write(request: ProfileWriteRequest) -> Result<ProfilePreview, Str
         .map_err(|_| "Recorded voice WAV temporary file could not be created.".to_string())?;
     use std::io::Write as _;
     temporary.write_all(&bytes).map_err(|_| "Recorded voice WAV could not be written.".to_string())?;
-    temporary.as_file().sync_all().map_err(|_| "Recorded voice WAV could not be synchronized.".to_string())?;
-    if request.overwrite {
-        temporary.persist(&path).map_err(|_| "Recorded voice WAV could not replace the selected slot.".to_string())?;
-    } else {
-        temporary.persist_noclobber(&path).map_err(|_| "Voice slot appeared while recording; no file was replaced.".to_string())?;
-    }
-    fs::File::open(&profile).and_then(|directory| directory.sync_all())
-        .map_err(|_| "Voice profile folder could not be synchronized.".to_string())?;
+    let mode = if request.overwrite { crate::durable_file::PublishMode::Replace }
+        else { crate::durable_file::PublishMode::NoClobber };
+    crate::durable_file::publish_temp(temporary, &path, mode)
+        .map_err(|error| if !request.overwrite && error.kind() == std::io::ErrorKind::AlreadyExists {
+            "Voice slot appeared while recording; no file was replaced.".to_string()
+        } else { "Recorded voice WAV publication could not be synchronized.".to_string() })?;
     profile_slot_value(&profile, &slot)
 }
 
@@ -1181,11 +1179,24 @@ mod tests {
             saved.sha256);
         assert!(profile_write(ProfileWriteRequest { profile_path: path.clone(), slot: "f12".into(),
             wav_base64: encoded.clone(), overwrite: false }).unwrap_err().contains("confirm replacement"));
+        assert_eq!(fs::read(profile.path().join("f12.wav")).unwrap(), wav(250));
         assert!(profile_write(ProfileWriteRequest { profile_path: path.clone(), slot: "cq".into(),
             wav_base64: encoded, overwrite: true }).unwrap_err().contains("F1 through F12"));
         profile_write(ProfileWriteRequest { profile_path: path, slot: "f12".into(),
             wav_base64: STANDARD.encode(wav(100)), overwrite: true }).unwrap();
         assert_eq!(fs::metadata(profile.path().join("f12.wav")).unwrap().len(), wav(100).len() as u64);
+        assert_eq!(fs::read(profile.path().join("f12.wav")).unwrap(), wav(100));
+        assert_eq!(fs::read_dir(profile.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn managed_profile_never_recreates_a_missing_profile_directory() {
+        let root = tempfile::tempdir().unwrap();
+        let profile = root.path().join("missing-profile");
+        assert!(profile_write(ProfileWriteRequest { profile_path: profile.to_string_lossy().into_owned(),
+            slot: "f1".into(), wav_base64: STANDARD.encode(wav(100)), overwrite: true }).is_err());
+        assert!(!profile.exists());
+        assert_eq!(fs::read_dir(root.path()).unwrap().count(), 0);
     }
 
     #[test]
