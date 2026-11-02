@@ -6,7 +6,7 @@ import { loadWindowSurface } from "../windowSurface";
 const bridge = vi.hoisted(() => ({ call: vi.fn(), receive: null as null | ((value: any) => void), stop: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ isTauri: () => true, invoke: bridge.call }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: async () => vi.fn() }));
-vi.mock("./clusterResume", () => ({ initializeNativeClusterResume: async () => {} }));
+vi.mock("./clusterResume", () => ({ initializeNativeClusterResume: async () => {}, clusterInitializationPending: () => false }));
 vi.mock("./DetachedClusterBridge", () => ({
   onClusterProjection: async (callback: (value: any) => void) => { bridge.receive = callback; return bridge.stop; },
   newerClusterProjection: (before: any, next: any) => !before || next.revision > before.revision ? next : before,

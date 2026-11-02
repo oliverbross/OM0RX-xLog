@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ClusterPanel } from "./ClusterPanel";
-import { initializeNativeClusterResume } from "./clusterResume";
+import { clusterInitializationPending, initializeNativeClusterResume } from "./clusterResume";
 import { useSpotActivation } from "./useSpotActivation";
 import { SpotActivationStatus } from "./SpotActivationStatus";
 import { StableFeedbackLayer } from "./StableFeedbackLayer";
@@ -18,6 +18,15 @@ export function DetachedClusterSurface() {
   useEffect(() => {
     let active = true;
     let stop: (() => void) | null = null;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    const initialize = async () => {
+      try { await initializeNativeClusterResume(); }
+      catch (cause) {
+        if (!active) return;
+        if (clusterInitializationPending(cause)) retry = setTimeout(() => { void initialize(); }, 1_000);
+        else setError(String(cause));
+      }
+    };
     void onClusterProjection(next => {
       if (active && newerClusterProjection(latestProjection.current, next) === next) {
         latestProjection.current = next;
@@ -28,10 +37,10 @@ export function DetachedClusterSurface() {
     }).then(unlisten => {
       if (!active) { unlisten(); return; }
       stop = unlisten;
-      void initializeNativeClusterResume().catch(cause => { if (active) setError(String(cause)); });
+      void initialize();
       void announceDetachedClusterReady().catch(() => { if (active) setError("Cluster service updates are unavailable. Refresh to retry; no action will be replayed."); });
     }).catch(() => { if (active) setError("Could not subscribe to cluster updates. Close and reopen this window."); });
-    return () => { active = false; stop?.(); };
+    return () => { active = false; clearTimeout(retry); stop?.(); };
   }, []);
   return <div className="app live monitor-app detached-cluster-app">
     <main className="live-feedback-host">

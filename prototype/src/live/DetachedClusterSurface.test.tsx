@@ -1,16 +1,50 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ClusterPanel } from "./ClusterPanel";
 import { DetachedClusterSurface } from "./DetachedClusterSurface";
 import { clusterAppearanceKey } from "./clusterAppearance";
 const bridge = vi.hoisted(() => ({ dock: vi.fn(async () => {}), ready: vi.fn(async () => {}), request: vi.fn(async () => ({})), handler: null as null | ((value: any) => void) }));
+const initialization = vi.hoisted(() => ({ run: vi.fn(async () => {}), pending: new Error("Fixture native initialization pending") }));
+vi.mock("./clusterResume", () => ({ initializeNativeClusterResume: initialization.run,
+  clusterInitializationPending: (cause: unknown) => cause === initialization.pending }));
 vi.mock("./DetachedClusterBridge", async original => ({ ...await original<typeof import("./DetachedClusterBridge")>(), dockDetachedWorkspace: bridge.dock,
   announceDetachedClusterReady: bridge.ready, requestViaSession: bridge.request, onClusterProjection: vi.fn(async handler => { bridge.handler = handler; return () => { bridge.handler = null; }; }) }));
 
-afterEach(() => { cleanup(); localStorage.clear(); });
+beforeEach(() => { initialization.run.mockReset().mockResolvedValue(undefined); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.useRealTimers(); });
 
 describe("passive docked DX Cluster presentation", () => {
+  it("keeps native startup contention pending and retries initialization without replaying a command", async () => {
+    vi.useFakeTimers();
+    initialization.run.mockRejectedValueOnce(initialization.pending);
+    bridge.request.mockClear();
+    render(<DetachedClusterSurface />);
+    await act(async () => {});
+    expect(initialization.run).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("alert")).toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+    expect(initialization.run).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(bridge.request).not.toHaveBeenCalled();
+  });
+  it("does not retry a real initialization failure and cancels pending retries on close", async () => {
+    vi.useFakeTimers();
+    initialization.run.mockRejectedValueOnce(new Error("Migration failed"));
+    const first = render(<DetachedClusterSurface />);
+    await act(async () => {});
+    expect(screen.getByRole("alert").textContent).toContain("Migration failed");
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_000); });
+    expect(initialization.run).toHaveBeenCalledOnce();
+    first.unmount();
+    initialization.run.mockClear().mockRejectedValueOnce(initialization.pending);
+    const second = render(<DetachedClusterSurface />);
+    await act(async () => {});
+    second.unmount();
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_000); });
+    expect(initialization.run).toHaveBeenCalledOnce();
+  });
+
   it("starts with cluster task controls while waiting for the native session", async () => {
     bridge.dock.mockClear(); bridge.ready.mockClear(); bridge.request.mockClear();
     const { container } = render(<DetachedClusterSurface />);
