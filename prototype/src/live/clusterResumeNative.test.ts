@@ -4,7 +4,7 @@ const bridge = vi.hoisted(() => ({ native: true, acceptance: false, request: vi.
 vi.mock("@tauri-apps/api/core", () => ({ isTauri: () => bridge.native }));
 vi.mock("../worker", () => ({ workerRequest: bridge.request }));
 vi.mock("../acceptance", () => ({ get acceptanceActive() { return bridge.acceptance; } }));
-import { clusterSessionIntentKey, initializeNativeClusterResume } from "./clusterResume";
+import { clusterInitializationPending, clusterSessionIntentKey, initializeNativeClusterResume } from "./clusterResume";
 
 beforeEach(() => {
   bridge.native = true;
@@ -37,6 +37,7 @@ it("bounds native busy retries and never guesses a legacy reconnect intent after
     await vi.advanceTimersByTimeAsync(200);
     expect(await completed).toBeInstanceOf(Error);
     expect((await completed).message).toContain("still busy");
+    expect(clusterInitializationPending(await completed)).toBe(true);
     expect(bridge.request).toHaveBeenCalledTimes(3);
     expect(read).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(10_000);
@@ -65,6 +66,7 @@ it.each([
 ])("does not retry worker errors or uncertain native failures: %s", async cause => {
   bridge.request.mockRejectedValue(cause);
   await expect(initializeNativeClusterResume()).rejects.toThrow(cause instanceof Error ? cause.message : cause);
+  expect(clusterInitializationPending(cause)).toBe(false);
   expect(bridge.request).toHaveBeenCalledOnce();
 });
 it.each([null, "connected", "disconnected"])("imports legacy %s only through the native initialization operation", async intent => {

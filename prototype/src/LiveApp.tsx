@@ -21,7 +21,7 @@ import { workerRequest, openMonitor, openDetachedMap, detachedMapKind,
 import WorldMap from "./Map";
 import type { Spot } from "./model";
 import { ClusterPanel } from "./live/ClusterPanel";
-import { clusterSessionIntentKey, initializeNativeClusterResume, nativeClusterSession, shouldResumeCluster } from "./live/clusterResume";
+import { clusterInitializationPending, clusterSessionIntentKey, initializeNativeClusterResume, nativeClusterSession, shouldResumeCluster } from "./live/clusterResume";
 import OpportunitiesPanel, { type Opportunity } from "./live/OpportunitiesPanel";
 import { SpotHistoryPanel } from "./live/SpotHistoryPanel";
 import { CWDecodePanel } from "./live/CWDecodePanel";
@@ -1056,7 +1056,7 @@ function MainLiveApp() {
       }
       catch (cause) {
         // Keep last spots, but do not silently discard a failed legacy migration.
-        if (!disposed && nativeClusterSession() && !clusterResumeChecked.current) {
+        if (!disposed && nativeClusterSession() && !clusterResumeChecked.current && !clusterInitializationPending(cause)) {
           const warning = cause instanceof Error ? cause.message : "Cluster restart preference could not be initialized.";
           clusterResumeWarning.current = warning;
           setError(warning);

@@ -9,6 +9,10 @@ export const nativeClusterSession = () => isTauri();
 // This exact native rejection happens before the worker transport is called.
 // Never retry a worker error, lost reply, or an explicit Connect/Disconnect.
 const nativeClusterBusy = "Cluster session is busy. Wait for the current action to finish.";
+class ClusterInitializationPending extends Error {}
+export function clusterInitializationPending(cause: unknown): boolean {
+  return cause instanceof ClusterInitializationPending;
+}
 const initializationRetryDelays = [50, 150];
 async function requestInitialization(params: Record<string, unknown>) {
   for (let attempt = 0; ; attempt++) {
@@ -16,7 +20,7 @@ async function requestInitialization(params: Record<string, unknown>) {
     catch (cause) {
       if (cause !== nativeClusterBusy || attempt >= initializationRetryDelays.length) {
         if (cause === nativeClusterBusy)
-          throw new Error("Cluster restart preference check is still busy. It will retry automatically.");
+          throw new ClusterInitializationPending("Cluster restart preference check is still busy. It will retry automatically.");
         throw cause instanceof Error ? cause : new Error(typeof cause === "string" ? cause : "Cluster restart preference could not be initialized.");
       }
       await new Promise(resolve => setTimeout(resolve, initializationRetryDelays[attempt]));
