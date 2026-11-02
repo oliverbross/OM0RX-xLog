@@ -219,6 +219,13 @@ public enum IntegrationWorkspaceBootstrap {
         guard sqlite3_exec(handle, "PRAGMA query_only=ON", nil, nil, nil) == SQLITE_OK else {
             throw IntegrationWorkspaceError.sqlite(String(cString: sqlite3_errmsg(handle)))
         }
+        // Full index validation repeatedly visits contact pages in large logs.
+        // The default ~2 MiB cache thrashes here. This connection may use up to
+        // 128 MiB while inspecting, then releases it on close; small logs only
+        // allocate the pages they need. Keep the complete integrity check.
+        guard sqlite3_exec(handle, "PRAGMA cache_size=-131072", nil, nil, nil) == SQLITE_OK else {
+            throw IntegrationWorkspaceError.sqlite(String(cString: sqlite3_errmsg(handle)))
+        }
         guard try scalarText("PRAGMA integrity_check", on: handle) == "ok" else {
             throw IntegrationWorkspaceError.invalidSnapshot("SQLite integrity_check did not return ok")
         }
