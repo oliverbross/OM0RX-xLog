@@ -37,6 +37,6 @@ Run the opt-in diagnostic with `XLOG_PORTABLE_ONLY=1 XLOG_PERF_SNAPSHOT=/path/to
 - Native read/owner, sync identity and private performance cohort: 56 XCTest and 80 Swift Testing tests reported passed. The initial compile used a temporary focused test-source list; the normal manifest was restored afterward.
 - Cluster classification/session/transport cohort: 38 XCTest tests passed.
 - Final contact/startup/restore/shutdown cohort: 40 Swift Testing tests passed; the separate opt-in generated timing case was skipped.
-- Production frontend build, TypeScript and window-bundle checks passed before the final detached-window adjustment; packaging must rerun those checks for the exact release source.
+- Production frontend build, TypeScript and window-bundle checks passed again during packaging of the exact 1.4.6 release source.
 
-These cohorts overlap and must not be added into a unique total. Installed application and signed-package acceptance will be recorded separately. Hardware, RF quality and provider-account coverage are outside this local performance qualification.
+These cohorts overlap and must not be added into a unique total. Signed-package and installed acceptance are recorded in [installed-1.4.6.md](installed-1.4.6.md). Hardware, RF quality and provider-account coverage are outside this local performance qualification.
