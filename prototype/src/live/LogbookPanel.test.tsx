@@ -21,6 +21,37 @@ const page = (qsos: object[] = [first, second]) => ({ qsos, total: qsos.length, 
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe("logbook read recovery", () => {
+  it.each([false, true])("paints a saved leading contact before later refresh frames finish (failure: %s)", async fail => {
+    let refreshing = false;
+    let finish!: () => void;
+    const gate = new Promise<void>(resolve => { finish = resolve; });
+    const old = Array.from({ length: 40 }, (_, index) => ({ ...first, id: `old-${index}`, call: `OLD${index}` }));
+    const saved = { ...first, id: "saved", call: "NEWSAVE" };
+    const request = vi.fn(async (_method: string, params?: Record<string, unknown>) => {
+      const offset = Number(params?.offset ?? 0), limit = Number(params?.limit ?? 20);
+      if (refreshing && offset > 0) { await gate; if (fail) throw new Error("Refresh failed"); }
+      const values = refreshing ? [saved, ...old] : old;
+      return { total: values.length, offset, limit, qsos: values.slice(offset, offset + limit) };
+    });
+    const mutations = new LogbookMutationSession(request, () => {}), edit = vi.fn();
+    const view = render(<LogbookPanel mutations={mutations} onRequest={request} onEdit={edit} refreshKey={0} />);
+    await screen.findByText("OLD39");
+    refreshing = true;
+    view.rerender(<LogbookPanel mutations={mutations} onRequest={request} onEdit={edit} refreshKey={1} />);
+    await screen.findByText("NEWSAVE");
+    expect(screen.getByText("OLD25")).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Logbook contacts, scroll for more columns" }).getAttribute("aria-busy")).toBe("true");
+    fireEvent.click(screen.getByText("NEWSAVE"));
+    expect(edit).not.toHaveBeenCalled();
+    await act(async () => { finish(); });
+    await waitFor(() => expect(screen.getByRole("region", { name: "Logbook contacts, scroll for more columns" }).getAttribute("aria-busy")).toBe("false"));
+    if (fail) {
+      expect(screen.queryByText("NEWSAVE")).toBeNull();
+      expect(screen.getByText("OLD39")).toBeTruthy();
+      expect(screen.getByText(/Refresh unavailable/)).toBeTruthy();
+    } else expect(screen.getByText("NEWSAVE")).toBeTruthy();
+  }, 15_000);
+
   it("automatically recovers a compact startup read without showing an empty logbook", async () => {
     vi.useFakeTimers();
     let attempts = 0;

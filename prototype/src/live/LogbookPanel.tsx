@@ -221,7 +221,16 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
     setLoading(true);
     setError("");
     const load = () => retryStartupRead(() => readPage(offset, search, first => {
-      if (!cancelled && (!sameQuery || !page) && offset < first.total) { setPage(first); setReadStale(false); }
+      if (!cancelled && offset < first.total) {
+        // Paint the refreshed leading rows immediately after Save, rather than
+        // waiting for every later frame. Retain lower rows/selection while busy;
+        // mutations stay disabled until the complete page has been verified.
+        const fresh = new Set(first.qsos.map(qso => qso.id));
+        setPage(current => sameQuery && current ? { ...first,
+          qsos: [...first.qsos, ...current.qsos.filter(qso => !fresh.has(qso.id))].slice(0, pageSize),
+        } : first);
+        setReadStale(false);
+      }
     }), () => !cancelled)
       .then((response) => {
         if (!cancelled) {
@@ -239,7 +248,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
         // A passive refresh may retain its page. A changed query must
         // never pass earlier rows off as its results after retries are exhausted.
         if (!sameQuery || !page) setError(startupReadFailureMessage(cause, "The logbook"));
-        else setReadStale(true);
+        else { setPage(page); setReadStale(true); }
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     void load();
