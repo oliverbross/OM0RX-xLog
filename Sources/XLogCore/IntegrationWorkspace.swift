@@ -229,6 +229,12 @@ public enum IntegrationWorkspaceBootstrap {
         guard try scalarText("PRAGMA integrity_check", on: handle) == "ok" else {
             throw IntegrationWorkspaceError.invalidSnapshot("SQLite integrity_check did not return ok")
         }
+        // The compact read projection replaces JSON expression indexes. Retain
+        // explicit validation of every source payload instead of relying on
+        // those indexes to incidentally reject malformed JSON during inspection.
+        guard try scalarInt("SELECT COUNT(*) FROM qsos WHERE NOT json_valid(record_json)", on: handle) == 0 else {
+            throw IntegrationWorkspaceError.invalidSnapshot("A contact payload is not valid JSON")
+        }
         let qsos = try scalarInt("SELECT COUNT(*) FROM qsos", on: handle)
         let pending = try scalarInt("SELECT COUNT(*) FROM qsos WHERE is_dirty = 1", on: handle)
         let outbox = try scalarInt("SELECT COUNT(*) FROM sync_outbox", on: handle)

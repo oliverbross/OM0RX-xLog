@@ -2496,15 +2496,15 @@ public final class LogbookDatabase: @unchecked Sendable {
             }
             let revision = try qsoRevision()
             let rows = try withStatement("""
-                SELECT json_extract(record_json,'$.call'),
-                    json_extract(record_json,'$.band'),
-                    json_extract(record_json,'$.mode'),
-                    json_extract(record_json,'$.start'),
-                    json_extract(record_json,'$.submode'),
-                    json_extract(record_json,'$.dxcc'),
-                    json_extract(record_json,'$.qslReceived'),
-                    json_extract(record_json,'$.lotwReceived')
-                FROM qsos WHERE deleted_at IS NULL ORDER BY qso_start DESC;
+                SELECT json_call,
+                    json_band,
+                    json_mode,
+                    json_start,
+                    json_submode,
+                    json_dxcc,
+                    json_qsl,
+                    json_lotw
+                FROM xlog_qso_read_projection WHERE deleted_at IS NULL ORDER BY qso_start DESC;
                 """) { statement -> [ClusterContactRow] in
                 func requiredString(_ column: Int32) throws -> String {
                     guard sqlite3_column_type(statement, column) == SQLITE_TEXT,
@@ -2650,11 +2650,11 @@ public final class LogbookDatabase: @unchecked Sendable {
                     WITH candidates AS (
                         \(Self.normalLogCallCandidates)
                         UNION
-                        SELECT local_id FROM qsos INDEXED BY idx_qsos_dxcc_live
-                        WHERE deleted_at IS NULL AND CAST(json_extract(record_json,'$.dxcc') AS INTEGER) = ?
+                        SELECT local_id FROM xlog_qso_read_projection INDEXED BY idx_qso_read_dxcc_live
+                        WHERE deleted_at IS NULL AND dxcc_int = ?
                         UNION
-                        SELECT local_id FROM qsos INDEXED BY idx_qsos_dxcc_live
-                        WHERE deleted_at IS NULL AND CAST(json_extract(record_json,'$.dxcc') AS INTEGER) IS NULL
+                        SELECT local_id FROM xlog_qso_read_projection INDEXED BY idx_qso_read_dxcc_live
+                        WHERE deleted_at IS NULL AND dxcc_int IS NULL
                     )
                     SELECT \(projection) FROM candidates JOIN qsos USING(local_id)
                     ORDER BY qsos.qso_start DESC;
@@ -2999,10 +2999,10 @@ public final class LogbookDatabase: @unchecked Sendable {
             }
             let revision = try qsoRevision()
             let value: LogbookStats = try withStatement("""
-                SELECT COUNT(*), COUNT(DISTINCT CASE WHEN json_extract(record_json,'$.dxcc') IS NOT NULL THEN json_extract(record_json,'$.dxcc') END),
-                SUM(CASE WHEN json_extract(record_json,'$.qslReceived') IN ('Y','V') OR json_extract(record_json,'$.lotwReceived') IN ('Y','V') THEN 1 ELSE 0 END),
+                SELECT COUNT(*), COUNT(DISTINCT CASE WHEN json_dxcc IS NOT NULL THEN json_dxcc END),
+                SUM(CASE WHEN json_qsl IN ('Y','V') OR json_lotw IN ('Y','V') THEN 1 ELSE 0 END),
                 SUM(CASE WHEN qso_start >= ? THEN 1 ELSE 0 END)
-                FROM qsos INDEXED BY idx_qsos_metrics_live WHERE deleted_at IS NULL;
+                FROM xlog_qso_read_projection WHERE deleted_at IS NULL;
                 """) { statement in
                     sqlite3_bind_double(statement, 1, yearStart)
                     guard sqlite3_step(statement) == SQLITE_ROW else { throw error() }
@@ -3149,22 +3149,22 @@ public final class LogbookDatabase: @unchecked Sendable {
                 return value
             }
             let revision = try qsoRevision()
-            let confirmed = "(UPPER(COALESCE(json_extract(record_json,'$.qslReceived'),'')) IN ('Y','V') OR UPPER(COALESCE(json_extract(record_json,'$.lotwReceived'),'')) IN ('Y','V'))"
-            let effectiveMode = "UPPER(COALESCE(NULLIF(json_extract(record_json,'$.submode'),''), mode))"
+            let confirmed = "(UPPER(COALESCE(json_qsl,'')) IN ('Y','V') OR UPPER(COALESCE(json_lotw,'')) IN ('Y','V'))"
+            let effectiveMode = "UPPER(COALESCE(NULLIF(json_submode,''), mode))"
             let modeGroup = "CASE WHEN \(effectiveMode) = 'CW' THEN 'CW' WHEN \(effectiveMode) IN ('SSB','USB','LSB','AM','FM') THEN 'Phone' ELSE 'Digital' END"
             let validStates = Set("AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY".split(separator: " ").map(String.init))
             // One row projection replaces ten distinct aggregates plus four
             // independent scans. It never materializes or decodes QSO JSON.
             let value = try withStatement("""
-                SELECT \(confirmed), CAST(json_extract(record_json,'$.dxcc') AS INTEGER),
-                    CAST(json_extract(record_json,'$.cqZone') AS INTEGER),
-                    UPPER(TRIM(COALESCE(json_extract(record_json,'$.state'),''))),
-                    CASE WHEN LENGTH(TRIM(COALESCE(json_extract(record_json,'$.gridSquare'),''))) >= 4
-                        THEN UPPER(SUBSTR(TRIM(json_extract(record_json,'$.gridSquare')),1,4)) END,
+                SELECT \(confirmed), CAST(json_dxcc AS INTEGER),
+                    CAST(json_cq_zone AS INTEGER),
+                    UPPER(TRIM(COALESCE(json_state,''))),
+                    CASE WHEN LENGTH(TRIM(COALESCE(json_grid,''))) >= 4
+                        THEN UPPER(SUBSTR(TRIM(json_grid),1,4)) END,
                     \(modeGroup), COALESCE(NULLIF(LOWER(band),''),'Unknown'),
-                    COALESCE(NULLIF(UPPER(TRIM(json_extract(record_json,'$.continent'))),''),'Unknown'),
+                    COALESCE(NULLIF(UPPER(TRIM(json_continent)),''),'Unknown'),
                     STRFTIME('%Y', qso_start, 'unixepoch')
-                FROM qsos INDEXED BY idx_qsos_metrics_live WHERE deleted_at IS NULL;
+                FROM xlog_qso_read_projection WHERE deleted_at IS NULL;
                 """) { statement -> AwardProgressSnapshot in
                 func string(_ column: Int32) -> String? {
                     sqlite3_column_text(statement, column).map { String(cString: $0) }
@@ -3236,12 +3236,12 @@ public final class LogbookDatabase: @unchecked Sendable {
             }
             let revision = try qsoRevision()
             let value = try withStatement("""
-                SELECT CAST(json_extract(record_json,'$.dxcc') AS INTEGER),
-                    MAX(CASE WHEN UPPER(COALESCE(json_extract(record_json,'$.qslReceived'),'')) IN ('Y','V')
-                        OR UPPER(COALESCE(json_extract(record_json,'$.lotwReceived'),'')) IN ('Y','V') THEN 1 ELSE 0 END)
-                FROM qsos INDEXED BY idx_qsos_metrics_live
-                WHERE deleted_at IS NULL AND CAST(json_extract(record_json,'$.dxcc') AS INTEGER) > 0
-                GROUP BY CAST(json_extract(record_json,'$.dxcc') AS INTEGER);
+                SELECT CAST(json_dxcc AS INTEGER),
+                    MAX(CASE WHEN UPPER(COALESCE(json_qsl,'')) IN ('Y','V')
+                        OR UPPER(COALESCE(json_lotw,'')) IN ('Y','V') THEN 1 ELSE 0 END)
+                FROM xlog_qso_read_projection
+                WHERE deleted_at IS NULL AND CAST(json_dxcc AS INTEGER) > 0
+                GROUP BY CAST(json_dxcc AS INTEGER);
                 """) { statement in
                     var result: [Int: String] = [:]
                     var step = sqlite3_step(statement)
@@ -3295,8 +3295,9 @@ public final class LogbookDatabase: @unchecked Sendable {
         // rowid also makes the callsign arm covering instead of seeking the table.
         return """
             WITH candidates AS (
-                SELECT rowid AS candidate_rowid FROM qsos
-                WHERE deleted_at IS NULL AND CAST(json_extract(record_json,'$.dxcc') AS INTEGER) IN (\(entities))
+                SELECT qsos.rowid AS candidate_rowid
+                FROM xlog_qso_read_projection CROSS JOIN qsos USING(local_id)
+                WHERE xlog_qso_read_projection.deleted_at IS NULL AND dxcc_int IN (\(entities))
                 UNION
                 SELECT rowid AS candidate_rowid FROM qsos INDEXED BY idx_qsos_call
                 WHERE INSTR(call,'/') > 0 OR UPPER(TRIM(call)) IN (\(placeholders))
@@ -3355,25 +3356,25 @@ public final class LogbookDatabase: @unchecked Sendable {
             struct BandModeKey: Hashable { let band: String; let mode: String }
             struct Tally { var worked = 0; var confirmed = 0; var cells: [BandModeKey: (Int, Int)] = [:] }
             let values = try withStatement("""
-                SELECT json_extract(record_json,'$.potaReference'),
-                    json_extract(record_json,'$.sotaReference'),
-                    json_extract(record_json,'$.iota'),
-                    json_extract(record_json,'$.wwffReference'),
-                    json_extract(record_json,'$.sig'),
-                    json_extract(record_json,'$.sigInfo'),
-                    json_extract(record_json,'$.band'),
-                    COALESCE(NULLIF(json_extract(record_json,'$.submode'),''),
-                             json_extract(record_json,'$.mode')),
-                    (UPPER(COALESCE(json_extract(record_json,'$.qslReceived'),'')) IN ('Y','V')
-                     OR UPPER(COALESCE(json_extract(record_json,'$.lotwReceived'),'')) IN ('Y','V'))
-                FROM qsos INDEXED BY idx_qsos_opportunity_refs_live
+                SELECT json_pota,
+                    json_sota,
+                    json_iota,
+                    json_wwff,
+                    json_sig,
+                    json_sig_info,
+                    json_band,
+                    COALESCE(NULLIF(json_submode,''),
+                             json_mode),
+                    (UPPER(COALESCE(json_qsl,'')) IN ('Y','V')
+                     OR UPPER(COALESCE(json_lotw,'')) IN ('Y','V'))
+                FROM xlog_qso_read_projection INDEXED BY idx_qso_read_refs_live
                 WHERE deleted_at IS NULL AND (
-                    COALESCE(json_extract(record_json,'$.potaReference'),'') <> '' OR
-                    COALESCE(json_extract(record_json,'$.sotaReference'),'') <> '' OR
-                    COALESCE(json_extract(record_json,'$.iota'),'') <> '' OR
-                    COALESCE(json_extract(record_json,'$.wwffReference'),'') <> '' OR
-                    (UPPER(COALESCE(json_extract(record_json,'$.sig'),'')) IN ('WCA','COTA','CASTLE') AND
-                     COALESCE(json_extract(record_json,'$.sigInfo'),'') <> '')
+                    COALESCE(json_pota,'') <> '' OR
+                    COALESCE(json_sota,'') <> '' OR
+                    COALESCE(json_iota,'') <> '' OR
+                    COALESCE(json_wwff,'') <> '' OR
+                    (UPPER(COALESCE(json_sig,'')) IN ('WCA','COTA','CASTLE') AND
+                     COALESCE(json_sig_info,'') <> '')
                 );
                 """) { statement -> [OpportunityReferenceHistory] in
                 func value(_ column: Int32) -> String {
@@ -3532,12 +3533,11 @@ public final class LogbookDatabase: @unchecked Sendable {
 
     public func dxccSummary(dxcc: Int) throws -> DXCCSummary {
         try withDatabaseLock {
-            let predicate = "deleted_at IS NULL AND CAST(json_extract(record_json,'$.dxcc') AS INTEGER) = ?"
+            let predicate = "xlog_qso_read_projection.deleted_at IS NULL AND dxcc_int = ?"
             let counts = try withStatement("""
                 SELECT COUNT(*),
-                SUM(CASE WHEN json_extract(record_json,'$.qslReceived') IN ('Y','V')
-                    OR json_extract(record_json,'$.lotwReceived') IN ('Y','V') THEN 1 ELSE 0 END)
-                FROM qsos WHERE \(predicate);
+                SUM(CASE WHEN json_qsl IN ('Y','V') OR json_lotw IN ('Y','V') THEN 1 ELSE 0 END)
+                FROM xlog_qso_read_projection WHERE \(predicate);
                 """) { statement -> (Int, Int) in
                     sqlite3_bind_int(statement, 1, Int32(dxcc))
                     guard sqlite3_step(statement) == SQLITE_ROW else { return (0, 0) }
@@ -3546,11 +3546,10 @@ public final class LogbookDatabase: @unchecked Sendable {
 
             let matrix = try withStatement("""
                 SELECT band,
-                    COALESCE(NULLIF(json_extract(record_json,'$.submode'),''), mode),
-                    MAX(CASE WHEN json_extract(record_json,'$.qslReceived') IN ('Y','V')
-                        OR json_extract(record_json,'$.lotwReceived') IN ('Y','V') THEN 1 ELSE 0 END)
-                FROM qsos WHERE \(predicate)
-                GROUP BY band, COALESCE(NULLIF(json_extract(record_json,'$.submode'),''), mode);
+                    COALESCE(NULLIF(json_submode,''), mode),
+                    MAX(CASE WHEN json_qsl IN ('Y','V') OR json_lotw IN ('Y','V') THEN 1 ELSE 0 END)
+                FROM xlog_qso_read_projection WHERE \(predicate)
+                GROUP BY band, COALESCE(NULLIF(json_submode,''), mode);
                 """) { statement -> Set<BandModeCell> in
                     sqlite3_bind_int(statement, 1, Int32(dxcc))
                     var cells: Set<BandModeCell> = []
@@ -3562,7 +3561,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                     return cells
                 }
 
-            let latest = try withStatement("SELECT record_json FROM qsos WHERE \(predicate) ORDER BY qso_start DESC LIMIT 1;") { statement -> QSO? in
+            let latest = try withStatement("SELECT record_json FROM xlog_qso_read_projection JOIN qsos USING(local_id) WHERE \(predicate) ORDER BY xlog_qso_read_projection.qso_start DESC LIMIT 1;") { statement -> QSO? in
                 sqlite3_bind_int(statement, 1, Int32(dxcc))
                 return try decodeRows(statement).first
             }
@@ -4233,32 +4232,7 @@ public final class LogbookDatabase: @unchecked Sendable {
           ON qsos(call COLLATE NOCASE, qso_start DESC) WHERE deleted_at IS NULL;
         CREATE INDEX IF NOT EXISTS idx_qsos_semantic
           ON qsos(call COLLATE NOCASE, band COLLATE NOCASE, mode COLLATE NOCASE, qso_start);
-        -- Keep the exact source JSON values in a covering read index. SQLite
-        -- maintains these derived values for all writers; no QSO is rewritten.
-        CREATE INDEX IF NOT EXISTS idx_qsos_metrics_live ON qsos(
-          CAST(json_extract(record_json,'$.dxcc') AS INTEGER),
-          json_extract(record_json,'$.dxcc'), json_extract(record_json,'$.cqZone'),
-          json_extract(record_json,'$.state'), json_extract(record_json,'$.gridSquare'),
-          json_extract(record_json,'$.submode'), json_extract(record_json,'$.qslReceived'),
-          json_extract(record_json,'$.lotwReceived'), json_extract(record_json,'$.continent'),
-          band, mode, qso_start
-        ) WHERE deleted_at IS NULL;
         CREATE INDEX IF NOT EXISTS idx_qsos_start ON qsos(qso_start DESC);
-        CREATE INDEX IF NOT EXISTS idx_qsos_dxcc_live
-          ON qsos(CAST(json_extract(record_json,'$.dxcc') AS INTEGER), qso_start DESC)
-          WHERE deleted_at IS NULL;
-        -- Chaser history needs only QSOs carrying an award reference. Keeping
-        -- this as a partial index avoids parsing every ordinary contact after
-        -- a logbook change while record_json remains authoritative.
-        CREATE INDEX IF NOT EXISTS idx_qsos_opportunity_refs_live ON qsos(local_id)
-          WHERE deleted_at IS NULL AND (
-            COALESCE(json_extract(record_json,'$.potaReference'),'') <> '' OR
-            COALESCE(json_extract(record_json,'$.sotaReference'),'') <> '' OR
-            COALESCE(json_extract(record_json,'$.iota'),'') <> '' OR
-            COALESCE(json_extract(record_json,'$.wwffReference'),'') <> '' OR
-            (UPPER(COALESCE(json_extract(record_json,'$.sig'),'')) IN ('WCA','COTA','CASTLE') AND
-             COALESCE(json_extract(record_json,'$.sigInfo'),'') <> '')
-          );
         CREATE INDEX IF NOT EXISTS idx_qsos_dirty ON qsos(is_dirty, updated_at);
         CREATE TABLE IF NOT EXISTS xlog_qso_revision(
           singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
@@ -4428,6 +4402,108 @@ public final class LogbookDatabase: @unchecked Sendable {
           ON xlog_online_log_candidates(service,enrolled_at,local_id);
         """)
         try? execute("ALTER TABLE qsos ADD COLUMN baseline_json BLOB;")
+        try migrateReadProjection()
+    }
+
+    /// A compact, SQLite-maintained equivalent of the old JSON expression
+    /// indexes. Integrity checking those indexes reparsed every large contact
+    /// many times. Untyped JSON columns preserve NULL/text/integer semantics;
+    /// record_json remains authoritative and is never rewritten by migration.
+    private func migrateReadProjection() throws {
+        let jsonFields = [
+            ("dxcc", "json_dxcc"), ("cqZone", "json_cq_zone"),
+            ("state", "json_state"), ("gridSquare", "json_grid"),
+            ("submode", "json_submode"), ("qslReceived", "json_qsl"),
+            ("lotwReceived", "json_lotw"), ("continent", "json_continent"),
+            ("potaReference", "json_pota"), ("sotaReference", "json_sota"),
+            ("iota", "json_iota"), ("wwffReference", "json_wwff"),
+            ("sig", "json_sig"), ("sigInfo", "json_sig_info"),
+            ("band", "json_band"), ("mode", "json_mode"),
+            ("call", "json_call"), ("start", "json_start")
+        ]
+        let columns = "local_id,qso_start,band,mode,deleted_at,dxcc_int," + jsonFields.map { $0.1 }.joined(separator: ",")
+        func projection(_ prefix: String) -> String {
+            ["local_id", "qso_start", "band", "mode", "deleted_at"].map { prefix + $0 }.joined(separator: ",")
+                + ",CAST(json_extract(\(prefix)record_json,'$.dxcc') AS INTEGER),"
+                + jsonFields.map { "json_extract(\(prefix)record_json,'$.\($0.0)')" }.joined(separator: ",")
+        }
+        let table = """
+            CREATE TABLE xlog_qso_read_projection(
+              local_id TEXT PRIMARY KEY, qso_start REAL, band TEXT, mode TEXT, deleted_at REAL,
+              dxcc_int INTEGER, \(jsonFields.map { $0.1 }.joined(separator: ","))
+            ) WITHOUT ROWID
+            """
+        let definitions: [(String, String)] = [
+            ("xlog_qso_read_projection", table),
+            ("idx_qso_read_start_live", "CREATE INDEX idx_qso_read_start_live ON xlog_qso_read_projection(qso_start DESC) WHERE deleted_at IS NULL"),
+            ("idx_qso_read_dxcc_live", "CREATE INDEX idx_qso_read_dxcc_live ON xlog_qso_read_projection(dxcc_int,qso_start DESC) WHERE deleted_at IS NULL"),
+            ("idx_qso_read_refs_live", """
+                CREATE INDEX idx_qso_read_refs_live ON xlog_qso_read_projection(local_id)
+                WHERE deleted_at IS NULL AND (
+                    COALESCE(json_pota,'') <> '' OR COALESCE(json_sota,'') <> '' OR
+                    COALESCE(json_iota,'') <> '' OR COALESCE(json_wwff,'') <> '' OR
+                    (UPPER(COALESCE(json_sig,'')) IN ('WCA','COTA','CASTLE') AND COALESCE(json_sig_info,'') <> '')
+                )
+                """),
+            ("xlog_qso_read_insert", """
+                CREATE TRIGGER xlog_qso_read_insert AFTER INSERT ON qsos BEGIN
+                    INSERT OR REPLACE INTO xlog_qso_read_projection(\(columns)) SELECT \(projection("NEW."));
+                END
+                """),
+            ("xlog_qso_read_update", """
+                CREATE TRIGGER xlog_qso_read_update AFTER UPDATE OF local_id,qso_start,band,mode,deleted_at,record_json ON qsos BEGIN
+                    DELETE FROM xlog_qso_read_projection WHERE local_id = OLD.local_id;
+                    INSERT OR REPLACE INTO xlog_qso_read_projection(\(columns)) SELECT \(projection("NEW."));
+                END
+                """),
+            ("xlog_qso_read_delete", """
+                CREATE TRIGGER xlog_qso_read_delete AFTER DELETE ON qsos BEGIN
+                    DELETE FROM xlog_qso_read_projection WHERE local_id = OLD.local_id;
+                END
+                """)
+        ]
+        // Check complete definitions, not just a version flag: an interrupted
+        // upgrade or a missing trigger must rebuild from the authoritative rows.
+        // SQLite serializes this migration with every ordinary contact writer.
+        try execute("BEGIN IMMEDIATE;")
+        do {
+            var complete = true
+            for (name, definition) in definitions {
+                let matches = try withStatement("SELECT sql FROM sqlite_master WHERE name = ?;") { statement in
+                    bind(name, to: 1, in: statement)
+                    guard sqlite3_step(statement) == SQLITE_ROW,
+                          let text = sqlite3_column_text(statement, 0) else { return false }
+                    return String(cString: text) == definition
+                }
+                if !matches { complete = false; break }
+            }
+            if complete {
+                complete = try withStatement("SELECT (SELECT COUNT(*) FROM xlog_qso_read_projection) = (SELECT COUNT(*) FROM qsos);") {
+                    guard sqlite3_step($0) == SQLITE_ROW else { throw error() }
+                    return sqlite3_column_int($0, 0) == 1
+                }
+            }
+            if !complete {
+                for name in ["xlog_qso_read_insert", "xlog_qso_read_update", "xlog_qso_read_delete"] {
+                    try execute("DROP TRIGGER IF EXISTS \(name);")
+                }
+                try execute("DROP TABLE IF EXISTS xlog_qso_read_projection;")
+                try execute(table)
+                try execute("INSERT INTO xlog_qso_read_projection(\(columns)) SELECT \(projection("")) FROM qsos;")
+                for (_, definition) in definitions.dropFirst() { try execute(definition) }
+            }
+            // Older versions may recreate their own indexes during rollback.
+            // Their ordinary SQL writes still run the compatible triggers above.
+            try execute("""
+                DROP INDEX IF EXISTS idx_qsos_metrics_live;
+                DROP INDEX IF EXISTS idx_qsos_dxcc_live;
+                DROP INDEX IF EXISTS idx_qsos_opportunity_refs_live;
+                """)
+            try execute("COMMIT;")
+        } catch {
+            try? execute("ROLLBACK;")
+            throw error
+        }
     }
 
     private func recordConflict(local: QSO, remote: QSO) throws {

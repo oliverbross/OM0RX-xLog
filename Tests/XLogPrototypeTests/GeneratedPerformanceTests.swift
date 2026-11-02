@@ -82,7 +82,7 @@ struct GeneratedPerformanceTests {
         }
         print("GENERATED_CONTACT_PERFORMANCE qso_count=100000 read_samples=100 read_p95_ms=\(p95(contactReadTimes)) edit_samples=25 edit_p95_ms=\(p95(contactEditTimes))")
         // Simulate the first launch of an existing log that predates the derived
-        // index, only in this generated database. Include the migration cost.
+        // read projection, only in this generated database. Include migration.
         let firstBeforeMigration = try db.fetch(limit: 1)
         db.close()
         var handle: OpaquePointer?
@@ -97,7 +97,12 @@ struct GeneratedPerformanceTests {
         }
         let freeBefore = try scalar("PRAGMA freelist_count;")
         let pageSize = try scalar("PRAGMA page_size;")
-        #expect(sqlite3_exec(handle, "DROP INDEX idx_qsos_metrics_live;", nil, nil, nil) == SQLITE_OK)
+        #expect(sqlite3_exec(handle, """
+            DROP TRIGGER xlog_qso_read_insert;
+            DROP TRIGGER xlog_qso_read_update;
+            DROP TRIGGER xlog_qso_read_delete;
+            DROP TABLE xlog_qso_read_projection;
+            """, nil, nil, nil) == SQLITE_OK)
         let indexBytes = try (scalar("PRAGMA freelist_count;") - freeBefore) * pageSize
         sqlite3_close(handle)
         handle = nil
@@ -109,6 +114,6 @@ struct GeneratedPerformanceTests {
             let firstAfterMigration = try reopened.fetch(limit: 1)
             #expect(firstAfterMigration == firstBeforeMigration)
         }
-        print("GENERATED_PERFORMANCE qso_count=100000 import_ms=\(importMs) list_ms=\(listMs) stats_ms=\(statsMs) progress_ms=\(progressMs) map_ms=\(mapMs) catalogue_ms=\(catalogueMs) history_ms=\(historyMs) migration_ms=\(migrationMs) metrics_index_bytes=\(indexBytes)")
+        print("GENERATED_PERFORMANCE qso_count=100000 import_ms=\(importMs) list_ms=\(listMs) stats_ms=\(statsMs) progress_ms=\(progressMs) map_ms=\(mapMs) catalogue_ms=\(catalogueMs) history_ms=\(historyMs) migration_ms=\(migrationMs) read_projection_bytes=\(indexBytes)")
     }
 }
