@@ -115,7 +115,6 @@ public actor SyncEngine {
         try Task.checkCancellation()
         var remoteIDs: Set<Int> = []
         var jsonRows: [WavelogQSO] = []
-        var jsonByIdentity: [String: [WavelogQSO]] = [:]
         var adifRows: [QSO] = []
         var adifPageEnds: [(count: Int, lastID: Int?)] = []
 
@@ -136,10 +135,6 @@ public actor SyncEngine {
         func index(_ page: WavelogQSOPage) {
             remoteIDs.formUnion(page.data.map(\.id))
             jsonRows += page.data
-            for remote in page.data {
-                guard let qso = QSO(wavelog: remote) else { continue }
-                jsonByIdentity[historyIdentity(qso), default: []].append(remote)
-            }
         }
 
         func stage(_ page: WavelogADIFPage) throws {
@@ -200,7 +195,6 @@ public actor SyncEngine {
             }
         }
 
-        let convertibleJSONCount = jsonByIdentity.values.reduce(0) { $0 + $1.count }
         let firstADIFPage = try await client.exportADIF(page: 1, perPage: 1_000)
         guard firstADIFPage.meta.page == 1,
               firstADIFPage.meta.total == baselineMeta.total,
@@ -246,6 +240,8 @@ public actor SyncEngine {
         var heldDifferencesByIdentity: [String: [String]] = [:]
         var heldValueShapesByIdentity: [String: [String]] = [:]
         var unmatchedADIFCount = 0
+        var unmatchedJSONCount = 0
+        var convertibleJSONCount = jsonRows.count
         let orderedJSON = jsonRows.sorted { $0.id < $1.id }
         let orderedPageEndsMatch = adifPageEnds.allSatisfy { boundary in
             guard boundary.count > 0 else { return boundary.lastID == nil }
@@ -257,12 +253,20 @@ public actor SyncEngine {
             // the exact remote ID even when confirmation-only ADIF fields make
             // otherwise identical contacts impossible to distinguish by value.
             remoteQSOs = joined
-            jsonByIdentity.removeAll()
         } else {
-            // The documented-order join usually succeeds. Build this fallback
-            // index only when needed, rather than hashing every ADIF identity
-            // during every complete-history sync and then discarding it.
+            // Neither identity index is needed for the documented-order join.
+            // Building the JSON side eagerly duplicates QSO conversion and
+            // hashes the entire log on every automatic sync.
+            var jsonByIdentity: [String: [WavelogQSO]] = [:]
+            jsonByIdentity.reserveCapacity(jsonRows.count)
+            for remote in jsonRows {
+                try Task.checkCancellation()
+                guard let qso = QSO(wavelog: remote) else { continue }
+                jsonByIdentity[historyIdentity(qso), default: []].append(remote)
+            }
+            convertibleJSONCount = jsonByIdentity.values.reduce(0) { $0 + $1.count }
             var adifByIdentity: [String: [QSO]] = [:]
+            adifByIdentity.reserveCapacity(adifRows.count)
             for row in adifRows {
                 try Task.checkCancellation()
                 adifByIdentity[historyIdentity(row), default: []].append(row)
@@ -294,8 +298,8 @@ public actor SyncEngine {
                     }
                 }
             }
+            unmatchedJSONCount = jsonByIdentity.values.reduce(0) { $0 + $1.count }
         }
-        let unmatchedJSONCount = jsonByIdentity.values.reduce(0) { $0 + $1.count }
         guard adifRecordCount == baselineMeta.total,
               remoteQSOs.count + heldRemoteIDs.count == convertibleJSONCount,
               unmatchedJSONCount == 0,
@@ -403,8 +407,10 @@ public actor SyncEngine {
         }
         let snapshot = try await Self.readRemoteHistory(client: client)
         let remoteQSOs = snapshot.qsos
-        let remoteByID = remoteQSOs.reduce(into: [Int: QSO]()) { result, qso in
-            if let remoteID = qso.wavelogID { result[remoteID] = qso }
+        var remoteByID: [Int: QSO] = [:]
+        remoteByID.reserveCapacity(remoteQSOs.count)
+        for qso in remoteQSOs {
+            if let remoteID = qso.wavelogID { remoteByID[remoteID] = qso }
         }
         let remoteIDs = snapshot.remoteIDs
         let protectedIDs = snapshot.heldRemoteIDs
