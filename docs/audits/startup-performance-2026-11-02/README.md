@@ -1,5 +1,8 @@
 # Remaining startup performance
 
+Installed outcome: [signed macOS 1.4.8 acceptance](installed-1.4.8.md), including
+controlled bundled-worker timings, native checks and protected installation.
+
 ## Cause and change
 
 The workspace's full `PRAGMA integrity_check` recomputed three JSON expression
