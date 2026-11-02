@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
+import { lazy, Suspense, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type FormEvent, type MouseEvent, type KeyboardEvent } from "react";
 import { Download, FileUp, Pencil, RotateCcw, Search, Trash2, Triangle, ExternalLink, PanelsTopLeft, ClipboardList } from "lucide-react";
 import "./logbook.css";
 import type { LogbookMutationSession } from "./logbookMutationSession";
@@ -11,10 +11,12 @@ import { LogbookSavedFilters } from "./LogbookSavedFilters";
 import { clusterBandColors, clusterModeColors, paletteColor } from "./clusterPalette";
 import { countryDisplay } from "./countryDisplay";
 import { retryStartupRead, startupReadFailureMessage } from "./startupReadRecovery";
+import type { LogbookMenuTarget } from "./LogbookContactMenu";
 
 const LogbookContactReview = lazy(() => import("./LogbookContactReview").then(module => ({ default: module.LogbookContactReview })));
 const CTYCorrectionPreview = lazy(() => import("./CTYCorrectionPreview").then(module => ({ default: module.CTYCorrectionPreview })));
 const OnlineLogFollowUpPanel = lazy(() => import("./OnlineLogFollowUp").then(module => ({ default: module.OnlineLogFollowUpPanel })));
+const LogbookContactMenu = lazy(() => import("./LogbookContactMenu").then(module => ({ default: module.LogbookContactMenu })));
 
 type QSO = Record<string, unknown> & {
   id: string;
@@ -134,9 +136,13 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
     mounted.current = true;
     return () => { mounted.current = false; localWorking.current = false; workingChanged.current?.(false); };
   }, []);
-  function beginWorking() {
+  function canWork() {
     const current = mutations.getSnapshot();
-    if (!mounted.current || localWorking.current || externallyDisabled.current || current.busy || current.pending || current.conflict || current.workspaceChanged) return false;
+    return mounted.current && !localWorking.current && !externallyDisabled.current &&
+      !current.busy && !current.pending && !current.conflict && !current.workspaceChanged;
+  }
+  function beginWorking() {
+    if (!canWork()) return false;
     localWorking.current = true; setBusy(true); workingChanged.current?.(true);
     return true;
   }
@@ -168,6 +174,9 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
   ];
   const [confirmDelete, setConfirmDelete] = useState<DraftSnapshot | null>(null);
   const [selectedID, setSelectedID] = useState<string | null>(null);
+  const [contactMenu, setContactMenu] = useState<LogbookMenuTarget | null>(null);
+  const closeContactMenu = useCallback(() => setContactMenu(null), []);
+  const deleteMenuOrigin = useRef<HTMLElement | null>(null);
   // Export checks are separate from the active contact used by Edit/Details/Delete.
   // They belong only to this loaded page, never to unseen search results.
   const [exportSelection, setExportSelection] = useState<string[]>([]);
@@ -192,6 +201,19 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
     cancelDelete();
     return () => { preparation.current++; };
   }, [onRequest, search, selectedID]);
+  useLayoutEffect(closeContactMenu, [closeContactMenu, compact, refreshKey, readIdentity, search, offset, pageSize, busy, loading]);
+
+  function contactActions(qso: QSO, event: MouseEvent<HTMLElement> | KeyboardEvent<HTMLElement>) {
+    if (!compact) return;
+    event.preventDefault(); event.stopPropagation();
+    if (!contactActionsReady()) return;
+    cancelDelete(); setSelectedID(qso.id);
+    setContactMenu({ id: qso.id, call: qso.call, origin: event.currentTarget.closest("tr") as HTMLElement,
+      x: "clientX" in event ? event.clientX : 0, y: "clientY" in event ? event.clientY : 0 });
+  }
+  function contactActionsReady() {
+    return !loading && canWork();
+  }
 
   async function readPage(pageOffset: number, pageSearch: string, firstReady?: (page: LogbookPage) => void) {
     const first = result<LogbookPage>(await onRequest("logbook_list", { search: pageSearch, offset: pageOffset, limit: Math.min(requestPageSize, pageSize) }));
@@ -425,7 +447,10 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
   </>;
   return (
     <section className="live-logbook" aria-label="Integrated logbook">
-      {compact ? <div className="live-logbook-compact-actions">{columnsControl}</div> : <header className={`live-logbook-head${taskToolbar ? " live-logbook-task-toolbar" : ""}`}>
+      {compact ? <div className="live-logbook-compact-actions">
+        {mutation.undo && <button type="button" onClick={() => void undoDelete()} disabled={busy}><RotateCcw size={13} /> Undo delete</button>}
+        {columnsControl}
+      </div> : <header className={`live-logbook-head${taskToolbar ? " live-logbook-task-toolbar" : ""}`}>
         {!taskToolbar && <div>
           <h2>Logbook</h2>
           <p>Local working copy · {total.toLocaleString()} contacts</p>
@@ -492,7 +517,9 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
       {deleting && <div className="live-logbook-feedback" role="group" aria-label={`Delete ${deleting.call}`}>
         <span>Delete {deleting.call} · {utcTime(deleting.start)}? You can undo this deletion.</span>
         <div><button type="button" onClick={() => confirmDelete && void deleteQSO(confirmDelete)} disabled={busy}>Confirm delete</button>
-          <button type="button" onClick={cancelDelete} disabled={busy}>Cancel</button></div>
+          <button type="button" autoFocus={compact} onClick={() => {
+            cancelDelete(); if (compact && deleteMenuOrigin.current?.isConnected) deleteMenuOrigin.current.focus();
+          }} disabled={busy}>Cancel</button></div>
       </div>}
       {!compact && details && selected && <Suspense fallback={<p role="status">Opening contact details…</p>}><LogbookContactReview key={`${selected.id}:${refreshKey}:${search}:${offset}`} contactID={selected.id} call={selected.call}
         pageContext={page} pageLoading={loading} onRequest={onRequest} renderContact={snapshot => {
@@ -529,7 +556,8 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
               onKeyDown={event => {
                 if (event.target !== event.currentTarget) return;
                 if (busy || loading) return;
-                if (event.key === "Enter") { event.preventDefault(); setSelectedID(qso.id); onEdit(qso); }
+                if (event.key === "ContextMenu" || event.shiftKey && event.key === "F10") contactActions(qso, event);
+                else if (event.key === "Enter") { event.preventDefault(); setSelectedID(qso.id); onEdit(qso); }
                 else if (event.key === " ") { event.preventDefault(); cancelDelete(); setSelectedID(qso.id); }
                 else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
                   event.preventDefault();
@@ -540,7 +568,8 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
               }}>
               {[
               <td key="utc" hidden={hidden("utc")} data-label="UTC" className="mono" title={utcTime(qso.start)}>{utcTime(qso.start)}</td>,
-              <td key="call" data-label="Callsign" className="live-logbook-call" title={qso.call}>
+              <td key="call" data-label="Callsign" className="live-logbook-call" title={qso.call}
+                onContextMenu={event => contactActions(qso, event)}>
                 {!compact && <input type="checkbox" aria-label={`Select ${qso.call} ${utcTime(qso.start)} for export`} checked={exportIDs.includes(qso.id)} disabled={busy || loading}
                   onClick={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()}
                   onChange={event => setExportSelection(current => event.target.checked ? [...current, qso.id] : current.filter(id => id !== qso.id))} />}
@@ -572,6 +601,13 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
           <button type="button" onClick={() => { cancelDelete(); setOffset(offset + pageSize); }} disabled={loading || offset + pageSize >= total}>Next</button>
         </div>
       </footer>
+      {compact && contactMenu && <Suspense fallback={null}><LogbookContactMenu target={contactMenu} onClose={closeContactMenu} onDelete={() => {
+        const target = contactMenu;
+        closeContactMenu();
+        if (!contactActionsReady()) return;
+        deleteMenuOrigin.current = target.origin;
+        void prepareDelete(target.id);
+      }} /></Suspense>}
     </section>
   );
 }

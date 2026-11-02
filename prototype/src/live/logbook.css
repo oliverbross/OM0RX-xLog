@@ -9,9 +9,13 @@
 .live-logbook-actions, .live-logbook-footer, .live-logbook-footer > div { display: flex; gap: 6px; align-items: center; }
 .live-logbook-actions { flex-wrap: wrap; justify-content: flex-end; }
 .live-logbook-actions button { min-height: 25px; padding: 3px 7px; white-space: nowrap; }
-.live-logbook-compact-actions { display: flex; flex: none; justify-content: flex-end; }
+.live-logbook-compact-actions { display: flex; flex: none; justify-content: flex-end; gap: 6px; }
 .live-logbook-compact-actions button { min-height: 25px; padding: 3px 7px; }
 .live-logbook-compact-actions button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.live-logbook-contact-menu { position: fixed; z-index: 1000; display: flex; flex-direction: column; min-width: 160px; max-width: calc(100vw - 16px); padding: 4px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); box-shadow: 0 8px 24px #0009; }
+.live-logbook-contact-menu button { display: flex; align-items: center; gap: 6px; min-height: 30px; padding: 6px 10px; border: 0; border-radius: 3px; background: transparent; color: var(--text); font: inherit; text-align: left; }
+.live-logbook-contact-menu button.is-destructive { color: var(--error); }
+.live-logbook-contact-menu button:hover, .live-logbook-contact-menu button:focus-visible { background: var(--control); outline: 1px solid var(--cyan); }
 .live-logbook-actions select:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .live-logbook-search { display: flex; align-items: center; gap: 5px; }
 .live-logbook-search svg { color: var(--secondary); margin-left: 5px; }

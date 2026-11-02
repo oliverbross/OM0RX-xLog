@@ -47,7 +47,7 @@ for (const name of ["Awards", "Logbook", "Cluster", "QSO", "SpotHistory", "Calls
   assert(!graph.has(main), `${name} imports the main station workspace`);
   assert(!graph.has("src/Map.tsx"), `${name} imports the map UI`);
   if (name === "Logbook") {
-    for (const panel of ["CTYCorrectionPreview", "OnlineLogFollowUp"]) {
+    for (const panel of ["CTYCorrectionPreview", "OnlineLogFollowUp", "LogbookContactMenu"]) {
       const optionalEntry = `src/live/${panel}.tsx`;
       assert(manifest[optionalEntry], `${panel} lazy entry is missing`);
       assert(!graph.has(optionalEntry), `Logbook loads ${panel} before it is opened`);

@@ -32,6 +32,7 @@ Use the macOS system family throughout. UI labels are compact and semibold where
 - Standard macOS controls are restyled only enough to carry the suite palette.
 - Corners use 6–10 point radii for controls and 12 points for major panels.
 - Every control has visible hover/focus/disabled/loading/error behaviour.
+- Dashboard logbook callsigns offer a right-click “Delete contact…” menu (also Shift+F10 from the focused row). Reuse the revision-checked contact confirmation and show Undo delete after a verified deletion; ordinary row editing stays unchanged. Context menus load on demand and dismiss when the table refreshes or becomes busy.
 - Primary actions use teal; destructive actions use coral; secondary actions remain neutral.
 - Empty states explain the next useful action. Background work uses inline state or skeletons, not blocking spinners.
 - Motion is limited to 150–220 ms state transitions.
