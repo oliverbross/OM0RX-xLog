@@ -2,6 +2,11 @@ import Foundation
 import Testing
 import XCTest
 import XClusterIntegrationCore
+#if canImport(XLogCore)
+import XLogCore
+#else
+import XLogPortableCore
+#endif
 @testable import XLogPrototypeSupport
 
 private struct UnavailableClusterTestVault: ClusterCredentialStoring {
@@ -134,6 +139,48 @@ private actor FreshContestDeliveryGate {
 
 @Suite("Portable live cluster worker bridge")
 struct LiveClusterMethodsTests {
+    @Test("Concurrent startup/contact reads share a rebuild and retry a changed log without failing startup")
+    func contactRefreshCoalescesAndRetriesCurrentRevision() async throws {
+        actor Probe {
+            var count = 0
+            var released = false
+            var continuation: CheckedContinuation<Void, Never>?
+            func publish() async {
+                count += 1
+                if count == 1 && !released { await withCheckedContinuation { continuation = $0 } }
+            }
+            func release() { released = true; continuation?.resume(); continuation = nil }
+        }
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        let db = try logbook.openedDatabase()
+        defer { db.close() }
+        try db.save(QSO(call: "K1FIRST", band: "20m", mode: "CW", dxcc: 291))
+        let probe = Probe()
+        let cluster = LiveClusterMethods(logbook: logbook, vault: UnavailableClusterTestVault(),
+            transportFactory: { _, _, _, _, _, _ in Issue.record("Contact reads must not connect"); return WorkerClusterFixture() },
+            beforeContactPublication: { await probe.publish() })
+        let startup = Task { try await cluster.refreshContacts() }
+        for _ in 0..<1000 {
+            if await probe.count > 0 { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(await probe.count == 1)
+        let update = Task { try await cluster.refreshContacts() }
+        try db.save(QSO(call: "K1SECOND", band: "40m", mode: "CW", dxcc: 291))
+        await probe.release()
+        try await startup.value
+        try await update.value
+        try await cluster.refreshContacts()
+        #expect(await probe.count == 2)
+        let current = try await cluster.handle(method: "cluster_snapshot", params: [:])
+        #expect(current["contact_refresh_state"] as? String == "current")
+        #expect((current["snapshot"] as? [String: Any])?["contactCount"] as? Int == 2)
+        await cluster.terminate()
+    }
+
     @Test("CW classification reads only a current existing projection and never starts a transport")
     func cwClassificationIsPassive() async throws {
         let root=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

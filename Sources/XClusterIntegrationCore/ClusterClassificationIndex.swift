@@ -1,5 +1,20 @@
 import Foundation
 
+/// Prepared away from the live connection actor, then installed atomically.
+public struct ClusterContactProjection: Sendable {
+    let index: ClusterClassificationIndex
+    let counts: [String: Int]
+
+    public init(records: [ClusterContact]) {
+        index = ClusterClassificationIndex(records: records)
+        var counts: [String: Int] = [:]
+        for record in records {
+            counts[record.callsign.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(), default: 0] += 1
+        }
+        self.counts = counts
+    }
+}
+
 /// Pure in-memory extraction of xCluster's LogbookIndex classification rules.
 /// The host owns storage, entity resolution, and all record selection.
 public struct ClusterClassificationIndex: Sendable {

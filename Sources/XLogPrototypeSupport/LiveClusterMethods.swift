@@ -147,6 +147,12 @@ public actor LiveClusterMethods {
     private var workspaceTransitionCount = 0
     private var contactRefreshState = "not_loaded"
     private var contactRefreshError: String?
+    private let contactReadQueue = DispatchQueue(label: "xlog.cluster-contact-projection", qos: .utility)
+    private var contactReadCancellation: LogbookAggregateCancellation?
+    private var contactReadTask: Task<ClusterContactProjection, Error>?
+    private var contactRefreshFlight: (id: UUID, task: Task<Void, Error>)?
+    private var contactProjectionOwner: LiveLogbookAggregateOwner?
+    private static let contactResolver = try? CTYResolver.bundled()
     private let beforeContactPublication: (@Sendable () async throws -> Void)?
     private let forwardClassifiedIngressSpots: Bool
     private let radioSideEffectsAllowed: Bool
@@ -302,6 +308,11 @@ public actor LiveClusterMethods {
         cleanup?.cancel()
         if !deferRadioSpotCleanup { await cleanup?.value }
         contactRefreshRevision &+= 1
+        contactProjectionOwner = nil
+        contactRefreshFlight?.task.cancel()
+        contactReadCancellation?.cancel(); contactReadTask?.cancel()
+        _ = await contactReadTask?.result
+        contactReadTask = nil; contactReadCancellation = nil
         // EOF retirement is an independent authority boundary. Even an injected
         // cluster must not consult a process-global ledger for an offline worker.
         guard radioSideEffectsAllowed, permitRadioSpotCleanup else {
@@ -365,7 +376,9 @@ public actor LiveClusterMethods {
         if method == "cluster_history" {
             return try logbook.handle(method: method, params: params)
         }
-        let service = try await readyService()
+        // Connect owns its contact refresh. Do not build the entire index once
+        // in readyService and then immediately rebuild it again in connect.
+        let service = try await readyService(refreshInitialContacts: method != "cluster_connect" && method != "cluster_resume")
         try requireRunning()
         let mutatesConfiguration = method == "cluster_configure" || method == "cluster_radio_spots_configure" || method == "cluster_filter"
         if mutatesConfiguration { await beginConfigurationMutation() }
@@ -621,50 +634,126 @@ public actor LiveClusterMethods {
     /// Called after local QSO mutations, import, restore or remote reconciliation.
     public func refreshContacts() async throws {
         try requireRunning()
+        // Connect, startup and committed contacts join one rebuild. A new save
+        // must not cancel the startup caller and turn contention into a failed
+        // connection. Retry only a verified read revision change, never Connect.
+        for attempt in 0...1 {
+            try requireRunning()
+            guard workspaceTransitionCount == 0 else {
+                throw WorkerFailure("workspace_changed", "Wait for the workspace replacement to finish.")
+            }
+            let flight: (id: UUID, task: Task<Void, Error>)
+            if let current = contactRefreshFlight { flight = current }
+            else {
+                flight = (UUID(), Task { try await self.refreshContactProjection() })
+                contactRefreshFlight = flight
+            }
+            let outcome = await withTaskCancellationHandler(operation: { await flight.task.result },
+                onCancel: { flight.task.cancel() })
+            if contactRefreshFlight?.id == flight.id { contactRefreshFlight = nil }
+            do {
+                try outcome.get()
+                try requireRunning()
+                let owner = try logbook.aggregateReadOwner()
+                if let published = contactProjectionOwner,
+                   published.sharesWorkspace(with: owner), published.authority == owner.authority { return }
+                throw LogbookAggregateReadError.superseded
+            }
+            catch LogbookAggregateReadError.superseded where attempt == 0 { continue }
+        }
+    }
+
+    private func refreshContactProjection() async throws {
+        try requireRunning()
         guard workspaceTransitionCount == 0 else {
             throw WorkerFailure("workspace_changed", "Wait for the workspace replacement to finish.")
         }
+        let owner: LiveLogbookAggregateOwner
+        do { owner = try logbook.aggregateReadOwner() }
+        catch {
+            contactRefreshState = "stale"; contactRefreshError = "CONTACT_REFRESH_UNAVAILABLE"
+            throw error
+        }
+        if contactRefreshState == "current", let previous = contactProjectionOwner,
+           previous.sharesWorkspace(with: owner), previous.authority == owner.authority { return }
+        contactReadCancellation?.cancel()
+        contactReadTask?.cancel()
         contactRefreshRevision &+= 1
         let revision = contactRefreshRevision
         contactRefreshState = "refreshing"; contactRefreshError = nil
         do {
             try Task.checkCancellation()
             let service = try await readyService(refreshInitialContacts: false)
-            let database = try logbook.openedDatabase()
-            let contacts = try database.clusterContactRows()
-            var records: [ClusterContact] = []
-            records.reserveCapacity(contacts.count)
-            let resolver = try? CTYResolver.bundled()
-            for qso in contacts {
-                try Task.checkCancellation()
-                records.append(ClusterContact(callsign: qso.call, band: qso.band,
-                                              mode: qso.mode,
-                                              adif: qso.dxcc ?? resolver?.resolve(qso.call, at: qso.start)?.adif,
-                                              date: qso.start, paperQSL: qso.qslReceived,
-                                              lotwQSL: qso.lotwReceived))
+            guard revision == contactRefreshRevision else { throw CancellationError() }
+            let cancellation = LogbookAggregateCancellation()
+            contactReadCancellation = cancellation
+            let queue = contactReadQueue
+            let task = Task.detached(priority: .utility) {
+                try await Self.readContactProjection(owner: owner, queue: queue, cancellation: cancellation)
             }
+            contactReadTask = task
+            let projection = try await withTaskCancellationHandler(operation: { try await task.value },
+                onCancel: { cancellation.cancel(); task.cancel() })
             if let beforeContactPublication { try await beforeContactPublication() }
             try requireRunning()
             try Task.checkCancellation()
-            guard revision == contactRefreshRevision, database === (try logbook.openedDatabase()) else {
+            guard revision == contactRefreshRevision,
+                  owner.sharesWorkspace(with: try logbook.aggregateReadOwner(expectedGeneration: owner.generation)) else {
                 throw WorkerFailure("workspace_changed", "The contact projection belongs to an earlier workspace.")
             }
-            let published = await service.replaceContacts(records, publicationRevision: revision)
+            guard try owner.database.aggregateReadAuthority() == owner.authority else {
+                throw LogbookAggregateReadError.superseded
+            }
+            let published = await service.replaceContacts(projection: projection, publicationRevision: revision)
             try Task.checkCancellation()
             guard published, revision == contactRefreshRevision, !terminated else { return }
             contactRefreshState = "current"
+            contactProjectionOwner = owner
+            contactReadTask = nil; contactReadCancellation = nil
         } catch {
             if revision == contactRefreshRevision, !terminated {
                 contactRefreshState = "stale"
                 contactRefreshError = "CONTACT_REFRESH_UNAVAILABLE"
+                contactReadTask = nil; contactReadCancellation = nil
             }
             throw error
+        }
+    }
+
+    private static func readContactProjection(owner: LiveLogbookAggregateOwner, queue: DispatchQueue,
+        cancellation: LogbookAggregateCancellation) async throws -> ClusterContactProjection {
+        try Task.checkCancellation()
+        return try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                continuation.resume(with: Result {
+                    let contacts = try LogbookDatabase.readClusterContactRows(at: owner.database.url,
+                        authority: owner.authority, cancellation: cancellation)
+                    var records: [ClusterContact] = []
+                    records.reserveCapacity(contacts.count)
+                    let resolver = Self.contactResolver
+                    for qso in contacts {
+                        try cancellation.check()
+                        records.append(ClusterContact(callsign: qso.call, band: qso.band, mode: qso.mode,
+                            adif: qso.dxcc ?? resolver?.resolve(qso.call, at: qso.start)?.adif,
+                            date: qso.start, paperQSL: qso.qslReceived, lotwQSL: qso.lotwReceived))
+                    }
+                    let projection = ClusterContactProjection(records: records)
+                    try cancellation.check()
+                    return projection
+                })
+            }
         }
     }
 
     func invalidateContactsForWorkspaceChange() async {
         workspaceTransitionCount += 1
         contactRefreshRevision &+= 1
+        contactProjectionOwner = nil
+        contactRefreshFlight?.task.cancel()
+        contactRefreshFlight = nil
+        contactReadCancellation?.cancel(); contactReadTask?.cancel()
+        _ = await contactReadTask?.result
+        contactReadTask = nil; contactReadCancellation = nil
         contactRefreshState = "not_loaded"; contactRefreshError = nil
         await service?.invalidateContacts(publicationRevision: contactRefreshRevision)
     }

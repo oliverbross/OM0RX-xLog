@@ -555,16 +555,20 @@ public actor ClusterSessionService {
 
     @discardableResult
     public func replaceContacts(_ records: [ClusterContact], publicationRevision: UInt64? = nil) -> Bool {
+        guard !terminated, !Task.isCancelled else { return false }
+        if let publicationRevision, publicationRevision < contactPublicationRevision { return false }
+        return replaceContacts(projection: ClusterContactProjection(records: records), publicationRevision: publicationRevision)
+    }
+
+    @discardableResult
+    public func replaceContacts(projection: ClusterContactProjection, publicationRevision: UInt64? = nil) -> Bool {
         // A retired worker projection may already be queued on this actor.
         guard !terminated, !Task.isCancelled else { return false }
         if let publicationRevision {
             guard publicationRevision >= contactPublicationRevision else { return false }
             contactPublicationRevision = publicationRevision
         }
-        var nextCounts: [String: Int] = [:]
-        for record in records {
-            nextCounts[record.callsign.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(), default: 0] += 1
-        }
+        let nextCounts = projection.counts
         if hasContactSnapshot {
             let newlyLogged = Set(nextCounts.compactMap { call, count in
                 count > (contactCounts[call] ?? 0) ? call : nil
@@ -574,7 +578,7 @@ public actor ClusterSessionService {
         contactCounts = nextCounts
         contactRevision &+= 1
         hasContactSnapshot = true
-        contacts = ClusterClassificationIndex(records: records)
+        contacts = projection.index
         reclassify()
         return true
     }

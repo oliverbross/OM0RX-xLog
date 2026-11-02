@@ -3045,6 +3045,34 @@ public final class LogbookDatabase: @unchecked Sendable {
 
     public static func readAggregateSnapshot(at url: URL, authority: LogbookAggregateAuthority,
         request: LogbookAggregateRequest, cancellation: LogbookAggregateCancellation) throws -> LogbookAggregateSnapshot {
+        try withAggregateSnapshot(at: url, authority: authority, cancellation: cancellation) { reader in
+            let payload: LogbookAggregateSnapshot.Payload
+            switch request.kind {
+            case .statistics:
+                let stats = try reader.stats(yearStart: request.yearStart)
+                let awards = try reader.awardProgress()
+                let statuses = try reader.dxccMapStatuses()
+                payload = .value(.statistics(LogbookStatisticsAggregate(stats: stats, awards: awards, dxccStatuses: statuses)))
+            case .catalogue:
+                if let cached: AwardCatalogSnapshot = try reader.persistedAggregate(request.semanticKey) {
+                    payload = .value(.catalogue(cached))
+                } else { payload = .contacts(try reader.awardCatalogContacts()) }
+            }
+            return LogbookAggregateSnapshot(authority: authority, request: request, payload: payload)
+        }
+    }
+
+    /// A cluster rebuild must not hold the interactive connection while scanning
+    /// the complete log. It uses the same pinned, cancellable reader as progress.
+    public static func readClusterContactRows(at url: URL, authority: LogbookAggregateAuthority,
+        cancellation: LogbookAggregateCancellation) throws -> [ClusterContactRow] {
+        try withAggregateSnapshot(at: url, authority: authority, cancellation: cancellation) {
+            try $0.clusterContactRows()
+        }
+    }
+
+    private static func withAggregateSnapshot<T>(at url: URL, authority: LogbookAggregateAuthority,
+        cancellation: LogbookAggregateCancellation, read: (LogbookDatabase) throws -> T) throws -> T {
         try cancellation.check()
         guard try LogbookAggregateFileIdentity.capture(at: url) == authority.fileIdentity else {
             throw LogbookAggregateReadError.retired
@@ -3065,20 +3093,9 @@ public final class LogbookDatabase: @unchecked Sendable {
                 }
                 try cancellation.check()
                 try cancellation.afterSnapshotPinned?()
-                let payload: LogbookAggregateSnapshot.Payload
-                switch request.kind {
-                case .statistics:
-                    let stats = try reader.stats(yearStart: request.yearStart)
-                    let awards = try reader.awardProgress()
-                    let statuses = try reader.dxccMapStatuses()
-                    payload = .value(.statistics(LogbookStatisticsAggregate(stats: stats, awards: awards, dxccStatuses: statuses)))
-                case .catalogue:
-                    if let cached: AwardCatalogSnapshot = try reader.persistedAggregate(request.semanticKey) {
-                        payload = .value(.catalogue(cached))
-                    } else { payload = .contacts(try reader.awardCatalogContacts()) }
-                }
+                let result = try read(reader)
                 try cancellation.check()
-                return LogbookAggregateSnapshot(authority: authority, request: request, payload: payload)
+                return result
             }
         } catch {
             try cancellation.check()

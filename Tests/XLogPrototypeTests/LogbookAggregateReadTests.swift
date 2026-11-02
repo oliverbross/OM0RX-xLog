@@ -87,6 +87,26 @@ final class LogbookAggregateReadTests: XCTestCase {
         XCTAssertEqual(try scalar(fixture.db.url, "SELECT COUNT(*) FROM xlog_aggregate_cache"), 0)
     }
 
+    func testClusterRebuildDoesNotHoldWriterAndKeepsItsPinnedRevision() throws {
+        let fixture = try Fixture(); defer { fixture.clean() }
+        try seed(fixture.db, count: 1)
+        let expected = try fixture.db.clusterContactRows()
+        let authority = try fixture.db.aggregateReadAuthority()
+        let token = LogbookAggregateCancellation()
+        // This is the actual interactive owner, not a second writer connection.
+        // A shared primary lock here would deadlock before returning the rows.
+        token.afterSnapshotPinned = { try fixture.db.save(QSO(call: "K1NEW", band: "80m", mode: "SSB", dxcc: 291)) }
+        let rows = try LogbookDatabase.readClusterContactRows(at: fixture.db.url, authority: authority, cancellation: token)
+        XCTAssertEqual(rows, expected)
+        XCTAssertNotEqual(try fixture.db.aggregateReadAuthority(), authority)
+        XCTAssertEqual(try fixture.db.count(), 2)
+        XCTAssertFalse(token.hasRegisteredReader)
+        XCTAssertThrowsError(try LogbookDatabase.readClusterContactRows(at: fixture.db.url, authority: authority,
+            cancellation: LogbookAggregateCancellation())) {
+            XCTAssertEqual($0 as? LogbookAggregateReadError, .superseded)
+        }
+    }
+
     func testObsoleteRevisionIsRejectedBeforeHeavyMaterialization() throws {
         let fixture = try Fixture(); defer { fixture.clean() }
         try seed(fixture.db, count: 1)
