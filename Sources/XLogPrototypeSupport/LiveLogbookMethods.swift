@@ -322,6 +322,19 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         catch LogbookDatabaseError.syncBusy { throw LiveLogbookAggregateChange.superseded.failure }
     }
 
+    func renderMapContext(_ statistics: LiveLogbookAggregateReply) throws -> [String: Any] {
+        do { return try lock.withLock {
+            try validateAggregateOwner(statistics.owner)
+            guard let statuses = statistics.payload["dxcc_statuses"] as? [String: String],
+                  let home = statistics.payload["map_home"] else { throw LogbookDatabaseError.corruptRecord }
+            var result = try preferencesSnapshot()
+            result["dxccStatuses"] = statuses
+            result["home"] = home
+            try validateAggregateOwner(statistics.owner)
+            return result
+        } } catch let change as LiveLogbookAggregateChange { throw change.failure }
+    }
+
     func acceptAggregate(_ result: LogbookAggregateResult, owner: LiveLogbookAggregateOwner) throws {
         try lock.withLock {
             try validateAggregateOwner(owner)

@@ -123,6 +123,31 @@ final class LiveLogbookAggregateReadsTests: XCTestCase {
          "restore_preferences": false, "restore_reference_data": false]
     }
 
+    func testMapSharesStatisticsAndCannotBlockInteractiveSaveOrPage() async throws {
+        let gate = Gate([.statistics]), f = try fixture(gate)
+        defer { gate.release() }
+        let map = try call(f.worker, "workspace_map_context")
+        try await waitHeld(gate, kind: .statistics, call: map)
+        let save = try call(f.worker, "logbook_save", ["qso": wireQSO()])
+        try await beforeRelease([save], gate: gate)
+        _ = try await success(save)
+        let page = try call(f.worker, "logbook_list", ["limit": 20])
+        try await beforeRelease([page], gate: gate)
+        let rows = try await success(page)
+        XCTAssertEqual(rows["total"] as? Int, 2)
+        XCTAssertFalse(map.reply.finished)
+        gate.release()
+        let context = try await success(map)
+        let expected = try f.service.handle(method: "workspace_map_context", params: [:])
+        XCTAssertEqual(context["dxccStatuses"] as? [String: String], expected["dxccStatuses"] as? [String: String])
+        XCTAssertEqual(context["generation"] as? String, f.generation)
+        _ = try await success(call(f.worker, "logbook_stats"))
+        XCTAssertEqual(gate.count(.statistics), 2, "The obsolete read retries once; maps and statistics then reuse it.")
+        let invalid = try await object(call(f.worker, "workspace_map_context", ["unexpected": true]))
+        XCTAssertEqual(invalid["ok"] as? Bool, false)
+        XCTAssertEqual(gate.count(.statistics), 2)
+    }
+
     func testHeldCatalogueLeavesSaveFirstPageColdStatsAndSettingsUsable() async throws {
         let gate = Gate(), f = try fixture(gate)
         defer { gate.release() }

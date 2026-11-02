@@ -688,6 +688,14 @@ public actor LiveWorker {
                     // retired by a newer provider handover or connection fence.
                     result = ["accepted": activeAdmission == .applied, "superseded": activeAdmission != .applied]
                 }
+            } else if method == "workspace_map_context" {
+                guard params.isEmpty else { throw WorkerFailure("invalid_params", "Map context takes no parameters.") }
+                guard !terminalShutdown else { throw WorkerFailure("worker_stopping", "The worker is shutting down.") }
+                // Maps join the retained statistics read instead of scanning the
+                // full log again on the interactive connection during startup.
+                let reply = try await aggregateReads.handle(method: "logbook_stats", params: [:])
+                guard !terminalShutdown else { throw WorkerFailure("worker_stopping", "The worker is shutting down.") }
+                result = try logbookMethods.renderMapContext(reply)
             } else if method == "logbook_stats" || method == "logbook_catalog" {
                 guard !terminalShutdown else { throw WorkerFailure("worker_stopping", "The worker is shutting down.") }
                 let reply = try await aggregateReads.handle(method: method, params: params)
