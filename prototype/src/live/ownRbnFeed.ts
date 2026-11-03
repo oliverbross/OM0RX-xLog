@@ -8,6 +8,13 @@ type FeedEntry = {
   pending?: Promise<OwnRBNSpot[]>;
 };
 
+export function retainOwnRBN(previous: OwnRBNSpot[], incoming: OwnRBNSpot[], seconds = 600, now = Date.now()): OwnRBNSpot[] {
+  const seen = new Set<string>();
+  return [...incoming, ...previous].filter(spot => spot.time >= now - seconds * 1000 && spot.time <= now + 60_000)
+    .sort((a, b) => b.time - a.time || a.id.localeCompare(b.id))
+    .filter(spot => { const key = `${spot.spotter}|${spot.band}|${spot.mode}|${spot.id}`; if (seen.has(key)) return false; seen.add(key); return true; }).slice(0, 2000);
+}
+
 const feeds = new WeakMap<OwnRBNTransport, Map<string, FeedEntry>>();
 
 function entryFor(transport: OwnRBNTransport, ownCall: string, sinceSeconds: number) {
@@ -33,7 +40,7 @@ export async function loadOwnRBNPickups(
   if (entry.loadedAt && Date.now() - entry.loadedAt < maximumAgeMilliseconds) return entry.spots;
   const pending = transport("own_rbn", { sinceSeconds, ownCall: call })
     .then(payload => parseOwnRBN(JSON.parse(payload), call))
-    .then(spots => { entry.spots = spots; entry.loadedAt = Date.now(); return spots; })
+    .then(spots => { entry.spots = retainOwnRBN(entry.spots, spots, sinceSeconds); entry.loadedAt = Date.now(); return entry.spots; })
     .finally(() => { entry.pending = undefined; });
   entry.pending = pending;
   return pending;

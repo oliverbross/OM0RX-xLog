@@ -3,6 +3,7 @@ import { parseOwnRBN } from "./hfPropagationModel";
 import { ownRbnReceivers, receiverLocation } from "./ownRbnMap";
 import { clippedGuideRange, emptyGuideDocument, parseGuide, readGuideDocument } from "./bandMapGuides";
 import { builtinGuides } from "./bandMapBuiltinGuides";
+import { retainOwnRBN } from "./ownRbnFeed";
 describe("Heard me evidence", () => {
   const now = 1_800_000_000_000;
   const raw = (call: string, time = now, snr: unknown = 0) => ["RX-1/P", "14025", call, snr, null, "", 0, 0, 0, 1, time / 1000];
@@ -10,6 +11,8 @@ describe("Heard me evidence", () => {
     const spots = parseOwnRBN({ spots: { a: raw("OM0RX"), b: raw("OM0RX/P"), c: raw("OM0RXX"), d: raw(" OM0RX ", now-1000, null) }, call_info: { "RX-1/P": [0,0,0,0,0,0,0,0,"JN88AA"] } }, "OM0RX");
     expect(spots).toHaveLength(2); expect(spots[0]).toMatchObject({ spotter: "RX-1/P", snr: 0, speed: null }); expect(spots[1].snr).toBeNull();
     const rows = ownRbnReceivers(spots, "OM0RX", null, now); expect(rows).toHaveLength(1); expect(rows[0].updates).toBe(2); expect(rows[0].time).toBe(now); expect(rows[0].location?.provenance).toContain("locator centre");
+    const replay = retainOwnRBN(spots, [{...spots[0],time:now-5000}],600,now);
+    expect(replay[0].time).toBe(now);
     expect(ownRbnReceivers(spots, "OM0RX", null, now+600_001)).toEqual([]);
   });
   it("does not invent receiver positions and bounds dense projections", () => {

@@ -9,14 +9,33 @@ static RBN_CACHE: OnceLock<Mutex<RbnCache>> = OnceLock::new();
 async fn retained_rbn<F, Fut>(call: String, fetcher: F) -> Result<String, String>
 where F: FnOnce() -> Fut, Fut: std::future::Future<Output = Result<String, String>> {
     let mut cache = RBN_CACHE.get_or_init(|| Mutex::new(HashMap::new())).lock().await;
+    let previous = cache.get(&call).and_then(|(_, result)| result.as_ref().ok()).cloned();
     if let Some((at, result)) = cache.get(&call) {
         if at.elapsed() < Duration::from_secs(120) { return result.clone(); }
     }
     cache.retain(|_, (at, _)| at.elapsed() < Duration::from_secs(3600));
     if cache.len() >= 8 { cache.clear(); }
-    let result = fetcher().await;
+    let result = fetcher().await.map(|incoming| previous.as_ref().map(|old| retain_rbn_payload(old, &incoming)).unwrap_or(incoming));
     cache.insert(call, (Instant::now(), result.clone()));
     result
+}
+fn retain_rbn_payload(previous: &str, incoming: &str) -> String {
+    let (Ok(old), Ok(mut next)) = (serde_json::from_str::<serde_json::Value>(previous), serde_json::from_str::<serde_json::Value>(incoming)) else { return incoming.into(); };
+    let Some(old_spots) = old["spots"].as_object() else { return incoming.into(); };
+    let Some(spots) = next["spots"].as_object_mut() else { return incoming.into(); };
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|v| v.as_secs()).unwrap_or(0) as f64;
+    let time = |row: &serde_json::Value| row[10].as_f64().or_else(|| row[10].as_str().and_then(|v| v.parse::<f64>().ok())).unwrap_or(0.0);
+    for (id, row) in old_spots {
+        if time(row) >= now - 3600.0 && time(row) <= now + 60.0 && spots.get(id).map(|current| time(row) > time(current)).unwrap_or(true) { spots.insert(id.clone(), row.clone()); }
+    }
+    let mut rows: Vec<_> = spots.iter().filter(|(_, row)| time(row) >= now - 3600.0 && time(row) <= now + 60.0).map(|(id,row)| (id.clone(),row.clone())).collect();
+    rows.sort_by(|a,b| time(&b.1).total_cmp(&time(&a.1)).then(a.0.cmp(&b.0)));
+    *spots = rows.into_iter().take(2000).collect();
+    if let (Some(old_info), Some(info)) = (old["call_info"].as_object(), next["call_info"].as_object_mut()) {
+        for (call, value) in old_info { info.entry(call.clone()).or_insert_with(|| value.clone()); }
+    }
+    let merged = next.to_string();
+    if merged.len() <= MAX_RESPONSE_BYTES { merged } else { incoming.into() }
 }
 fn checked_rbn_call(value: Option<String>) -> Result<String, String> {
     let call = value.unwrap_or_default().trim().to_ascii_uppercase();
@@ -159,6 +178,16 @@ mod tests {
         assert_eq!(count.load(std::sync::atomic::Ordering::SeqCst), 1);
         assert_eq!(checked_rbn_call(Some(" om0rx/p ".into())).unwrap(), "OM0RX/P");
         assert!(checked_rbn_call(Some("OM0 RX".into())).is_err());
+    }
+    #[test]
+    fn rbn_late_payload_cannot_replace_newer_retained_reports() {
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+        let previous = serde_json::json!({"spots":{"a":["RX",14025,"OM0RX",0,null,"",0,0,0,1,now]},"call_info":{"RX":[null,null,null,null,null,null,null,null,"JN88AA"]}});
+        let incoming = serde_json::json!({"spots":{"a":["RX",14025,"OM0RX",1,null,"",0,0,0,1,now-10]},"call_info":{}});
+        let merged: serde_json::Value = serde_json::from_str(&retain_rbn_payload(&previous.to_string(),&incoming.to_string())).unwrap();
+        assert_eq!(merged["spots"]["a"][10], now);
+        assert_eq!(merged["spots"]["a"][3],0);
+        assert_eq!(merged["call_info"]["RX"][8],"JN88AA");
     }
     #[test]
     fn endpoints_are_allowlisted_and_wspr_inputs_are_bounded() {
