@@ -99,3 +99,21 @@ it("does not freshen old source timestamps when cached or fetched again", async 
   expect(await loadOwnRBNPickups(transport,"OM0RX",0)).toHaveLength(0);
   expect(transport).toHaveBeenCalledTimes(2);
 });
+
+it("releases hidden sidebar reads and re-ages retained reports on showing even when refresh fails", async () => {
+  vi.useFakeTimers();const now=Date.now();let visible=true;
+  vi.spyOn(document,"visibilityState","get").mockImplementation(()=>visible?"visible":"hidden");
+  const request=vi.fn().mockResolvedValueOnce({page:{rows:[]}}).mockRejectedValue(new Error("archive offline"));
+  const rbnTransport=vi.fn().mockResolvedValueOnce(JSON.stringify({spots:{a:["HIDDEN-RX",14025,"OM0RX",0,null,"",0,0,0,1,(now-590_000)/1000]}})).mockRejectedValue(new Error("RBN offline"));
+  render(<SidebarOwnSpots request={request} ownCall="OM0RX" liveSpots={[]} connected rbnTransport={rbnTransport}/>);
+  await act(async()=>{});expect(screen.getByText("HIDDEN-RX")).toBeTruthy();
+  expect(request).toHaveBeenCalledTimes(1);expect(rbnTransport).toHaveBeenCalledTimes(1);
+  visible=false;await act(async()=>document.dispatchEvent(new Event("visibilitychange")));
+  await act(async()=>{await vi.advanceTimersByTimeAsync(240_000);});
+  expect(request).toHaveBeenCalledTimes(1);expect(rbnTransport).toHaveBeenCalledTimes(1);
+  expect(screen.getByText("HIDDEN-RX")).toBeTruthy(); // The hidden projection was retained.
+  visible=true;await act(async()=>document.dispatchEvent(new Event("visibilitychange")));
+  expect(request).toHaveBeenCalledTimes(2);expect(rbnTransport).toHaveBeenCalledTimes(2);
+  expect(screen.queryByText("HIDDEN-RX")).toBeNull();
+  expect(screen.getByText("No pickups in these windows.")).toBeTruthy();
+});

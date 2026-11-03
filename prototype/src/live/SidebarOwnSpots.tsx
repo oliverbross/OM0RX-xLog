@@ -4,6 +4,7 @@ import { loadOwnRBNPickups, type OwnRBNTransport } from "./ownRbnFeed";
 import { useOwnSpotWindowPreference } from "./ownSpotPreferences";
 import type { OwnRBNSpot } from "./hfPropagationModel";
 import { currentOwnRbnSourceTime, ownRbnClockMilliseconds, ownRbnRefreshMilliseconds, ownRbnWindowMilliseconds } from "./ownRbnPolicy";
+import { useDocumentVisible } from "./useDocumentVisible";
 import "./SidebarOwnSpots.css";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
@@ -89,13 +90,16 @@ export default function SidebarOwnSpots({ request, ownCall, liveSpots, connected
 }) {
   const [history, setHistory] = useState<RawSpot[]>([]), [directRBN, setDirectRBN] = useState<RawSpot[]>([]), [now, setNow] = useState(Date.now());
   const ownSpotWindow = useOwnSpotWindowPreference();
+  const visible = useDocumentVisible();
   const windowMilliseconds = ownSpotWindow.minutes * 60 * 1000;
   useEffect(() => {
+    if (!visible) return;
     setNow(Date.now());
     const timer = setInterval(() => setNow(Date.now()), ownRbnClockMilliseconds);
     return () => clearInterval(timer);
-  }, []);
+  }, [visible]);
   useEffect(() => {
+    if (!visible) return;
     let active = true, timer: ReturnType<typeof setTimeout>;
     const read = async () => {
       const current = Date.now(); setNow(current);
@@ -111,8 +115,9 @@ export default function SidebarOwnSpots({ request, ownCall, liveSpots, connected
     };
     void read();
     return () => { active = false; clearTimeout(timer); };
-  }, [request, ownCall, connected, ownSpotWindow.minutes]);
+  }, [request, ownCall, connected, ownSpotWindow.minutes, visible]);
   useEffect(() => {
+    if (!visible) return;
     let active = true, timer: ReturnType<typeof setTimeout>;
     const read = async () => {
       const current = Date.now(); setNow(current);
@@ -125,7 +130,7 @@ export default function SidebarOwnSpots({ request, ownCall, liveSpots, connected
     };
     void read();
     return () => { active = false; clearTimeout(timer); };
-  }, [rbnTransport, ownCall]);
+  }, [rbnTransport, ownCall, visible]);
   const items = useMemo(() => sidebarOwnSpotItems(history, [...directRBN, ...liveSpots], ownCall, now, ownSpotWindow.minutes), [history, directRBN, liveSpots, ownCall, now, ownSpotWindow.minutes]);
   if (!ownCall.trim()) return null;
   return <section className="sidebar-own-spots" aria-label="RBN and operator spots for this station">
