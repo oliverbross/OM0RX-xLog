@@ -240,7 +240,7 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
   const [surfaceVisible, setSurfaceVisible] = useState(true);
   useEffect(() => {
     const ancestors: HTMLElement[] = [];
-    for (let node = container.current; node; node = node.parentElement) ancestors.push(node);
+    for (let node: HTMLElement | null = container.current; node; node = node.parentElement) ancestors.push(node);
     const update = () => setSurfaceVisible(!ancestors.some(node => node.hidden || node.inert || getComputedStyle(node).display === "none"));
     update();
     const observer = new MutationObserver(update);
@@ -249,9 +249,10 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
   }, []);
   const monitoredCall = (ownCall ?? home?.call ?? "").trim().toUpperCase();
   const rbn = useOwnRbn(monitoredCall, heardMe && surfaceVisible, ownRbnContext, ownRbnTransport);
-  const scopedBand = heardBand === "follow" ? bandForRadio(frequencyHz) : heardBand === "all" ? null : heardBand;
+  const scopedBand = heardBand === "follow" ? bandForRadio(frequencyHz) ?? "unavailable" : heardBand === "all" ? null : heardBand;
   const receivers = useMemo(() => ownRbnReceivers(rbn.spots, monitoredCall, scopedBand, rbn.now), [rbn.spots, monitoredCall, scopedBand, rbn.now]);
   const locatedReceivers = receivers.filter(row => row.location);
+  useEffect(() => { setReceiver(current => current ? receivers.find(row => row.key === current.key) ?? null : null); }, [receivers]);
   useEffect(() => { setReceiver(null); }, [monitoredCall, ownRbnContext, heardMe, heardBand]);
   useEffect(() => {
     const map = mapRef.current;
