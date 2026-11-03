@@ -28,6 +28,9 @@ async function exercise(start, onLine, expectedCount, args = [], executable = bi
       args = ["--runtime-profile=contesting-test", ...args];
     }
   return await new Promise((resolve, reject) => {
+    const startedAt = performance.now();
+    let spawnedAt = null;
+    let firstOutputAt = null;
     // These are protocol/framing checks. Keep the real worker in the
     // contesting module so unrelated normal-log background providers do not
     // acquire shared application-support ownership during a disposable run.
@@ -38,14 +41,19 @@ async function exercise(start, onLine, expectedCount, args = [], executable = bi
     let buffer = "";
     let stderr = "";
     const responses = [];
+    child.once("spawn", () => { spawnedAt = performance.now() - startedAt; });
     const timer = setTimeout(() => {
       child.kill();
-      reject(new Error("Worker response timed out while stdin remained open."));
+      reject(new Error(`Worker lifecycle exceeded ${timeoutMilliseconds} ms: ${JSON.stringify({
+        pid: child.pid, spawnedAfterMs: spawnedAt, firstOutputAfterMs: firstOutputAt,
+        stdinEnded: child.stdin.writableEnded, responseIDs: responses.map(value => value.id), stderr,
+      })}`));
     }, timeoutMilliseconds);
     child.on("error", reject);
     child.stderr.on("data", chunk => { stderr += chunk; });
     child.stdout.on("data", chunk => {
       try {
+        firstOutputAt ??= performance.now() - startedAt;
         buffer += chunk;
         let newline;
         while ((newline = buffer.indexOf("\n")) >= 0) {
