@@ -1,3 +1,20 @@
+# Unpackaged POTA correctness follow-up — 4 November 2026
+
+Source `2a865d392d577d7d48096a91eca767d4c2e864d5` shares ADIF 3.1.8 mode/submode
+parent validation across POTA counting and export, retaining existing alias
+normalization and valid spaced submodes. CW/BOGUS now remains unknown: ten physical
+rows with nine supported contacts do not reach the minimum. Ten supported contacts
+plus an unknown row remain a local candidate. Original values and the existing
+multi-park counting/conditional contract are preserved. No new package or visible
+software version was minted; the retained 1.5.4 archive does not contain this fix.
+
+See the [single tracker, section8.8](docs/planning/OM0RX-xLog_QLog_Implementation_Plan_2026-11-03.md)
+for source validation, the representative isolated startup check and the remaining
+connected acceptance checklist. The nine selected improvements remain implemented;
+the previous completion findings stay closed.
+Normal CI, full Mac integration and the focused Mac/Linux/Windows native gates
+passed for that exact source; all results retain their source/fixture boundaries.
+
 # OM0RX-xLog 1.5.4 completion candidate
 
 - Restore previous contacts above every visible Traditional-desk Logbook layout.

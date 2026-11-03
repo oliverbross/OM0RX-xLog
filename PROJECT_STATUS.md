@@ -2,6 +2,16 @@
 
 Last updated: 2026-11-04 (bounded candidate accepted; external boundaries explicit)
 
+The subsequent source-only POTA correction is `2a865d392d577d7d48096a91eca767d4c2e864d5`:
+counting and export validate ADIF 3.1.8 submodes against their required parent,
+preserving supported aliases, spaced values and unknown evidence. The nine selected
+QLog improvements remain implemented and the previously closed findings stay closed.
+This source change is not packaged in 1.5.4; its affected validation and connected
+operator checklist are recorded in tracker section8.8. The retained package status
+below remains tied to its recorded source.
+Normal CI, full Mac integration and focused native worker/ADIF gates on Mac,
+Linux and Windows all passed for that exact source. No new package was produced.
+
 The reviewed QLog completion corrections, Traditional-desk previous-contact
 repair and measured contest-catalog initialization fix are integrated on canonical
 `main`, including the Windows POTA no-clobber fix `02f41e9e`. Frozen package

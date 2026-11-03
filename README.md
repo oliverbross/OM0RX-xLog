@@ -30,6 +30,11 @@ explicitly conditional. Retained 1.5.3 cold startup remains unqualified despite
 later already-executed/cache-unspecified controls. This work has not replaced the installed application.
 Local progress is distinct from sponsor-issued award credit.
 
+An unpackaged follow-up at `2a865d39` corrects POTA mode/submode parent validation,
+including unknown-submode threshold handling and valid spaced submodes. It is not
+included in the retained 1.5.4 archive. See the tracker section8.8 for validation
+and the bounded remaining connected acceptance checklist.
+
 ## Historical shared-app Mac integration — 1.0 beta
 
 The application now builds **OM0RX-xLog 1.0.0-beta.3**: the shared Tauri/React app with persistent real logbook, xCluster,

@@ -19,6 +19,8 @@ The [POTA activation and logging rules](https://docs.pota.app/docs/rules.html) s
 | SOTA | Separate chased/activated sets; dated chaser base estimates once per summit/UTC day with complete summit/association data | Expedition validity, activator seasonal/annual qualification and sponsor points; unavailable inputs yield unavailable points |
 | WWFF | Separate hunter/activator sets and supporting contact/day summaries | National rules and official LogSearch credits; generic QSL flags do not establish credit |
 
+POTA mode validation was corrected on 4 November 2026 in source rulepack `local-progress-2026-11-04-v3`. Counting and POTA export now share the [ADIF 3.1.8 enumerations and submode parents](https://adif.org.uk/318/ADIF_318.htm#Submode_Enumeration), after the existing nonmutating alias projection. CW/BOGUS and CW/FT4 remain inspectable unknown evidence and are excluded from the POTA export subset; JT9/JT9E FAST is supported. Nine supported contacts plus one unsupported submode cannot reach the minimum; ten supported contacts plus an unknown row retain their supported local candidate. Source values, physical rows, multi-park expansion and conditional expansion-only thresholds are preserved. This follow-up is not included in the retained 1.5.4 package.
+
 Machine-readable scope, source URLs, review dates and fixture IDs are in `Sources/XLogCore/Resources/local-award-rule-manifests.json`. WAC membership facts are separately attributed in `wac-continents-2026-11-03.json`. The [implementation tracker](planning/OM0RX-xLog_QLog_Implementation_Plan_2026-11-03.md) records actual validation and acceptance status; source implementation alone is not packaged acceptance.
 
 | Programme ID | Programme | Sponsor | Group | Delivery | Limitation or evidence |

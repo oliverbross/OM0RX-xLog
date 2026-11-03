@@ -58,7 +58,14 @@ automatically.
   incomplete. Individual records use the recorded station callsign, or the recorded
   operator if the station callsign is absent. Different operator-only identities
   stay separate; a recorded club station takes precedence without generating
-  personal credit. SUBMODE takes precedence over MODE. Programme record uniqueness
+  personal credit. SUBMODE takes precedence over MODE. Mode validation
+  uses supported ADIF 3.1.8 modes and their enumerated submode relationships after
+  existing alias normalization. Unsupported or incompatible submodes remain visible
+  as unknown with an explanation and are excluded from the POTA export subset.
+  Values containing spaces, such as JT9E FAST, retain their standard spelling.
+  This mode-validation correction is a source follow-up after the retained 1.5.4
+  package; it requires a later separately versioned package for installed use.
+  Programme record uniqueness
   includes the contacted park and excludes QSO time, so changing only the time
   does not remove a duplicate. One physical contact with two own and three
   contacted parks remains one event per own park, with three programme records
@@ -130,3 +137,7 @@ historical QSOs are not retagged. Before rollback, retain a pre-upgrade backup.
 An older binary can ignore new settings or drop structured-only searches when it
 saves preferences; full rollback of preferences requires the retained backup.
 No change here authorizes a production installation or external submission.
+
+The [bounded connected acceptance checklist](../planning/OM0RX-xLog_QLog_Implementation_Plan_2026-11-03.md#88-bounded-pota-mode-validation-and-remaining-operator-acceptance--4-november-2026)
+covers selected RX, suggestion invalidation, live alert matching and shared own-call
+RBN observations. Offline fixtures do not supply live-station acceptance.
