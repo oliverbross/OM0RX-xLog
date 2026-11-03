@@ -1338,6 +1338,15 @@ runtime gate is disabled or relabelled passed. Workflow syntax/provenance/stagin
 guards passed locally, including actual Windows artifact hash preservation and
 invalid-source/lock refusals. No1.5.4 package has been minted at this checkpoint.
 
+The existing Contest portability workflow also exposes an explicit native-only
+manual rerun. Its three native Rust job bodies/discovery assertions remain
+unchanged; normal push/PR/full-manual behavior remains the full seven jobs.
+For this Rust-only correction, rerun those three feature-specific native jobs
+and prove unchanged Swift/generator inputs before reusing the earlier four
+successful scopes. Skipped jobs in the new scoped run are not passes. This
+avoids repeating unaffected native Swift compilation while retaining every
+required test scope and its original source identity.
+
 ## 9. Programme definition of done
 
 The selected programme is done when all of the following are true:

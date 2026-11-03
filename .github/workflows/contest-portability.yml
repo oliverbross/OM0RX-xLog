@@ -2,6 +2,11 @@ name: Contest portability
 
 on:
   workflow_dispatch:
+    inputs:
+      native_only:
+        description: 'Repeat native Rust contest checks; prior Swift/generator evidence requires unchanged-input proof'
+        type: boolean
+        default: false
   push:
     paths:
       - 'Sources/XCWCore/**'
@@ -106,6 +111,7 @@ concurrency:
 
 jobs:
   contest-tests:
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.native_only }}
     name: Contest tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
@@ -293,6 +299,7 @@ jobs:
           exit $LASTEXITCODE
 
   contest-definition-generator:
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.native_only }}
     name: Contest definition generator
     runs-on: ubuntu-24.04
     timeout-minutes: 10
