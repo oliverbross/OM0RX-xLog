@@ -1,9 +1,23 @@
 import Foundation
+#if canImport(CoreFoundation)
 import CoreFoundation
+#endif
 
 /// Bounded JSON carried by the existing workspace/backup preference owner.
 /// Published guides stay bundled; only custom data and surface choices persist.
 public enum BandMapGuides {
+    private static func isJSONBoolean(_ number: NSNumber) -> Bool {
+        #if canImport(CoreFoundation)
+        CFGetTypeID(number) == CFBooleanGetTypeID()
+        #else
+        isFoundationBoolean(number)
+        #endif
+    }
+    // Match CWComputeWire's Foundation fallback without adding a core dependency.
+    // Bool casts and objCType also accept boxed numeric zero/one on some hosts.
+    static func isFoundationBoolean(_ number: NSNumber) -> Bool {
+        number === NSNumber(value: true) || number === NSNumber(value: false)
+    }
     public static func validate(_ text: String) throws {
         if text.isEmpty { return }
         func invalid() -> NSError { NSError(domain: "xLog.BandMapGuides", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid or oversized band-map guide configuration."]) }
@@ -12,17 +26,17 @@ public enum BandMapGuides {
             return value.unicodeScalars.allSatisfy { !CharacterSet.controlCharacters.contains($0) }
         }
         func hz(_ value: Any?) -> Bool {
-            guard let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID() else { return false }
+            guard let number = value as? NSNumber, !isJSONBoolean(number) else { return false }
             let n = number.doubleValue
             return n.isFinite && n.rounded() == n && (100_000...1_000_000_000).contains(n)
         }
         func version(_ value: Any?) -> Bool {
-            guard let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID() else { return false }
+            guard let number = value as? NSNumber, !isJSONBoolean(number) else { return false }
             return number.doubleValue == 1
         }
         func boolean(_ value: Any?) -> Bool {
             guard let number = value as? NSNumber else { return false }
-            return CFGetTypeID(number) == CFBooleanGetTypeID()
+            return isJSONBoolean(number)
         }
         guard let data = text.data(using: .utf8), data.count <= 10_240,
               let doc = try JSONSerialization.jsonObject(with: data) as? [String: Any], version(doc["version"]),
