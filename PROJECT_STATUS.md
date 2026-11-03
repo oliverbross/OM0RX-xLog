@@ -3,10 +3,10 @@
 Last updated: 2026-11-03 (selected QLog workflows)
 
 The nine selected enhancements are integrated at `73ad33edea5fe8c5897313e6a3089dab0c7eb8a1`.
-Version **1.5.1** is the corrected candidate in preparation; the installed application is unchanged.
+Version **1.5.2** is the corrected candidate in preparation; the installed application is unchanged.
 Current scope, task states and actual validation live in the
 [single QLog implementation plan](docs/planning/OM0RX-xLog_QLog_Implementation_Plan_2026-11-03.md).
-[Candidate provenance](docs/releases/v1.5.1-macos-candidate.md) records the release boundary;
+[Candidate provenance](docs/releases/v1.5.2-macos-candidate.md) records the release boundary;
 local award analytics do not claim sponsor-issued credit or live hardware acceptance.
 
 ## Historical release and contest checkpoint — 18 October 2026
