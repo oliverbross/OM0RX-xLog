@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { connectAlerts, type AlertsSnapshot, type AlertCode } from "./alerts";
 import { clearDxAlerts, clearSelectedDxAlerts, connectDxAlerts, saveDxAlerts, testDxAlert, dxRuleSummary, previewDxAlerts, reviewDxAlert, type DxAlertEntry, type DxAlertRule, type DxAlertsSnapshot } from "./dxAlerts";
 import { AlertColumns, useAlertColumns } from "./AlertColumns";
+import { AlertRuleGeography } from "./AlertRuleGeography";
 import { orderedAlertColumns } from "./alertColumnPreferences";
 import { useSettingsSaveToast } from "./SettingsSaveToast";
 import { clusterStatusCode } from "./clusterPalette";
@@ -14,7 +15,18 @@ export function DetachedAlertsSurface() {
   const [review,setReview] = useState<Awaited<ReturnType<typeof reviewDxAlert>>|null>(null);
   const [ruleConflict,setRuleConflict]=useState(false);
   const [entities,setEntities]=useState<{adif:number;name:string}[]>([]);
-  const [entitySearch,setEntitySearch]=useState("");
+  const [entityLoading, setEntityLoading] = useState(false), [entityError, setEntityError] = useState("");
+  const entityRead = useRef(false);
+  const loadEntities = async () => {
+    if (entityRead.current) return;
+    entityRead.current = true; setEntityLoading(true); setEntityError("");
+    try {
+      const value = await invoke<{adif:number;name:string}[]>("dx_alerts_entities");
+      if (!Array.isArray(value)) throw new Error("DXCC entity directory unavailable.");
+      setEntities(value);
+    } catch { setEntityError("DXCC entity directory unavailable. Retry to select entities by name or ADIF ID."); }
+    finally { entityRead.current = false; setEntityLoading(false); }
+  };
   const [preview,setPreview] = useState<string>("");
   const reviewEntry = async (id:string) => { if(!dx)return; try { setReview(await reviewDxAlert(dx.epoch,id)); } catch(cause){setDxError(String(cause));} };
   const [snapshot, setSnapshot] = useState<AlertsSnapshot | null>(null), [verified, setVerified] = useState(false);
@@ -67,14 +79,14 @@ export function DetachedAlertsSurface() {
     {dx?.storageError && <p className="dx-alert-error">{dx.storageError}</p>}{dxError && <p className="dx-alert-error" role="alert">{dxError}</p>}{message && <p className="dx-alert-message" role="status">{message}</p>}
     {dx?.delivery.error && <p className="dx-alert-error" role="alert">{dx.delivery.error}</p>}
     {!!dx?.delivery.suppressed && <p className="secondary">{dx.delivery.suppressed} native notifications suppressed by the {dx.delivery.maximumPerWindow}-per-{dx.delivery.windowSeconds}-second safety limit.</p>}
-    {draft && dx && <details className="dx-alert-settings" onToggle={event=>{if(event.currentTarget.open&&!entities.length)void invoke<{adif:number;name:string}[]>("dx_alerts_entities").then(setEntities).catch(()=>{});}}><summary>Rules · {draft.rules.filter(rule => rule.enabled).length} enabled</summary>
+    {draft && dx && <details className="dx-alert-settings" onToggle={event => { if (event.currentTarget.open && !entities.length) void loadEntities(); }}><summary>Rules · {draft.rules.filter(rule => rule.enabled).length} enabled</summary>
+      {entityLoading && <p role="status">Loading DXCC entity directory…</p>}
+      {entityError && <p role="alert">{entityError} <button type="button" onClick={() => void loadEntities()}>Retry entity directory</button></p>}
       <div className="dx-alert-global"><label><input type="checkbox" checked={draft.enabled} onChange={event => setDraft({ ...draft, enabled:event.currentTarget.checked })}/> Enable DX alerts</label>
         <label><input type="checkbox" checked={draft.nativePopup} onChange={event => setDraft({ ...draft, nativePopup:event.currentTarget.checked, notificationSound:event.currentTarget.checked ? draft.notificationSound : false })}/> Native popup</label>
         <label><input type="checkbox" checked={draft.notificationSound} disabled={!draft.nativePopup} onChange={event => setDraft({ ...draft, notificationSound:event.currentTarget.checked })}/> Notification sound</label>
         <label>Repeat guard (seconds)<input type="number" min="15" max="3600" value={draft.dedupSeconds} onChange={event => setDraft({ ...draft, dedupSeconds:Number(event.currentTarget.value) })}/></label>
         <label>Keep alerts (minutes)<input type="number" min="1" max="1440" value={draft.retentionMinutes} onChange={event => setDraft({ ...draft, retentionMinutes:Number(event.currentTarget.value) })}/></label></div>
-      <label>Find DXCC entity<input value={entitySearch} onChange={event=>setEntitySearch(event.target.value)} placeholder="Country name or ADIF ID"/></label>
-      {entitySearch && <p aria-label="DXCC entity search results">{entities.filter(entity=>entity.name.toLowerCase().includes(entitySearch.toLowerCase())||String(entity.adif).includes(entitySearch)).slice(0,15).map(entity=>`${entity.name}: ${entity.adif}`).join(" · ")||"No matching entity"}</p>}
       {draft.rules.map((rule,index) => <div className="dx-alert-rule" key={rule.id}><div className="dx-alert-rule-head"><label><input type="checkbox" checked={rule.enabled} onChange={event => updateRule(index,{ enabled:event.currentTarget.checked })}/> On</label>
         <input type="text" aria-label={`Rule ${index + 1} name`} value={rule.name} maxLength={80} onChange={event => updateRule(index,{ name:event.currentTarget.value })}/>
         <button onClick={() => setDraft({ ...draft, rules:[...draft.rules,{ ...structuredClone(rule), id:crypto.randomUUID(), name:`${rule.name} copy` }] })} disabled={draft.rules.length >= dx.limits.maximumRules}>Clone</button>
@@ -85,7 +97,8 @@ export function DetachedAlertsSurface() {
           <label>Modes: CW, PHONE, DATA<input value={rule.modes.join(", ")} onChange={event => updateRule(index,{ modes:csv(event.currentTarget.value).map(value => value.toLowerCase()) })}/></label>
           <label>DXCC status<input value={rule.dxccStatuses.join(", ")} onChange={event => updateRule(index,{ dxccStatuses:csv(event.currentTarget.value) })}/></label>
           <label>Call status<input value={rule.callStatuses.join(", ")} onChange={event => updateRule(index,{ callStatuses:csv(event.currentTarget.value) })}/></label>
-          <label>Special tags<input value={rule.specials.join(", ")} onChange={event => updateRule(index,{ specials:csv(event.currentTarget.value).map(value => value.toUpperCase()) })}/></label></div></div>)}
+          <label>Special tags<input value={rule.specials.join(", ")} onChange={event => updateRule(index,{ specials:csv(event.currentTarget.value).map(value => value.toUpperCase()) })}/></label></div>
+        <AlertRuleGeography rule={rule} ruleNumber={index + 1} entities={entities} onChange={patch => updateRule(index, patch)} /></div>)}
       <p className="secondary">Rule summary: {draft.rules.filter(rule=>rule.enabled).map(dxRuleSummary).join("; ") || "No enabled rules"}</p>
       <button type="button" onClick={()=>void previewDxAlerts(draft.rules).then(value=>setPreview(value.matches.length ? value.matches.map(match=>`${match.callsign} ${match.frequencyKHz.toFixed(1)} kHz: ${match.ruleNames.join(", ")}`).join("; ") : "No retained reports match.")).catch(cause=>setDxError(String(cause)))}>Preview retained reports (read only)</button>
       {preview && <p role="status">{preview}</p>}
