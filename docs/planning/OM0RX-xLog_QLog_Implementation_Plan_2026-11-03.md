@@ -1296,6 +1296,48 @@ the correction. Historical owner/read patches remain immutable evidence for
 their original source; the opt-in workflow uses only the still-applicable test
 observer after extraction. All affected native evidence must be refreshed.
 
+**Integrated source fa4c5c75 — actual results and next affected correction.**
+Uninstrumented Windows focused41670810909/job126038353446 passed the original
+reversal3methods/5parameter cases in2.040s; full Windows native in41665793554
+also passed930reported XCTest (7skips) and572reported Swift Testing. Full Linux
+job126020618461 passed. Normal CI41665782569 and all7Contest41665802546 passed.
+The first Mac job126020618254 failed one existing detached contest Edit last
+window-error fixture:5105passed/1failed across371files, missing alert within the
+existing bound. Unchanged focused2/2 (`78a292a01432c3cb`) and whole-file197/197
+(`399f76438ee1e91d`,11.79s) passed. No product fault, missed dispatch or lost
+feedback was established; neither mocks nor timeouts were changed. Targeted job
+rerun was refused, so one unchanged full Mac-only control41669931875,
+job126035273958, was dispatched and passed. The original failure remains failed
+and retained; this control is not represented as a code repair.
+
+The Windows job subsequently failed `Shell contract tests`:1024Rust tests passed,
+one failed at `exclusive_rename_keeps_an_unrelated_directory`. The existing
+Windows fallback `std::fs::rename` replaced an existing empty target directory.
+This is a concrete POTA no-clobber contract failure, not a transient assertion.
+Raw logs are `ci-job-126020617505.log` and `ci-job-126020618254.log` under the
+completion evidence root; the original all-platform run remains failed.
+
+Windows publication now uses `MoveFileExW` with zero replacement/copy flags,
+retaining atomic no-replace behavior, wide paths and error propagation. There
+is no destination-existence precheck in the primitive. The original empty/empty
+regression is preserved and stronger; added cases retain source bytes and
+empty/nonempty/file destinations, and publish empty/populated Unicode paths.
+Mac/Linux primitives are unchanged. Local focused POTA Rust5/5 passed
+(`09801c166fd4d7b2`); Windows execution must be refreshed. [Official API contract](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-movefileexw).
+
+To repeat only affected checks, a scoped Rust integration workflow reuses the
+real fa4c5c75 CI worker executable after exact repository/run/head/platform-step,
+artifact, lock and Git-blob input verification. It runs the complete existing
+Rust suite, real Hamlib dummy suite and desktop compilation on all3platforms.
+Executable-only artifacts supply externalBin compilation; omitted Swift resource
+bundles are explicitly not claimed as new runtime/resource acceptance. Earlier
+Swift/worker/frontend evidence may be reused only with exact unchanged input
+proof; final canonical packaging and signed-worker/native checks still verify
+the actual complete bundle. No Swift test, assertion, timeout or required
+runtime gate is disabled or relabelled passed. Workflow syntax/provenance/staging
+guards passed locally, including actual Windows artifact hash preservation and
+invalid-source/lock refusals. No1.5.4 package has been minted at this checkpoint.
+
 ## 9. Programme definition of done
 
 The selected programme is done when all of the following are true:

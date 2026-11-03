@@ -202,9 +202,32 @@ fn exclusive_directory_rename(from: &Path, to: &Path) -> std::io::Result<()> {
     let status = unsafe { libc::renameat2(libc::AT_FDCWD, from.as_ptr(), libc::AT_FDCWD, to.as_ptr(), libc::RENAME_NOREPLACE) };
     if status == 0 { Ok(()) } else { Err(std::io::Error::last_os_error()) }
 }
-#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+#[cfg(windows)]
 fn exclusive_directory_rename(from: &Path, to: &Path) -> std::io::Result<()> {
-    // Windows directory rename refuses an existing destination.
+    use std::os::windows::ffi::OsStrExt;
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn MoveFileExW(source: *const u16, destination: *const u16, flags: u32) -> i32;
+    }
+    fn wide(path: &Path) -> std::io::Result<Vec<u16>> {
+        let name = path.file_name().ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "Missing directory name"))?;
+        // Resolve only the existing parent, retaining the extended Windows path
+        // prefix without inspecting or following the destination itself.
+        let parent = path.parent().ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "Missing directory parent"))?;
+        let mut value: Vec<u16> = parent.canonicalize()?.join(name).as_os_str().encode_wide().collect();
+        if value.contains(&0) { return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Directory path contains NUL")); }
+        value.push(0);
+        Ok(value)
+    }
+    let from = wide(from)?;
+    let to = wide(to)?;
+    // Unlike std::fs::rename, zero flags never replace an existing destination.
+    // Do not permit copy/delete across volumes: publication is one rename.
+    let status = unsafe { MoveFileExW(from.as_ptr(), to.as_ptr(), 0) };
+    if status == 0 { Err(std::io::Error::last_os_error()) } else { Ok(()) }
+}
+#[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
+fn exclusive_directory_rename(from: &Path, to: &Path) -> std::io::Result<()> {
     std::fs::rename(from, to)
 }
 
@@ -265,6 +288,65 @@ mod pota_tests {
         std::fs::create_dir(&source).unwrap(); std::fs::create_dir(&target).unwrap();
         assert!(exclusive_directory_rename(&source, &target).is_err());
         assert!(source.is_dir()); assert!(target.is_dir());
+        assert_eq!(std::fs::read_dir(&source).unwrap().count(), 0);
+        assert_eq!(std::fs::read_dir(&target).unwrap().count(), 0);
+    }
+    #[test]
+    fn exclusive_rename_preserves_source_and_each_existing_destination() {
+        for kind in ["empty-directory", "nonempty-directory", "file"] {
+            let root = tempfile::tempdir().unwrap();
+            let source = root.path().join("zdroj-Žilina-日本");
+            let target = root.path().join("výstup-☀.pota");
+            std::fs::create_dir(&source).unwrap();
+            std::fs::write(source.join("contact.adi"), b"retained source").unwrap();
+            match kind {
+                "empty-directory" => std::fs::create_dir(&target).unwrap(),
+                "nonempty-directory" => {
+                    std::fs::create_dir(&target).unwrap();
+                    std::fs::write(target.join("unrelated.txt"), b"unrelated destination").unwrap();
+                }
+                "file" => std::fs::write(&target, b"unrelated file").unwrap(),
+                _ => unreachable!(),
+            }
+            assert!(exclusive_directory_rename(&source, &target).is_err(), "{kind}");
+            assert_eq!(std::fs::read(source.join("contact.adi")).unwrap(), b"retained source", "{kind}");
+            assert_eq!(std::fs::read_dir(&source).unwrap().count(), 1, "{kind}");
+            match kind {
+                "empty-directory" => assert_eq!(std::fs::read_dir(&target).unwrap().count(), 0),
+                "nonempty-directory" => {
+                    assert_eq!(std::fs::read(target.join("unrelated.txt")).unwrap(), b"unrelated destination");
+                    assert_eq!(std::fs::read_dir(&target).unwrap().count(), 1);
+                }
+                "file" => assert_eq!(std::fs::read(&target).unwrap(), b"unrelated file"),
+                _ => unreachable!(),
+            }
+            assert_eq!(std::fs::read_dir(root.path()).unwrap().count(), 2, "{kind}");
+        }
+    }
+    #[test]
+    fn exclusive_rename_publishes_empty_and_populated_unicode_directories() {
+        for populated in [false, true] {
+            let root = tempfile::tempdir().unwrap();
+            let source = root.path().join("zdroj-Žilina-日本");
+            let target = root.path().join("výstup-☀.pota");
+            std::fs::create_dir(&source).unwrap();
+            if populated {
+                std::fs::write(source.join("contact.adi"), b"exact reviewed ADIF").unwrap();
+                std::fs::create_dir(source.join("vnorené")).unwrap();
+                std::fs::write(source.join("vnorené/manifest.json"), b"exact reviewed manifest").unwrap();
+            }
+            exclusive_directory_rename(&source, &target).unwrap();
+            assert!(!source.exists());
+            assert!(target.is_dir());
+            assert_eq!(std::fs::read_dir(root.path()).unwrap().count(), 1);
+            if populated {
+                assert_eq!(std::fs::read(target.join("contact.adi")).unwrap(), b"exact reviewed ADIF");
+                assert_eq!(std::fs::read(target.join("vnorené/manifest.json")).unwrap(), b"exact reviewed manifest");
+                assert_eq!(std::fs::read_dir(&target).unwrap().count(), 2);
+            } else {
+                assert_eq!(std::fs::read_dir(&target).unwrap().count(), 0);
+            }
+        }
     }
 }
 

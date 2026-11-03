@@ -1,0 +1,219 @@
+name: Scoped Rust integration validation
+
+# Reuses a real, previously framed Swift executable for externalBin compilation.
+# This is not Beta, Swift, worker-runtime/resource, package or installer acceptance.
+on:
+  workflow_dispatch:
+    inputs:
+      base_source_sha:
+        description: 'Full SHA of the unchanged Swift worker qualification source'
+        required: true
+        default: fa4c5c757a32c19b89a638b4d34334fcbc3b3cf2
+      linux_worker_run_id:
+        description: 'Completed Beta run containing the Linux worker'
+        required: true
+        default: '41665793554'
+      windows_worker_run_id:
+        description: 'Completed Beta run containing the Windows worker'
+        required: true
+        default: '41665793554'
+      macos_worker_run_id:
+        description: 'Completed Beta run containing the macOS worker'
+        required: true
+        default: '41669931875'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  rust-integration:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 75
+    env:
+      XLOG_SOURCE_COMMIT: ${{ github.sha }}
+      BASE_SOURCE_SHA: ${{ inputs.base_source_sha }}
+      WORKER_RUN_ID: ${{ matrix.os == 'macos-15' && inputs.macos_worker_run_id || matrix.os == 'windows-2022' && inputs.windows_worker_run_id || inputs.linux_worker_run_id }}
+      WORKER_ARTIFACT: xlog-prototype-${{ matrix.os }}-${{ inputs.base_source_sha }}
+    steps:
+      - name: Enable Windows checkout long paths
+        if: runner.os == 'Windows'
+        run: git config --global core.longpaths true
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Prove unchanged Swift worker source, resources and framing inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$BASE_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git merge-base --is-ancestor "$BASE_SOURCE_SHA" HEAD
+          # Compare Git blobs, including all native resources and tests. No Swift rebuild.
+          worker_inputs=(Sources Tests Package.swift Package.resolved .swiftpm \
+            prototype/portable-swift-pins.json prototype/scripts/build-worker.sh \
+            prototype/scripts/build-worker.ps1 prototype/scripts/stage-worker.mjs \
+            prototype/scripts/swift-worker-build-system.mjs prototype/scripts/portable-swift-lock.py \
+            .github/workflows/prototype.yml)
+          git diff --exit-code "$BASE_SOURCE_SHA" HEAD -- "${worker_inputs[@]}"
+          mkdir -p .build/rust-integration
+          git ls-tree -r "$BASE_SOURCE_SHA" -- "${worker_inputs[@]}" > .build/rust-integration/swift-input-blobs.txt
+      - name: Verify original worker build and framing evidence
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const run_id = Number(process.env.WORKER_RUN_ID);
+            if (!Number.isSafeInteger(run_id) || run_id <= 0) throw new Error('Invalid worker run ID');
+            const {owner, repo} = context.repo;
+            const {data: run} = await github.rest.actions.getWorkflowRun({owner, repo, run_id});
+            if (run.repository.full_name !== `${owner}/${repo}` || run.head_repository?.full_name !== `${owner}/${repo}` ||
+                run.head_sha !== process.env.BASE_SOURCE_SHA || run.path !== '.github/workflows/prototype.yml' ||
+                run.status !== 'completed') throw new Error('Worker run repository, source, workflow or completion mismatch');
+            // A later unrelated Rust failure does not invalidate successful worker steps.
+            const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {owner, repo, run_id, filter: 'latest', per_page: 100});
+            const matches = jobs.filter(job => job.name === 'prototype (${{ matrix.os }})');
+            if (matches.length !== 1) throw new Error('Expected exactly one matching original platform job');
+            const job = matches[0];
+            const suffix = process.platform === 'win32' ? 'Windows' : 'Unix';
+            const required = [`Build Swift worker (${suffix})`, 'Stage isolated worker', `Test worker process framing (${suffix})`, 'Upload development executables and evidence inputs'];
+            const steps = required.map(name => {
+              const matches = job.steps.filter(step => step.name === name);
+              if (matches.length !== 1 || matches[0].conclusion !== 'success') throw new Error(`Missing successful original worker step: ${name}`);
+              return matches[0];
+            });
+            const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts, {owner, repo, run_id, per_page: 100});
+            const artifact = artifacts.filter(item => item.name === process.env.WORKER_ARTIFACT && !item.expired);
+            if (artifact.length !== 1) throw new Error('Expected one unexpired worker artifact');
+            const receipt = {scope: 'Rust tests and desktop compilation only; no new Swift worker runtime/resource acceptance',
+              sourceSHA: context.sha, workerSourceSHA: run.head_sha, runID: run_id, runAttempt: run.run_attempt,
+              originalRunConclusion: run.conclusion, originalJobID: job.id, originalJobConclusion: job.conclusion,
+              workerSteps: steps, artifactID: artifact[0].id, artifactName: artifact[0].name, artifactDigest: artifact[0].digest ?? null};
+            fs.mkdirSync('.build/rust-integration', {recursive: true});
+            fs.writeFileSync('.build/rust-integration/receipt.json', JSON.stringify(receipt, null, 2) + '\n');
+      - name: Select existing macOS build toolchain
+        if: runner.os == 'macOS'
+        run: echo "DEVELOPER_DIR=/Applications/Xcode_16.2.app/Contents/Developer" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: prototype/package-lock.json
+      - name: Install supported contest Python
+        uses: actions/setup-python@v5
+        id: contest-python
+        with:
+          python-version: '3.12.4'
+      - name: Restore existing Cargo cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            prototype/src-tauri/target
+          key: xlog-p1b-${{ runner.os }}-${{ hashFiles('prototype/src-tauri/Cargo.lock', 'Package.swift') }}-${{ github.sha }}
+          restore-keys: |
+            xlog-p1b-${{ runner.os }}-${{ hashFiles('prototype/src-tauri/Cargo.lock', 'Package.swift') }}-
+            xlog-p1b-${{ runner.os }}-
+      - name: Linux build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libcurl4-openssl-dev libxml2-dev libicu-dev libssl-dev libudev-dev libsecret-1-dev pkg-config dbus-x11 gnome-keyring
+      - name: Download exact original worker artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.WORKER_ARTIFACT }}
+          run-id: ${{ env.WORKER_RUN_ID }}
+          github-token: ${{ github.token }}
+          path: .build/rust-integration/original
+      - name: Verify locks and stage real worker for compilation only
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync, writeFileSync, mkdirSync, copyFileSync, chmodSync} from 'node:fs';
+          import {join} from 'node:path';
+          import {createHash} from 'node:crypto';
+          import {execFileSync} from 'node:child_process';
+          const root = '.build/rust-integration';
+          // upload-artifact's common ancestor is prototype/, so these are exact paths.
+          const original = join(root, 'original');
+          // Windows checkout uses CRLF; compare only that Git checkout normalization.
+          const lockText = path => readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
+          for (const path of ['src-tauri/Cargo.lock', 'package-lock.json']) {
+            if (lockText(join(original, path)) !== lockText(join('prototype', path)))
+              throw new Error(`Reused worker artifact lock mismatch: ${path}`);
+          }
+          const target = execFileSync('rustc', ['-vV'], {encoding: 'utf8'}).match(/^host: (.+)$/m)?.[1];
+          if (!target) throw new Error('Missing Rust host triple');
+          const ext = process.platform === 'win32' ? '.exe' : '';
+          const name = `xlog-prototype-worker${ext}`;
+          const source = join(original, 'src-tauri/target/release', name);
+          const hash = path => createHash('sha256').update(readFileSync(path)).digest('hex');
+          const sourceSHA256 = hash(source);
+          const destinations = [join('prototype/src-tauri/binaries', `xlog-prototype-worker-${target}${ext}`),
+            ...['debug', 'release'].map(mode => join('prototype/src-tauri/target', mode, name))];
+          for (const destination of destinations) {
+            mkdirSync(join(destination, '..'), {recursive: true});
+            copyFileSync(source, destination);
+            if (process.platform !== 'win32') chmodSync(destination, 0o755);
+            if (hash(destination) !== sourceSHA256) throw new Error('Staged worker hash mismatch');
+          }
+          const receiptPath = join(root, 'receipt.json');
+          const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
+          Object.assign(receipt, {workerSHA256: sourceSHA256, stagedWorkers: destinations.map(path => ({path, sha256: hash(path)})),
+            unchangedSwiftInputBlobsSHA256: hash(join(root, 'swift-input-blobs.txt')), locksMatch: true,
+            lockComparison: 'Exact UTF-8 text after Windows CRLF checkout normalization only'});
+          writeFileSync(receiptPath, JSON.stringify(receipt, null, 2) + '\n');
+          console.log(JSON.stringify(receipt, null, 2));
+          NODE
+      - name: Install frontend dependencies
+        working-directory: prototype
+        run: npm ci
+      - name: Build frontend (no frontend test rerun)
+        working-directory: prototype
+        run: npm run build
+      - name: Build pinned Hamlib radio and rotor helpers (Mac integration)
+        if: runner.os == 'macOS'
+        run: bash prototype/scripts/stage-hamlib-macos.sh
+      - name: Build pinned Hamlib radio and rotor helpers (Linux integration)
+        if: runner.os == 'Linux'
+        run: bash prototype/scripts/stage-hamlib-linux.sh
+      - name: Stage pinned Hamlib radio and rotor helpers (Windows integration)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./prototype/scripts/stage-hamlib-windows.ps1
+      - name: Full Rust shell contract tests
+        working-directory: prototype/src-tauri
+        env:
+          XLOG_TEST_PYTHON: ${{ steps.contest-python.outputs.python-path }}
+        run: cargo test --locked
+      - name: Explicit bundled Hamlib dummy protocol and lifecycle tests
+        if: runner.os != 'Windows'
+        working-directory: prototype/src-tauri
+        shell: bash
+        run: |
+          target=$(rustc -vV | sed -n 's/^host: //p')
+          XLOG_TEST_RIGCTLD="$PWD/binaries/rigctld-$target" XLOG_TEST_ROTCTLD="$PWD/binaries/rotctld-$target" cargo test --locked --test hamlib_dummy
+      - name: Explicit bundled Hamlib dummy protocol and lifecycle tests (Windows)
+        if: runner.os == 'Windows'
+        working-directory: prototype/src-tauri
+        shell: pwsh
+        run: |
+          $env:XLOG_TEST_RIGCTLD = Join-Path $PWD 'binaries/rigctld-x86_64-pc-windows-msvc.exe'
+          $env:XLOG_TEST_ROTCTLD = Join-Path $PWD 'binaries/rotctld-x86_64-pc-windows-msvc.exe'
+          cargo test --locked --test hamlib_dummy
+          exit $LASTEXITCODE
+      - name: Build desktop executable (no bundle or runtime claim)
+        working-directory: prototype
+        run: npx tauri build --no-bundle
+      - name: Upload scoped reuse receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-integration-receipt-${{ matrix.os }}-${{ github.sha }}
+          if-no-files-found: warn
+          path: |
+            .build/rust-integration/receipt.json
+            .build/rust-integration/swift-input-blobs.txt
