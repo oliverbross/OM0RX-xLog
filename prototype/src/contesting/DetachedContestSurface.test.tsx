@@ -1820,6 +1820,9 @@ it.each([
 });
 
 it("shows saved only after a confirmed commit advances to a new draft",async()=>{
+  let acknowledge!:()=>void;
+  const acknowledgement=new Promise<void>(resolve=>{acknowledge=resolve;});
+  const commits:Record<string,any>[]=[];
   const operator={output:"xlog-native",outputAvailable:false,outputUnavailableReason:"Optional voice is not configured.",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
     functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   let current:any={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14_250_000,frequencyText:"14250000",frequencyError:"",mode:"SSB",sentReport:"59",receivedReport:"59"},
@@ -1828,6 +1831,8 @@ it("shows saved only after a confirmed commit advances to a new draft",async()=>
     if(command==="contest_surface_snapshot")return structuredClone(current);
     if(command==="contest_surface_action"){
       expect(args.action).toBe("entry_commit");
+      commits.push(args);
+      await acknowledgement;
       current={...current,projectionRevision:7,projection:{...current.projection,
         draft:{...current.projection.draft,draftID:"draft-2",revision:6,callsign:"",dupe:{state:"unchecked",reason:""}},
         operator:{...current.projection.operator,focusedField:"callsign"}}};
@@ -1836,8 +1841,15 @@ it("shows saved only after a confirmed commit advances to a new draft",async()=>
     throw new Error(command);
   });
   render(<DetachedContestSurface/>);
-  fireEvent.click(await screen.findByRole("button",{name:/^Log It/}));
-  expect((await screen.findByText("QSO saved")).getAttribute("role")).toBe("status");
+  const log=await screen.findByRole("button",{name:/^Log It/});
+  await act(async()=>{fireEvent.click(log);});
+  expect(commits).toHaveLength(1);
+  expect(commits[0]).toMatchObject({action:"entry_commit",params:{draftID:"draft-1",expectedDraftRevision:5}});
+  expect(screen.queryByText("QSO saved")).toBeNull();
+  expect(screen.getByLabelText("Callsign")).toHaveProperty("value","OM0RX");
+  await act(async()=>{acknowledge();});
+  expect(screen.getByText("QSO saved").getAttribute("role")).toBe("status");
+  expect(commits).toHaveLength(1);
   const callsign=screen.getByLabelText("Callsign");
   expect(callsign).toHaveProperty("value","");
   fireEvent.change(callsign,{target:{value:"K1ABC"}});
