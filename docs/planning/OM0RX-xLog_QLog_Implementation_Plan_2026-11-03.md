@@ -1118,6 +1118,10 @@ mechanically unchanged. Diagnostics-enabled focused local10/10 passed in8.63s
 No product/test assertion or system protection was altered. The tracker will
 record the actual remote phase evidence, repair and final gate result after they
 are obtained; this is not a completion claim.
+The first diagnostic run41641183898 stopped at checkout (Windows path length),
+before applying the patch or executing a test. The missing existing-repository
+long-path setup was added before checkout; this infrastructure failure supplies
+no host-phase or qualifying test evidence.
 
 ## 9. Programme definition of done
 
