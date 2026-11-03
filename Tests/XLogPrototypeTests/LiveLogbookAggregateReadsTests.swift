@@ -160,6 +160,70 @@ final class LiveLogbookAggregateReadsTests: XCTestCase {
         XCTAssertEqual(gate.count(.statistics), 2)
     }
 
+    func testPOTAWirePreservesFrozenUTCDateWithoutRelativeConditions() async throws {
+        let gate=Gate([]),f=try fixture(gate)
+        let reference=try f.service.referenceDirectoryURL().appendingPathComponent("pota-parks.csv")
+        try Data("reference,name,locationDesc,active\nSK-0001,Synthetic park,SK-BL,1\n".utf8).write(to:reference)
+        let day=try XCTUnwrap(LogbookQuery.absoluteUTCDate("2026-11-02T12:00:00Z"))
+        var contacts=(0..<10).map { index in
+            QSO(call:"K\(index+1)SYN",start:day.addingTimeInterval(Double(index)*60),band:"20m",mode:"CW",
+                myCall:"OM0RX/P",myGrid:"JN98",extraFields:["MY_DXCC":"504","MY_STATE":"SK-BL","MY_POTA_REF":"SK-0001"])
+        }
+        var sameDay=contacts[0];sameDay.id=UUID();sameDay.call="K1LATE"
+        sameDay.start=try XCTUnwrap(LogbookQuery.absoluteUTCDate("2026-11-03T23:59:59Z"))
+        var future=contacts[0];future.id=UUID();future.call="K1FUTURE"
+        future.start=try XCTUnwrap(LogbookQuery.absoluteUTCDate("2026-11-04T00:00:00Z"))
+        contacts += [sameDay,future]
+        for contact in contacts { try f.service.openedDatabase().save(contact) }
+        let frozen="2026-11-03T00:00:00.125Z"
+        var params:[String:Any]=["programme":"pota","role":"activator","unit":"SK-0001","unit_role":"activator",
+            "reference_time":frozen,"expected_generation":f.generation,
+            "query":["version":1,"join":"all","clauses":[]] as [String:Any]]
+        let parsed=try f.service.aggregateQuery(method:"logbook_award_progress",params:params)
+        let expected=try XCTUnwrap(LogbookQuery.absoluteUTCDate(frozen)).timeIntervalSince1970
+        XCTAssertEqual(parsed.referenceTime,expected)
+        XCTAssertEqual(try parsed.request().referenceTime,expected)
+        let result=try await success(call(f.worker,"logbook_award_progress",params))
+        let days=try XCTUnwrap(result["activationCandidates"] as? [[String:Any]])
+        let past=try XCTUnwrap(days.first{$0["day"] as? String == "2026-11-02"})
+        XCTAssertEqual(past["countableContacts"] as? Int,10)
+        XCTAssertEqual(past["candidateStatus"] as? String,"local candidate")
+        let current=try XCTUnwrap(days.first{$0["day"] as? String == "2026-11-03"})
+        XCTAssertEqual(current["countableContacts"] as? Int,1,"A later time on the frozen UTC day is not a future-date exclusion.")
+        XCTAssertEqual(current["excludedRows"] as? Int,0)
+        let excluded=try XCTUnwrap(days.first{$0["day"] as? String == "2026-11-04"})
+        XCTAssertEqual(excluded["countableContacts"] as? Int,0)
+        XCTAssertEqual(excluded["excludedRows"] as? Int,1)
+        XCTAssertTrue((excluded["reasons"] as? [String] ?? []).contains("Future UTC date is excluded"))
+        XCTAssertEqual(result["evidenceTotal"] as? Int,12)
+        _=try await success(call(f.worker,"logbook_award_progress",params))
+        XCTAssertEqual(gate.count(.localAwards),1,"The same frozen POTA query should reuse its immutable snapshot.")
+        params["reference_time"]="2026-11-05T00:00:00Z"
+        let later=try await success(call(f.worker,"logbook_award_progress",params))
+        let laterDays=try XCTUnwrap(later["activationCandidates"] as? [[String:Any]])
+        let reclassified=try XCTUnwrap(laterDays.first{$0["day"] as? String == "2026-11-04"})
+        XCTAssertEqual(reclassified["countableContacts"] as? Int,1,"Eligibility uses the requested frozen day, not the host clock or an earlier cached result.")
+        XCTAssertEqual(reclassified["excludedRows"] as? Int,0)
+        XCTAssertEqual(gate.count(.localAwards),2,"Changing the frozen POTA date requires a new counting snapshot.")
+    }
+
+    func testNonrelativeDXCCWireKeepsStableWarmCacheAcrossReferenceTimes() async throws {
+        let gate=Gate([]),f=try fixture(gate)
+        let first:[String:Any]=["programme":"dxcc","reference_time":"2026-11-03T00:00:00Z","expected_generation":f.generation]
+        var second=first;second["reference_time"]="2026-11-05T00:00:00Z"
+        let a=try f.service.aggregateQuery(method:"logbook_award_progress",params:first)
+        let b=try f.service.aggregateQuery(method:"logbook_award_progress",params:second)
+        XCTAssertEqual(a.referenceTime,0)
+        XCTAssertEqual(b.referenceTime,0)
+        XCTAssertEqual(try a.request(),try b.request())
+        let cold=try await success(call(f.worker,"logbook_award_progress",first))
+        let warm=try await success(call(f.worker,"logbook_award_progress",second))
+        XCTAssertEqual(cold["workedUnits"] as? Int,1)
+        XCTAssertEqual(warm["workedUnits"] as? Int,1)
+        XCTAssertEqual(cold["logbook_revision"] as? Int,warm["logbook_revision"] as? Int)
+        XCTAssertEqual(gate.count(.localAwards),1,"Ordinary DXCC has no clock-dependent counting rule; timestamps must not defeat the warm cache.")
+    }
+
     func testHeldCatalogueLeavesSaveFirstPageColdStatsAndSettingsUsable() async throws {
         let gate = Gate(), f = try fixture(gate)
         defer { gate.release() }

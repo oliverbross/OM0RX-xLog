@@ -286,7 +286,6 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
             query.search = try string(params, "search", max: 128) ?? ""
             query.definition = try contactQuery(params)
             query.referenceTime = try queryReferenceTime(params).timeIntervalSince1970
-            if !(query.definition?.clauses.contains(where: { $0.op == "relative" }) ?? false) { query.referenceTime = 0 }
         }
         if kind == .exportContacts {
             switch params["scope"] as? String {
@@ -316,6 +315,13 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
             query.scopeSearch = try string(params,"scope_search",max:128) ?? ""
             query.referenceDirectory = try referenceDirectoryURL().path
             query.referenceVersion = try ActivationReferenceDirectory.fingerprint(directory: URL(fileURLWithPath: query.referenceDirectory))
+        }
+        if kind == .contacts || kind == .localAwards || kind == .exportContacts {
+            let relative = query.definition?.clauses.contains(where: { $0.op == "relative" }) ?? false
+            // POTA's future-UTC-day rule needs the frozen clock even when the
+            // contact predicate has no relative dates. Other static reads keep
+            // their stable cache identity across request timestamps.
+            if !relative && !(kind == .localAwards && query.programme == "pota") { query.referenceTime = 0 }
         }
         if kind == .catalogue {
             query.limit = try integer(params, "limit", default: 20, range: 1...25)

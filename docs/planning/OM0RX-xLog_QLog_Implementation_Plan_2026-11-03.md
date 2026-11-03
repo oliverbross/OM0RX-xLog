@@ -321,7 +321,7 @@ For each calculator keep a compact rule manifest: programme/variant ID, rules ve
 | EP-02.3 | Add usable detailed matrices and correct distinct-unit versus QSO counts; preserve nonselected award behavior | EP-02.2 | Implemented | Focused correction integrated; actual source/UI regression results and precise remaining package/source-rule boundaries in section8.6. Earlier affected evidence is superseded. |
 | EP-02.4 | Implement WAC and WPX local rule packs, verified rule manifests and exception fixtures | EP-02.1 | Verified | Worldwide complete-log/rule/evidence fixtures, native WAC exact-QSO/Back and100k global award oracles; source limitations remain labelled (section8.3). |
 | EP-02.5 | Implement IOTA local progress and operation-evidence distinctions | EP-02.1 | Verified | Worldwide complete-log/rule/evidence fixtures, native WAC exact-QSO/Back and100k global award oracles; source limitations remain labelled (section8.3). |
-| EP-02.6 | Implement separate POTA/SOTA/WWFF local role-based progress and unknown-data outcomes | EP-02.1; EP-09 enriches new own-activation context but is not required for historical explicit references | Implemented | Focused correction integrated; actual source/UI regression results and precise remaining package/source-rule boundaries in section8.6. Earlier affected evidence is superseded. |
+| EP-02.6 | Implement separate POTA/SOTA/WWFF local role-based progress and unknown-data outcomes | EP-02.1; EP-09 enriches new own-activation context but is not required for historical explicit references | Implemented | Core counting and actual POTA worker-frame/frozen-clock regressions pass; affected final qualification/native candidate remain pending. Expansion-dependent minimum remains explicitly incomplete (section8.6). |
 | EP-02.7 | Update registry capability state, aggregate invalidation, source links and coverage documentation; reconcile new calculations with all-contact fixture oracle | EP-02.3 / EP-02.4 / EP-02.5 / EP-02.6 | Implemented | Focused correction integrated; actual source/UI regression results and precise remaining package/source-rule boundaries in section8.6. Earlier affected evidence is superseded. |
 
 #### Acceptance scenarios
@@ -1009,6 +1009,33 @@ changed1.5.4owners. Version/build provenance, signature, archive and representat
 native acceptance will be recorded from the actual final candidate; no intermediate
 package or production installation has occurred during this completion pass.
 
+
+**Pre-package bridge correction:** review of `LiveLogbookMethods.aggregateQuery`
+found its existing non-relative cache optimization sets reference time to zero,
+including POTA. `LiveLogbookAggregateQuery.request()` then replaces the new core
+factory's date with that zero, so real POTA requests would compare modern QSOs
+with1970. Core-only fixtures did not establish this wire boundary. No1.5.4package
+has been minted. The correction must retain POTA's frozen date while preserving
+ordinary non-relative DXCC/contact/export cache behavior, with actual worker-frame
+regressions and affected platform qualification. Source82cb26ed CI41627291299 and
+all7 contest-portability jobs41627291322 passed; beta41627354537 is still running.
+Those valid results remain tied to82cb26ed and cannot establish the corrected POTA
+clock. Changed native-owner checks will be repeated; unchanged frontend/Rust
+evidence may only be reused with an explicit source-input comparison.
+
+Actual bridge regression: before the fix, the POTA wire case failed9 assertions
+with clock0 versus expected1793664000.125, modern contacts misclassified and a
+changed date reusing the wrong snapshot; the DXCC control passed
+(`b9793cfb0948a630`). The minimal fix moves static-read zeroization after validated
+programme selection, preserving POTA/relative clocks and stable ordinary static
+cache keys. `XLOG_PORTABLE_ONLY=1 swift test --scratch-path .build/prototype-tests
+--jobs 2 --filter LiveLogbookAggregateReadsTests` then passed13/13
+(`4186e05c1ffef1d1`,5.35s tests). Actual worker frames prove a ten-contact prior-day
+candidate, later time within the frozen UTC day allowed, next UTC day excluded,
+same POTA snapshot reused, changed frozen date reclassified/re-evaluated, and two
+ordinary DXCC dates sharing one warm evaluation. No assertion/deadline weakened.
+Only the native adapter and its existing test file changed; no1.5.4package was
+minted before this repair. Affected qualification must use the corrected source.
 
 One integrator retains schemas, tracker, commits/pushes and release ownership.
 Three bounded existing Sol6.1high lanes own alert/profile UI, native nearby radio
