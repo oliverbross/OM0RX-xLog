@@ -110,3 +110,7 @@
   .map-toolbar strong, .map-count { width: 100%; }
   .map-offline { top: 92px; }
 }
+.map-rbn-receiver{color:#f3b23c;background:#101f34;border:1px dashed #f3b23c;border-radius:3px;padding:3px 5px;font:11px ui-monospace,monospace;cursor:pointer}
+.map-rbn-toggle{position:absolute;top:8px;left:8px;z-index:2}
+.map-rbn-panel{position:absolute;right:8px;top:62px;z-index:3;max-width:min(360px,85%);max-height:65%;overflow:auto;background:#0b1728;color:#e6edf6;border:1px solid #243a55;border-radius:6px;padding:10px;font-size:12px}
+.map-rbn-panel p{margin:6px 0}.map-rbn-panel small{display:block;color:#92a7bf}.map-rbn-panel button{margin-top:6px}

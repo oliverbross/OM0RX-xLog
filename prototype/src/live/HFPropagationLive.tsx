@@ -119,8 +119,8 @@ export default function HFPropagationLive({ initialOwnCall = "", initialLocator 
     })());
     if (enabled.has("rbn") && active.ownCall) jobs.push((async () => {
       try {
-        const incoming = await loadOwnRBNPickups(transport, active.ownCall, 0);
-        if (mounted.current) { setRbnPickups(incoming); setRbnError(""); }
+        const incoming = await loadOwnRBNPickups(transport, active.ownCall, 120_000);
+        if (mounted.current && settingsRef.current.ownCall === active.ownCall) { setRbnPickups(incoming); setRbnError(""); }
       } catch (cause) { if (mounted.current) setRbnError(humanError(cause)); }
     })());
     jobs.push((async () => {
@@ -263,7 +263,7 @@ function RBNPickups({ call, spots, error }: { call: string; spots: OwnRBNSpot[];
   if (!spots.length) return <Empty text={`No RBN skimmers heard ${call} in the last 10 minutes.`} />;
   return <div className="hf-prop-rbn-grid">{spots.map(spot => <article key={spot.id} className="hf-prop-rbn-pickup">
     <header><strong>{spot.spotter}</strong><span>{spot.country || spot.continent || "RBN skimmer"}</span><time dateTime={new Date(spot.time).toISOString()}>{new Date(spot.time).toLocaleTimeString("en-GB", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" })} UTC</time></header>
-    <div><b>{bandLabel(spot.band)}</b><span>{(spot.frequencyKHz / 1000).toFixed(4)} MHz</span><span>{spot.mode}</span><span>{spot.snr > 0 ? "+" : ""}{spot.snr} dB</span>{spot.speed > 0 && <span>{spot.speed} {spot.mode === "CW" ? "wpm" : "bps"}</span>}{spot.grid && <span>{spot.grid}</span>}</div>
+    <div><b>{bandLabel(spot.band)}</b><span>{(spot.frequencyKHz / 1000).toFixed(4)} MHz</span><span>{spot.mode}</span><span>{spot.snr === null ? "SNR unknown" : `${spot.snr > 0 ? "+" : ""}${spot.snr} dB`}</span>{spot.speed !== null && <span>{spot.speed} {spot.mode === "CW" ? "wpm" : "bps"}</span>}{spot.grid && <span>{spot.grid}</span>}</div>
   </article>)}</div>;
 }
 function KpChart({ points, now }: { points: SolarConditions["kpSeries"]; now: number }) {

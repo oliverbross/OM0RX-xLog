@@ -11,6 +11,10 @@ import { maidenheadGrid } from "./MapGrid";
 import { clusterBandColors, clusterStatusColors, paletteColor } from "./live/clusterPalette";
 import { expeditionLabelOffset } from "./MapMarkerLayout";
 import "./Map.css";
+import { useOwnRbn } from "./live/useOwnRbn";
+import type { OwnRBNTransport } from "./live/ownRbnFeed";
+import { ownRbnReceivers, type RBNReceiver } from "./live/ownRbnMap";
+import { bandForRadio, BAND_ORDER } from "./live/band";
 // MapLibre 6 resolves its default worker relative to import.meta.url. Vite's
 // optimized module and packaged bundle do not preserve that adjacent path.
 // Emit the standalone worker as a local asset and configure it before any map.
@@ -194,6 +198,9 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
   spotColorMode = "band",
   spotLegend,
   expeditionLabels = false,
+  ownCall,
+  ownRbnContext = "",
+  ownRbnTransport,
 }: {
   selected: string | null;
   onSpot?: (spot: T) => void;
@@ -213,6 +220,9 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
   spotColorMode?: SpotColorMode;
   spotLegend?: { label: string; color: string }[];
   expeditionLabels?: boolean;
+  ownCall?: string;
+  ownRbnContext?: string;
+  ownRbnTransport?: OwnRBNTransport;
 }) {
   const [restoredState] = useState(() => storedMapState(persistenceKey));
   const mappedSpots = useMemo(() => normalizeMapSpots(data, expeditionLabels), [data, expeditionLabels]);
@@ -226,6 +236,38 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
   const legendRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [viewportRevision, setViewportRevision] = useState(0);
+  const [heardMe, setHeardMe] = useState(false), [heardBand, setHeardBand] = useState("follow"), [receiver, setReceiver] = useState<RBNReceiver | null>(null);
+  const [surfaceVisible, setSurfaceVisible] = useState(true);
+  useEffect(() => {
+    const ancestors: HTMLElement[] = [];
+    for (let node = container.current; node; node = node.parentElement) ancestors.push(node);
+    const update = () => setSurfaceVisible(!ancestors.some(node => node.hidden || node.inert || getComputedStyle(node).display === "none"));
+    update();
+    const observer = new MutationObserver(update);
+    ancestors.forEach(node => observer.observe(node, { attributes: true, attributeFilter: ["hidden", "inert", "style", "class"] }));
+    return () => observer.disconnect();
+  }, []);
+  const monitoredCall = (ownCall ?? home?.call ?? "").trim().toUpperCase();
+  const rbn = useOwnRbn(monitoredCall, heardMe && surfaceVisible, ownRbnContext, ownRbnTransport);
+  const scopedBand = heardBand === "follow" ? bandForRadio(frequencyHz) : heardBand === "all" ? null : heardBand;
+  const receivers = useMemo(() => ownRbnReceivers(rbn.spots, monitoredCall, scopedBand, rbn.now), [rbn.spots, monitoredCall, scopedBand, rbn.now]);
+  const locatedReceivers = receivers.filter(row => row.location);
+  useEffect(() => { setReceiver(null); }, [monitoredCall, ownRbnContext, heardMe, heardBand]);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const markers: maplibregl.Marker[] = [];
+    for (const row of locatedReceivers) {
+      const button = document.createElement("button");
+      button.type = "button"; button.className = "map-rbn-receiver";
+      button.textContent = `◇ ${row.spotter}`;
+      button.title = `RBN heard ${row.call} · ${row.band} · ${row.location!.provenance}`;
+      button.setAttribute("aria-label", button.title);
+      button.onclick = event => { event.stopPropagation(); setReceiver(row); };
+      markers.push(new maplibregl.Marker({ element: button }).setLngLat([row.location!.lon, row.location!.lat]).addTo(map));
+    }
+    return () => markers.forEach(marker => marker.remove());
+  }, [receivers, viewportRevision]);
   const [error, setError] = useState("");
   const [imageryUnavailable, setImageryUnavailable] = useState(false);
   const restoredOverlay = ["Spots", "DXCC", "Both"].includes(restoredState?.overlayMode ?? "") ? restoredState!.overlayMode : undefined;
@@ -1112,6 +1154,7 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
       />
       {!compact && <div ref={toolbarRef} className="map-toolbar" aria-label="World map controls">
         <strong>World map</strong>
+        <button type="button" aria-pressed={heardMe} onClick={() => setHeardMe(!heardMe)}>Heard me</button>
         <label>Preset <select aria-label="Map preset" value={preset} onChange={event => changePreset(event.target.value as MapPreset)}>
           <option>Simple</option><option>Detailed</option><option>DX</option>
         </select></label>
@@ -1127,6 +1170,15 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
         <button type="button" aria-pressed={longPath} onClick={() => setLongPath(!longPath)} title="Switch the displayed great-circle path; does not move the rotor">{longPath ? "Long path" : "Short path"}</button>
         <span className="map-count">{mappedSpots.length} mapped</span>
       </div>}
+      {compact && <button className="map-rbn-toggle" type="button" aria-pressed={heardMe} onClick={() => setHeardMe(!heardMe)}>Heard me</button>}
+      {heardMe && <aside className="map-rbn-panel" aria-label="Heard me reception reports">
+        <label>Heard me · {monitoredCall || "No station call"} <select aria-label="Heard me band scope" value={heardBand} onChange={event => setHeardBand(event.target.value)}><option value="follow">Selected radio band {bandForRadio(frequencyHz) || "unknown"}</option><option value="all">All bands</option>{BAND_ORDER.map(band => <option key={band}>{band}</option>)}</select></label>
+        <p role="status">{rbn.status}{rbn.status === "Unavailable" && receivers.length ? " · stale retained data" : ""} · {locatedReceivers.length} located · {receivers.length - locatedReceivers.length} unlocated · last 10 min</p>
+        {rbn.status === "Current" && !receivers.length && <p>No reports in this scope.</p>}
+        <small>RBN receiver positions; radio and antenna attribution unavailable.</small>
+        {!!locatedReceivers.length && <button type="button" onClick={() => { const points = locatedReceivers.map(row => row.location!); mapRef.current?.fitBounds([[Math.min(...points.map(p => p.lon)), Math.min(...points.map(p => p.lat))], [Math.max(...points.map(p => p.lon)), Math.max(...points.map(p => p.lat))]], { padding: 70, maxZoom: 7 }); }}>Frame receivers</button>}
+        {receiver && receivers.some(row => row.key === receiver.key) && <div aria-label="RBN receiver details"><strong>{receiver.spotter} heard {receiver.call}</strong><p>{receiver.band} · {(receiver.frequencyKHz / 1000).toFixed(4)} MHz · {receiver.mode}</p><p>{new Date(receiver.time).toISOString()} · {Math.max(0, Math.floor((rbn.now - receiver.time) / 1000))} s ago · {receiver.updates} reports</p><p>SNR {receiver.snr === null ? "unknown" : `${receiver.snr} dB`} · Speed {receiver.speed ?? "unknown"} · {receiver.location?.provenance}</p><button type="button" onClick={() => setReceiver(null)}>Close receiver details</button></div>}
+      </aside>}
       {imageryUnavailable && appearance !== "Standard" && <p className="map-offline" role="status">Imagery unavailable · showing bundled map</p>}
       {error && (
         <p className="map-error" role="alert">

@@ -12,6 +12,8 @@ export function DetachedWorldMapSurface() {
     {!view.context && <p className="secondary">Loading shared native map context…</p>}
     <div className="live-map full"><WorldMap data={mapSpots(view.spots)} selected={selected?.id ?? null}
       palette={view.context?.cluster.response?.configuration?.palette} home={view.context?.metadata.home}
+      ownRbnContext={`${view.context?.metadata.generation ?? ""}|${view.context?.selection.radio_id ?? ""}`}
+      ownCall={view.context?.metadata.ownCall}
       dxccStatuses={view.context?.metadata.dxccStatuses} target={target}
       frequencyHz={mapRadioFrequency(view.context)} onSpot={view.activate}
       spotActionLabel="Activate report" locationLabel="Retained reports · shared native context" /></div>

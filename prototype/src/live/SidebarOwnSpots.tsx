@@ -76,7 +76,7 @@ function directRBNRows(spots: OwnRBNSpot[], ownCall: string): RawSpot[] {
     band: spot.band,
     mode: spot.mode,
     source: "rbl",
-    comment: `${spot.snr >= 0 ? "+" : ""}${spot.snr} dB${spot.speed ? ` · ${spot.speed} WPM` : ""}${spot.grid ? ` · ${spot.grid}` : ""}`,
+    comment: `${spot.snr === null ? "SNR unknown" : `${spot.snr >= 0 ? "+" : ""}${spot.snr} dB`}${spot.speed !== null ? ` · ${spot.speed} WPM` : ""}${spot.grid ? ` · ${spot.grid}` : ""}`,
     receivedAt: spot.time,
   }));
 }

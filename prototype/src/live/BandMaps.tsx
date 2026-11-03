@@ -9,6 +9,10 @@ import { BAND_ORDER, BAND_RANGES, bandForRadio } from "./band";
 export { BAND_ORDER, BAND_RANGES, bandForRadio } from "./band";
 import { contestModeForSpot, visibleContestBandRange, type ContestBandMode, type ContestBandPlanEntry } from "../contesting/contestBandPlan";
 import "./BandMaps.css";
+import { BandMapGuideControls, GuideMarkerInspector, useBandMapGuides } from "./BandMapGuideControls";
+import { builtinGuides } from "./bandMapBuiltinGuides";
+import { clippedGuideRange, ibpMarkers, type BandMapGuide, type GuideMarker } from "./bandMapGuides";
+import { tuneGuideMarker } from "./guideTune";
 
 export type BandMapSpot = Record<string, any> & { id?: unknown };
 // An explicit host slot lets compact maps share the workspace toolbar without
@@ -27,6 +31,7 @@ export function bandMapCapacity(width: number, height: number, singleRow: boolea
 }
 export type BandMapViewPreferences = { bands: string[]; followRadio: boolean; layout: "row" | "grid"; fontScale: number; modes?: BandMapMode[] };
 type Props = { spots: BandMapSpot[]; onSelect: (spot: BandMapSpot) => void; radioFrequencyHz?: number; compact?: boolean;
+  onGuideTune?: (marker: GuideMarker) => Promise<unknown>;
   observedReceiveBandwidthHz?: number | null;
   preferences?: BandMapViewPreferences; onPreferencesChange?: (next: BandMapViewPreferences) => void; onDock?: () => void; onUndock?: () => void; selectionHint?: string;
   focusedBand?: string; onFocusedBandChange?: (band: string) => void; storageNamespace?: string;
@@ -301,12 +306,13 @@ export function placeSpots(spots: BandMapSpot[], view: ViewRange, width: number,
 }
 
 function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontScale, resolution, onManualView, focusFrequencyKHz, hidden: panelHidden = false, modeSettings,
-    radioFrequencyKHz, selectedSpotId, onSpotContextMenu, contestPresentation = false, contestBandPlan, filterCounts }: {
+    radioFrequencyKHz, selectedSpotId, onSpotContextMenu, contestPresentation = false, contestBandPlan, filterCounts, guide, guideVisible = true, guideMarkers = [], onGuideMarker }: {
   band: string; spots: BandMapSpot[]; onSelect: Props["onSelect"]; onRemove: () => void;
   canRemove: boolean; compact: boolean; fontScale: number; resolution: BandMapResolution; onManualView: () => void; focusFrequencyKHz?: number; radioFrequencyKHz?: number; hidden?: boolean; modeSettings?: { modes: readonly BandMapMode[]; availableModes: readonly BandMapMode[]; setModes: (modes: BandMapMode[]) => void };
   selectedSpotId?: string | null; onSpotContextMenu?: Props["onSpotContextMenu"];
   contestPresentation?: boolean; contestBandPlan?: ContestBandPlanEntry[];
   filterCounts?:readonly (readonly [string,number])[];
+  guide?: BandMapGuide; guideVisible?: boolean; guideMarkers?: GuideMarker[]; onGuideMarker?: (marker: GuideMarker) => void;
 }) {
   const full = contestPresentation ? visibleContestBandRange(contestBandPlan?.find(entry => entry.band === band), modeSettings?.modes ?? BAND_MAP_MODES) ?? BAND_RANGES[band] : BAND_RANGES[band];
   const [view, setView] = useState<ViewRange>({ low: full.low, high: full.high });
@@ -316,6 +322,7 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
   const drag = useRef<{ id: number; y: number; view: ViewRange; moved: boolean } | null>(null);
   const suppressClick = useRef(false);
   const [dragging, setDragging] = useState(false);
+  const [rangeInfo, setRangeInfo] = useState("");
   const zoomed = view.high - view.low < full.high - full.low;
   const [chartHeight, setChartHeight] = useState(compact ? 336 : 520);
   const focusRef = useRef(focusFrequencyKHz); focusRef.current = focusFrequencyKHz;
@@ -440,13 +447,15 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
       onPointerCancel={event => { if (drag.current?.id === event.pointerId) { drag.current = null; setDragging(false); } }}
       onLostPointerCapture={event => { if (drag.current?.id === event.pointerId) { drag.current = null; setDragging(false); } }}
       onClickCapture={event => { if (suppressClick.current && event.detail !== 0) { event.preventDefault(); event.stopPropagation(); suppressClick.current = false; } }}>
-      {full.allocations.map((part) => {
+      {!guide && guideVisible && full.allocations.map((part) => {
         const low = Math.max(view.low, part.low);
         const high = Math.min(view.high, part.high);
         if (high <= low) return null;
         const span = view.high - view.low;
         return <div key={part.name} className={`band-map-allocation band-map-${part.name.toLowerCase()}`} style={{ top: `${((low - view.low) / span) * 100}%`, height: `${((high - low) / span) * 100}%` }} aria-hidden="true">{allocationCaptionsFit && <span>{part.name.toUpperCase()}</span>}</div>;
       })}
+      {guideVisible && guide?.ranges.map((range, index) => { const geometry = clippedGuideRange(range, view.low, view.high); return geometry && <button type="button" className="band-map-custom-range" key={index} style={{ top: `${geometry.top}%`, height: `${geometry.height}%`, backgroundColor: range.color, left: Math.max(0, axis - 10 - index % 3 * 4) }} title={`${range.label} · ${range.startHz}–${range.endHz} Hz · ${guide.name} · ${guide.sourceURL}`} aria-label={`Inspect ${range.label} · ${guide.name}`} onClick={event => { event.stopPropagation(); setRangeInfo(`${range.label} · ${range.startHz}–${range.endHz} Hz · ${guide.name} · ${guide.sourceURL}`); }} />; })}
+      {guideMarkers.filter(marker => marker.frequencyHz >= view.low * 1000 && marker.frequencyHz <= view.high * 1000).map((marker, index) => <button type="button" key={index} className="band-map-guide-marker" style={{ top: `${(marker.frequencyHz / 1000 - view.low) / (view.high - view.low) * 100}%`, left: axis - 22 }} title={`${marker.label} · ${marker.frequencyHz} Hz · ${marker.category}`} aria-label={`Inspect ${marker.label} at ${marker.frequencyHz} Hz`} onClick={event => { event.stopPropagation(); onGuideMarker?.(marker); }}>◇</button>)}
       {bandMapFrequencyTicks(view, chartHeight, fontScale).map((frequency, index, ticks) => {
         const fraction = (frequency - view.low) / (view.high - view.low);
         return <div key={frequency} className="band-map-gridline" data-edge={index === 0 ? "upper" : index === ticks.length - 1 ? "lower" : undefined} style={{ top: `${fraction * 100}%` }} aria-hidden="true"><span>{formatBandMapFrequency(frequency)}</span></div>;
@@ -475,7 +484,8 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
       })}
       {hidden > 0 && <span className="band-map-overflow" role="status" aria-label={`${hidden} more spots; zoom in to separate labels`} title={`${hidden} more spots; zoom in to separate labels`}>{hidden} more · zoom in</span>}
     </div>
-    <footer className="band-map-panel-foot"><div className="band-map-legend"><span>CW</span><span>Data</span><span>Phone</span></div>
+    {rangeInfo && <p className="band-map-range-info" role="status">{rangeInfo}<button type="button" onClick={() => setRangeInfo("")}>Close range</button></p>}
+    <footer className="band-map-panel-foot"><div className="band-map-legend">{guide ? <span title={guide.ranges.map(r => r.label).filter((v,i,a) => a.indexOf(v) === i).join(" · ")}>{guide.name}{!guide.supportedBands.includes(band) ? " · unsupported band" : ""}</span> : <><span>CW</span><span>Data</span><span>Phone</span></>}</div>
       {contestPresentation&&<details className="band-map-filter-details"><summary>Filter details</summary><div aria-label={`${band} filter counts`}>
         <p>Counts start with reports supplied to this view.</p><dl>
           {filterCounts?.map(([label,count])=><Fragment key={label}><dt>{label}</dt><dd>{count}</dd></Fragment>)}
@@ -487,10 +497,15 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
 }
 
 export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBandwidthHz, compact = false, preferences, onPreferencesChange, onDock, onUndock, focusedBand, onFocusedBandChange,
+  onGuideTune,
   storageNamespace, selectedSpotId, onSpotContextMenu, contestPresentation = false, contestBandPlan, contestBands, contestAllowedModes,
   showWorked: controlledShowWorked, onShowWorkedChange,
   selectionHint = "Select a marker to load it into the logger." }: Props) {
   const toolbarHost = useContext(BandMapsToolbarContext);
+  const guides = useBandMapGuides(compact, !contestPresentation);
+  const guideSelection = guides.document[compact ? "desk" : "detached"];
+  const selectedGuide = [...builtinGuides, ...guides.document.custom].find(g => g.id === guideSelection.id);
+  const [guideMarker, setGuideMarker] = useState<GuideMarker | null>(null);
   const radioBand = bandForRadio(radioFrequencyHz);
   const availableContestBands = useMemo(() => {
     const configured = contestBands?.filter((band, index, values) => band in BAND_RANGES && values.indexOf(band) === index) ?? [];
@@ -668,6 +683,8 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBan
       <span className="band-maps-count">{filtered.length} of {recentUnique.length} spots</span><span className="band-maps-selected">{selected ? `${text(selected.callsign)} · ${opportunityCode(selected)} · ${clusterStatusCode(text(selected.callStatus))} · ${clusterStatusCode(text(selected.dxccStatus))}` : selectionHint}</span>{(query || status !== "all" || !allAllowedModesSelected) && <button type="button" onClick={() => { setQuery(""); setStatus("all"); setModes([...allowedContestModes]); }}>Clear filters</button>}</div>}
     <div ref={panelsRef} className={`band-maps-panels band-maps-${compact || layout === "row" ? "row" : "grid"}`} style={{ gridTemplateColumns: `repeat(${Math.max(1, Math.min(columns, visibleCount))}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${Math.max(1, Math.ceil(visibleCount / columns))}, minmax(0, 1fr))` }}>
       {bands.map((band, index) => <BandPanel key={band} band={band} spots={filtered} onSelect={choose} onRemove={() => remove(band)} canRemove={bands.length > 1} compact={compact} fontScale={fontScale} resolution={resolution}
+        guide={contestPresentation ? undefined : selectedGuide} guideVisible={contestPresentation || guideSelection.visible}
+        guideMarkers={contestPresentation ? [] : [...(guideSelection.visible ? selectedGuide?.markers ?? [] : []), ...(guideSelection.beacons ? ibpMarkers : [])]} onGuideMarker={setGuideMarker}
         onManualView={markCustom}
       focusFrequencyKHz={radioBand === band && radioFrequencyHz ? radioFrequencyHz / 1000 : finite(filtered.find(spot => spot.band === band)?.frequencyKHz) ?? undefined}
       radioFrequencyKHz={radioBand === band && radioFrequencyHz ? radioFrequencyHz / 1000 : undefined}
@@ -678,6 +695,8 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBan
           ["Mode / search hidden",contestVisible.length-filtered.length]]:undefined} />)}
     </div>
     <footer className="band-maps-quick-controls" aria-label="Band map view controls">
+      {!contestPresentation && <BandMapGuideControls {...guides} compact={compact} />}
+      {guideMarker && <GuideMarkerInspector marker={guideMarker} tune={onGuideTune ?? tuneGuideMarker} close={() => setGuideMarker(null)} />}
       {contestPresentation&&<div className="contest-band-map-legend" aria-label="Contest spot colors">
         <span className="is-double">Double multiplier</span><span className="is-single">Single multiplier</span>
         <span className="is-qso">Valid QSO</span><span className="is-dupe">Dupe / non-workable</span>

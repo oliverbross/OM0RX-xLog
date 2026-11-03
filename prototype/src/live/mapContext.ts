@@ -6,6 +6,7 @@ export { mapClusterFresh, mapRadioFrequency } from "./mapObservations";
 import type { Spot } from "../model";
 
 export type MapContext = { epoch: string; revision: number; metadata: PreferenceSnapshot & {
+  ownCall?: string;
   home: { call?: string; grid?: string; lat: number; lon: number } | null;
   dxccStatuses: Record<number, "needed" | "worked" | "confirmed">;
 }; cluster: Omit<ClusterProjection, "response"> & { response: Record<string, any> | null; received_at_ms: number }; selection: Record<string, any>; radio: Record<string, any> };

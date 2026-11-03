@@ -1,4 +1,4 @@
-import { cleanCall, parseOwnRBN, type OwnRBNSpot } from "./hfPropagationModel";
+import { parseOwnRBN, type OwnRBNSpot } from "./hfPropagationModel";
 
 export type OwnRBNTransport = (source: string, parameters?: Record<string, unknown>) => Promise<string>;
 
@@ -13,7 +13,8 @@ const feeds = new WeakMap<OwnRBNTransport, Map<string, FeedEntry>>();
 function entryFor(transport: OwnRBNTransport, ownCall: string, sinceSeconds: number) {
   let transportFeeds = feeds.get(transport);
   if (!transportFeeds) { transportFeeds = new Map(); feeds.set(transport, transportFeeds); }
-  const call = cleanCall(ownCall);
+  const normalized = ownCall.trim().toUpperCase();
+  const call = /^[A-Z0-9/]{3,16}$/.test(normalized) ? normalized : "";
   const key = `${call}|${sinceSeconds}`;
   let entry = transportFeeds.get(key);
   if (!entry) { entry = { loadedAt: 0, spots: [] }; transportFeeds.set(key, entry); }

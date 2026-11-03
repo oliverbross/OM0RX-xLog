@@ -38,7 +38,7 @@ export type PropagationSpot = { time: number; tx: string; rx: string; band: stri
   source: PropagationSource; txContinent: Continent | null; rxContinent: Continent | null; distance: number; count?: number };
 export type OwnWSPRSpot = { time: number; band: string; kind: "tx" | "rx"; other: string; continent: Continent | null; snr: number };
 export type OwnRBNSpot = { id: string; time: number; spotter: string; band: string; frequencyKHz: number; mode: PropagationMode;
-  snr: number; speed: number; country: string; continent: Continent | null; grid: string };
+  snr: number | null; speed: number | null; country: string; continent: Continent | null; grid: string };
 export type KpPoint = { time: number; kp: number; predicted: boolean };
 export type SolarConditions = { sfi: number | null; ssn: number | null; aIndex: number | null; kp: number | null;
   xray: string; solarWind: number | null; kpSeries: KpPoint[]; forecast: { geomagnetic: string; radiation: string; blackout: string } };
@@ -177,19 +177,21 @@ export function parseDXHeat(payload: unknown): { cluster: PropagationSpot[]; rbn
   return { cluster, rbn };
 }
 export function parseOwnRBN(payload: unknown, ownCall: string): OwnRBNSpot[] {
-  const value = payload && typeof payload === "object" ? payload as Record<string, unknown> : {}, call = cleanCall(ownCall);
+  const value = payload && typeof payload === "object" ? payload as Record<string, unknown> : {}, call = ownCall.trim().toUpperCase();
+  if (!/^[A-Z0-9/]{3,16}$/.test(call)) return [];
   const spots = value.spots && typeof value.spots === "object" ? value.spots as Record<string, unknown> : {};
   const callInfo = value.call_info && typeof value.call_info === "object" ? value.call_info as Record<string, unknown> : {};
   const modes: Record<number, PropagationMode> = { 1: "CW", 11: "RTTY", 34: "FT8", 45: "FT4" };
   return Object.entries(spots).flatMap(([id, raw]) => {
-    if (!Array.isArray(raw) || cleanCall(raw[2]) !== call) return [];
-    const spotter = cleanCall(raw[0]), frequencyKHz = Number(raw[1]), band = bandFromFrequency(frequencyKHz), time = Number(raw[10]) * 1000;
+    if (!Array.isArray(raw) || String(raw[2] ?? "").trim().toUpperCase() !== call) return [];
+    const spotter = String(raw[0] ?? "").trim().toUpperCase().slice(0, 48), frequencyKHz = Number(raw[1]), band = bandFromFrequency(frequencyKHz), time = Number(raw[10]) * 1000;
     if (!spotter || !band || !Number.isFinite(time)) return [];
     const info = Array.isArray(callInfo[spotter]) ? callInfo[spotter] as unknown[] : [];
     const continent = continentValue(info[2]);
-    return [{ id, time, spotter, frequencyKHz, band, mode: modes[Number(raw[9])] || "OTHER", snr: Number(raw[3]) || 0,
-      speed: Number(raw[4]) || 0, country: String(info[1] || ""), continent, grid: String(info[8] || "") }];
-  }).sort((left, right) => right.time - left.time);
+    const measurement = (value: unknown) => value === null || value === undefined || value === "" || !Number.isFinite(Number(value)) ? null : Number(value);
+    return [{ id, time, spotter, frequencyKHz, band, mode: modes[Number(raw[9])] || "OTHER", snr: measurement(raw[3]),
+      speed: measurement(raw[4]), country: String(info[1] || ""), continent, grid: String(info[8] || "") }];
+  }).sort((left, right) => right.time - left.time).slice(0, 2000);
 }
 function continentValue(value: unknown): Continent | null { const item = String(value || "").toUpperCase(); return continents.includes(item as Continent) ? item as Continent : null; }
 

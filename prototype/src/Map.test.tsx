@@ -124,6 +124,61 @@ const spot = (changes: Partial<MapSpot> = {}): MapSpot => ({
   id: "feed-1", call: "K1ABC", mhz: 14.074, mode: "FT8", band: "20m", country: "United States",
   grid: "", lon: -72, lat: 41, reporter: "OM0RX", note: "<script>not HTML</script>", state: "needed", receivedAt: 1, ...changes,
 });
+
+it("Heard me markers remain passive and late old-call reports cannot repaint the new context", async () => {
+  let finish: ((value: string) => void) | undefined;
+  const transport = vi.fn().mockImplementationOnce(() => new Promise<string>(resolve => { finish = resolve; })).mockResolvedValue(JSON.stringify({ spots: {} }));
+  const activate = vi.fn();
+  const view = render(<WorldMap selected={null} onSpot={activate} ownCall="OM0RX" ownRbnContext="workspace-1|radio1" frequencyHz={14025000} ownRbnTransport={transport} />);
+  fireEvent.click(screen.getByRole("button", { name: "Heard me" }));
+  view.rerender(<WorldMap selected={null} onSpot={activate} ownCall="OM0RX/P" ownRbnContext="workspace-1|radio2" frequencyHz={14025000} ownRbnTransport={transport} />);
+  await act(async () => { finish?.(JSON.stringify({ spots: { a: ["RX1/P",14025,"OM0RX",0,null,"",0,0,0,1,Date.now()/1000] }, call_info: { "RX1/P": [null,null,null,null,null,null,null,null,"JN88AA"] } })); });
+  expect(screen.queryByRole("button", { name:/RBN heard OM0RX ·/ })).toBeNull();
+  expect(activate).not.toHaveBeenCalled();
+});
+
+it("Heard me receiver inspection preserves viewport, logging target and zero SNR", async () => {
+  const now = Date.now(), transport = vi.fn().mockResolvedValue(JSON.stringify({ spots: { a: ["RX1/P",14025,"OM0RX",0,null,"",0,0,0,1,now/1000] }, call_info: { "RX1/P": [null,null,null,null,null,null,null,null,"JN88AA"] } }));
+  const activate = vi.fn();
+  render(<WorldMap selected={null} onSpot={activate} ownCall="OM0RX" frequencyHz={14025000} ownRbnTransport={transport} />);
+  const map = harness.maps.at(-1), fits = map.fitCalls.length;
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Heard me" })); });
+  fireEvent.click(screen.getByRole("button", { name:/RBN heard OM0RX · 20m/ }));
+  expect(screen.getByText(/SNR 0 dB/)).toBeTruthy(); expect(screen.getByText(/locator centre/)).toBeTruthy();
+  expect(map.fitCalls).toHaveLength(fits); expect(activate).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText("Map appearance"),{target:{value:"Standard"}});
+  expect(activate).not.toHaveBeenCalled();
+});
+
+it("a retained hidden Desk map releases RBN retrieval and resumes its existing consumer", async () => {
+  vi.useFakeTimers();
+  try {
+    const transport = vi.fn().mockResolvedValue(JSON.stringify({ spots: {} }));
+    const map = <WorldMap selected={null} ownCall="OM0RX" frequencyHz={14025000} ownRbnTransport={transport} />;
+    const view = render(<div>{map}</div>);
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Heard me" })); });
+    expect(transport).toHaveBeenCalledTimes(1);
+    await act(async () => { view.rerender(<div hidden>{map}</div>); });
+    await act(async () => { vi.advanceTimersByTime(240_000); });
+    expect(transport).toHaveBeenCalledTimes(1);
+    await act(async () => { view.rerender(<div>{map}</div>); });
+    expect(transport).toHaveBeenCalledTimes(2);
+  } finally { vi.useRealTimers(); }
+});
+
+it("Heard me source timestamps expire by clock during fetch failure", async () => {
+  vi.useFakeTimers();
+  try {
+    const now = Date.now();
+    const transport = vi.fn().mockResolvedValueOnce(JSON.stringify({ spots: { a:["RX1",14025,"OM0RX",0,null,"",0,0,0,1,now/1000] },call_info:{RX1:[null,null,null,null,null,null,null,null,"JN88AA"]} })).mockRejectedValue(new Error("offline"));
+    render(<WorldMap selected={null} ownCall="OM0RX" frequencyHz={14025000} ownRbnTransport={transport} />);
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Heard me" })); });
+    expect(screen.getByRole("button", { name:/RBN heard OM0RX/ })).toBeTruthy();
+    await act(async () => { vi.advanceTimersByTime(610_000); });
+    expect(screen.queryByRole("button", { name:/RBN heard OM0RX/ })).toBeNull();
+    expect(screen.getByText(/Unavailable · 0 located/)).toBeTruthy();
+  } finally { vi.useRealTimers(); }
+});
 it("renders callsign, status and frequency callouts at world zoom and keeps same-call occurrences independently selectable", () => {
   const onSpot = vi.fn();
   const first = spot({ id: "visit1", callStatus: "live", statusHex: "#3ee58d" });

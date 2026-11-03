@@ -1,5 +1,30 @@
 use serde::Deserialize;
-use std::time::Duration;
+use std::{time::{Duration, Instant}, sync::OnceLock, collections::HashMap};
+use tauri::async_runtime::Mutex;
+
+// One retained provider cycle across every native webview. Consumers own their
+// visibility timers; there is no second background poller to keep alive.
+type RbnCache = HashMap<String, (Instant, Result<String, String>)>;
+static RBN_CACHE: OnceLock<Mutex<RbnCache>> = OnceLock::new();
+async fn retained_rbn<F, Fut>(call: String, fetcher: F) -> Result<String, String>
+where F: FnOnce() -> Fut, Fut: std::future::Future<Output = Result<String, String>> {
+    let mut cache = RBN_CACHE.get_or_init(|| Mutex::new(HashMap::new())).lock().await;
+    if let Some((at, result)) = cache.get(&call) {
+        if at.elapsed() < Duration::from_secs(120) { return result.clone(); }
+    }
+    cache.retain(|_, (at, _)| at.elapsed() < Duration::from_secs(3600));
+    if cache.len() >= 8 { cache.clear(); }
+    let result = fetcher().await;
+    cache.insert(call, (Instant::now(), result.clone()));
+    result
+}
+fn checked_rbn_call(value: Option<String>) -> Result<String, String> {
+    let call = value.unwrap_or_default().trim().to_ascii_uppercase();
+    if !(3..=16).contains(&call.len()) || !call.chars().all(|ch| ch.is_ascii_alphanumeric() || ch == '/') {
+        return Err("Enter an exact on-air callsign for RBN monitoring".into());
+    }
+    Ok(call)
+}
 
 const MAX_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
 const WSPR_BANDS: [i16; 17] = [-1, 0, 1, 3, 5, 7, 10, 14, 18, 21, 24, 28, 50, 70, 144, 432, 1296];
@@ -60,11 +85,14 @@ fn endpoint(request: &FetchRequest) -> Result<(String, Option<String>), String> 
 }
 
 pub async fn fetch(window_label: &str, request: FetchRequest) -> Result<String, String> {
-    if !matches!(window_label, "main" | "hf-propagation-live") {
+    if !matches!(window_label, "main" | "hf-propagation-live") && !(request.source == "own_rbn" && crate::workspace_windows::surface_role(window_label) == "world-map") {
         return Err("Only the HF propagation surfaces can fetch propagation data".into());
     }
     let client = reqwest::Client::builder().timeout(Duration::from_secs(22)).user_agent("OM0RX-xLog/1.2.23 HF-Propagation").build().map_err(|_| "Propagation HTTP client unavailable".to_string())?;
-    if request.source == "own_rbn" { return fetch_own_rbn(&client, &request).await; }
+    if request.source == "own_rbn" {
+        let call = checked_rbn_call(request.own_call.clone())?;
+        return retained_rbn(call, || fetch_own_rbn(&client, &request)).await;
+    }
     let (url, query) = endpoint(&request)?;
     let mut outbound = client.get(url).header("Accept", if request.source == "pskr" { "application/xml,text/xml;q=0.9,*/*;q=0.5" } else { "application/json,text/plain;q=0.8,*/*;q=0.5" });
     if let Some(sql) = query { outbound = outbound.query(&[("query", sql)]); }
@@ -76,8 +104,10 @@ pub async fn fetch(window_label: &str, request: FetchRequest) -> Result<String, 
 }
 
 async fn fetch_own_rbn(client: &reqwest::Client, request: &FetchRequest) -> Result<String, String> {
-    let call = checked_call(request.own_call.clone())?;
-    let age = checked_seconds(request.since_seconds)?.to_string();
+    let call = checked_rbn_call(request.own_call.clone())?;
+    // Always retrieve the same bounded hour so sidebar/map display windows can
+    // share the cycle; freshness is evaluated from each report's source time.
+    let age = "3600".to_string();
     let base = "https://www.reversebeacon.net/spots.php";
     let request_once = |hash: Option<&str>| {
         let mut query = vec![("cdx", call.as_str()), ("ma", age.as_str()), ("r", "200"), ("s", "0")];
@@ -110,6 +140,26 @@ fn rbn_verification_hash(payload: &serde_json::Value) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn rbn_native_windows_share_one_retained_cycle() {
+        let count = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let barrier = std::sync::Arc::new(std::sync::Barrier::new(2));
+        let jobs: Vec<_> = (0..2).map(|_| {
+            let count = count.clone(); let barrier = barrier.clone();
+            std::thread::spawn(move || {
+                barrier.wait();
+                tauri::async_runtime::block_on(retained_rbn("FIXTURE/P".into(), || async {
+                    count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    std::thread::sleep(Duration::from_millis(20));
+                    Ok("retained source timestamp".into())
+                })).unwrap()
+            })
+        }).collect();
+        for job in jobs { assert_eq!(job.join().unwrap(), "retained source timestamp"); }
+        assert_eq!(count.load(std::sync::atomic::Ordering::SeqCst), 1);
+        assert_eq!(checked_rbn_call(Some(" om0rx/p ".into())).unwrap(), "OM0RX/P");
+        assert!(checked_rbn_call(Some("OM0 RX".into())).is_err());
+    }
     #[test]
     fn endpoints_are_allowlisted_and_wspr_inputs_are_bounded() {
         let fixed = FetchRequest { source: "swpc_kp".into(), since_seconds: None, bands: None, own_call: None };
