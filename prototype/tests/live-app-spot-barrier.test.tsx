@@ -550,3 +550,55 @@ it("retains the Traditional table during local work and blocks close, routes and
   fireEvent.change(choice, { target: { value: "logbook-above" } });
   expect(screen.getByRole("button", { name: "Edit synthetic contact" })).toBe(tableControl);
 });
+
+it("shows prior portable-call contacts above the Traditional Desk Logbook while preserving the duplicate warning and canonical draft", async () => {
+  localStorage.setItem("xlog.integration.desk-map-logbook.v1", JSON.stringify({ version: 1, view: "logbook-above", logbookPercent: 60 }));
+  const qso = { id: "history-draft", call: "OT4V/P", start: "2026-11-03T11:45:12Z",
+    frequencyHz: 14220000, mode: "SSB", band: "20m", name: "Retained operator text", comment: "Keep this note" };
+  const shared = operatorDraftFixture(qso), original = host.request.getMockImplementation()!;
+  const previous = [
+    { id: "worked-portable", call: "OT4V/P", start: "2024-09-10T10:00:00Z", band: "20m", mode: "SSB", country: "Belgium" },
+    { id: "worked-base", call: "OT4V", start: "2025-09-08T06:52:00Z", band: "40m", mode: "CW", country: "Belgium" },
+    { id: "unrelated", call: "K1ABC", start: "2025-10-01T00:00:00Z", band: "10m", mode: "CW", country: "United States" },
+  ];
+  host.request.mockImplementation(async (method, params = {}) => {
+    const draft = shared(method, params); if (draft) return { result: draft };
+    if (method === "logbook_previous") return { result: { qsos: params.call === qso.call ? previous : [] } };
+    if (method === "logbook_duplicate") return { result: { ...params,
+      last_worked_at: params.call === qso.call ? previous[0].start : null } };
+    return original(method, params);
+  });
+  await openEditor(false);
+  const history = await screen.findByRole("region", { name: "Worked before · OT4V/P" });
+  expect(screen.getByRole("main", { name: "Operator Desk" })).toBeTruthy();
+  expect(screen.getByText("Dupe: Worked on 10/09/24")).toBeTruthy();
+  expect(within(history).getAllByRole("row")).toHaveLength(3);
+  expect(within(history).getByText("20m")).toBeTruthy();
+  expect(within(history).getByText("40m")).toBeTruthy();
+  expect(within(history).queryByText("10m")).toBeNull();
+  const previousPane = history.closest<HTMLElement>(".desk-map-logbook-previous")!;
+  const logbook = screen.getByRole("button", { name: "Edit synthetic contact" });
+  const logbookPane = logbook.closest<HTMLElement>(".desk-map-logbook-logbook")!;
+  expect(previousPane.hidden).toBe(false);
+  expect(Number(previousPane.style.gridRow)).toBeLessThan(Number(logbookPane.style.gridRow));
+  const baseline = (await host.request("logbook_operator_draft")).result.draft;
+  const callsBeforeLayout = host.request.mock.calls.length;
+  const choice = screen.getByLabelText("Desk map and logbook view");
+  for (const view of ["logbook-below", "logbook", "logbook-previous", "logbook-above"]) {
+    fireEvent.change(choice, { target: { value: view } });
+    expect(screen.getAllByRole("region", { name: "Worked before · OT4V/P" })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Edit synthetic contact" })).toBe(logbook);
+    expect(screen.getByText("Dupe: Worked on 10/09/24")).toBeTruthy();
+  }
+  expect((await host.request("logbook_operator_draft")).result.draft).toEqual(baseline);
+  expect(host.request.mock.calls.slice(callsBeforeLayout).every(([method]) => method === "logbook_operator_draft")).toBe(true);
+  expect(host.follow).not.toHaveBeenCalled();
+  expect(host.activate).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText("Desk Callsign"), { target: { value: "N0NEW" } });
+  expect(screen.queryByRole("region", { name: "Worked before · OT4V/P" })).toBeNull();
+  expect(screen.queryByText("Dupe: Worked on 10/09/24")).toBeNull();
+  await waitFor(() => expect(host.request.mock.calls.some(([method, params]) =>
+    method === "logbook_previous" && params.call === "N0NEW")).toBe(true));
+  expect(screen.queryByText("Worked before")).toBeNull();
+  expect(screen.getByRole("button", { name: "Edit synthetic contact" })).toBe(logbook);
+});

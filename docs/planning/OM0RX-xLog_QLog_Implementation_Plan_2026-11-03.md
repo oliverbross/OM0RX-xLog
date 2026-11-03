@@ -1067,6 +1067,23 @@ completion-pass regression fix, preserving the existing history read owner,
 canonical draft, duplicate warning and saved view selection. Source correction and
 actual focused/native evidence will be recorded below once exercised.
 
+Traditional desk history repair: `DeskMapLogbook` already receives the existing
+lookup owner's previous contacts, but its display condition restricted them to
+`logbook-previous`. It now shows that same bounded history above every visible
+Logbook view, including the reported `logbook-above` view, without changing saved
+view, map allocation, table instance, duplicate warning or draft. Map-only stays
+map-only; a new callsign clears stale history. Focused command:
+`cd prototype && npx vitest run --maxWorkers=1 src/live/DeskMapLogbook.test.tsx
+src/live/DeskPreviousQSOs.test.tsx src/live/useCallsignLookup.test.tsx
+tests/live-app-spot-barrier.test.tsx` passed4files/71tests,17.42s
+(`b4658e2d19f84929`). The Traditional full-content fixture proves portable/base
+history and duplicate warning together, exact canonical draft equality through
+view changes, retained Logbook mount and no extra transport/radio/follow actions.
+This is source/fixture evidence; actual packaged controls will be checked after
+integration. No new history query or evaluator was introduced.
+`cd prototype && npm run build` then passed TypeScript, production build and all
+unchanged window JS/CSS budgets (archive`aca6e49e5820fd13`).
+
 One integrator retains schemas, tracker, commits/pushes and release ownership.
 Three bounded existing Sol6.1high lanes own alert/profile UI, native nearby radio
 binding, and award rules/scope/UI respectively. Corrections are batched before a

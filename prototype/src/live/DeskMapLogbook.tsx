@@ -27,7 +27,7 @@ export function DeskMapLogbook({ map, logbook, previousQSOs, hasPreviousQSOs = f
   const id = useId();
   const stacked = preferences.view === "logbook-above" || preferences.view === "logbook-below";
   const previousMode = preferences.view === "logbook-previous";
-  const showPrevious = previousMode && hasPreviousQSOs;
+  const showPrevious = preferences.view !== "map" && hasPreviousQSOs;
   const above = preferences.view === "logbook-above", bounds = deskMapLogbookBounds(height);
   const percent = Math.max(bounds.min, Math.min(bounds.max, preferences.logbookPercent));
   const logbookHeight = bounds.usable * percent / 100, mapHeight = bounds.usable - logbookHeight;
@@ -52,12 +52,23 @@ export function DeskMapLogbook({ map, logbook, previousQSOs, hasPreviousQSOs = f
     if (!stacked || !Number.isFinite(value) || !permitted()) return;
     save({ ...current.current, logbookPercent: boundDeskLogbookPercent(Math.max(bounds.min, Math.min(bounds.max, value))) });
   }
+  // History shares the selected Logbook area; it never takes space from the map.
+  const paneRows = {
+    map: { map: 1, logbook: 1, previous: 1, divider: 2 },
+    logbook: { map: 1, logbook: showPrevious ? 2 : 1, previous: 1, divider: 2 },
+    "logbook-previous": { map: showPrevious ? 3 : 2, logbook: showPrevious ? 2 : 1, previous: 1, divider: 2 },
+    "logbook-above": { map: showPrevious ? 4 : 3, logbook: showPrevious ? 2 : 1, previous: 1, divider: showPrevious ? 3 : 2 },
+    "logbook-below": { map: 1, logbook: showPrevious ? 4 : 3, previous: 3, divider: 2 },
+  }[preferences.view];
   const bodyStyle: CSSProperties = previousMode ? { gridTemplateRows: showPrevious
     ? "fit-content(50%) minmax(0, 1fr) 50%"
     : "minmax(0, 1fr) 50%" }
-    : stacked ? { gridTemplateRows: above
-    ? `${logbookHeight}px ${deskMapLogbookDividerHeight}px ${mapHeight}px`
-    : `${mapHeight}px ${deskMapLogbookDividerHeight}px ${logbookHeight}px` } : { gridTemplateRows: "minmax(0, 1fr)" };
+    : stacked ? { gridTemplateRows: showPrevious
+      ? above ? `fit-content(${logbookHeight / 2}px) minmax(0, 1fr) ${deskMapLogbookDividerHeight}px ${mapHeight}px`
+        : `${mapHeight}px ${deskMapLogbookDividerHeight}px fit-content(${logbookHeight / 2}px) minmax(0, 1fr)`
+      : above ? `${logbookHeight}px ${deskMapLogbookDividerHeight}px ${mapHeight}px`
+        : `${mapHeight}px ${deskMapLogbookDividerHeight}px ${logbookHeight}px` }
+    : { gridTemplateRows: showPrevious ? "fit-content(50%) minmax(0, 1fr)" : "minmax(0, 1fr)" };
   const fixed = bounds.min === bounds.max;
   return <section className="desk-map-logbook" aria-label="Desk map and logbook">
     <div className="desk-map-logbook-toolbar"><label htmlFor={`${id}-view`}>View</label>
@@ -71,14 +82,14 @@ export function DeskMapLogbook({ map, logbook, previousQSOs, hasPreviousQSOs = f
     </div>
     <div className={`desk-map-logbook-panes${stacked ? " is-stacked" : ""}${previousMode ? " is-previous" : ""}`} ref={body} style={bodyStyle}>
       <div className="desk-map-logbook-map" hidden={preferences.view === "logbook"} inert={preferences.view === "logbook"}
-        style={{ gridRow: previousMode ? showPrevious ? 3 : 2 : stacked ? above ? 3 : 1 : 1,
+        style={{ gridRow: paneRows.map,
           minHeight: previousMode ? 0 : minimumDeskMapHeight }}>
         {mounted.map ? map : null}
       </div>
       <div className="desk-map-logbook-divider" hidden={!stacked} role="separator" aria-label="Map and Logbook height"
         aria-orientation="horizontal" aria-controls={`${id}-logbook`} aria-disabled={busy || fixed}
         tabIndex={busy || fixed ? -1 : 0} aria-valuemin={Math.round(bounds.min)} aria-valuemax={Math.round(bounds.max)}
-        aria-valuenow={Math.round(percent)} aria-valuetext={`${Math.round(percent)}% Logbook`} style={{ gridRow: 2 }}
+        aria-valuenow={Math.round(percent)} aria-valuetext={`${Math.round(percent)}% Logbook`} style={{ gridRow: paneRows.divider }}
         onKeyDown={event => {
           if (busy || fixed) return;
           const step = event.shiftKey ? 10 : 2;
@@ -94,11 +105,11 @@ export function DeskMapLogbook({ map, logbook, previousQSOs, hasPreviousQSOs = f
           split(start.percent + (event.clientY - start.y) / start.usable * 100 * (start.above ? 1 : -1));
         }} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }} />
       <div id={`${id}-logbook`} className="desk-map-logbook-logbook" hidden={preferences.view === "map"} inert={preferences.view === "map"}
-        style={{ gridRow: previousMode ? showPrevious ? 2 : 1 : stacked ? above ? 1 : 3 : 1,
-          minHeight: previousMode ? 0 : minimumDeskLogbookHeight }}>
+        style={{ gridRow: paneRows.logbook,
+          minHeight: previousMode || showPrevious ? 0 : minimumDeskLogbookHeight }}>
         {mounted.logbook ? logbook : null}
       </div>
-      <div className="desk-map-logbook-previous" hidden={!showPrevious} inert={!showPrevious} style={{ gridRow: 1 }}>
+      <div className="desk-map-logbook-previous" hidden={!showPrevious} inert={!showPrevious} style={{ gridRow: paneRows.previous }}>
         {showPrevious ? previousQSOs : null}
       </div>
     </div>

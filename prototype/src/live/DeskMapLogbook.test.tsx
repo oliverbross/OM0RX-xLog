@@ -46,6 +46,34 @@ it("offers the five exact choices, defaults to Map and lazily retains each pane 
   expect(mounted.mock.calls).toEqual([["Map camera"], ["Logbook search"]]); expect(stored().view).toBe("logbook");
 });
 
+it.each(["logbook", "logbook-above", "logbook-below", "logbook-previous"])("shows existing history above the retained Logbook in %s", selected => {
+  localStorage.setItem(deskMapLogbookKey, JSON.stringify({ version: 1, view: selected, logbookPercent: 60 }));
+  const mounted = vi.fn(), Logbook = retained("Retained Logbook", mounted);
+  const props = { map: <div>Map</div>, logbook: <Logbook />, previousQSOs: <div>Previous contacts</div> };
+  const result = render(<DeskMapLogbook {...props} hasPreviousQSOs />);
+  const previous = result.container.querySelector<HTMLElement>(".desk-map-logbook-previous")!;
+  const logbook = screen.getByLabelText("Retained Logbook"), pane = logbook.parentElement!;
+  const map = result.container.querySelector<HTMLElement>(".desk-map-logbook-map")!;
+  expect(previous.hidden).toBe(false);
+  expect(Number(previous.style.gridRow)).toBeLessThan(Number(pane.style.gridRow));
+  expect(screen.getAllByText("Previous contacts")).toHaveLength(1);
+  expect(map.hidden).toBe(selected === "logbook");
+  fireEvent.change(logbook, { target: { value: "Keep search" } });
+  result.rerender(<DeskMapLogbook {...props} hasPreviousQSOs={false} />);
+  expect(previous.hidden).toBe(true); expect(screen.queryByText("Previous contacts")).toBeNull();
+  expect(screen.getByLabelText("Retained Logbook")).toBe(logbook);
+  expect((logbook as HTMLInputElement).value).toBe("Keep search");
+  result.rerender(<DeskMapLogbook {...props} hasPreviousQSOs />);
+  expect(previous.hidden).toBe(false);
+  view("map");
+  expect(previous.hidden).toBe(true);
+  expect(pane.hidden).toBe(true); expect(map.hidden).toBe(false);
+  view(selected);
+  expect(previous.hidden).toBe(false);
+  expect(screen.getByLabelText("Retained Logbook")).toBe(logbook);
+  expect(mounted).toHaveBeenCalledOnce();
+});
+
 it("sizes previous QSOs to their content, gives the balance to Logbook and keeps a half-height map", () => {
   const result = render(<DeskMapLogbook map={<div>Map</div>} logbook={<div>Logbook table</div>}
     previousQSOs={<div>Worked before table</div>} hasPreviousQSOs />);
