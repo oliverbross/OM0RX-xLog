@@ -1,3 +1,19 @@
+# OM0RX-xLog 1.5.5 — macOS arm64 packaging inputs
+
+All nine QLog improvements and the POTA counting/export correction are on
+`main`. The tested product change is
+`2a865d392d577d7d48096a91eca767d4c2e864d5`; its documentation handoff is
+`ab77a49d6f42acd301a053ddcfa701ba1660fdc5`. This version change prepares
+one Apple Silicon Mac candidate. No 1.5.5 app, signature or check result is
+claimed by the source preparation commit.
+
+On the canonical release Mac, run the [single Mac build recipe](docs/releases/build-1.5.5-macos-arm64.sh)
+with the full release commit as its one argument. It uses the existing Mac packager,
+verifies the extracted app, runs the isolated signed-worker protocol and writes the
+ZIP, source, signature, log and SHA-256 receipts under `.build/releases/1.5.5/`.
+Production installation, notarization, live radio checks and controlled cold startup
+are separate. The existing 1.5.4 archive is retained.
+
 # Unpackaged POTA correctness follow-up — 4 November 2026
 
 Source `2a865d392d577d7d48096a91eca767d4c2e864d5` shares ADIF 3.1.8 mode/submode
