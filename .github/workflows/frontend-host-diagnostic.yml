@@ -41,8 +41,13 @@ jobs:
           sha256sum tools/diagnostics/all-contests-python-phases.patch
           git apply --check tools/diagnostics/all-contests-python-phases.patch
           git apply tools/diagnostics/all-contests-python-phases.patch
+          sha256sum tools/diagnostics/all-contests-python-startup.patch
+          git apply --check tools/diagnostics/all-contests-python-startup.patch
+          git apply tools/diagnostics/all-contests-python-startup.patch
           git diff --check
-          test "$(git diff --name-only)" = 'prototype/src/contesting/AllContestsPythonDesk.test.tsx'
+          task_expected_files=$(printf '%s\n' prototype/src/contesting/AllContestsPythonDesk.test.tsx python/contest_host/__main__.py python/contest_host/host.py python/contest_host/launcher.py python/contest_host/store.py python/contest_host/upstream.py | sort)
+          test "$(git diff --name-only | sort)" = "$task_expected_files"
+          git diff --name-only
       - name: Install existing frontend dependencies
         working-directory: prototype
         run: npm ci

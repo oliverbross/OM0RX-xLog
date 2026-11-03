@@ -1122,6 +1122,19 @@ The first diagnostic run41641183898 stopped at checkout (Windows path length),
 before applying the patch or executing a test. The missing existing-repository
 long-path setup was added before checkout; this infrastructure failure supplies
 no host-phase or qualifying test evidence.
+Corrected Windows diagnostic41641456305 passed9selected cases at the unchanged
+15-second deadline (91filtered cases are not executed passes). JS phase evidence
+in`ci-job-125935740440-phase-summary.json` shows7.596–10.736seconds from spawn to
+first output, while the remaining desk interaction is about1second and cleanup
+is not dominant. This narrows the interval, but does not distinguish imports,
+source verification or first session initialization. An additive Python observer
+now partitions those phases, including upstream contest-list seeding, without
+changing the source-hash checks, SQL or protocol. It remains diagnostic only;
+required full Windows qualification is still failed and packaging is stopped.
+Additive observer SHA256`1382b6c04424bead587269545ce28efeed53ff3eb070674bacd53b33fcab9c4b`;
+two disposable copied-owner local fixtures passed21ordered phase checks each,
+one correlated protocol response and ordinary EOF exit0. Vendored source bytes,
+trust checks, SQL and all deadlines are unchanged; only CI observation is added.
 
 ## 9. Programme definition of done
 

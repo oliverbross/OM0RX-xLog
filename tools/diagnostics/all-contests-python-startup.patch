@@ -1,0 +1,198 @@
+--- a/python/contest_host/launcher.py
++++ b/python/contest_host/launcher.py
+@@ -2,12 +2,25 @@
+ 
+ Invoke with interpreter -I -B /absolute/path/contest_host/launcher.py.
+ """
++import os
++import sys
++import time
++
++_started = time.perf_counter()
++def _startup_phase(name):
++    if os.environ.get("XLOG_CONTEST_DESK_DIAGNOSTICS") == "1":
++        print(f"[contest-python-phase] {name} elapsed_ms={(time.perf_counter() - _started) * 1000:.3f}", file=sys.stderr, flush=True)
++
++sys._xlog_startup_phase = _startup_phase
++_startup_phase("launcher-entry")
+ from pathlib import Path
+-import sys
++_startup_phase("launcher-pathlib-imported")
+ 
+ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+ 
++_startup_phase("main-import-start")
+ from contest_host.__main__ import main
++_startup_phase("main-import-complete")
+ 
+ if __name__ == "__main__":
+     raise SystemExit(main())
+--- a/python/contest_host/__main__.py
++++ b/python/contest_host/__main__.py
+@@ -5,7 +5,10 @@
+ import logging
+ import sys
+ 
++_phase = getattr(sys, "_xlog_startup_phase", lambda name: None)
++_phase("host-import-start")
+ from .host import Host, HostError
++_phase("host-import-complete")
+ from .store import canonical
+ 
+ MAX_REQUEST = 32768
+@@ -13,6 +16,7 @@
+ 
+ 
+ def run(input_stream, output_stream, host):
++    first_frame = True
+     while True:
+         raw = input_stream.readline(MAX_REQUEST + 1)
+         if not raw:
+@@ -20,6 +24,7 @@
+         if len(raw) > MAX_REQUEST or not raw.endswith(b"\n"):
+             # Do not attempt to resynchronize a potentially attacker-controlled frame.
+             return 2
++        if first_frame: _phase("first-frame-read")
+         request_id = None
+         try:
+             request = json.loads(raw, parse_constant=lambda value: (_ for _ in ()).throw(ValueError("Nonfinite JSON")))
+@@ -28,7 +33,9 @@
+             # Pinned plugins may print diagnostics. They must never share the
+             # JSONL protocol channel with native request/reply frames.
+             with redirect_stdout(sys.stderr):
++                if first_frame: _phase("first-dispatch-start")
+                 result = host.dispatch(request)
++                if first_frame: _phase("first-dispatch-complete")
+             response = {"id": request_id, "ok": True, "result": result}
+         except HostError as error:
+             response = {"id": request_id, "ok": False, "error": {"code": error.code, "message": str(error), "outcome": "rejected"}}
+@@ -42,6 +49,8 @@
+             return 3
+         output_stream.write(encoded)
+         output_stream.flush()
++        if first_frame: _phase("first-response-flushed")
++        first_frame = False
+ 
+ 
+ def main():
+@@ -49,7 +58,9 @@
+     parser.add_argument("--data-root", required=True)
+     args = parser.parse_args()
+     logging.basicConfig(stream=sys.stderr, level=logging.WARNING)
++    _phase("host-init-start")
+     host = Host(args.data_root)
++    _phase("host-init-complete")
+     try:
+         return run(sys.stdin.buffer, sys.stdout.buffer, host)
+     finally:
+--- a/python/contest_host/upstream.py
++++ b/python/contest_host/upstream.py
+@@ -34,6 +34,8 @@
+     global _verified
+     if _verified:
+         return
++    phase = getattr(sys, "_xlog_startup_phase", lambda name: None)
++    phase("verify-source-start")
+     manifest = json.loads((VENDOR.parent / "source-manifest.json").read_text(encoding="utf-8"))
+     from .wae import PLUGINS as FIRST_PARTY_PLUGINS
+     if manifest.get("registeredPlugins") != [key for key in PLUGIN_REGISTRY if key not in FIRST_PARTY_PLUGINS]:
+@@ -47,6 +49,7 @@
+         if sha256((VENDOR / relative).read_bytes()).hexdigest() != expected:
+             raise RuntimeError(f"Pinned Not1MM source hash differs: {relative}")
+     _verified = True
++    phase("verify-source-complete")
+ 
+ 
+ MACRO_TEXT_TOKENS = {"MYCALL", "CALL", "RST", "EXCHANGE", "SENTNR",
+--- a/python/contest_host/store.py
++++ b/python/contest_host/store.py
+@@ -2,6 +2,7 @@
+ import json
+ from pathlib import Path
+ import sqlite3
++import sys
+ 
+ from .upstream import VENDOR, load_cqww
+ from .plugins import CQ_WW_PLUGINS
+@@ -38,10 +39,13 @@
+ 
+ class Store(DataBase):
+     def __init__(self, path):
++        phase = getattr(sys, "_xlog_startup_phase", lambda name: None)
++        phase("store-init-start")
+         self.atomic = False
+         self.plugin_id = None
+         self.score_band = None
+         super().__init__(str(path), VENDOR / "not1mm/data", 1)
++        phase("store-upstream-schema-complete")
+         self.conn.executescript("""
+             CREATE UNIQUE INDEX IF NOT EXISTS xlog_dxlog_identity ON DXLOG(ID);
+             CREATE INDEX IF NOT EXISTS xlog_dxlog_contest_call_band ON DXLOG(ContestNR,Call,Band);
+@@ -103,6 +107,7 @@
+                 BirthDate TEXT, Exch1 TEXT, Misc TEXT, Power TEXT, CqZone TEXT, ITUZone TEXT,
+                 UserText TEXT, LastUpdateNote TEXT);
+         """)
++        phase("store-host-schema-complete")
+         # Retain every issued reservation when introducing per-band scopes.
+         columns = {row["name"] for row in self.conn.execute("PRAGMA table_info(xlog_serial)")}
+         if "scope" not in columns:
+@@ -148,6 +153,14 @@
+             self.conn.rollback()
+             raise
+ 
++        phase("store-migrations-complete")
++
++    def create_contest_table(self):
++        phase = getattr(sys, "_xlog_startup_phase", lambda name: None)
++        phase("store-contest-seed-start")
++        super().create_contest_table()
++        phase("store-contest-seed-complete")
++
+     def connect(self, database):
+         self.database = database
+         self.conn = sqlite3.connect(database, timeout=5)
+--- a/python/contest_host/host.py
++++ b/python/contest_host/host.py
+@@ -13,6 +13,7 @@
+ import re
+ import socket
+ import sqlite3
++import sys
+ from tempfile import TemporaryDirectory
+ import uuid
+ from xml.etree import ElementTree
+@@ -2700,7 +2701,9 @@
+                     state = self.new_state(session_id, copied, scoring_revision=scoring)
+                     state["practice"], state["setup"] = metadata, safe_setup
+                 else:
++                    getattr(sys, "_xlog_startup_phase", lambda name: None)("session-new-state-start")
+                     state = self.new_state(session_id, params)
++                    getattr(sys, "_xlog_startup_phase", lambda name: None)("session-new-state-complete")
+                 state["coordinationBasis"] = {
+                     "pluginID": state["pluginID"], "sourceRevision": SOURCE_REVISION,
+                     "referenceID": state["reference"]["id"],
+--- a/prototype/src/contesting/AllContestsPythonDesk.test.tsx
++++ b/prototype/src/contesting/AllContestsPythonDesk.test.tsx
+@@ -57,7 +57,8 @@
+   phase("data-root-ready");
+   phase("python-spawn-requested");
+   const process = spawn(globalThis.process.env.XLOG_CONTEST_PYTHON ?? "/opt/local/bin/python3.12",
+-    ["-I", "-B", resolve(root, "python/contest_host/launcher.py"), "--data-root", directory],
++    ["-I", "-B", ...(globalThis.process.env.XLOG_CONTEST_PYTHON_IMPORTTIME === "1" ? ["-X", "importtime"] : []),
++      resolve(root, "python/contest_host/launcher.py"), "--data-root", directory],
+     { cwd: root, stdio: ["pipe", "pipe", "pipe"] });
+   let buffer = "", stderr = "", firstOutput = false, firstReply = false;
+   const pending = new Map<string, { method: string; started: number; resolve: (value: any) => void; reject: (error: Error) => void }>();
+@@ -65,7 +66,11 @@
+   let lastReply: { method: string; elapsedMs: number; ok: boolean } | null = null;
+   process.once("spawn", () => phase("python-spawned", { pid: process.pid }));
+   process.stdout.setEncoding("utf8");
+-  process.stderr.on("data", value => { stderr += String(value); });
++  process.stderr.on("data", value => {
++    stderr += String(value);
++    if (globalThis.process.env.XLOG_CONTEST_DESK_DIAGNOSTICS === "1")
++      globalThis.process.stderr.write(`[contest-python-stderr pid=${process.pid}] ${String(value)}`);
++  });
+   process.stdout.on("data", value => {
+     if (!firstOutput) { firstOutput = true; phase("python-first-output"); }
+     buffer += value;
