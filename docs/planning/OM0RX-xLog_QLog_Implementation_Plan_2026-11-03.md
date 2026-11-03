@@ -1227,6 +1227,19 @@ The existing diagnostic workflow can opt into this patch in disposable CI only;
 it is not a release gate substitute. No concrete handler trap was found during
 bounded review, no product workaround is asserted, and packaging remains stopped.
 
+Marked Windows41655736989/job125985415310 failed after
+`precision.Replace.before`; initial JSON conversion, refused uninitialized
+Replace and draft seeding completed. No canonical sorted-key comparison ran.
+The immutable test observer is retained. An additive owner observer now brackets
+the accepted handler and database transaction, plus independent `[Any]` Int/Int64
+JSON round-trips. Patch SHA256
+`8ada470b1469278a8d4bcd7be85a4a4d3b97cb43c7fd3218c2b03517a595512a`.
+The diagnostic apply chain and local portable suite passed3methods/5cases
+(`163734698e39d426`), then all owner/test source edits were reversed. The
+opt-in workflow applies both patches only in disposable CI; original assertions,
+Save bounds and deferred draft construction remain unchanged. This is bounded
+failure localization, not product or release acceptance.
+
 ## 9. Programme definition of done
 
 The selected programme is done when all of the following are true:
