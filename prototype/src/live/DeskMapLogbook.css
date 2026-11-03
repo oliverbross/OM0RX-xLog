@@ -6,6 +6,8 @@
 .desk-map-logbook-feedback { min-width: 0; color: var(--amber, #f3b23c); overflow-wrap: anywhere; font-size: 11px; }
 .desk-map-logbook-panes { display: grid; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .desk-map-logbook-panes.is-previous { overflow: hidden; }
+.desk-map-logbook-logbook-area { display: contents; }
+.desk-map-logbook-panes.is-stacked > .desk-map-logbook-logbook-area.has-history { display: grid; grid-column: 1; min-width: 0; min-height: 0; overflow: hidden; }
 .desk-map-logbook-map, .desk-map-logbook-logbook, .desk-map-logbook-previous { grid-column: 1; min-width: 0; min-height:0; overflow: hidden; }
 .desk-map-logbook-previous { overflow: auto; overscroll-behavior: contain; border-bottom:1px solid var(--border,#243a55); }
 .desk-map-logbook-map > *, .desk-map-logbook-map .live-map, .desk-map-logbook-map .map-wrap, .desk-map-logbook-logbook > *, .desk-map-logbook-previous > * { height: 100%; min-height: 0; max-height: none; }

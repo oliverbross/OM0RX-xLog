@@ -131,6 +131,47 @@ it("resizes by pointer and stops on cancellation/lost capture, while short panes
   expect(result.container.querySelector<HTMLElement>(".desk-map-logbook-logbook")?.style.minHeight).toBe("220px");
 });
 
+it.each(["logbook-above", "logbook-below"])("keeps the selected Logbook area and history usable below minimum height in %s", selected => {
+  localStorage.setItem(deskMapLogbookKey, JSON.stringify({ version: 1, view: selected, logbookPercent: 60 }));
+  const mounted = vi.fn(), Logbook = retained("Short retained Logbook", mounted);
+  const props = { map: <div>Map</div>, logbook: <Logbook />, previousQSOs: <div style={{ height: 700 }}>Long previous-contact history</div> };
+  const result = render(<DeskMapLogbook {...props} hasPreviousQSOs />);
+  const panes = result.container.querySelector<HTMLElement>(".desk-map-logbook-panes")!;
+  const area = result.container.querySelector<HTMLElement>(".desk-map-logbook-logbook-area")!;
+  const map = result.container.querySelector<HTMLElement>(".desk-map-logbook-map")!;
+  const history = result.container.querySelector<HTMLElement>(".desk-map-logbook-previous")!;
+  const input = screen.getByLabelText<HTMLInputElement>("Short retained Logbook"), logbook = input.parentElement!;
+  const divider = screen.getByRole("separator", { name: "Map and Logbook height" });
+  const expected = (logHeight: number, mapHeight: number) => selected === "logbook-above"
+    ? `${logHeight}px 10px ${mapHeight}px` : `${mapHeight}px 10px ${logHeight}px`;
+  expect(panes.style.gridTemplateRows).toBe(expected(360, 240));
+  expect(logbook.parentElement).toBe(area); expect(history.parentElement).toBe(area);
+  expect(area.style.gridTemplateRows).toBe("fit-content(50%) minmax(0, 1fr)");
+  fireEvent.change(input, { target: { value: "Keep local table search" } });
+  height = 160; act(() => resized?.());
+  // The inner history/table grid has an explicit 220px parent track even when
+  // the viewport is 160px. The outer pane scrolls all 410px; history cannot
+  // consume the table's fraction beside a fixed 180px map.
+  expect(panes.style.gridTemplateRows).toBe(expected(220, 180));
+  expect(area.style.gridRow).toBe(selected === "logbook-above" ? "1" : "3");
+  expect(map.style.gridRow).toBe(selected === "logbook-above" ? "3" : "1");
+  expect(history.style.gridRow).toBe("1"); expect(logbook.style.gridRow).toBe("2");
+  expect(history.hidden).toBe(false); expect(logbook.hidden).toBe(false);
+  expect(divider.getAttribute("aria-disabled")).toBe("true");
+  fireEvent.keyDown(divider, { key: "End" }); expect(stored().logbookPercent).toBe(60);
+  result.rerender(<DeskMapLogbook {...props} hasPreviousQSOs={false} />);
+  expect(panes.style.gridTemplateRows).toBe(expected(220, 180));
+  expect(history.hidden).toBe(true); expect(logbook.parentElement).toBe(area);
+  result.rerender(<DeskMapLogbook {...props} hasPreviousQSOs />);
+  height = 610; act(() => resized?.());
+  expect(panes.style.gridTemplateRows).toBe(expected(360, 240));
+  fireEvent.keyDown(divider, { key: selected === "logbook-above" ? "ArrowDown" : "ArrowUp" });
+  expect(stored().logbookPercent).toBe(62);
+  expect(panes.style.gridTemplateRows).toBe(expected(372, 228));
+  expect(screen.getByLabelText("Short retained Logbook")).toBe(input);
+  expect(input.value).toBe("Keep local table search"); expect(mounted).toHaveBeenCalledOnce();
+});
+
 it("keeps guards live at event boundaries and clears only the owned refusal after an accepted choice", () => {
   let allowed = false;
   const result = render(<DeskMapLogbook map={<div>Map</div>} logbook={<div>Logbook</div>} canChangeView={() => allowed} />);

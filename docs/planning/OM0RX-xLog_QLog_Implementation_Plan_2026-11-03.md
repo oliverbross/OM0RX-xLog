@@ -1240,6 +1240,18 @@ opt-in workflow applies both patches only in disposable CI; original assertions,
 Save bounds and deferred draft construction remain unchanged. This is bounded
 failure localization, not product or release acceptance.
 
+The added previous-contact fix exposed a short-pane sizing defect: history could
+consume the zero-minimum Logbook fraction beside a fixed-height map. A stable
+presentation wrapper now groups history and table inside the existing selected
+Logbook pixel track in both stacked orders. Short panes scroll the retained
+minimum content; history is capped at half that track. No-history geometry,
+resize boundaries and retained table state remain covered. Focused5suites/81tests
+passed (`d691ae5cde293179`), including two new short-pane/history cases with
+hide/show, regrow and keyboard resizing. `npm run build` passed TypeScript/Vite
+and unchanged JS/CSS budgets (`8b6013e8a6ed898b`). This invalidates earlier frontend
+integration/build evidence for the final candidate; unaffected backend evidence
+requires exact input comparison before reuse. No signed1.5.4 is minted yet.
+
 ## 9. Programme definition of done
 
 The selected programme is done when all of the following are true:
