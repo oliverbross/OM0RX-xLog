@@ -1,4 +1,4 @@
-# OM0RX-xLog 1.5.2 candidate
+# OM0RX-xLog 1.5.3 candidate
 
 - Reuse typed saved filters across Logbook, ADI/ADX exports and exact award evidence.
 - Inspect complete-log local WAC/WPX/IOTA/POTA/SOTA/WWFF progress by recorded station, band, mode and role.
@@ -9,7 +9,8 @@
 Existing native draft, logbook, radio, preferences and backup owners retain authority.
 Sponsor eligibility remains accurately bounded. Historical contacts are not retagged.
 The candidate indexes stable live-page ordering and restores scoped saved-filter reads in detached Logbook.
-See [candidate provenance, validation and remaining boundaries](docs/releases/v1.5.2-macos-candidate.md)
+Strict guide JSON validation also supports Foundation hosts without CoreFoundation.
+See [candidate provenance, validation and remaining boundaries](docs/releases/v1.5.3-macos-candidate.md)
 and [operator controls and rollback](docs/help/qlog-selected-workflows.md).
 
 # OM0RX-xLog 1.0.0-beta.3

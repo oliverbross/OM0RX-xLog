@@ -3,13 +3,13 @@
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black)](#requirements)
 [![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138)](Package.swift)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-![Candidate: 1.5.2](https://img.shields.io/badge/candidate-1.5.2-12D6A0.svg)
+![Candidate: 1.5.3](https://img.shields.io/badge/candidate-1.5.3-12D6A0.svg)
 
 OM0RX-xLog is a fast, local-first amateur-radio logbook for macOS. It is the logging centre of the OM0RX station suite: contacts are committed to a local SQLite database first, enriched from QRZ and current reference data, synchronized in both directions with Wavelog, and connected to the radio through OM0RX-xCat.
 
 Created and maintained by **Oliver Bross, OM0RX**.
 
-## Selected logging workflows — 1.5.2 candidate
+## Selected logging workflows — 1.5.3 candidate
 
 Structured saved filters, complete-log award evidence and local WAC/WPX/IOTA/POTA/SOTA/WWFF
 progress, richer alert review, nearby RX callsigns, contextual shortcuts, antenna profiles,
@@ -17,7 +17,7 @@ portable station context and staged POTA files, shared RBN mapping and editable 
 are integrated in the current React/Tauri application and shared native owners.
 See [operator controls and migration](docs/help/qlog-selected-workflows.md), the
 [single implementation/evidence tracker](docs/planning/OM0RX-xLog_QLog_Implementation_Plan_2026-11-03.md)
-and [exact-source candidate status](docs/releases/v1.5.2-macos-candidate.md).
+and [exact-source candidate status](docs/releases/v1.5.3-macos-candidate.md).
 Candidate validation is in progress; this work has not replaced the installed application.
 Local progress is distinct from sponsor-issued award credit.
 
