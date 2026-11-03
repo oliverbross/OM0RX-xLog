@@ -10,6 +10,19 @@ import subprocess
 import sys
 
 
+def portable_iq_sources(manifest):
+    # Native XCat has no explicit source list. Select the one declared slice,
+    # independent of unrelated or nested Swift conditional branches, and never
+    # borrow a later target's sources when this target has none.
+    matches = re.findall(r'\.target\(\s*name:\s*"XCatIntegrationCore"(?:(?!\.target\().)*?sources:\s*\[(.*?)\]\)', manifest, re.S)
+    if len(matches) != 1:
+        raise ValueError('Cannot uniquely identify the explicit portable integration sources')
+    sources = re.findall(r'"([^"\n]+\.swift)"', matches[0])
+    if not sources:
+        raise ValueError('The portable integration source list is empty')
+    return sources
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--repository', type=Path, default=Path.cwd())
@@ -20,11 +33,10 @@ def main():
     if output.exists() or output.is_symlink():
         parser.error('Fixture output must be a new directory')
     manifest = (root / 'Package.swift').read_text()
-    branch = manifest.split('\n#else\n', 1)[1].split('\n#endif', 1)[0]
-    match = re.search(r'\.target\(name: "XCatIntegrationCore".*?sources: \[(.*?)\]\)', branch, re.S)
-    if not match:
-        parser.error('Cannot identify the non-macOS integration target')
-    sources = re.findall(r'"([^"\n]+\.swift)"', match.group(1))
+    try:
+        sources = portable_iq_sources(manifest)
+    except ValueError as error:
+        parser.error(str(error))
     tests = ['CWIQParserTests.swift', 'FlexIQIdentityTests.swift', 'FlexIQResourceTests.swift']
     output.mkdir(parents=True)
     hashes = {}
