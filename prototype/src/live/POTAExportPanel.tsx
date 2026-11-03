@@ -16,6 +16,7 @@ export function POTAExportPanel({ request, selection, onClose, onWorking }: { re
   const run = async (operation: () => Promise<void>) => { setBusy(true); onWorking?.(true); setMessage(""); try { await operation(); } catch (cause) { setMessage(cause instanceof Error ? cause.message : String(cause)); } finally { setBusy(false); onWorking?.(false); } };
   const invalidate = () => { setPreview(null); setSubset(false); setLocationsReviewed(false); };
   const review = (scope = selection) => run(async () => {
+    setPreview(null); setToken(""); setSubset(false); setLocationsReviewed(false);
     const snapshot = await request("logbook_export_adif", { action: "begin", ...scope });
     const assignment = parks.trim() || state.trim() || club ? { ownParks: [...new Set(parks.toUpperCase().split(/[\s,;]+/).filter(Boolean))], state, clubOrGroup: club } : undefined;
     const response = await request("logbook_export_adif", { action: "pota_preview", token: snapshot.token, splitByDay: split, ...(assignment ? { assignment } : {}) });

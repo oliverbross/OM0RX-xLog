@@ -12,18 +12,25 @@ fn same_id(value: &Value, expected: &str) -> bool {
         (Some(actual), Some(expected)) => actual == expected, _ => false,
     }
 }
-struct Owner { app: tauri::AppHandle, editors: Arc<EditorBarrier>, running: AtomicBool, latest: Mutex<Value>, settlements: Mutex<BTreeMap<String, BTreeMap<String, String>>> }
+struct Owner { app: tauri::AppHandle, editors: Arc<EditorBarrier>, running: AtomicBool, latest: Mutex<Value>, settlements: Mutex<BTreeMap<String, BTreeMap<String, String>>>, last_attempt: Mutex<Option<String>> }
 static OWNER: OnceLock<Arc<Owner>> = OnceLock::new();
 pub fn install(app: &tauri::AppHandle, editors: Arc<EditorBarrier>) {
     let _ = OWNER.set(Arc::new(Owner { app: app.clone(), editors, running: AtomicBool::new(false),
-        latest: Mutex::new(json!({"operationId":null,"phase":"idle","barrier":null})), settlements: Mutex::new(BTreeMap::new()) }));
+        latest: Mutex::new(json!({"operationId":null,"phase":"idle","barrier":null})), settlements: Mutex::new(BTreeMap::new()), last_attempt: Mutex::new(None) }));
 }
 pub fn status() -> Option<Value> { OWNER.get()?.latest.lock().ok().map(|value| value.clone()) }
 pub fn owns(operation: &str) -> bool { status().is_some_and(|value| value["operationId"] == operation) }
 pub fn active() -> bool { status().is_some_and(|value| value["reservationActive"] == true) }
+pub(crate) fn retire_snapshot(value: &mut Value) -> bool {
+    if value["reservationActive"] == true { return false; }
+    *value = json!({"operationId":null,"phase":"idle","barrier":null});
+    true
+}
 pub fn retire() {
     if let Some(owner) = OWNER.get() { if let Ok(mut value) = owner.latest.lock() {
-        if value["reservationActive"] != true { *value = json!({"operationId":null,"phase":"idle","barrier":null}); }
+        if retire_snapshot(&mut value) {
+            if let Ok(mut attempt) = owner.last_attempt.lock() { *attempt = None; }
+        }
     } }
 }
 impl Owner {
@@ -52,9 +59,15 @@ impl Owner {
             "generation":canonical.generation,"frequencyHz":observed.frequency});
         let proposal = NativeBackend::call(canonical.worker, "logbook_operator_draft_antenna_proposal", params.clone())?;
         if proposal["proposed"] != true { return Ok(()); }
+        let labels = backend.open_editors()?;
+        let attempt = serde_json::to_string(&json!({"workspace":canonical.generation,"draft":canonical.draft,"revision":canonical.revision,
+            "selection":observed.selection,"connection":observed.connection,"frequency":observed.frequency,
+            "profile":proposal["profileFingerprint"],"settingsRevision":proposal["settingsRevision"],"editors":self.editors.instances(&labels)?})).map_err(|_| "Antenna attempt context unavailable.")?;
+        if self.last_attempt.lock().map_err(|_| "Antenna attempt state unavailable.")?.as_ref() == Some(&attempt) { return Ok(()); }
         if !self.prior_settled()? { return Ok(()); }
         let operation = uuid::Uuid::new_v4().to_string();
-        self.editors.begin_at_epoch(&operation, &canonical.generation, &canonical.draft, canonical.revision, &backend.open_editors()?, epoch)?;
+        self.editors.begin_at_epoch(&operation, &canonical.generation, &canonical.draft, canonical.revision, &labels, epoch)?;
+        if let Ok(mut previous) = self.last_attempt.lock() { *previous = Some(attempt); }
         self.store(json!({"operationId":operation,"phase":"preparing","barrier":self.editors.snapshot().unwrap_or(Value::Null),
             "admitted":false,"reservationActive":true,"draftOnly":true,"intent":"antenna-profile"}));
         let mut unresolved = false;

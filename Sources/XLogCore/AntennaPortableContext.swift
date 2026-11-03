@@ -97,6 +97,7 @@ public struct PortableActiveContext: Codable, Equatable, Sendable {
         qso.extraFields["APP_OM0RXXLOG_PORTABLE_SESSION"] = sessionID
         qso.extraFields["APP_OM0RXXLOG_PORTABLE_NAME"] = preset.name
         qso.extraFields["APP_OM0RXXLOG_PORTABLE_REVISION"] = String(revision)
+        qso.extraFields["APP_OM0RXXLOG_PORTABLE_DEFAULT_POWER"] = preset.power
         qso.extraFields["APP_OM0RXXLOG_PORTABLE_STARTED"] = ISO8601DateFormatter().string(from: startedAt)
         for (programme, refs) in preset.ownReferences {
             let field = ["SOTA": "MY_SOTA_REF", "IOTA": "MY_IOTA", "WWFF": "MY_WWFF_REF", "POTA": "MY_POTA_REF"][programme]

@@ -67,4 +67,64 @@ struct POTAExportTests {
         #expect(ft4.issues.isEmpty)
         #expect(ADIFParser().records(in: ft4.files[0].text).first?["SUBMODE"] == "FT4")
     }
+    @Test func qualifiedReferencesPartitionWithoutRewritingOrDuplicatingParks() {
+        var michigan = contact(); michigan.extraFields.removeValue(forKey: "MY_STATE")
+        michigan.extraFields["MY_POTA_REF"] = "US-0001,US-0001@US-MI,US-0001@US-MI"
+        michigan.potaReference = "US-0100,US-0100@US-CA"
+        var newYork = michigan; newYork.id = UUID()
+        newYork.extraFields["MY_POTA_REF"] = "US-0001@US-NY"
+        let before = ADIFExportSnapshot(contacts: [michigan, newYork], scope: .all)
+        let preview = POTAExportPreview(snapshot: before, now: now)
+        #expect(preview.issues.isEmpty); #expect(preview.files.count == 2); #expect(preview.derivedRecords == 2)
+        #expect(Set(preview.files.map(\.state)) == ["MI", "NY"])
+        for file in preview.files {
+            let record = ADIFParser().records(in: file.text).first!
+            #expect(record["MY_SIG_INFO"] == "US-0001")
+            #expect(record["MY_POTA_REF"] == "US-0001@US-\(file.state)")
+            #expect(record["MY_STATE"] == file.state)
+            #expect(record["SIG_INFO"] == "US-0100"); #expect(record["POTA_REF"] == "US-0100@US-CA")
+            #expect(record["CALL"] == "K1ABC/P")
+        }
+        #expect(michigan.extraFields["MY_STATE"] == nil)
+        #expect(before.records == ADIFExportSnapshot(contacts: [michigan, newYork], scope: .all).records)
+        michigan.extraFields["MY_STATE"] = "NY"
+        let conflicting = POTAExportPreview(snapshot: ADIFExportSnapshot(contacts: [michigan], scope: .all), now: now)
+        #expect(conflicting.files.isEmpty); #expect(conflicting.issues[0].message.contains("conflicts with recorded park location US-MI"))
+        michigan.extraFields.removeValue(forKey: "MY_STATE")
+        let assignmentConflict = POTAExportPreview(snapshot: ADIFExportSnapshot(contacts: [michigan], scope: .all), now: now, assignment: .init(ownParks: [], state: "NY"))
+        #expect(assignmentConflict.files.isEmpty); #expect(assignmentConflict.issues[0].message.contains("export-only subdivision"))
+        #expect(!POTAExportPreview.validPark("US-1")); #expect(!POTAExportPreview.validPark("US-000001"))
+    }
+    @Test func boundedPreparationRejectsExpansionBeforeProducingPartialFiles() throws {
+        let snapshot = ADIFExportSnapshot(contacts: [contact()], scope: .all)
+        #expect(throws: POTAExportError.self) { try POTAExportPreview.prepare(snapshot: snapshot, now: now, maximumDerivedRecords: 5) }
+        #expect(throws: POTAExportError.self) { try POTAExportPreview.prepare(snapshot: snapshot, now: now, maximumBytes: 100) }
+        let complete = try POTAExportPreview.prepare(snapshot: snapshot, now: now, maximumDerivedRecords: 6)
+        #expect(complete.physicalContacts == 1); #expect(complete.derivedRecords == 6); #expect(complete.files.count == 2)
+        #expect(snapshot.records == [contact().adifRecord])
+    }
+    @Test func typedExtensionsAndConflictingUserDefinitionsRemainLossless() throws {
+        var first = contact(); first.extraFields["MY_SIG_INFO"] = "AU-0001"; first.sigInfo = "US-0001"
+        first.extraFields["APP_MIXED_WEIGHT"] = "12.50"; first.extraFields["LEVEL"] = "A"
+        first.adifFieldMetadata = ADIFFieldMetadata(extensions: [
+            "APP_MIXED_WEIGHT": .init(kind: "APP", attributes: ["PROGRAMID": "Mixed", "FIELDNAME": "Weight", "TYPE": "N"]),
+            "LEVEL": .init(kind: "USERDEF", attributes: ["FIELDNAME": "Level"], declaration: ["FIELDID": "7", "TYPE": "E", "ENUM": "{A,B}"])
+        ])
+        var second = first; second.id = UUID(); second.start = first.start.addingTimeInterval(60)
+        second.extraFields["APP_MIXED_WEIGHT"] = "12"
+        second.adifFieldMetadata!.extensions["APP_MIXED_WEIGHT"]!.attributes["TYPE"] = "I"
+        second.adifFieldMetadata!.extensions["LEVEL"]!.declaration!["ENUM"] = "{A,C}"
+        let snapshot = ADIFExportSnapshot(contacts: [first, second], scope: .all)
+        let preview = try POTAExportPreview.prepare(snapshot: snapshot, now: now)
+        #expect(preview.issues.isEmpty); #expect(preview.files.count == 2); #expect(preview.derivedRecords == 2)
+        #expect(preview.files.contains { $0.text.contains("<USERDEF7:11:E>Level,{A,B}") && $0.text.contains("<APP_Mixed_Weight:5:N>12.50") })
+        #expect(preview.files.contains { $0.text.contains("<USERDEF7:11:E>Level,{A,C}") && $0.text.contains("<APP_Mixed_Weight:2:I>12") })
+        for file in preview.files {
+            #expect(file.text.contains("<Level:1:E>A"))
+            #expect(ADIFImportPreview(text: file.text).issues.isEmpty)
+            #expect(ADIFParser().records(in: file.text).first?["LEVEL"] == "A")
+        }
+        #expect(first.extraFields["APP_MIXED_WEIGHT"] == "12.50")
+        #expect(first.adifFieldMetadata!.extensions["LEVEL"]!.declaration?["ENUM"] == "{A,B}")
+    }
 }

@@ -10,9 +10,15 @@ Portable presets describe the actual transmitting station: on-air callsign (incl
 
 Own references are separate from the contacted station's reference fields. Unknown offline references may still be logged. SOTA/IOTA/WWFF fields remain available through ordinary ADI/ADX export; dedicated submission output in this release is POTA only.
 
+Portable logging power is captured with the draft. Existing meter capture may record its admitted observed value; the preset does not set transmitter power. Ending or editing a preset preserves the current draft's fallback, while the next blank contact returns to the appropriate portable or home default.
+
 In Logbook, choose the relevant selected records or filtered population and open POTA export. Freeze the selection and review the preview. It counts physical local contacts separately from derived ADIF records and groups files by recorded station callsign, own park and subdivision. One physical contact from two own parks to three contacted parks produces two ADI files containing three records each. Every record retains the original contact time and on-air callsigns; the local contact remains one record.
 
 Missing own park/location can be assigned explicitly for export only. No value is taken from today's preset to repair a historical contact. Unknown directory membership is labelled for review. Check the subdivision for parks spanning location boundaries. The preview lists excluded contacts; either correct their source records and create a new preview, or explicitly select the displayed valid subset. Potential POTA duplicates remain present, because the programme's duplicate comparison excludes contact time. No timestamps are adjusted.
+
+Qualified ADIF references such as `US-0001@US-MI` retain their qualifier in `MY_POTA_REF` or `POTA_REF`. POTA's `MY_SIG_INFO`/`SIG_INFO` fields receive the bare park; the own qualifier supplies a missing subdivision. Conflicting recorded or assigned subdivisions are excluded explicitly. Oversized cross-products fail before expansion and require a narrower selection; the exporter never clips a contact population to fit a limit.
+
+Custom APP types and USERDEF declarations are retained in each output file. Contacts with different custom-field definitions are placed in separate files so one record cannot silently change another record's field type.
 
 Save publishes a new `.pota` folder containing all reviewed ADI files and `manifest.json` with rule sources, captured validation instant, counts, exclusions and any export-only assignment. Existing paths are never overwritten. Files are staged and verified before exclusive directory publication. Cancelling publishes nothing. Export does not modify contacts, confirmations or synchronization queues, and does not upload or send anything.
 

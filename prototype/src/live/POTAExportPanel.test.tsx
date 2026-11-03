@@ -48,3 +48,11 @@ it("requires explicit valid-subset selection when exclusions exist", async () =>
   expect((screen.getByText("Save reviewed file set") as HTMLButtonElement).disabled).toBe(false);
   expect(native.invoke).not.toHaveBeenCalled();
 });
+it("removes an older reviewed population when refreshing its snapshot fails", async () => {
+  const request = fixture(); fireEvent.click(screen.getByText("Freeze selection and preview"));
+  await screen.findByText("POTA fixture · captured 2026-11-03T00:00:00Z");
+  request.mockRejectedValueOnce(new Error("The selection exceeds the bounded POTA preview budget."));
+  fireEvent.click(screen.getByText("Freeze selection and preview"));
+  await screen.findByText("The selection exceeds the bounded POTA preview budget.");
+  expect(screen.queryByText("Save reviewed file set")).toBeNull(); expect(native.invoke).not.toHaveBeenCalled();
+});

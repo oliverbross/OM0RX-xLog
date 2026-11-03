@@ -1,5 +1,12 @@
 import Foundation
 
+public enum POTAExportError: Error, LocalizedError {
+    case projectionTooLarge
+    public var errorDescription: String? {
+        "The selection exceeds the bounded POTA preview budget (32 MiB or 50,000 derived records). Select a smaller activation or refine the contact filter and create a fresh preview. Nothing was exported."
+    }
+}
+
 /// Export-only assignments are always shown in the preview and never persisted
 /// into source contacts. Missing values never fall back to current preferences.
 public struct POTAExportAssignment: Codable, Equatable, Sendable {
@@ -43,7 +50,37 @@ public struct POTAExportPreview: Codable, Equatable, Sendable {
         Array(Set(value.uppercased().split(whereSeparator: { $0.isWhitespace || ",;".contains($0) }).map(String.init))).sorted()
     }
     public static func validPark(_ value: String) -> Bool {
-        value.range(of: "^[A-Z0-9]{1,8}-[0-9]{1,8}$", options: .regularExpression) != nil
+        reference(value) != nil
+    }
+    /// A syntax projection only; directory and sponsor eligibility remain unknown.
+    public static func bareParkReference(_ value: String) -> String? {
+        reference(value.trimmingCharacters(in: .whitespacesAndNewlines).uppercased())?.park
+    }
+    public static func parkReferences(_ value: String) -> [String] {
+        Array(Set(referenceTokens(value).compactMap(bareParkReference))).sorted()
+    }
+    private struct Reference {
+        var raw: String; var park: String; var location: String?
+        var state: String? { location.map { String($0.dropFirst(3)) } }
+    }
+    /// ADIF 3.1.8 POTARef, matching the existing adifTransfer.ts contract.
+    /// POTA's SIG_INFO receives the bare park; ADIF's qualified field is retained.
+    private static func reference(_ raw: String) -> Reference? {
+        let parts = raw.split(separator: "@", omittingEmptySubsequences: false).map(String.init)
+        guard (1...2).contains(parts.count), parts[0].range(of: "^[A-Z0-9]{1,4}-[0-9]{4,5}$", options: .regularExpression) != nil else { return nil }
+        if parts.count == 2, parts[1].range(of: "^[A-Z]{2}-[A-Z0-9]{1,3}$", options: .regularExpression) == nil { return nil }
+        return Reference(raw: raw, park: parts[0], location: parts.count == 2 ? parts[1] : nil)
+    }
+    private static func distinctParks(_ values: [Reference]) -> [Reference] {
+        let groups = Dictionary(grouping: values, by: \.park)
+        return groups.keys.sorted().map { park in
+            let same = groups[park]!
+            return same.first(where: { $0.location != nil }) ?? same[0]
+        }
+    }
+    private static func matchesLocation(_ state: String, _ location: String) -> Bool {
+        let supplied = state.uppercased()
+        return supplied == location || supplied == String(location.dropFirst(3))
     }
     private static func validCall(_ value: String) -> Bool {
         value.range(of: "^[A-Z0-9/]{3,32}$", options: .regularExpression) != nil && value.contains(where: { $0.isNumber }) && value.contains(where: { $0.isLetter })
@@ -58,6 +95,33 @@ public struct POTAExportPreview: Codable, Equatable, Sendable {
     // convenience modes are projected by QSO.adifRecord before this boundary.
     private static let modeValues = Set("AM ARDOP ATV CHIP CLO CONTESTI CW DIGITALVOICE DOMINO DYNAMIC FAX FM FSK441 FSK FT8 HELL ISCAT JT4 JT6M JT9 JT44 JT65 MFSK MSK144 MTONE MT63 OFDM OLIVIA OPERA PAC PAX PKT PSK PSK2K Q15 QRA64 ROS RTTY RTTYM SSB SSTV T10 THOR THRB TOR V4 VOI WINMOR WSPR".split(separator: " ").map(String.init))
     private static let bandValues = Set("2190M 630M 560M 160M 80M 60M 40M 30M 20M 17M 15M 12M 10M 8M 6M 5M 4M 2M 1.25M 70CM 33CM 23CM 13CM 9CM 6CM 3CM 1.25CM 6MM 4MM 2.5MM 2MM 1MM SUBMM".split(separator: " ").map(String.init))
+    /// Native entry point. Check the prospective cross-product before retaining
+    /// expanded dictionaries or serializing files. It never clips a population.
+    public static func prepare(snapshot: ADIFExportSnapshot, now: Date = Date(), assignment: POTAExportAssignment? = nil,
+                               splitByDay: Bool = false, maximumBytes: Int = 32 * 1024 * 1024,
+                               maximumDerivedRecords: Int = 50_000) throws -> Self {
+        var records = 0, bytes = 2048 // fixed manifest/rules provenance
+        for record in snapshot.records {
+            let own = parkReferences(nonempty(record["MY_POTA_REF"]) ?? ((record["MY_SIG"] ?? "").uppercased() == "POTA" ? record["MY_SIG_INFO"] ?? "" : ""))
+            let ownCount = own.isEmpty ? Set((assignment?.ownParks ?? []).compactMap(bareParkReference)).count : own.count
+            let otherCount = parkReferences(nonempty(record["POTA_REF"]) ?? ((record["SIG"] ?? "").uppercased() == "POTA" ? record["SIG_INFO"] ?? "" : "")).count
+            let derived = ownCount.multipliedReportingOverflow(by: max(1, otherCount))
+            let nextRecords = records.addingReportingOverflow(derived.partialValue)
+            // New grouping/SIG fields and per-file headers add less than this
+            // conservative margin. Original text and timestamps stay unchanged.
+            let metadataBytesCount = try record.fieldMetadata.map { try JSONEncoder().encode($0).count } ?? 0
+            let recordBytes = record.recordDocument.utf8.count + metadataBytesCount + 512
+            let expandedBytes = recordBytes.multipliedReportingOverflow(by: derived.partialValue)
+            // Reserve per-physical-contact manifest/exclusion space even when
+            // an invalid contact would generate no ADIF records at all.
+            let metadataBytes = bytes.addingReportingOverflow(recordBytes)
+            let nextBytes = metadataBytes.partialValue.addingReportingOverflow(expandedBytes.partialValue)
+            guard !derived.overflow, !nextRecords.overflow, !expandedBytes.overflow, !metadataBytes.overflow, !nextBytes.overflow,
+                  nextRecords.partialValue <= maximumDerivedRecords, nextBytes.partialValue <= maximumBytes else { throw POTAExportError.projectionTooLarge }
+            records = nextRecords.partialValue; bytes = nextBytes.partialValue
+        }
+        return Self(snapshot: snapshot, now: now, assignment: assignment, splitByDay: splitByDay)
+    }
     public init(snapshot: ADIFExportSnapshot, now: Date = Date(), assignment: POTAExportAssignment? = nil,
                 splitByDay: Bool = false) {
         version = 1; rulesVersion = Self.rulesVersion; sourceURLs = Self.sourceURLs; capturedAt = now
@@ -65,7 +129,7 @@ public struct POTAExportPreview: Codable, Equatable, Sendable {
         let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = TimeZone(secondsFromGMT: 0); formatter.dateFormat = "yyyyMMdd"
         let today = formatter.string(from: now)
-        struct Group { var station: String; var park: String; var state: String; var day: String; var ids: Set<UUID>; var records: [ADIFRecord] }
+        struct Group { var station: String; var park: String; var state: String; var day: String; var ids: Set<UUID>; var records: [ADIFRecord]; var metadata: ADIFFieldMetadata? }
         var groups: [String: Group] = [:], failures: [POTAExportIssue] = [], included = Set<UUID>()
         var duplicateKeys = Set<String>(), duplicates = 0, futureTimes = 0
         for (index, record) in snapshot.records.enumerated() {
@@ -75,8 +139,22 @@ public struct POTAExportPreview: Codable, Equatable, Sendable {
             let own = Self.referenceTokens(Self.nonempty(record["MY_POTA_REF"]) ?? ((record["MY_SIG"] ?? "").uppercased() == "POTA" ? record["MY_SIG_INFO"] ?? "" : ""))
             let parks = own.isEmpty ? Array(Set(assignment?.ownParks.map { $0.uppercased() } ?? [])).sorted() : own
             let contacted = Self.referenceTokens(Self.nonempty(record["POTA_REF"]) ?? ((record["SIG"] ?? "").uppercased() == "POTA" ? record["SIG_INFO"] ?? "" : ""))
-            let state = Self.nonempty(record["MY_STATE"]) ?? assignment?.state ?? ""
+            let ownReferences = parks.compactMap(Self.reference), contactedReferences = contacted.compactMap(Self.reference)
+            let recordedState = Self.nonempty(record["MY_STATE"]), assignedState = Self.nonempty(assignment?.state)
+            let locations = Set(ownReferences.compactMap(\.location))
+            let qualifiedState = ownReferences.first(where: { $0.location != nil })?.state
+            let state = recordedState ?? qualifiedState ?? assignedState ?? ""
             var missing: [String] = []
+            var metadataKey = ""
+            if let metadata = record.fieldMetadata {
+                do {
+                    try metadata.validate(fields: record.fields)
+                    if !metadata.extensions.isEmpty {
+                        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+                        metadataKey = String(decoding: try encoder.encode(metadata.extensions), as: UTF8.self)
+                    }
+                } catch { missing.append("ADIF extension metadata") }
+            }
             if assignment?.clubOrGroup == true && (station.isEmpty || op.isEmpty) { missing.append("club/group requires both station and individual operator callsigns") }
             if !Self.validCall(effectiveStation) || (!station.isEmpty && !Self.validCall(station)) || (!op.isEmpty && !Self.validCall(op)) { missing.append("station/operator callsign") }
             let call = record["CALL"] ?? ""
@@ -90,20 +168,33 @@ public struct POTAExportPreview: Codable, Equatable, Sendable {
             if let issue = ADIFImportPreview(text: record.adifDocument).issues.first { missing.append("ADIF serialization: " + issue.message) }
             if parks.isEmpty || !parks.allSatisfy(Self.validPark) { missing.append("own POTA park") }
             if !contacted.allSatisfy(Self.validPark) { missing.append("contacted POTA park") }
+            if locations.count > 1 { missing.append("own park references specify conflicting station locations") }
+            if let location = locations.first {
+                if let recordedState, !Self.matchesLocation(recordedState, location) { missing.append("MY_STATE \(recordedState.prefix(32)) conflicts with recorded park location \(location)") }
+                if recordedState == nil, let assignedState, !Self.matchesLocation(assignedState, location) { missing.append("export-only subdivision \(assignedState.prefix(32)) conflicts with recorded park location \(location)") }
+            }
+            if Dictionary(grouping: contactedReferences, by: \.park).values.contains(where: { Set($0.compactMap(\.location)).count > 1 }) {
+                missing.append("the same contacted park has conflicting location qualifiers")
+            }
             if !state.isEmpty && state.range(of: "^[A-Za-z0-9-]{1,16}$", options: .regularExpression) == nil { missing.append("own subdivision") }
             if !missing.isEmpty { failures.append(.init(contactID: id, message: "Missing or invalid: " + missing.joined(separator: ", "))); continue }
             included.insert(id)
-            for park in parks {
+            for ownReference in Self.distinctParks(ownReferences) {
+                let park = ownReference.park
                 let day = splitByDay ? record["QSO_DATE"] ?? "" : "all-days"
-                let key = [effectiveStation, park, state, day].joined(separator: "\u{1f}")
-                var group = groups[key] ?? Group(station: effectiveStation, park: park, state: state, day: day, ids: [], records: [])
+                // APP field types must also remain constant within an ADI file;
+                // incompatible per-record schemas are safely partitioned.
+                let key = [effectiveStation, park, state, day, metadataKey].joined(separator: "\u{1f}")
+                var group = groups[key] ?? Group(station: effectiveStation, park: park, state: state, day: day, ids: [], records: [], metadata: record.fieldMetadata)
                 group.ids.insert(id)
-                for hunter in contacted.isEmpty ? [""] : contacted {
+                let hunters: [Reference?] = contactedReferences.isEmpty ? [nil] : Self.distinctParks(contactedReferences).map(Optional.some)
+                for hunterReference in hunters {
+                    let hunter = hunterReference?.park ?? ""
                     var fields = record.fields
                     fields["MY_SIG"] = "POTA"; fields["MY_SIG_INFO"] = park
-                    fields["MY_POTA_REF"] = park
+                    fields["MY_POTA_REF"] = ownReference.raw
                     if !state.isEmpty { fields["MY_STATE"] = state }
-                    if !hunter.isEmpty { fields["SIG"] = "POTA"; fields["SIG_INFO"] = hunter; fields["POTA_REF"] = hunter }
+                    if let hunterReference { fields["SIG"] = "POTA"; fields["SIG_INFO"] = hunter; fields["POTA_REF"] = hunterReference.raw }
                     let duplicate = [effectiveStation, call, record["SUBMODE"] ?? record["MODE"] ?? "", record["QSO_DATE"] ?? "", record["BAND"] ?? "", park, hunter, state].joined(separator: "\u{1f}")
                     if !duplicateKeys.insert(duplicate).inserted { duplicates += 1 }
                     group.records.append(ADIFRecord(fields: fields, fieldMetadata: record.fieldMetadata))
@@ -115,7 +206,7 @@ public struct POTAExportPreview: Codable, Equatable, Sendable {
             let group = groups[key]!
             // Ordinal prevents sanitized-name collisions without changing callsigns.
             let name = "\(ordinal + 1)-\(Self.safe(group.station))@\(Self.safe(group.park))-\(Self.safe(group.state))-\(group.day).adi"
-            let text = "<ADIF_VER:5>3.1.7<EOH>\r\n" + group.records.map { $0.recordDocument + "\r\n" }.joined()
+            let text = Self.header(metadata: group.metadata) + group.records.map { Self.recordDocument($0) + "\r\n" }.joined()
             return POTAExportFile(filename: name, stationCall: group.station, ownPark: group.park, state: group.state,
                                   physicalContacts: group.ids.count, derivedRecords: group.records.count, text: text)
         }
@@ -127,5 +218,29 @@ public struct POTAExportPreview: Codable, Equatable, Sendable {
         if futureTimes > 0 { notes.append("\(futureTimes) contacts start later than the captured validation instant on the same UTC day; timestamps are unchanged.") }
         if assignment != nil { notes.append("Reviewed export-only assignment fills missing own parks/location. Source contacts remain unchanged.") }
         warnings = notes
+    }
+
+    private static func header(metadata: ADIFFieldMetadata?) -> String {
+        let definitions = (metadata?.extensions ?? [:]).filter { $0.value.kind == "USERDEF" }.sorted { $0.key < $1.key }
+        let declarations = definitions.map { _, field -> String in
+            let definition = field.declaration!
+            let constraint = definition["ENUM"] ?? definition["RANGE"]
+            let value = field.attributes["FIELDNAME"]! + (constraint.map { "," + $0 } ?? "")
+            return "<USERDEF\(definition["FIELDID"]!):\(value.utf8.count):\(definition["TYPE"]!)>\(value)"
+        }.joined()
+        return "<ADIF_VER:5>3.1.7" + declarations + "<EOH>\r\n"
+    }
+
+    private static func recordDocument(_ record: ADIFRecord) -> String {
+        guard let metadata = record.fieldMetadata, !metadata.extensions.isEmpty else { return record.recordDocument }
+        return record.fields.keys.sorted().map { key in
+            let value = record.fields[key]!, field = metadata.extensions[key]
+            let name: String
+            if let field, field.kind == "APP" {
+                name = "APP_\(field.attributes["PROGRAMID"]!)_\(field.attributes["FIELDNAME"]!)"
+            } else { name = field?.attributes["FIELDNAME"] ?? key }
+            let type = field?.kind == "APP" ? field?.attributes["TYPE"] : field?.declaration?["TYPE"]
+            return "<\(name):\(value.utf8.count)\(type.map { ":" + $0 } ?? "")>\(value)"
+        }.joined() + "<EOR>"
     }
 }

@@ -41,14 +41,15 @@ it("manual draft antenna selection records intent without a provider call", () =
 });
 it("maps an explicit antenna target once using its captured offset and observes without motion", () => {
   const onGoto = vi.fn(), onApply = vi.fn();
-  const draft = { call: "K1ABC", extraFields: { APP_OM0RXXLOG_ANTENNA_ID: "a", APP_OM0RXXLOG_ANTENNA_ROTOR: "workspace-rotor", APP_OM0RXXLOG_ANTENNA_OFFSET: "20" } };
+  const draft = { call: "K1ABC", extraFields: { APP_OM0RXXLOG_ANTENNA_ID: "a", APP_OM0RXXLOG_ANTENNA_NAME: "Beam", APP_OM0RXXLOG_ANTENNA_ROTOR: "workspace-rotor", APP_OM0RXXLOG_ANTENNA_OFFSET: "20" } };
   const rotor = { owner: "native_dcu1" as const, generation: 1, state: "active" as const, backend: { connected: true, azimuth: 350 } };
   const view = render(<AntennaDraftSelector settings={settings} draft={draft} txBand="20m" fresh onApply={onApply} rotor={rotor} onGoto={onGoto} />);
   expect(screen.getByText(/Rotor observed: 350° · Antenna observed: 10°/)).toBeTruthy(); expect(onGoto).not.toHaveBeenCalled();
   fireEvent.change(screen.getByLabelText("Desired antenna bearing"), { target: { value: "10" } }); expect(onGoto).not.toHaveBeenCalled();
   fireEvent.click(screen.getByText("Turn antenna to bearing")); expect(onGoto).toHaveBeenCalledExactlyOnceWith(350);
-  view.rerender(<AntennaDraftSelector settings={{ ...settings, stationEquipment: { ...settings.stationEquipment, profiles: [{ ...profile, azimuthOffsetDegrees: -45 }] } }} draft={draft} txBand="20m" fresh onApply={onApply} rotor={rotor} onGoto={onGoto} />);
+  view.rerender(<AntennaDraftSelector settings={{ ...settings, stationEquipment: { ...settings.stationEquipment, profiles: [{ ...profile, name: "Renamed and archived", archived: true, azimuthOffsetDegrees: -45 }] } }} draft={draft} txBand="20m" fresh onApply={onApply} rotor={rotor} onGoto={onGoto} />);
   expect(onGoto).toHaveBeenCalledOnce(); expect(screen.getByText(/Antenna observed: 10°/)).toBeTruthy();
+  expect(screen.getByText(/Captured for current draft: Beam/)).toBeTruthy(); expect(screen.getByText("Beam (retained snapshot)")).toBeTruthy();
 });
 it("starts a preset with canonical whole-second wire time and a copied snapshot", () => {
   const onChange = vi.fn(), preset = settings.portableOperating.activeContext.preset;
