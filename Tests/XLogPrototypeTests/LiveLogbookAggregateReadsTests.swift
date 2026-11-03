@@ -224,6 +224,52 @@ final class LiveLogbookAggregateReadsTests: XCTestCase {
         XCTAssertEqual(gate.count(.localAwards),1,"Ordinary DXCC has no clock-dependent counting rule; timestamps must not defeat the warm cache.")
     }
 
+    func testPOTAWireSupportsOperatorOnlyWithoutMergingOperatorsOrClubCredit() async throws {
+        let gate=Gate([]),f=try fixture(gate)
+        let reference=try f.service.referenceDirectoryURL().appendingPathComponent("pota-parks.csv")
+        try Data("reference,name,locationDesc,active\nSK-0001,Synthetic park,SK-BL,1\n".utf8).write(to:reference)
+        let day=try XCTUnwrap(LogbookQuery.absoluteUTCDate("2026-11-02T12:00:00Z"))
+        var contacts=(0..<10).map { index in
+            QSO(call:"K\(index+1)SYN",start:day.addingTimeInterval(Double(index)*60),band:"20m",mode:"CW",
+                operatorCall:"OM0RX/P",myCall:"",myGrid:"JN98",extraFields:["MY_DXCC":"504","MY_STATE":"SK-BL","MY_POTA_REF":"SK-0001"])
+        }
+        var other=contacts[0];other.id=UUID();other.operatorCall="OM0ZZ/P"
+        var operatorSelf=contacts[0];operatorSelf.id=UUID();operatorSelf.call="OM0RX/P"
+        var club=contacts[0];club.id=UUID();club.myCall="OM0CLUB"
+        var clubDuplicate=club;clubDuplicate.id=UUID();clubDuplicate.operatorCall="OM0ZZ/P"
+        var clubSelf=club;clubSelf.id=UUID();clubSelf.call="OM0CLUB"
+        var clubOperatorSelf=clubDuplicate;clubOperatorSelf.id=UUID();clubOperatorSelf.call="OM0ZZ/P"
+        contacts += [other,operatorSelf,club,clubDuplicate,clubSelf,clubOperatorSelf]
+        for contact in contacts { try f.service.openedDatabase().save(contact) }
+        let params:[String:Any]=["programme":"pota","role":"activator","unit":"SK-0001","unit_role":"activator",
+            "reference_time":"2026-11-03T00:00:00Z","expected_generation":f.generation]
+        func progress(_ identity:String) async throws -> [String:Any] {
+            var scoped=params;scoped["station_scope"]="\(identity) · own DXCC 504 · subdivision BL"
+            return try await success(call(f.worker,"logbook_award_progress",scoped))
+        }
+        let individual=try await progress("OM0RX/P")
+        let summary=try XCTUnwrap((individual["activationCandidates"] as? [[String:Any]])?.first)
+        XCTAssertEqual(summary["countableContacts"] as? Int,10)
+        XCTAssertEqual(summary["candidateStatus"] as? String,"local candidate")
+        XCTAssertEqual(summary["excludedRows"] as? Int,1)
+        XCTAssertEqual(individual["evidenceTotal"] as? Int,11)
+        let evidence=try XCTUnwrap(individual["evidence"] as? [[String:Any]])
+        XCTAssertTrue(evidence.allSatisfy { ($0["recordedContext"] as? String)?.hasPrefix("Unknown station") == true },"Fallback must not rewrite missing recorded STATION_CALLSIGN evidence.")
+        XCTAssertTrue(evidence.allSatisfy { ($0["pota"] as? [String:Any])?["stationCall"] as? String == "OM0RX/P" })
+        let separate=try await progress("OM0ZZ/P")
+        let separateDay=try XCTUnwrap((separate["activationCandidates"] as? [[String:Any]])?.first)
+        XCTAssertEqual(separateDay["countableContacts"] as? Int,1)
+        XCTAssertEqual(separateDay["candidateStatus"] as? String,"below threshold")
+        let clubResult=try await progress("OM0CLUB")
+        let clubDay=try XCTUnwrap((clubResult["activationCandidates"] as? [[String:Any]])?.first)
+        XCTAssertEqual(clubDay["countableContacts"] as? Int,1,"A second operator does not duplicate a station-owned programme contact.")
+        XCTAssertEqual(clubDay["duplicateProgrammeRecords"] as? Int,1)
+        XCTAssertEqual(clubDay["excludedRows"] as? Int,2,"Both the recorded station and individual operator self contacts are excluded.")
+        XCTAssertEqual(clubResult["evidenceTotal"] as? Int,4)
+        XCTAssertEqual((individual["scopes"] as? [String])?.filter{!$0.hasPrefix("Unknown station")}.count,3)
+        XCTAssertEqual(gate.count(.localAwards),1,"Scope selection uses one native counting snapshot.")
+    }
+
     func testHeldCatalogueLeavesSaveFirstPageColdStatsAndSettingsUsable() async throws {
         let gate = Gate(), f = try fixture(gate)
         defer { gate.release() }

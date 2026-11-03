@@ -113,6 +113,7 @@ public struct POTAExportPreview: Codable, Equatable, Sendable {
     private static let modeValues = Set("AM ARDOP ATV CHIP CLO CONTESTI CW DIGITALVOICE DOMINO DYNAMIC FAX FM FSK441 FSK FT8 HELL ISCAT JT4 JT6M JT9 JT44 JT65 MFSK MSK144 MTONE MT63 OFDM OLIVIA OPERA PAC PAX PKT PSK PSK2K Q15 QRA64 ROS RTTY RTTYM SSB SSTV T10 THOR THRB TOR V4 VOI WINMOR WSPR".split(separator: " ").map(String.init))
     private static let bandValues = Set("2190M 630M 560M 160M 80M 60M 40M 30M 20M 17M 15M 12M 10M 8M 6M 5M 4M 2M 1.25M 70CM 33CM 23CM 13CM 9CM 6CM 3CM 1.25CM 6MM 4MM 2.5MM 2MM 1MM SUBMM".split(separator: " ").map(String.init))
     static func validCountingBand(_ value:String) -> Bool { bandValues.contains(value.uppercased()) }
+    static func effectiveStation(station:String,operatorCall:String) -> String { station.isEmpty ? operatorCall : station }
     static func validCountingMode(_ mode:String,submode:String) -> Bool {
         modeValues.contains(mode.uppercased()) && (submode.isEmpty || submode.range(of:"^[A-Za-z0-9_+-]{1,16}$",options:.regularExpression) != nil)
     }
@@ -156,7 +157,7 @@ public struct POTAExportPreview: Codable, Equatable, Sendable {
         for (index, record) in snapshot.records.enumerated() {
             let id = snapshot.contactIDs[index]
             let station = record["STATION_CALLSIGN"] ?? "", op = record["OPERATOR"] ?? ""
-            let effectiveStation = station.isEmpty ? op : station
+            let effectiveStation = Self.effectiveStation(station:station,operatorCall:op)
             let own = Self.referenceTokens(Self.nonempty(record["MY_POTA_REF"]) ?? ((record["MY_SIG"] ?? "").uppercased() == "POTA" ? record["MY_SIG_INFO"] ?? "" : ""))
             let parks = own.isEmpty ? Array(Set(assignment?.ownParks.map { $0.uppercased() } ?? [])).sorted() : own
             let contacted = Self.referenceTokens(Self.nonempty(record["POTA_REF"]) ?? ((record["SIG"] ?? "").uppercased() == "POTA" ? record["SIG_INFO"] ?? "" : ""))

@@ -1037,6 +1037,36 @@ ordinary DXCC dates sharing one warm evaluation. No assertion/deadline weakened.
 Only the native adapter and its existing test file changed; no1.5.4package was
 minted before this repair. Affected qualification must use the corrected source.
 
+Final pre-package POTA identity review found that the local counter required
+STATION_CALLSIGN even for individual records with a valid recorded OPERATOR.
+Official rules Logging Requirements permit either field for individuals; the
+existing exporter already uses that fallback. The correction shares that helper
+only for POTA scope/counting, retains original recorded evidence, separates
+different operator-only identities (including unknown-country history), and keeps
+recorded station/club precedence without generating personal credit. Self checks
+cover both identities; invalid nonempty station callsigns remain unknown rather
+than silently falling back. IOTA and other programme scopes are unchanged.
+`swift test --jobs 2 --filter 'LocalAwardProgressTests|POTAExportTests'` passed22
+(`d728896b51c8ec1c`); the actual worker-frame operator-only/club regression passed1
+(`525b2ddf83620313`) using the existing portable aggregate harness. Earlier
+STATION_CALLSIGN-based evidence remains valid but did not establish this case.
+No1.5.4package has been minted; affected qualification will include this repair.
+
+Windows beta82 initial job125887935808 failed its unchanged15-second Helvetia
+frontend deadline at15.011seconds:5098tests passed/1failed. The100-case host suite
+took1066.224seconds; logs contain no per-phase timings and do not establish a
+cause. Unchanged focused local Helvetia passed1.109seconds
+(`937942f9268da263`). Only that failed Windows job was retried through GitHub;
+original failure log is retained in`.build/qlog-followup-20261103/windows-beta82-attempt1.log`.
+No assertion or timeout changed. A later pass cannot erase the original failure
+or establish its cause. Actual retry/final gate outcome follows after completion.
+
+Oliver additionally reported the Traditional Operator Desk hiding previous contacts
+above the Logbook despite a valid duplicate/history summary. This is an authorized
+completion-pass regression fix, preserving the existing history read owner,
+canonical draft, duplicate warning and saved view selection. Source correction and
+actual focused/native evidence will be recorded below once exercised.
+
 One integrator retains schemas, tracker, commits/pushes and release ownership.
 Three bounded existing Sol6.1high lanes own alert/profile UI, native nearby radio
 binding, and award rules/scope/UI respectively. Corrections are batched before a

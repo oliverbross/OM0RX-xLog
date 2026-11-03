@@ -106,6 +106,57 @@ struct LocalAwardProgressTests {
         #expect(below["thresholdReached"] as? Bool == false)
         #expect(below["candidateStatus"] as? String == "incomplete")
     }
+    @Test func potaOperatorOnlyUsesRecordedIdentityWithoutChangingIOTA() throws {
+        var rows=potaRows(10)
+        for i in rows.indices {
+            rows[i].myCall="";rows[i].operatorCall="OM0RX/P"
+            rows[i].myGrid=i<5 ? "JN98" : "JN88"
+            rows[i].iota=i<5 ? "EU-005" : "AS-007"
+        }
+        let day=try #require(potaDays(rows).first)
+        #expect(day["countableContacts"] as? Int == 10)
+        #expect(day["candidateStatus"] as? String == "local candidate")
+        let pota=try LocalAwardEngine.compute(contacts:rows.map(AwardEvidenceContact.init),programme:"pota")
+        #expect(pota.scopes.count == 1)
+        #expect(pota.scopes.first?.hasPrefix("OM0RX/P ·") == true)
+        #expect(pota.units.flatMap(\.evidence).allSatisfy{$0.pota?.stationCall == "OM0RX/P" && $0.recordedContext?.hasPrefix("Unknown station") == true})
+        let iota=try LocalAwardEngine.compute(contacts:rows.map(AwardEvidenceContact.init),programme:"iota")
+        #expect(iota.scopes.count == 2)
+        #expect(iota.scopes.allSatisfy{$0.hasPrefix("Unknown station")})
+        var other=rows[0];other.id=UUID();other.operatorCall="OM0ZZ/P"
+        let separate=try LocalAwardEngine.compute(contacts:[rows[0],other].map(AwardEvidenceContact.init),programme:"pota")
+        #expect(separate.scopes.count == 2)
+        var unknownCountry=rows[0];unknownCountry.extraFields.removeValue(forKey:"MY_DXCC")
+        other.extraFields.removeValue(forKey:"MY_DXCC")
+        let historical=try LocalAwardEngine.compute(contacts:[unknownCountry,other].map(AwardEvidenceContact.init),programme:"pota")
+        #expect(historical.scopes.count == 2)
+        var selfContact=rows[0];selfContact.id=UUID();selfContact.call="OM0RX/P"
+        let withSelf=try #require(potaDays(rows+[selfContact]).first)
+        #expect(withSelf["countableContacts"] as? Int == 10)
+        #expect(withSelf["excludedRows"] as? Int == 1)
+    }
+    @Test func potaStationPrecedenceKeepsClubOperatorsOutOfIndividualScopes() throws {
+        var rows=potaRows(10)
+        for i in rows.indices { rows[i].myCall="OM0CLUB";rows[i].operatorCall=i<5 ? "OM0RX/P" : "OM0ZZ/P" }
+        var duplicate=rows[0];duplicate.id=UUID();duplicate.operatorCall="OM0ZZ/P"
+        var stationSelf=rows[0];stationSelf.id=UUID();stationSelf.call="OM0CLUB"
+        var operatorSelf=rows[1];operatorSelf.id=UUID();operatorSelf.operatorCall="OM0ZZ/P";operatorSelf.call="OM0ZZ/P"
+        let contacts=rows+[duplicate,stationSelf,operatorSelf]
+        let day=try #require(potaDays(contacts).first)
+        #expect(day["physicalRows"] as? Int == 13)
+        #expect(day["countableContacts"] as? Int == 10)
+        #expect(day["programmeLogRecords"] as? Int == 10)
+        #expect(day["duplicateProgrammeRecords"] as? Int == 1)
+        #expect(day["excludedRows"] as? Int == 2)
+        let result=try LocalAwardEngine.compute(contacts:contacts.map(AwardEvidenceContact.init),programme:"pota")
+        #expect(result.scopes.count == 1)
+        #expect(result.scopes.first?.hasPrefix("OM0CLUB ·") == true)
+        #expect(Set(result.units.flatMap(\.evidence).compactMap{$0.pota?.operatorCall}) == ["OM0RX/P","OM0ZZ/P"])
+        var invalid=rows[0];invalid.myCall="BAD?"
+        let unknown=try #require(potaDays([invalid]).first)
+        #expect(unknown["countableContacts"] as? Int == 0)
+        #expect(unknown["unknownEligibilityRows"] as? Int == 1)
+    }
     @Test func potaUnknownInputsAndKnownExclusionsStayDistinct() throws {
         var rows=potaRows(8)
         rows[0].call="OM0RX" // self

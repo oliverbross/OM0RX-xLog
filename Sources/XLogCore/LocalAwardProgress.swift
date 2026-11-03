@@ -34,13 +34,17 @@ public struct AwardEvidenceContact: Decodable, Equatable, Sendable {
         guard f.isAtEnd, start.timeIntervalSince1970.isFinite else { throw LogbookDatabaseError.corruptRecord }
     }
     var scope: String {
+        recordedScope(ownCall:myCall)
+    }
+    private func recordedScope(ownCall:String) -> String {
         let ownCountry = extraFields["MY_DXCC"].flatMap(Int.init).map(String.init) ?? "unknown"
         let state=extraFields["MY_STATE"].flatMap{$0.isEmpty ? nil : $0}.map{" · subdivision \($0.uppercased())"} ?? ""
-        return "\(myCall.isEmpty ? "Unknown station" : myCall.uppercased()) · own DXCC \(ownCountry) · \(myGrid.isEmpty ? (stationLocation.isEmpty ? "location unknown" : stationLocation) : myGrid.uppercased())\(state)"
+        return "\(ownCall.isEmpty ? "Unknown station" : ownCall.uppercased()) · own DXCC \(ownCountry) · \(myGrid.isEmpty ? (stationLocation.isEmpty ? "location unknown" : stationLocation) : myGrid.uppercased())\(state)"
     }
     func scope(for programme: String) -> String {
-        let call=myCall.trimmingCharacters(in:.whitespacesAndNewlines).uppercased()
-        guard !call.isEmpty, let country=extraFields["MY_DXCC"].flatMap(Int.init), country>0 else { return scope }
+        let call=programme == "pota" ? potaStationCall : myCall.trimmingCharacters(in:.whitespacesAndNewlines).uppercased()
+        let originalScope=programme == "pota" ? recordedScope(ownCall:call) : scope
+        guard !call.isEmpty, let country=extraFields["MY_DXCC"].flatMap(Int.init), country>0 else { return originalScope }
         // IOTA B.1.2/B.3.2 permits different land locations in one entity.
         // Callsign entitlement, land/remote operation and credit stay unverified.
         if programme == "iota", !call.hasSuffix("/MM"), !call.hasSuffix("/AM") {
@@ -49,7 +53,10 @@ public struct AwardEvidenceContact: Decodable, Equatable, Sendable {
         if programme == "pota", !potaLocation.state.isEmpty, potaLocation.issue == nil {
             return "\(call) · own DXCC \(country) · subdivision \(potaLocation.state)"
         }
-        return scope
+        return originalScope
+    }
+    var potaStationCall:String {
+        POTAExportPreview.effectiveStation(station:myCall,operatorCall:operatorCall ?? "").trimmingCharacters(in:.whitespacesAndNewlines).uppercased()
     }
     var ownPOTARaw:String {
         let own=(extraFields["MY_POTA_REF"] ?? "").trimmingCharacters(in:.whitespacesAndNewlines)
@@ -238,7 +245,7 @@ public enum LocalAwardEngine {
 
     private static func potaContact(_ q: AwardEvidenceContact, at now: Date) -> LocalPOTAContact {
         func normalized(_ value:String)->String { value.trimmingCharacters(in:.whitespacesAndNewlines).uppercased() }
-        let station=normalized(q.myCall),op=normalized(q.operatorCall ?? ""),call=normalized(q.call)
+        let station=q.potaStationCall,op=normalized(q.operatorCall ?? ""),call=normalized(q.call)
         let location=q.potaLocation,state=location.state
         let interchange=QSO.interchangeMode(q.mode,submode:q.submode)
         let raw=q.potaReference.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty && q.sig.uppercased()=="POTA" ? q.sigInfo : q.potaReference
