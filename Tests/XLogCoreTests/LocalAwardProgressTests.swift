@@ -27,16 +27,20 @@ struct LocalAwardProgressTests {
         #expect(page["evidenceTotal"] as? Int == 1)
     }
     @Test func prefixRulesAndExplicitModeScope() throws {
-        let cases=["K1ABC":"K1","K1ABC/4":"K4","F/OM0RX":"F0","OM0RX/P":"OM0","R14CWC/3":"R14","W100AW/9":"W100","VI2AJ2010":"VI2","AM70X/8":"AM70","SZ3PMBG19":"SZ3"]
+        let cases=["K1ABC":"K1","K1ABC/4":"K4","F/OM0RX":"F0","OM0RX/P":"OM0","R14CWC/3":"R14","W100AW/9":"W100","VI2AJ2010":"VI2","AM70X/8":"AM70","SZ3PMBG19":"SZ3","3D2AG":"3D2","9A3A":"9A3","5B4ALX":"5B4","4U1UN":"4U1","8J1RL":"8J1","3DA0XX":"3DA0","2E0ABC":"2E0"]
         for (call,prefix) in cases { #expect(LocalAwardEngine.wpxPrefix(call) == prefix) }
         #expect(LocalAwardEngine.wpxPrefix("D075GR") == nil)
         var australia=qso("VK1A",dxcc:150,continent:"OC"); australia.myCall="VK8RX"; australia.extraFields["MY_DXCC"]="150"
-        let input=[qso("K1ABC",dxcc:291,continent:"NA",mode:"SSB"),qso("K1XYZ",dxcc:291,continent:"NA",mode:"AM"),australia]
+        let input=[qso("K1ABC",dxcc:291,continent:"NA",mode:"SSB"),qso("K1XYZ",dxcc:291,continent:"NA",mode:"AM"),australia,
+            qso("3D2AG",dxcc:176,continent:"OC"),qso("3D2R",dxcc:176,continent:"OC"),qso("9A3A",dxcc:497,continent:"EU")]
         let result=try LocalAwardEngine.compute(contacts:input.map(AwardEvidenceContact.init),programme:"wpx")
         #expect(result.scopes.count == 2)
         let scope=try #require(result.scopes.first(where:{$0.hasPrefix("OM0RX")}))
         let mixed=try result.projection(scope:scope,band:"",mode:"Mixed",role:"",unit:"K1",offset:0,limit:20)
-        #expect(mixed["workedUnits"] as? Int == 1); #expect(mixed["evidenceTotal"] as? Int == 2)
+        #expect(mixed["workedUnits"] as? Int == 3); #expect(mixed["evidenceTotal"] as? Int == 2)
+        let numeric=try result.projection(scope:scope,band:"",mode:"Mixed",role:"",unit:"3D2",offset:0,limit:20)
+        #expect(numeric["evidenceTotal"] as? Int == 2)
+        #expect(Set((numeric["evidence"] as? [[String:Any]] ?? []).compactMap{$0["call"] as? String}) == ["3D2AG","3D2R"])
         let ssb=try result.projection(scope:scope,band:"",mode:"SSB",role:"",unit:"K1",offset:0,limit:20)
         #expect(ssb["evidenceTotal"] as? Int == 1)
         let phone=try result.projection(scope:scope,band:"",mode:"Phone",role:"",unit:"K1",offset:0,limit:20)

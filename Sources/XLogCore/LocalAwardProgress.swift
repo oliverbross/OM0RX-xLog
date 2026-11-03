@@ -94,7 +94,10 @@ public enum LocalAwardEngine {
         guard call != "D075GR", call.range(of: "^[A-Z0-9/]{3,32}$", options: .regularExpression) != nil else { return nil }
         let parts = call.split(separator: "/").map(String.init).filter { !["P","M","MM","AM","QRP","QRPP"].contains($0) }
         func ordinary(_ value: String) -> String? {
-            guard let range = value.range(of: "^[A-Z0-9]*?[0-9]+(?=[A-Z])", options: .regularExpression) else { return nil }
+            // A leading country numeral is part of 3D2/9A3/4U1, not a
+            // complete prefix by itself. Stop at the first call-area block;
+            // sponsor's VI2AJ2010/SZ3PMBG19 clarifications remain intact.
+            guard let range = value.range(of: "^(?:[0-9]+[A-Z]+|[A-Z]+)[0-9]+(?=[A-Z])", options: .regularExpression) else { return nil }
             return String(value[range])
         }
         guard let base = parts.filter({ ordinary($0) != nil }).max(by: { $0.count < $1.count }), var prefix = ordinary(base) else { return nil }
