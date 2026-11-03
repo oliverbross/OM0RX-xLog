@@ -10,7 +10,7 @@
 **Planning baseline:** `main` at `f15dbb11eb727419689869f8f4907ed9b4809970`  
 **Installed macOS baseline recorded by the repository:** 1.4.8, package source `2ae0939d1a69fb8c8210a24880b04929b8d46d7c`  
 **Comparison reference:** QLog 0.54.1, source `40b1651a644e557ec1579d52c5c0cb9a422a2627`  
-**Programme status:** Focused completion pass in progress from current canonical `main` at `76c72dbbbec005efe0d20e1151273d72be076dcf` (fetched/fast-forward checked, clean). Review identified incomplete alert geography controls, incorrect selected-radio binding for nearby callsigns, incompatible award scope splitting, hidden retained legacy award search, empty/stale antenna selection failure and an unimplemented POTA candidate threshold. Earlier claims of verification for these precise behaviors are superseded by section8.6; valid unrelated evidence remains. Retained signed1.5.3 source `310882024be2df056e8e254e03da205a27bae2c7` and its five-second first-execution failure are preserved for a separate bounded investigation. No reset, installation, external submission, RF transmission or rotor motion is authorized by this pass.
+**Programme status:** The six reviewed completion corrections are integrated on canonical `main` through `df942e2a`, following alert controls `73881bcd`, empty profile `917b561a` and selected-radio nearby `1b6f32dc`. Version **1.5.4** is entering integrated qualification; no package/install acceptance is yet claimed for it. Focused tests passed as recorded in section8.6. IOTA compatible scope/search clearing and POTA local counting are implemented with rulepack `local-progress-2026-11-03-v2`; the exact expansion-dependent activation-minimum interpretation remains explicitly incomplete. Retained signed1.5.3 source `310882024be2df056e8e254e03da205a27bae2c7` and original five-second failure remain; later warm/control/native observations do not establish cold startup or signing causality. Earlier evidence is preserved but affected source/package/read-path checks must be repeated for1.5.4. No production installation, external submission, RF transmission or rotor motion occurred.
 **Suggested canonical location after handoff:** `docs/planning/OM0RX-xLog_QLog_Implementation_Plan_2026-11-03.md`
 
 This is one complete handoff: scope, dependencies, source integration points, feature specifications, acceptance criteria, delivery tracking and the copy-ready Codex execution prompt. The final section contains the prompt to paste into Codex after attaching this file or placing it in the repository.
@@ -316,13 +316,13 @@ For each calculator keep a compact rule manifest: programme/variant ID, rules ve
 
 | Task | Deliverable | Depends on | State | Evidence/commit |
 |---|---|---|---|---|
-| EP-02.1 | Inventory basic and specialist progress, candidate prefilters, compact projections and cache keys; define shared evidence-result contract | Baseline reconciliation | In progress | Focused completion correction under section8.6; earlier evidence does not establish this reviewed behavior. |
+| EP-02.1 | Inventory basic and specialist progress, candidate prefilters, compact projections and cache keys; define shared evidence-result contract | Baseline reconciliation | Implemented | Focused correction integrated; actual source/UI regression results and precise remaining package/source-rule boundaries in section8.6. Earlier affected evidence is superseded. |
 | EP-02.2 | Add scoped paged supporting-QSO query and temporary drilldown/navigation state for existing progress | EP-02.1, EP-01.2 / EP-01.5 | Verified | Worldwide complete-log/rule/evidence fixtures, native WAC exact-QSO/Back and100k global award oracles; source limitations remain labelled (section8.3). |
-| EP-02.3 | Add usable detailed matrices and correct distinct-unit versus QSO counts; preserve nonselected award behavior | EP-02.2 | In progress | Focused completion correction under section8.6; earlier evidence does not establish this reviewed behavior. |
+| EP-02.3 | Add usable detailed matrices and correct distinct-unit versus QSO counts; preserve nonselected award behavior | EP-02.2 | Implemented | Focused correction integrated; actual source/UI regression results and precise remaining package/source-rule boundaries in section8.6. Earlier affected evidence is superseded. |
 | EP-02.4 | Implement WAC and WPX local rule packs, verified rule manifests and exception fixtures | EP-02.1 | Verified | Worldwide complete-log/rule/evidence fixtures, native WAC exact-QSO/Back and100k global award oracles; source limitations remain labelled (section8.3). |
 | EP-02.5 | Implement IOTA local progress and operation-evidence distinctions | EP-02.1 | Verified | Worldwide complete-log/rule/evidence fixtures, native WAC exact-QSO/Back and100k global award oracles; source limitations remain labelled (section8.3). |
-| EP-02.6 | Implement separate POTA/SOTA/WWFF local role-based progress and unknown-data outcomes | EP-02.1; EP-09 enriches new own-activation context but is not required for historical explicit references | In progress | Focused completion correction under section8.6; earlier evidence does not establish this reviewed behavior. |
-| EP-02.7 | Update registry capability state, aggregate invalidation, source links and coverage documentation; reconcile new calculations with all-contact fixture oracle | EP-02.3 / EP-02.4 / EP-02.5 / EP-02.6 | In progress | Focused completion correction under section8.6; earlier evidence does not establish this reviewed behavior. |
+| EP-02.6 | Implement separate POTA/SOTA/WWFF local role-based progress and unknown-data outcomes | EP-02.1; EP-09 enriches new own-activation context but is not required for historical explicit references | Implemented | Focused correction integrated; actual source/UI regression results and precise remaining package/source-rule boundaries in section8.6. Earlier affected evidence is superseded. |
+| EP-02.7 | Update registry capability state, aggregate invalidation, source links and coverage documentation; reconcile new calculations with all-contact fixture oracle | EP-02.3 / EP-02.4 / EP-02.5 / EP-02.6 | Implemented | Focused correction integrated; actual source/UI regression results and precise remaining package/source-rule boundaries in section8.6. Earlier affected evidence is superseded. |
 
 #### Acceptance scenarios
 
@@ -384,10 +384,10 @@ Version the alert configuration and default every added criterion to unrestricte
 |---|---|---|---|---|
 | EP-03.1 | Evidence inventory; exact DX/spotter field mapping, missing-data semantics, source-identity path | Baseline review | Verified | Geography/preview/no-replay/exact-source and native admission fixtures in required CI; owner evidence below. Connected native acceptance remains separate. |
 | EP-03.2 | Versioned rule fields, normalization, migration and evaluator | EP-03.1 | Verified | Geography/preview/no-replay/exact-source and native admission fixtures in required CI; owner evidence below. Connected native acceptance remains separate. |
-| EP-03.3 | Rule builder, summary and read-only match preview | EP-03.2 | In progress | Focused completion correction under section8.6; earlier evidence does not establish this reviewed behavior. |
+| EP-03.3 | Rule builder, summary and read-only match preview | EP-03.2 | Implemented | Focused correction integrated; actual source/UI regression results and precise remaining package/source-rule boundaries in section8.6. Earlier affected evidence is superseded. |
 | EP-03.4 | Retained observation reference and exact-source action resolver | EP-03.1 | Verified | Geography/preview/no-replay/exact-source and native admission fixtures in required CI; owner evidence below. Connected native acceptance remains separate. |
 | EP-03.5 | Review action and existing Tune & load integration in table/cards | EP-03.3, EP-03.4 | Verified | Geography/preview/no-replay/exact-source and native admission fixtures in required CI; owner evidence below. Connected native acceptance remains separate. |
-| EP-03.6 | Focused validation, user help and evidence ledger | Integrated epic | In progress | Focused completion correction under section8.6; earlier evidence does not establish this reviewed behavior. |
+| EP-03.6 | Focused validation, user help and evidence ledger | Integrated epic | Implemented | Focused correction integrated; actual source/UI regression results and precise remaining package/source-rule boundaries in section8.6. Earlier affected evidence is superseded. |
 
 #### Acceptance scenarios
 
@@ -427,11 +427,11 @@ QLog reference: [Callsign Whisperer](https://github.com/foldynl/QLog/wiki/Main-W
 
 | Task | Deliverable | Dependency | State | Evidence/commit |
 |---|---|---|---|---|
-| EP-07.1 | Candidate model and bounded projection using retained RX/spot evidence | Baseline review | In progress | Focused completion correction under section8.6; earlier evidence does not establish this reviewed behavior. |
-| EP-07.2 | Native admission and canonical callsign-only apply route | EP-07.1 | In progress | Focused completion correction under section8.6; earlier evidence does not establish this reviewed behavior. |
-| EP-07.3 | Desk/detached hint, candidate choice and opt-in setting | EP-07.1, EP-07.2 | In progress | Focused completion correction under section8.6; earlier evidence does not establish this reviewed behavior. |
+| EP-07.1 | Candidate model and bounded projection using retained RX/spot evidence | Baseline review | Implemented | Focused correction integrated; actual source/UI regression results and precise remaining package/source-rule boundaries in section8.6. Earlier affected evidence is superseded. |
+| EP-07.2 | Native admission and canonical callsign-only apply route | EP-07.1 | Implemented | Focused correction integrated; actual source/UI regression results and precise remaining package/source-rule boundaries in section8.6. Earlier affected evidence is superseded. |
+| EP-07.3 | Desk/detached hint, candidate choice and opt-in setting | EP-07.1, EP-07.2 | Implemented | Focused correction integrated; actual source/UI regression results and precise remaining package/source-rule boundaries in section8.6. Earlier affected evidence is superseded. |
 | EP-07.4 | Register `accept-nearby-callsign` action when shortcut registry is available | EP-07.2–3 and EP-15.2 registry contract; button works independently | Verified | RX split/stale/typed-wins/callsign-only/barrier and UI fixtures in required CI; offline native opt-in retained. No live-radio claim. |
-| EP-07.5 | Focused operator-flow tests and release evidence | Integrated epic | In progress | Focused completion correction under section8.6; earlier evidence does not establish this reviewed behavior. |
+| EP-07.5 | Focused operator-flow tests and release evidence | Integrated epic | Implemented | Focused correction integrated; actual source/UI regression results and precise remaining package/source-rule boundaries in section8.6. Earlier affected evidence is superseded. |
 
 #### Acceptance scenarios
 
@@ -482,11 +482,11 @@ Migrate the existing descriptive record into one retained profile without changi
 | Task | Deliverable | Dependency | State | Evidence/commit |
 | --- | --- | --- |---|---|
 | EP-08.1 | Schema, stable IDs, migration and snapshot/interchange decision | Programme baseline review | Verified | Profile/TX-band/offset/draft/backup fixtures, actual portable capture and final preserved-root native upgrade/restart (section8.3). |
-| EP-08.2 | Profile CRUD and revisioned editor on existing equipment settings | EP-08.1 | In progress | Focused completion correction under section8.6; earlier evidence does not establish this reviewed behavior. |
+| EP-08.2 | Profile CRUD and revisioned editor on existing equipment settings | EP-08.1 | Implemented | Focused correction integrated; actual source/UI regression results and precise remaining package/source-rule boundaries in section8.6. Earlier affected evidence is superseded. |
 | EP-08.3 | Deterministic TX-band selection, manual override and active-radio behavior | EP-08.1–2 | Verified | Profile/TX-band/offset/draft/backup fixtures, actual portable capture and final preserved-root native upgrade/restart (section8.3). |
 | EP-08.4 | Existing rotor association and offset transform with no implicit movement | EP-08.1–3 | Verified | Profile/TX-band/offset/draft/backup fixtures, actual portable capture and final preserved-root native upgrade/restart (section8.3). |
 | EP-08.5 | Canonical draft/save and backup; expose profile snapshot contract for portable integration | EP-08.1; core delivery is independent of EP-09 | Verified | Profile/TX-band/offset/draft/backup fixtures, actual portable capture and final preserved-root native upgrade/restart (section8.3). |
-| EP-08.6 | Focused acceptance, user help and evidence entry | EP-08.2–5 | In progress | Focused completion correction under section8.6; earlier evidence does not establish this reviewed behavior. |
+| EP-08.6 | Focused acceptance, user help and evidence entry | EP-08.2–5 | Implemented | Focused correction integrated; actual source/UI regression results and precise remaining package/source-rule boundaries in section8.6. Earlier affected evidence is superseded. |
 
 #### Acceptance scenarios
 
@@ -837,10 +837,10 @@ Relative complexity below is a planning judgment, not a duration or price estima
 | Epic | Priority/milestone | Relative complexity | Current state | Acceptance set | Evidence/commit |
 |---|---|---|---|---|---|
 | EP-01 | P1 / M1 | L | Verified | A01-01–05 | Verified local scope; source gates and representative native evidence in section8.3. |
-| EP-02 | P1 / M1 and M3 | XL | In progress | A02-01–06 | Reviewed defects reopened under section8.6; source/fixture and exact-package evidence will be replaced only for affected behavior. |
-| EP-03 | P1 / M2 | L | In progress | A03-01–06 | Reviewed defects reopened under section8.6; source/fixture and exact-package evidence will be replaced only for affected behavior. |
-| EP-07 | P1 / M2 | M | In progress | A07-01–06 | Reviewed defects reopened under section8.6; source/fixture and exact-package evidence will be replaced only for affected behavior. |
-| EP-08 | P2 / M4 | L | In progress | A08-01–07 | Reviewed defects reopened under section8.6; source/fixture and exact-package evidence will be replaced only for affected behavior. |
+| EP-02 | P1 / M1 and M3 | XL | Implemented | A02-01–06 | Completion corrections integrated; focused regressions passed. Final source/package qualification and precise incomplete requirements in section8.6. |
+| EP-03 | P1 / M2 | L | Implemented | A03-01–06 | Completion corrections integrated; focused regressions passed. Final source/package qualification and precise incomplete requirements in section8.6. |
+| EP-07 | P1 / M2 | M | Implemented | A07-01–06 | Completion corrections integrated; focused regressions passed. Final source/package qualification and precise incomplete requirements in section8.6. |
+| EP-08 | P2 / M4 | L | Implemented | A08-01–07 | Completion corrections integrated; focused regressions passed. Final source/package qualification and precise incomplete requirements in section8.6. |
 | EP-09 | P2 / M4 | L | Verified | A09-01–09 | Verified local scope; source gates and representative native evidence in section8.3. |
 | EP-12 | P2 / M5 | M | Implemented | A12-01–08 | Source implemented and applicable owner fixtures passed; connected acceptance remains unperformed (section8.5). |
 | EP-15 | P1 support / M2 | L | Verified | A15-01–06 | Verified local scope; source gates and representative native evidence in section8.3. |
@@ -953,11 +953,11 @@ all unrelated work, the CW worktree and every earlier unique artifact.
 | Correction | Original epic | State | Invalidated assertion / required replacement evidence |
 |---|---|---|---|
 | Per-rule geography editing | EP-03 | Implemented | `73881bcd`: all six per-rule controls, searchable DX/spotter add/remove, continent toggles, bounded CQ/ITU selections and retry. Actual save/reopen/preview matching/nonmatching UI fixtures passed; combined43tests/6files with antenna regression. Earlier evaluator-only evidence remains valid but never established these controls. Packaged/connected acceptance separate. |
-| Selected-radio nearby binding | EP-07 | In progress | R1-default retained reads invalidate R2 suggestion evidence. Use real slot selection/generation in candidate, RX, passband, acceptance; distinct R1/R2, R2-only, split and post-display switch fixtures. |
-| Programme-compatible scopes | EP-02 | In progress | Exact grid/location scope excludes compatible IOTA combinations. Same call/recorded country504 across two land locations must show two groups; different/unknown countries stay distinct and locations remain evidence/filterable. |
-| Visible/clearable legacy award search | EP-02 | In progress | Typed Reset alone retains hidden K1 search. Actual UI must show search, clear text+clauses and restore results/request while preserving drilldown Back. |
+| Selected-radio nearby binding | EP-07 | Implemented | `1b6f32dc`: selected-slot route/selection/connection/direct-worker binding across candidate/RX/passband/acceptance. Actual persisted route transitions cover R1/R2 distinct frequencies/passbands, R2-only, split, displayed switch/ABA, worker restart and uncertain reconciliation. Nearby12/routing8/barrier6 passed; old synthetic-ID-only selected-slot assertion superseded. |
+| Programme-compatible scopes | EP-02 | Implemented | `df942e2a`: IOTA known same-callsign/country grouping, countries/unknown contexts separate; original locations in exact supporting evidence and optional ownGrid/location native filters. Concrete two-location504/two-group source + UI/drilldown/Back fixtures passed. Land/licensing/remote eligibility and own-island credit are not inferred. |
+| Visible/clearable legacy award search | EP-02 | Implemented | `df942e2a`: visible active text/count and explicit Clear all contact filters. UI K1 plus typedCW clear sends search empty/clauses empty and restores results; IOTA location filter/drilldown/Back preserved. Final panel6 passed;31 affected UI cases covered. |
 | Empty/stale antenna selection | EP-08 | Implemented | `917b561a`: actual dropdown explicitly stores `selectedProfileID:null`, stale/archived selected IDs remain recoverable, definitions/history retained. Actual settings Save/reload and stale-ID UI fixtures passed within43tests/6files. Packaged check follows integrated candidate. |
-| POTA UTC-day local candidate | EP-02 | In progress | Raw physical counts do not satisfy the promised10-contact candidate requirement. Refresh official rules; separate physical rows, countable programme contacts and unknown eligibility with duplicates/UTC/multi-park/threshold fixtures. Unsupported exact conditions remain explicitly incomplete. |
+| POTA UTC-day local candidate | EP-02 | Implemented; exact expansion-dependent condition incomplete | `df942e2a`, rulepackv2: per-park/station/recorded subdivision/UTCday physical rows, conservative countable events, exact published-key unique programme records, duplicates, unknowns and exclusions. Ten supported events gives local candidate;9 does not; unknown extras do not erase an established lower bound. Expansion-only ten-record minimum remains conditional/unresolved in manifest+coverage. Native44/4suites then final award12 passed; no portal/account/operation approval inferred. |
 | Retained1.5.3 first execution | M6 | Investigation completed; cold qualification remains incomplete | Exact worker hash/deep strict signature reverified. Unchanged9-case gate now9/9 on already-executed binary. Six baseline1.4.8/candidate wrapper/direct health+EOF controls passed unchanged5s, with separate spawn/output/response/exit timings. Fresh marked ordinary app launched/Desk+12-row Logbook responded and quithelper0/PIDsabsent. Original PID52496 failure/483dyld samples preserved; no cold-system, loader-duration or signing-cause claim. Detailed receipt below. |
 
 
@@ -973,6 +973,41 @@ Bounded retained-artifact startup investigation:
 - `python3 .build/qlog-followup-20261103/startup-controls.py`: installed1.4.8 worker SHA256`0d744e7987250f8ed03563a4ea3f1017e25c551a15a520f138addca464ed73c9`, source`2ae0939d1a69fb8c8210a24880b04929b8d46d7c`, paired with exact retained1.5.3 SHA256`571de54474d392056f8f2c43548e3e406d842c6579899da4a5fca6601b1329eb`. Wrapped initial/same-path repeats and direct private-root EOF runs all passed5s. Spawn return1.511–3.123ms; wrapped first output16.720–19.005ms; direct candidate/baseline130.911/124.652ms; wrapped exits18.255–20.339ms, direct132.776/126.644ms. Each response and exit has a separate timestamp in`startup-controls/receipt.json`. These already-executed binaries and new wrapper paths do not establish cold system state. Exact loader duration is not measurable from first output alone.
 - Old `/private/tmp/xlog-wave1-qlog-candidate-w2xvkmyg` was missing: fixture preflight failed before any launch or GUI binding. Separate fresh12-QSO marked root`/private/tmp/xlog-wave1-qlog-candidate-r9e8yuce` / UUID`7e0ab7f4-bb43-49a3-841d-66eac9fbb54c` used the existing fixture harness; source enums/isolation validated. Explicit appPID54998/worker55042/private arguments and unique WebKit store verified process-only before exact-path binding. App/worker/store proof obtained2.018s after explicit launch; that is not first paint timing. Marked Desk rendered and Logbook click showed12contacts; no startup/input stall observed. Ordinary Quit followed by repositoryhelper0 and exactps1(absent), no post-Quit GUI observation. No connected service/hardware claim. Source fixture/root snapshot retained under`.build/qlog-followup-20261103/startup-native/retained-private-root`; observation journal`startup-native-observation.json`.
 - First execution at originalPID52496 still has no first output/replies by5s; its original exit timing was not captured by that failure message. The retained stack only locates the sampled pre-entry interval. No signature alteration, cache/security reset, timeout increase or assertion weakening occurred. Smallest remaining cold acceptance requires a controlled first-execution environment and the unchanged criterion; later warm passes cannot reconstruct the original cold state or establish signing causality.
+
+
+
+Award focused commands/results: `swift test --jobs 2 --filter
+'LocalAwardProgressTests|POTAExportTests|ADIFPlanningTests|LogbookQueryTests'`
+passed44cases/4suites (archive`77df2d7facbd9413`); final extra-unknown counting
+regression then `swift test --jobs 2 --filter LocalAwardProgressTests` passed12
+(archive`ea88c977c68add37`). `npx vitest run src/live/LocalAwardProgressPanel.test.tsx
+src/live/AwardsPanel.test.tsx src/live/DetachedAwardsSurface.test.tsx` passed30,
+followed by one added IOTA location-filter case and final panel6 pass
+(`f0879e621cd6be66`):31 affected cases covered, not an additive36-case run.
+Actual SQLite compact reads cover new operator/PROP_MODE fields and frozen UTC
+reference time. QSO ADIF mode/submode, POTA export validation and qualified-location
+helpers reuse the existing owners without a new export/query engine.
+
+Native nearby commands/results: from`prototype/src-tauri`, `cargo test --locked
+--jobs 2 --bin xlog-prototype nearby_callsign::tests` passed12
+(`9426783c6bd1ea61`), `radio_slots::tests` passed8 (`d31082af0d5e68d5`),
+`spot_editor_barrier::tests` passed6 (`f8a2976f5bcc5614`). The same command prefix
+applies to each filter. Independent read-only review found no concrete lock-order
+or selected-slot correctness defect. No routing mutex is held across draft IPC;
+uncertain admission keeps the captured route fence until exact reconciliation.
+
+Official POTA rules/ADIF/P2P and IOTA rules were refreshed on3November2026; links,
+section facts and incomplete assertions are in the v2 manifest and coverage.
+Supported lower-bound contacts exclude missing essential counting evidence,
+unverified own-park directory membership and known self/land-repeater/future-day
+exclusions; absent external licensing/boundary/relay/automation/account evidence is
+never asserted true. A ten-contact local candidate is a counting result only.
+
+Required integrated gates now target the next clean1.5.4source. Do not reuse
+retained1.5.3full-source, native awarded-view or100k performance acceptance for
+changed1.5.4owners. Version/build provenance, signature, archive and representative
+native acceptance will be recorded from the actual final candidate; no intermediate
+package or production installation has occurred during this completion pass.
 
 
 One integrator retains schemas, tracker, commits/pushes and release ownership.

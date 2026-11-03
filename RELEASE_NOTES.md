@@ -1,4 +1,19 @@
-# OM0RX-xLog 1.5.3 candidate
+# OM0RX-xLog 1.5.4 completion candidate
+
+- Edit all six alert geography criteria per rule, with searchable DX/spotter entities.
+- Bind nearby callsigns to the selected radio's RX/passband and current generations.
+- Combine compatible IOTA locations while retaining recorded evidence and filters.
+- Show active legacy award searches and clear text plus structured conditions together.
+- Clear an antenna selection safely and recover stale profile IDs.
+- Inspect POTA physical rows, countable contacts, programme records, duplicates,
+  unknowns and exclusions against the UTC-day ten-contact threshold. Expansion-only
+  threshold cases remain conditional; no portal credit is claimed.
+
+Integrated qualification is pending. See [exact source and evidence](docs/releases/v1.5.4-macos-candidate.md).
+No production installation or notarization has occurred; cold first execution
+remains unqualified and separate from later warm/control success.
+
+# OM0RX-xLog 1.5.3 candidate (historical reviewed baseline)
 
 - Reuse typed saved filters across Logbook, ADI/ADX exports and exact award evidence.
 - Inspect complete-log local WAC/WPX/IOTA/POTA/SOTA/WWFF progress by recorded station, band, mode and role.
