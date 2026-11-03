@@ -1,6 +1,15 @@
 # OM0RX-xLog project status
 
-Last updated: 2026-10-18
+Last updated: 2026-11-03 (selected QLog workflows)
+
+The nine selected enhancements are integrated at `73ad33edea5fe8c5897313e6a3089dab0c7eb8a1`.
+Version **1.5.0** is the new candidate in preparation; the installed application is unchanged.
+Current scope, task states and actual validation live in the
+[single QLog implementation plan](docs/planning/OM0RX-xLog_QLog_Implementation_Plan_2026-11-03.md).
+[Candidate provenance](docs/releases/v1.5.0-macos-candidate.md) records the release boundary;
+local award analytics do not claim sponsor-issued credit or live hardware acceptance.
+
+## Historical release and contest checkpoint — 18 October 2026
 
 Latest main runtime and contest evidence: normal 1.2.26 from `966a57ad5097816377c2e5d92a89a5a5a94b7408`, documented at `a38fbf2`, is installed; installed host SHA-256 `e1a447d577a6a3c3aa5a908e1fd8c35da51b0c75bab4b2e45467bb47d215253d`, worker SHA-256 `c21cbaaa594136f08765c8fd7628acbd8527e87cb7803080ab912bc48be522db`, strict deep signature passed. Main task reported launch; live amplifier behavior and RF are not verified. Contesting Test `5024b2cf1129347a8f0b1f621d2f2e7306121c90` is unchanged. CQWW blank-call fix `485ea2c` is root-accepted with four verified core tests. Bounded agent diagnostic covered CQWW-country CW/SSB only (6 QSOs each, scores 6/16/42/80/110/168, 12 commits, Run/S&P duplicates, SCP 7, restart, two corrections, eight Cabrillo/ADIF assertions); receipts: outer SHA-256 `899c0cfbdffa9a7c87684ce24ebb16d46be78dff1f72eb77254977468e775666`, inner SHA-256 `10c11026031292cf440a3296b1bb1ad76113490fa7d73a5ded86d9a1720dc233`. Full 16+12 matrix remains pending, and three bounded PID audits do not provide process-lifetime attribution; metadata actor is unknown. VHF store candidate `51e96ab` is pushed but not accepted pending compound correction/deletion/reopen replay, numeric scoring/activation and additional invalid-grid, context/timestamp conflict and rollback coverage; object equality does not prove serialized QSO byte equality.
 

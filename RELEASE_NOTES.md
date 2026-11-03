@@ -1,3 +1,16 @@
+# OM0RX-xLog 1.5.0 candidate
+
+- Reuse typed saved filters across Logbook, ADI/ADX exports and exact award evidence.
+- Inspect complete-log local WAC/WPX/IOTA/POTA/SOTA/WWFF progress by recorded station, band, mode and role.
+- Review geography-aware alerts, accept nearby RX callsigns explicitly, and customize contextual shortcuts.
+- Capture antenna/portable context per QSO and preview lossless, bounded multi-park POTA file sets.
+- Display retained own-call RBN receivers and edit separate source-attributed visual band-map guides.
+
+Existing native draft, logbook, radio, preferences and backup owners retain authority.
+Sponsor eligibility remains accurately bounded. Historical contacts are not retagged.
+See [candidate provenance, validation and remaining boundaries](docs/releases/v1.5.0-macos-candidate.md)
+and [operator controls and rollback](docs/help/qlog-selected-workflows.md).
+
 # OM0RX-xLog 1.0.0-beta.3
 
 The third 1.0 beta of the native, local-first OM0RX macOS logbook, focused on faster navigation, correct cluster login ordering, compact operating panels and stable Keychain access across rebuilt workers.
