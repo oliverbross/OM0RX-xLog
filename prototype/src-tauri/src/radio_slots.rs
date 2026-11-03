@@ -31,6 +31,59 @@ struct Routing {
     active_radio: String,
     power: PowerAuthority,
     changing: bool,
+    read_reservations: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct ActiveRadio {
+    pub(crate) radio_id: String,
+    pub(crate) generation: u64,
+}
+
+fn active_snapshot(routing: &Routing) -> Result<ActiveRadio, String> {
+    if routing.changing || routing.power.radio_id.as_deref() != Some(&routing.active_radio) {
+        return Err("Wait for the operating radio change to finish.".into());
+    }
+    Ok(ActiveRadio { radio_id: routing.active_radio.clone(), generation: routing.power.generation })
+}
+
+fn retained_routing() -> Result<Arc<Mutex<Routing>>, String> {
+    ROUTING.get().ok_or("The operating radio has not been selected.")?.try_lock()
+        .map_err(|_| "Radio routing is unavailable.".to_string())?.clone()
+        .ok_or("The operating radio has not been selected.".into())
+}
+
+/// Read only the initialized user-selected route; never load defaults, publish
+/// metadata, connect a radio or start a telemetry owner for a passive view.
+pub(crate) fn retained_active() -> Result<ActiveRadio, String> {
+    let owner = retained_routing()?;
+    let routing = owner.try_lock().map_err(|_| "Radio routing is unavailable.")?;
+    active_snapshot(&routing)
+}
+
+pub(crate) struct ActiveRadioFence(Arc<Mutex<Routing>>);
+impl Drop for ActiveRadioFence {
+    fn drop(&mut self) {
+        if let Ok(mut routing) = self.0.lock() {
+            routing.read_reservations = routing.read_reservations.saturating_sub(1);
+        }
+    }
+}
+fn fence_active_on(owner: Arc<Mutex<Routing>>, expected: &ActiveRadio) -> Result<ActiveRadioFence, String> {
+    {
+        let mut routing = owner.try_lock().map_err(|_| "Radio routing is unavailable.")?;
+        if active_snapshot(&routing)? != *expected {
+            return Err("The operating radio changed. Review a fresh suggestion.".into());
+        }
+        routing.read_reservations = routing.read_reservations.checked_add(1).ok_or("Radio read reservation limit reached.")?;
+    }
+    Ok(ActiveRadioFence(owner))
+}
+/// Reserve the captured slot/generation without holding the routing mutex over
+/// draft IPC. Ordinary controls and emergency release keep their existing lanes.
+pub(crate) fn fence_retained_active(expected: &ActiveRadio) -> Result<ActiveRadioFence, String> {
+    fence_active_on(retained_routing()?, expected)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -93,7 +146,7 @@ fn load(app: &tauri::AppHandle) -> Result<Routing, String> {
         Err(_) => return Err("Saved radio routing could not be read.".into()),
     };
     Ok(Routing { path, power: PowerAuthority { radio_id: Some(active_radio.clone()), generation: 1 },
-                 active_radio, changing: false })
+                 active_radio, changing: false, read_reservations: 0 })
 }
 
 fn persist(routing: &Routing) -> Result<(), String> {
@@ -170,6 +223,9 @@ fn set_active_on(
     let (fence, original, changed) = {
         let mut routing = owner.lock().map_err(|_| "Radio routing is unavailable.")?;
         if routing.changing { return Err("An active radio change is still finishing.".into()); }
+        if routing.active_radio != radio_id && routing.read_reservations != 0 {
+            return Err("Wait for the current radio-bound draft entry before changing the operating radio.".into());
+        }
         validate_route_change(&routing.active_radio, radio_id, tx_owner()?.as_deref())?;
         if routing.active_radio == radio_id {
             (routing.power.clone(), routing.active_radio.clone(), false)
@@ -277,12 +333,34 @@ pub fn tx_owner() -> Option<String> {
         .clone()
 }
 
+/// Tests drive the same persisted route transition and reservation as the
+/// native selector, without installing process-global owners or station I/O.
+#[cfg(test)]
+pub(crate) struct TestRouting(Arc<Mutex<Routing>>);
+#[cfg(test)]
+impl TestRouting {
+    pub(crate) fn new(path: PathBuf) -> Self {
+        Self(Arc::new(Mutex::new(Routing { path, active_radio: RADIO1.into(), changing: false,
+            read_reservations: 0, power: PowerAuthority { radio_id: Some(RADIO1.into()), generation: 1 } })))
+    }
+    pub(crate) fn snapshot(&self) -> Result<ActiveRadio, String> {
+        let routing = self.0.lock().map_err(|_| "Radio routing is unavailable.")?;
+        active_snapshot(&routing)
+    }
+    pub(crate) fn select(&self, radio_id: &str) -> Result<Value, String> {
+        set_active_on(&self.0, radio_id, || Ok(None), |_| Ok(()))
+    }
+    pub(crate) fn fence(&self, expected: &ActiveRadio) -> Result<ActiveRadioFence, String> {
+        fence_active_on(self.0.clone(), expected)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn fixture(path: PathBuf) -> Mutex<Routing> {
-        Mutex::new(Routing { path, active_radio: RADIO1.into(), changing: false,
+        Mutex::new(Routing { path, active_radio: RADIO1.into(), changing: false, read_reservations: 0,
             power: PowerAuthority { radio_id: Some(RADIO1.into()), generation: 1 } })
     }
 
