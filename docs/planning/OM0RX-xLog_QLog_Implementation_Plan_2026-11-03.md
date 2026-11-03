@@ -610,7 +610,7 @@ Retain existing raw/source identity and add a bounded map projection containing 
 | Task | Deliverable | Dependency | State | Evidence/commit |
 | --- | --- | --- |---|---|
 | EP-12.1 | Existing-feed subscription audit, normalized bounded map projection and location rules | Baseline review | Implemented | Source implemented; integrated acceptance below |
-| EP-12.2 | One retained feed for map/sidebar/native windows; generation and freshness handling | EP-12.1 | Implemented | Source implemented; integrated acceptance below |
+| EP-12.2 | One retained feed for map/sidebar/native windows; generation and freshness handling | EP-12.1 | Implemented | One native120s retrieval owner; shared600s source expiry across map/sidebar/HF,10s presentation clock even on fetch failure. Human history preference retained separately. Focused93+5passed; build/all unchanged budgets passed (D-22). |
 | EP-12.3 | World Map layer, passive inspector, source status and optional sidebar handoff | EP-12.1–2 | Implemented | Source implemented; integrated acceptance below |
 | EP-12.4 | Bounded load, offline behavior, focused acceptance and help | EP-12.2–3 | Implemented | Source implemented; integrated acceptance below |
 
@@ -842,7 +842,7 @@ Relative complexity below is a planning judgment, not a duration or price estima
 | EP-07 | P1 / M2 | M | Implemented | A07-01–06 | Integrated acceptance below |
 | EP-08 | P2 / M4 | L | Implemented | A08-01–07 | Integrated acceptance below |
 | EP-09 | P2 / M4 | L | Implemented | A09-01–09 | Integrated acceptance below |
-| EP-12 | P2 / M5 | M | Implemented | A12-01–08 | Integrated acceptance below |
+| EP-12 | P2 / M5 | M | Implemented | A12-01–08 | Shared current-RBN expiry alignment D-22; integrated acceptance below |
 | EP-15 | P1 support / M2 | L | Implemented | A15-01–06 | Integrated acceptance below |
 | EP-16 | P2 / M5 | M | Implemented | A16-01–06 | Integrated acceptance below |
 
@@ -898,6 +898,7 @@ Record only decisions that affect semantics, scope, compatibility or a real trad
 | D-19 | Actual detached Logbook saved-filter load denied in1.5.1 | Add only the intended surface's `workspace_preferences_load` read permission and a denial regression fixture (`949b2dc9`); package changed source as1.5.2 and retest on the preserved marked root. | EP-01 / M6 | Eight focused admission tests passed; new package/native restart pending |
 | D-20 | Windows Foundation does not provide CoreFoundation | Conditional import and exact NSNumber boolean identity fallback matching the existing CW wire owner; no new module dependency. Preserve strict version/frequency/visibility typing and all data limits (`94a16257`). | EP-16 / M6 | Core3 and portable owner1 passed; cross-platform CI next |
 | D-21 | Required CI inventories/checker drifted from actual source | Require CW4 and durable7Unix/8Windows; uniquely select explicit portable XCat source list across unrelated conditionals. Reject absent/ambiguous lists; do not drop tests or lower counts. | M6 | Parser5 and IQ16passed/1existing skip; CI rerun next |
+| D-22 | Shared RBN acquisition existed but displayed expiry diverged | Requirement EP-12.6 uses ten minutes: shared600s source-time expiry across map/sidebar/HF, with10s presentation-clock expiry even after fetch failure. Preserve configurable human/operator-spot history separately and label both windows; existing native120s provider owner unchanged. | EP-12 / M6 | Focused7suites93passed (22cdf66dbe179c6c), settings5passed (cd10922b92a5d814), build/TypeScript/all unchanged JS/CSS gates passed (127cc587f4ec483). Fixtures cover599/600/601s,12m human history, failure-clock expiry and no fetch freshening; native label/restart next. |
 
 ## 9. Programme definition of done
 

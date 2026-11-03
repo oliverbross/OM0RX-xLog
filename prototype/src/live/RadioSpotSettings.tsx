@@ -80,11 +80,11 @@ export default function RadioSpotSettings({ request, visible }: { request: Reque
     <p>Choose where classified cluster spots are sent. This is independent of receiving and displaying spots in xLog.</p>
     <fieldset>
       <legend>RBN / Spotted panel</legend>
-      <label>Keep own-call pickups visible for <select aria-label="RBN and spotted display time" value={ownSpotWindow.minutes}
+      <label>Keep own-call operator spots visible for <select aria-label="Operator spotted display time" value={ownSpotWindow.minutes}
         onChange={event => ownSpotWindow.save(Number(event.target.value))}>
         {ownSpotWindowMinutes.map(minutes => <option key={minutes} value={minutes}>{minutes} minutes{minutes === 15 ? " · Default" : ""}</option>)}
       </select></label>
-      <p>Saved automatically. This controls both the sidebar history query and the direct RBN pickup window.</p>
+      <p>Saved automatically for human/operator spots. RBN reports always expire after 10 minutes by their source timestamp in every current pickup view.</p>
       {ownSpotWindow.error && <p role="alert">{ownSpotWindow.error}</p>}
     </fieldset>
     <fieldset disabled={busy || !snapshot}>

@@ -1,5 +1,6 @@
 import type { OwnRBNSpot } from "./hfPropagationModel";
-export const ownRbnWindow = 600_000;
+import { currentOwnRbnSourceTime, ownRbnWindowMilliseconds } from "./ownRbnPolicy";
+export const ownRbnWindow = ownRbnWindowMilliseconds;
 export type RBNReceiver = OwnRBNSpot & { key: string; call: string; updates: number; location: { lat: number; lon: number; provenance: string } | null };
 export function receiverLocation(grid: string): RBNReceiver["location"] {
   const value = grid.trim().toUpperCase();
@@ -15,7 +16,7 @@ export function ownRbnReceivers(spots: OwnRBNSpot[], call: string, band: string 
   const groups = new Map<string, RBNReceiver>();
   const seen = new Set<string>();
   for (const spot of [...spots].sort((a, b) => b.time - a.time || a.id.localeCompare(b.id))) {
-    if (spot.time < now - ownRbnWindow || spot.time > now + 60_000 || band && spot.band !== band) continue;
+    if (!currentOwnRbnSourceTime(spot.time, now) || band && spot.band !== band) continue;
     const key = `${call}|RBN|${spot.spotter}|${spot.band}|${spot.mode}`;
     const observation = `${key}|${spot.id}|${spot.time}`;
     if (seen.has(observation)) continue;

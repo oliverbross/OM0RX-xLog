@@ -8,6 +8,7 @@ import { bandFromFrequency, callsignContinent, cleanCall, cleanLocator, contestB
   type OwnRBNSpot, type PropagationSpot, type SolarConditions } from "./hfPropagationModel";
 import HFPropagationCanvas, { type HFPropagationCanvasPanel } from "./HFPropagationCanvas";
 import { loadOwnRBNPickups } from "./ownRbnFeed";
+import { currentOwnRbnSourceTime, ownRbnClockMilliseconds, ownRbnRefreshMilliseconds } from "./ownRbnPolicy";
 import { useDocumentVisible } from "./useDocumentVisible";
 import { hfPropagationCanvasLayoutKey, hfPropagationLegacyLayoutKey, readHFPropagationCanvasLayout,
   type HFPropagationCanvasLayout } from "./hfPropagationCanvasLayout";
@@ -119,7 +120,7 @@ export default function HFPropagationLive({ initialOwnCall = "", initialLocator 
     })());
     if (enabled.has("rbn") && active.ownCall) jobs.push((async () => {
       try {
-        const incoming = await loadOwnRBNPickups(transport, active.ownCall, 120_000);
+        const incoming = await loadOwnRBNPickups(transport, active.ownCall, ownRbnRefreshMilliseconds);
         if (mounted.current && settingsRef.current.ownCall === active.ownCall) { setRbnPickups(incoming); setRbnError(""); }
       } catch (cause) { if (mounted.current) setRbnError(humanError(cause)); }
     })());
@@ -147,7 +148,7 @@ export default function HFPropagationLive({ initialOwnCall = "", initialLocator 
     initial.current = false; fetching.current = false;
   }, [transport, updateSource]);
   useEffect(() => { if (visible && (!nextFetch || nextFetch <= Date.now())) void refresh(); }, [refresh, visible]);
-  useEffect(() => { if (!visible) return; setAnalysisNow(Date.now()); const timer = window.setInterval(() => setAnalysisNow(Date.now()), 30_000); return () => clearInterval(timer); }, [visible]);
+  useEffect(() => { if (!visible) return; setAnalysisNow(Date.now()); const timer = window.setInterval(() => setAnalysisNow(Date.now()), ownRbnClockMilliseconds); return () => clearInterval(timer); }, [visible]);
   useEffect(() => { if (!visible || !nextFetch) return; const timer = window.setTimeout(() => void refresh(), Math.max(0, nextFetch - Date.now())); return () => clearTimeout(timer); }, [nextFetch, refresh, visible]);
 
   const matrix = useMemo(() => matrixCounts(spots, settings, analysisNow), [spots, settings, analysisNow]);
@@ -199,7 +200,7 @@ export default function HFPropagationLive({ initialOwnCall = "", initialLocator 
     </Panel> },
     { id: "modes-per-band", title: "Modes per band", content: <Panel title="Modes per band" meta="Last 60 minutes"><ModeBars values={modes} bands={settings.bands} /></Panel> },
     { id: "rbn-pickups", title: `${settings.ownCall || "Own call"} RBN pickups`, content: <Panel title={`${settings.ownCall || "Own call"} RBN pickups`} meta="Who heard me · last 10 minutes">
-      <RBNPickups call={settings.ownCall} spots={rbnPickups} error={rbnError} />
+      <RBNPickups call={settings.ownCall} spots={rbnPickups.filter(spot => currentOwnRbnSourceTime(spot.time, analysisNow))} error={rbnError} />
     </Panel> },
     { id: "data-sources", title: "Propagation data sources", content: <footer className="hf-prop-sources" aria-label="Propagation data sources">
       {[...propagationSources, "swpc" as const].map(source => <div key={source} className={`is-${sources[source].state}`} title={sources[source].detail}><i /><span>{sourceNames[source]}</span><strong>{source === "swpc" ? sources[source].detail : `${sourceCounts[source as PropagationSource]?.toLocaleString() || 0} / 1h`}</strong></div>)}

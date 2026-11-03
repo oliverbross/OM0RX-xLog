@@ -16,7 +16,7 @@ it("keeps every callsign, DXCC combination and shared state colour configurable"
 it("defaults own-call spot visibility to 15 minutes and saves a changed window", async () => {
   const request = vi.fn(async () => ({ configuration: { forwardSpotsToFlex: false, palette: { status: {} } }, flex_forwarding_available: true }));
   render(<RadioSpotSettings request={request} visible />);
-  const select = await screen.findByLabelText("RBN and spotted display time") as HTMLSelectElement;
+  const select = await screen.findByLabelText("Operator spotted display time") as HTMLSelectElement;
   expect(select.value).toBe("15");
   fireEvent.change(select, { target: { value: "30" } });
   expect(select.value).toBe("30");

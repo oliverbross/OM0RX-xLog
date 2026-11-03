@@ -38,6 +38,22 @@ it("loads the detached propagation surface without mounting the station workspac
   expect(await loadWindowSurface("?view=hf-propagation-live")).toBe(DetachedHFPropagationLiveSurface);
 });
 
+it("expires retained own-call RBN pickups by source clock when later fetches fail", async () => {
+  vi.useFakeTimers();const now=Date.now();let ownReads=0;
+  const transport=vi.fn(async(source:string)=>{
+    if(source!=="own_rbn")return "[]";
+    if(ownReads++)throw new Error("RBN offline");
+    return JSON.stringify({spots:{a:["EXPIRING-RX",14025,"OM0RX",0,null,"",0,0,0,1,(now-590_000)/1000]}});
+  });
+  render(<HFPropagationLive initialOwnCall="OM0RX" transport={transport}/>);
+  await act(async()=>{});expect(screen.getByText("EXPIRING-RX")).toBeTruthy();
+  await act(async()=>{await vi.advanceTimersByTimeAsync(20_000);});
+  expect(screen.queryByText("EXPIRING-RX")).toBeNull();
+  await act(async()=>{await vi.advanceTimersByTimeAsync(100_000);});
+  expect(ownReads).toBe(2);expect(screen.queryByText("EXPIRING-RX")).toBeNull();
+  expect(screen.getByText(/RBN pickups are temporarily unavailable/)).toBeTruthy();
+});
+
 it("renders the complete native dashboard and keeps its settings isolated from station control", async () => {
   const transport = vi.fn(async (source: string) => {
     if (source === "wspr") return JSON.stringify({ data: [["2026-10-18 00:02:00", 14, "OM0RX", "VK8NSB", 13400]] });

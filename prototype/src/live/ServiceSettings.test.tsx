@@ -53,7 +53,7 @@ describe("grouped service settings", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Radio spots" }));
     expect(await screen.findByRole("heading", { name: "Radio spot output" }, { timeout: 3000 })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Radio spots" })).toBeTruthy();
-    expect(screen.getByLabelText("RBN and spotted display time")).toBeTruthy();
+    expect(screen.getByLabelText("Operator spotted display time")).toBeTruthy();
   });
   it("exposes Cluster as a first-class tab backed by the Cluster snapshot", async () => {
     const configuration = { servers: [{ id: "server", name: "ShackCQ", host: "cluster.example.invalid", port: 7300, callsign: "OM0RX", enabled: true }],

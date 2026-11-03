@@ -25,24 +25,24 @@ automatically.
   eligibility/credit remains separately labelled. Directory-unverified references
   remain visible. SOTA chaser base estimates require dated summit/association
   inputs; missing points/bonus/operation evidence is unavailable, not zero.
-- **Alerts:** geography conditions use AND across fields and OR within a field;
+- **Window → Alerts:** geography conditions use AND across fields and OR within a field;
   missing evidence does not match a selected condition. Preview is read-only.
   Review spot retains the historical match reason and exact source identity.
   Tune & load is available only through the current admitted cluster workflow.
-- **Live QSO:** opt into Nearby spotted callsigns. Suggestions use fresh selected
+- **Settings → Logbook → Nearby spotted callsigns:** opt in for Live QSO entries. Suggestions use fresh selected
   RX telemetry, including split operation. Use callsign accepts an empty callsign
   only; it never tunes, transmits, logs or replaces typed input. Several nearby
   calls remain a choice. Main and detached live entries share native admission.
 - **Settings → Display → Shortcuts:** assign supported Normal Logging commands,
   capture a chord, inspect conflicts, reset one/all, and use shortcut help.
   Native lifecycle, Stop/Escape, CW and contest bindings keep their own contexts.
-- **Station/equipment settings:** manage antenna profiles, archive them, choose
+- **Settings → General → Station equipment:** manage antenna profiles, archive them, choose
   manual/per-band preferences or explicitly enable automatic software selection.
   Automatic proposals use fresh selected TX context. Overlapping profiles need a
   preference; stale/unknown bands do not choose arbitrarily. A profile is metadata,
   not observed physical switch state. Captured profiles and offsets stay with the
   current draft/QSO. Explicit rotor targets use the captured inverse offset once.
-- **Station settings → Portable context:** save a preset with on-air station and
+- **Settings → General → Portable operating defaults:** save a preset with on-air station and
   operator, transmitting locator/location/subdivision, optional recorded own DXCC,
   programme references, power and antenna. Start/end sets future blank-contact
   defaults; explicitly apply to change a current draft. Home settings stay intact.
@@ -58,6 +58,9 @@ automatically.
   RBN feed. Source-time age, exact monitored call, locator-centre provenance,
   unknown SNR/location and unlocated counts remain visible. Updates preserve the
   viewport and do not identify a particular transmitting radio/antenna.
+  Current RBN reports expire after ten minutes across map, sidebar and HF pickups,
+  even during fetch failure. The sidebar's operator-spot history window remains
+  configurable separately.
 - **Band Maps → Guides:** select source-attributed Region 1/3 guides, clone as
   custom, edit labelled ranges/markers or import/export JSON. Desk/detached choices
   are separate. Legacy appearance stays selected on upgrade. Beacon markers are
