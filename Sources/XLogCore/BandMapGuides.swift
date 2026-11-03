@@ -24,7 +24,7 @@ public enum BandMapGuides {
             guard let number = value as? NSNumber else { return false }
             return CFGetTypeID(number) == CFBooleanGetTypeID()
         }
-        guard let data = text.data(using: .utf8), data.count <= 524_288,
+        guard let data = text.data(using: .utf8), data.count <= 10_240,
               let doc = try JSONSerialization.jsonObject(with: data) as? [String: Any], version(doc["version"]),
               let custom = doc["custom"] as? [[String: Any]], custom.count <= 16 else { throw invalid() }
         var ids = Set<String>()

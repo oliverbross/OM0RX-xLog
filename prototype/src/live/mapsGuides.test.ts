@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseOwnRBN } from "./hfPropagationModel";
 import { ownRbnReceivers, receiverLocation } from "./ownRbnMap";
-import { clippedGuideRange, emptyGuideDocument, parseGuide, readGuideDocument } from "./bandMapGuides";
+import { checkedGuideRequestFrame, clippedGuideRange, emptyGuideDocument, parseGuide, readGuideDocument } from "./bandMapGuides";
 import { builtinGuides } from "./bandMapBuiltinGuides";
 import { retainOwnRBN } from "./ownRbnFeed";
 describe("Heard me evidence", () => {
@@ -24,6 +24,19 @@ describe("Heard me evidence", () => {
   });
 });
 describe("Visual guides", () => {
+  it("bounds UTF-8 documents and the exact escaped CAS request before transport", () => {
+    expect(() => readGuideDocument(" ".repeat(10_241))).toThrow(/10 KiB/);
+    const request = { id:"0".repeat(36), method:"workspace_band_map_apply", operatingContext:"0".repeat(36), params:{generation:"0".repeat(36),scope:"desk",expected:{guidesJSON:"\\".repeat(10000)},patch:{guidesJSON:"\\".repeat(10000)}} };
+    expect(() => checkedGuideRequestFrame(request)).toThrow(/32 KiB/);
+    expect(checkedGuideRequestFrame({...request,params:{scope:"desk",expected:{guidesJSON:""},patch:{guidesJSON:""}}})).toBeTruthy();
+    const compact = {...builtinGuides[0],origin:"custom",ranges:[],markers:[]};
+    expect(readGuideDocument(JSON.stringify({...emptyGuideDocument(),custom:Array.from({length:16},(_,i)=>({...compact,id:`copy-${i}`}))})).custom).toHaveLength(16);
+    expect(readGuideDocument(JSON.stringify({...emptyGuideDocument(),custom:[{...compact,id:"ranges",ranges:Array.from({length:128},(_,i)=>({startHz:100000+i,endHz:100001+i,color:"#123456",label:""}))}]})).custom[0].ranges).toHaveLength(128);
+    expect(readGuideDocument(JSON.stringify({...emptyGuideDocument(),custom:[{...compact,id:"markers",markers:Array.from({length:128},()=>({frequencyHz:14025000,label:"",category:""}))}]})).custom[0].markers).toHaveLength(128);
+    const text = JSON.stringify({...emptyGuideDocument(),custom:[{...builtinGuides[0],id:"unicode",origin:"custom",name:"🌍".repeat(20),ranges:[],markers:Array.from({length:128},()=>({frequencyHz:14025000,label:"🌍".repeat(8),category:"personal"}))}]});
+    expect(text.length).toBeLessThan(10_240);
+    expect(() => readGuideDocument(text)).toThrow(/10 KiB/);
+  });
   it("validates published references and clips Hz boundaries without changing source data", () => {
     for (const guide of builtinGuides) expect(parseGuide(JSON.stringify(guide))).toEqual(guide);
     const range = { startHz:14_025_000, endHz:14_025_001, color:"#123456", label:"one Hz" };

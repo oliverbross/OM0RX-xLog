@@ -1,13 +1,19 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { builtinGuides } from "./bandMapBuiltinGuides";
-import { emptyGuideDocument, parseGuide, readGuideDocument, type BandMapGuide, type GuideDocument, type GuideMarker } from "./bandMapGuides";
-import { workerRequest } from "../worker";
+import { checkedGuideRequestFrame, emptyGuideDocument, parseGuide, readGuideDocument, type BandMapGuide, type GuideDocument, type GuideMarker } from "./bandMapGuides";
+import type { WorkerResponse } from "../worker";
 import { checkedPreferenceReply, connectPreferenceInvalidation, type PreferenceSnapshot } from "./bandMapPreferenceTransport";
-import { isTauri } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { BandMapGuideEditor } from "./BandMapGuideEditor";
 import { createPortal } from "react-dom";
 import { guideTuneRecovery } from "./guideTuneSession";
-const requestViaSession = async (method: string, params: Record<string, unknown> = {}) => (await workerRequest(method, params)).result;
+const requestViaSession = async (method: string, params: Record<string, unknown> = {}) => {
+  const operating = await invoke<{ context: string }>("operating_module_status");
+  const request = checkedGuideRequestFrame({ id: crypto.randomUUID(), method, params, operatingContext: operating.context });
+  const response = await invoke<WorkerResponse>("worker_request", { request });
+  if (response.id !== request.id || !response.ok) throw new Error(response.ok ? "Guide preference acknowledgement identity changed." : response.error?.message || "Guide preferences are unavailable.");
+  return response.result;
+};
 
 export function useBandMapGuides(compact: boolean, enabled = true) {
   const [base, setBase] = useState<PreferenceSnapshot | null>(null), [error, setError] = useState("");

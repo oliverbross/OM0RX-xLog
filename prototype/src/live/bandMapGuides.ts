@@ -3,6 +3,12 @@ export type GuideMarker = { frequencyHz: number; label: string; category: string
 export type BandMapGuide = { version: 1; units: "Hz"; id: string; name: string; region: string; origin: "built-in" | "custom"; sourceURL: string; reviewed: string; supportedBands: string[]; ranges: GuideRange[]; markers: GuideMarker[] };
 export type GuideSelection = { id: string; visible: boolean; beacons: boolean };
 export type GuideDocument = { version: 1; custom: BandMapGuide[]; desk: GuideSelection; detached: GuideSelection };
+export const guideDocumentByteLimit = 10 * 1024;
+export const guideRequestByteLimit = 32_768;
+export function checkedGuideRequestFrame(request: { id: string; method: string; params: Record<string, unknown>; operatingContext: string }) {
+  if (new TextEncoder().encode(JSON.stringify(request)).length > guideRequestByteLimit) throw new Error("Guide change exceeds the 32 KiB native request budget, including the current and replacement documents. Shorten labels or remove ranges/markers before saving.");
+  return request;
+}
 export const emptyGuideDocument = (): GuideDocument => ({ version: 1, custom: [], desk: { id: "legacy", visible: true, beacons: false }, detached: { id: "legacy", visible: true, beacons: false } });
 const boundedText = (v: unknown, max: number): v is string => typeof v === "string" && v.length <= max && !/[\u0000-\u001f]/.test(v);
 const hz = (v: unknown): v is number => Number.isSafeInteger(v) && Number(v) >= 100_000 && Number(v) <= 1_000_000_000;
@@ -18,8 +24,9 @@ export function parseGuide(text: string): BandMapGuide {
 }
 export function readGuideDocument(text?: string): GuideDocument {
   if (!text) return emptyGuideDocument();
+  if (new TextEncoder().encode(text).length > guideDocumentByteLimit) throw new Error("Saved guides are limited to 10 KiB in total. Shorten labels or remove profiles, ranges or markers before saving.");
   const doc = JSON.parse(text) as GuideDocument;
-  if (text.length > 524_288 || doc.version !== 1 || !Array.isArray(doc.custom) || doc.custom.length > 16 || new Set(doc.custom.map(g => g.id)).size !== doc.custom.length) throw new Error("Invalid guide collection.");
+  if (doc.version !== 1 || !Array.isArray(doc.custom) || doc.custom.length > 16 || new Set(doc.custom.map(g => g.id)).size !== doc.custom.length) throw new Error("Invalid guide collection.");
   doc.custom.forEach(g => { validateGuide(g); if (g.origin !== "custom" || g.id.startsWith("builtin-")) throw new Error("Only custom guides can be saved."); });
   for (const s of [doc.desk, doc.detached]) if (!s || !boundedText(s.id, 80) || !["legacy", "builtin-r1-hf-2020", "builtin-r3-2024", ...doc.custom.map(g => g.id)].includes(s.id) || typeof s.visible !== "boolean" || typeof s.beacons !== "boolean") throw new Error("Invalid guide selection.");
   return doc;

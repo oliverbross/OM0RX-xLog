@@ -18,7 +18,7 @@ final class BandMapGuidesTests: XCTestCase {
         try BandMapGuides.validate("")
         let text = ##"{"version":1,"custom":[{"version":1,"units":"Hz","id":"custom-1","name":"Personal","region":"Custom","origin":"custom","sourceURL":"","reviewed":"2026-11-03","supportedBands":["20m"],"ranges":[{"startHz":14000000,"endHz":14070000,"color":"#12a88a","label":"CW"}],"markers":[{"frequencyHz":14025000,"label":"Personal","category":"personal"}]}],"desk":{"id":"custom-1","visible":true,"beacons":false},"detached":{"id":"legacy","visible":true,"beacons":false}}"##
         try BandMapGuides.validate(text)
-        for bad in [text.replacingOccurrences(of: "\"Hz\"", with: "\"kHz\""), text.replacingOccurrences(of: "14000000", with: "14070001"), text.replacingOccurrences(of: "#12a88a", with: "red"), String(repeating: " ", count: 524_289)] {
+        for bad in [text.replacingOccurrences(of: "\"Hz\"", with: "\"kHz\""), text.replacingOccurrences(of: "14000000", with: "14070001"), text.replacingOccurrences(of: "#12a88a", with: "red"), String(repeating: " ", count: 10_241)] {
             XCTAssertThrowsError(try BandMapGuides.validate(bad))
         }
     }
