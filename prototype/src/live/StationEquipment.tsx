@@ -1,18 +1,32 @@
 import { RadioTower } from "lucide-react";
-import { antennaBands, antennaTypes, equipmentProfile, type StationEquipment } from "./equipmentPreferences";
+import { antennaBands, antennaTypes, equipmentProfile, antennaCollection, selectedAntenna, type AntennaProfile, type StationEquipment } from "./equipmentPreferences";
 import "./StationEquipment.css";
 
 export function EquipmentSettings({ value, onChange }: { value: unknown; onChange: (value: StationEquipment) => void }) {
   const profile = equipmentProfile(value);
+  const collection = antennaCollection(value), selected = selectedAntenna(value);
+  const changeProfile = (next: AntennaProfile) => onChange({ ...collection, profiles: collection.profiles.map(p => p.id === next.id ? { ...next, revision: next.revision + 1 } : p),
+    ...(next.id === collection.selectedProfileID ? { antenna: next.antennaType, name: next.name, bands: next.bands } : {}) });
   return <section className="equipment-settings"><h2>Station equipment</h2>
     <label>Operator Desk equipment<select aria-label="Operator Desk equipment" value={profile.display} onChange={event => onChange({ ...profile, display: event.target.value as StationEquipment["display"] })}>
       <option value="automatic">Rotator when configured</option><option value="antenna">Fixed antenna</option><option value="hidden">No equipment panel</option>
     </select></label>
     <p>Unconfigured rotators take no dashboard space. An owned rotor session keeps its controls visible until you disconnect it in Rotator settings.</p>
-    {profile.display === "antenna" && <><div className="service-fields"><label>Antenna type<select aria-label="Antenna type" value={profile.antenna} onChange={event => onChange({ ...profile, antenna: event.target.value as StationEquipment["antenna"] })}>{Object.entries(antennaTypes).map(([id, title]) => <option key={id} value={id}>{title}</option>)}</select></label>
-      <label>Antenna name<input aria-label="Antenna name" value={profile.name} maxLength={64} placeholder="e.g. Garden vertical" onChange={event => onChange({ ...profile, name: event.target.value })} /></label></div>
-      <fieldset className="equipment-bands"><legend>Configured bands</legend>{antennaBands.map(band => <label key={band}><input type="checkbox" checked={profile.bands.includes(band)} onChange={event => onChange({ ...profile, bands: event.target.checked ? [...profile.bands, band] : profile.bands.filter(item => item !== band) })} />{band}</label>)}</fieldset>
-      <p>For reference only: this does not select an antenna, control a switch, or confirm that the antenna is matched.</p></>}
+    <label>Antenna profile<select aria-label="Antenna profile" value={collection.selectedProfileID ?? ""} onChange={event => {
+      const p = collection.profiles.find(p => p.id === event.target.value)!;
+      onChange({ ...collection, selectedProfileID: p.id, name: p.name, antenna: p.antennaType, bands: p.bands });
+    }}><option value="">No selected profile</option>{collection.profiles.filter(p => !p.archived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+    <div className="service-actions"><button type="button" onClick={() => onChange({ ...collection, profiles: [...collection.profiles, { id: crypto.randomUUID(), name: "New antenna", antennaType: "vertical", bands: [], azimuthOffsetDegrees: 0, archived: false, revision: 0 }] })}>Add profile</button>
+      <button type="button" disabled={!selected || collection.profiles.length >= 64} onClick={() => selected && onChange({ ...collection, profiles: [...collection.profiles, { ...selected, id: crypto.randomUUID(), name: selected.name + " copy", revision: 0 }] })}>Duplicate profile</button>
+      <button type="button" disabled={!selected} onClick={() => selected && onChange({ ...collection, selectedProfileID: null, profiles: collection.profiles.map(p => p.id === selected.id ? { ...p, archived: true, revision: p.revision + 1 } : p) })}>Archive profile</button></div>
+    {selected && <fieldset><legend>Selected software profile</legend><label>Profile name<input aria-label="Profile name" value={selected.name} maxLength={64} onChange={e => changeProfile({ ...selected, name: e.target.value })} /></label>
+      <label>Profile type<select aria-label="Profile type" value={selected.antennaType} onChange={e => changeProfile({ ...selected, antennaType: e.target.value as AntennaProfile["antennaType"] })}>{Object.entries(antennaTypes).map(([id, title]) => <option key={id} value={id}>{title}</option>)}</select></label>
+      <fieldset className="equipment-bands"><legend>Profile bands</legend>{antennaBands.map(band => <label key={band}><input type="checkbox" checked={selected.bands.includes(band)} onChange={e => changeProfile({ ...selected, bands: e.target.checked ? [...selected.bands, band] : selected.bands.filter(b => b !== band) })} />{band}</label>)}</fieldset>
+      <label>Rotor association<select aria-label="Profile rotor association" value={selected.rotorConfigurationID ?? ""} onChange={e => changeProfile({ ...selected, rotorConfigurationID: e.target.value || null })}><option value="">Fixed antenna / no rotor</option><option value="workspace-rotor">Existing workspace rotor configuration</option></select></label>
+      <label>Azimuth offset °<input aria-label="Antenna azimuth offset" type="number" min={-360} max={360} value={selected.azimuthOffsetDegrees} onChange={e => changeProfile({ ...selected, azimuthOffsetDegrees: Number(e.target.value) })} /></label></fieldset>}
+    <label><input type="checkbox" checked={collection.automaticSelection} onChange={e => onChange({ ...collection, automaticSelection: e.target.checked })} />Suggest by authoritative transmit band</label>
+    {collection.automaticSelection && <fieldset><legend>Transmit-band preferences</legend>{antennaBands.map(band => <label key={band}>{band}<select aria-label={`${band} preferred antenna`} value={collection.bandPreferences[band] ?? ""} onChange={e => { const preferences = { ...collection.bandPreferences }; if (e.target.value) preferences[band] = e.target.value; else delete preferences[band]; onChange({ ...collection, bandPreferences: preferences }); }}><option value="">Ask when several match</option>{collection.profiles.filter(p => !p.archived && p.bands.includes(band)).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>)}</fieldset>}
+    <p>Profile selection changes future-contact metadata only. It sends no switch, connect or movement command. Saved contacts retain their snapshots.</p>
   </section>;
 }
 
@@ -28,8 +42,10 @@ function AntennaDiagram({ type }: { type: StationEquipment["antenna"] }) {
 }
 
 export function DeskAntenna({ profile, taskOnly = false }: { profile: StationEquipment; taskOnly?: boolean }) {
+  const selected = selectedAntenna(profile);
+  if (selected) profile = { ...profile, antenna: selected.antennaType, name: selected.name, bands: selected.bands };
   return <section className="desk-panel desk-antenna" aria-label="Configured antenna">{!taskOnly && <h2><RadioTower size={15} aria-hidden="true" />Antenna</h2>}
-    <div className="desk-antenna-body"><AntennaDiagram type={profile.antenna} /><div><strong>{profile.name || antennaTypes[profile.antenna]}</strong>{profile.name && <span>{antennaTypes[profile.antenna]}</span>}<small>Configured · no telemetry</small></div></div>
+    <div className="desk-antenna-body"><AntennaDiagram type={profile.antenna} /><div><strong>{profile.name || antennaTypes[profile.antenna]}</strong>{profile.name && <span>{antennaTypes[profile.antenna]}</span>}<small>Software profile · no switch telemetry</small></div></div>
     <div className="desk-antenna-bands" aria-label="Configured antenna bands">{profile.bands.length ? profile.bands.map(band => <span key={band}>{band}</span>) : <small>No bands specified</small>}</div>
   </section>;
 }

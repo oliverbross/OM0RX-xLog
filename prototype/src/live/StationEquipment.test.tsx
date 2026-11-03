@@ -31,7 +31,7 @@ describe("station equipment", () => {
     const profile = equipmentProfile({ display: "antenna", antenna: "vertical", name: "Garden vertical", bands: ["20m", "17m", "15m", "12m", "10m", "20m", "invalid"] });
     render(<DeskAntenna profile={profile} />);
     expect(screen.getByText("Garden vertical")).toBeTruthy();
-    expect(screen.getByText("Configured · no telemetry")).toBeTruthy();
+    expect(screen.getByText("Software profile · no switch telemetry")).toBeTruthy();
     expect(screen.getAllByText("20m")).toHaveLength(1);
     expect(screen.queryByRole("button")).toBeNull();
     expect(screen.queryByText(/connected/i)).toBeNull();
@@ -47,14 +47,14 @@ describe("station equipment", () => {
     }
     render(<Editor />);
     fireEvent.change(screen.getByLabelText("Operator Desk equipment"), { target: { value: "antenna" } });
-    fireEvent.change(screen.getByLabelText("Antenna type"), { target: { value: "wire" } });
-    fireEvent.change(screen.getByLabelText("Antenna name"), { target: { value: "Garden wire" } });
+    fireEvent.change(screen.getByLabelText("Profile type"), { target: { value: "wire" } });
+    fireEvent.change(screen.getByLabelText("Profile name"), { target: { value: "Garden wire" } });
     fireEvent.click(screen.getByRole("checkbox", { name: "20m" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "10m" }));
     fireEvent.click(screen.getByRole("tab", { name: "Rotator" }));
   fireEvent.click(screen.getByRole("tab", { name: "General" }));
     expect(request).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
-    await waitFor(() => expect(request).toHaveBeenCalledExactlyOnceWith("settings_save", { settings: { ...values, stationEquipment: { display: "antenna", antenna: "wire", name: "Garden wire", bands: ["20m", "10m"] } } }));
+    await waitFor(() => expect(request).toHaveBeenCalledExactlyOnceWith("settings_save", { settings: { ...values, stationEquipment: expect.objectContaining({ display: "antenna", antenna: "wire", name: "Garden wire", bands: ["20m", "10m"], profiles: [expect.objectContaining({ id: "legacy-antenna", name: "Garden wire", antennaType: "wire", bands: ["20m", "10m"] })] }) } }));
   });
 });

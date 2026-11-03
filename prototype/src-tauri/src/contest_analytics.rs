@@ -133,6 +133,141 @@ pub async fn logbook_export_file(window: tauri::WebviewWindow, filename: String,
     }).await.map_err(|_| "Logbook export task failed.".to_string())?
 }
 
+fn validate_pota_set(label: &str, preview: &Value) -> Result<Vec<(String, String)>, String> {
+    if !matches!(label, "main" | "logbook") { return Err("Only Logbook can publish POTA export files.".into()); }
+    let files = preview["files"].as_array().filter(|v| !v.is_empty() && v.len() <= 1024)
+        .ok_or("The reviewed POTA file set is empty or too large.")?;
+    let mut names = std::collections::HashSet::new();
+    let mut result = Vec::new();
+    let mut bytes = 0usize;
+    for file in files {
+        let name = file["filename"].as_str().ok_or("Missing POTA filename.")?;
+        if name.len() > 240 || !name.ends_with(".adi") || name.starts_with('.')
+            || !name.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'@' | b'-' | b'_' | b'.'))
+            || !names.insert(name.to_ascii_lowercase()) { return Err("POTA filenames must be unique simple ADI names.".into()); }
+        let text = file["text"].as_str().ok_or("Missing POTA file text.")?;
+        bytes = bytes.checked_add(text.len()).ok_or("POTA file set is too large.")?;
+        if text.is_empty() || bytes > MAX_LOGBOOK_EXPORT_BYTES || text.contains('\0')
+            || !text.starts_with("<ADIF_VER:") || !text.ends_with("<EOR>\r\n") {
+            return Err("The prepared POTA files are invalid or exceed 32 MiB.".into());
+        }
+        result.push((name.to_owned(), text.to_owned()));
+    }
+    // Manifest records the exact preview, exclusions, assignment and rule sources.
+    let mut manifest = preview.clone();
+    if let Some(files) = manifest["files"].as_array_mut() {
+        for file in files { file.as_object_mut().ok_or("Invalid POTA file metadata.")?.remove("text"); }
+    }
+    result.push(("manifest.json".into(), serde_json::to_string_pretty(&manifest).map_err(|_| "POTA manifest could not be prepared.")?));
+    Ok(result)
+}
+
+fn publish_pota_set(path: Option<PathBuf>, files: &[(String, String)]) -> Result<Value, String> {
+    use std::io::Write;
+    let Some(path) = path else { return Ok(json!({"saved":false,"cancelled":true,"published":[]})); };
+    if path.extension().and_then(|e| e.to_str()) != Some("pota") || path.try_exists().map_err(|_| "Destination unavailable.")? {
+        return Err("Choose a new .pota folder name. Existing paths are never replaced.".into());
+    }
+    let parent = path.parent().filter(|p| p.is_dir()).ok_or("Choose an existing output directory.")?;
+    let stage = tempfile::Builder::new().prefix(".xlog-pota-").tempdir_in(parent).map_err(|_| "Could not stage POTA files. Nothing published.")?;
+    for (name, text) in files {
+        let mut output = std::fs::OpenOptions::new().create_new(true).write(true).open(stage.path().join(name))
+            .map_err(|_| "POTA staging failed. Nothing published.")?;
+        output.write_all(text.as_bytes()).and_then(|_| output.sync_all())
+            .map_err(|_| "POTA staging failed. Nothing published.")?;
+        if std::fs::read(stage.path().join(name)).map_err(|_| "POTA verification failed. Nothing published.")? != text.as_bytes() {
+            return Err("POTA verification failed. Nothing published.".into());
+        }
+    }
+    if std::fs::read_dir(stage.path()).map_err(|_| "POTA verification failed.")?.count() != files.len() { return Err("POTA file count mismatch. Nothing published.".into()); }
+    // Exclusive directory publication: the platform primitive fails if a path
+    // appeared after the chooser. A failed rename leaves only the private stage.
+    exclusive_directory_rename(stage.path(), &path).map_err(|_| "POTA publication failed. Nothing published; choose a new destination.")?;
+    Ok(json!({"saved":true,"cancelled":false,"published":files.iter().map(|f|f.0.clone()).collect::<Vec<_>>()}))
+}
+
+#[cfg(target_os = "macos")]
+fn exclusive_directory_rename(from: &Path, to: &Path) -> std::io::Result<()> {
+    use std::os::unix::ffi::OsStrExt;
+    let from = std::ffi::CString::new(from.as_os_str().as_bytes())?;
+    let to = std::ffi::CString::new(to.as_os_str().as_bytes())?;
+    let status = unsafe { libc::renamex_np(from.as_ptr(), to.as_ptr(), libc::RENAME_EXCL) };
+    if status == 0 { Ok(()) } else { Err(std::io::Error::last_os_error()) }
+}
+#[cfg(target_os = "linux")]
+fn exclusive_directory_rename(from: &Path, to: &Path) -> std::io::Result<()> {
+    use std::os::unix::ffi::OsStrExt;
+    let from = std::ffi::CString::new(from.as_os_str().as_bytes())?;
+    let to = std::ffi::CString::new(to.as_os_str().as_bytes())?;
+    let status = unsafe { libc::renameat2(libc::AT_FDCWD, from.as_ptr(), libc::AT_FDCWD, to.as_ptr(), libc::RENAME_NOREPLACE) };
+    if status == 0 { Ok(()) } else { Err(std::io::Error::last_os_error()) }
+}
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+fn exclusive_directory_rename(from: &Path, to: &Path) -> std::io::Result<()> {
+    // Windows directory rename refuses an existing destination.
+    std::fs::rename(from, to)
+}
+
+#[tauri::command]
+pub async fn logbook_export_pota_set(window: tauri::WebviewWindow, preview: Value) -> Result<Value, String> {
+    let files = validate_pota_set(window.label(), &preview)?;
+    if crate::APP_EXITING.load(Ordering::Acquire) { return Err("POTA export unavailable during shutdown.".into()); }
+    let _lease = ExportLease::acquire()?;
+    let path = choose_export(window, "POTA-activation.pota".into(), "pota", "Create a new POTA export folder containing the reviewed ADI files and manifest. Existing paths are never replaced.").await?;
+    tauri::async_runtime::spawn_blocking(move || {
+        if crate::APP_EXITING.load(Ordering::Acquire) { return Err("POTA export unavailable during shutdown.".into()); }
+        publish_pota_set(path, &files)
+    }).await.map_err(|_| "POTA export task failed. Check the chosen destination before retrying.".to_string())?
+}
+
+#[cfg(test)]
+mod pota_tests {
+    use super::*;
+    fn preview() -> Value {
+        json!({"version":1,"physicalContacts":1,"includedContacts":1,"derivedRecords":1,
+            "rulesVersion":"fixture","sourceURLs":["https://docs.pota.app/docs/rules.html"],"issues":[],
+            "files":[{"filename":"1-VK8RX_P@AU-0001-NT-all-days.adi","text":"<ADIF_VER:5>3.1.7<EOH>\r\n<CALL:5>K1ABC<EOR>\r\n"}]})
+    }
+    #[test]
+    fn publication_is_complete_exclusive_and_cancelable() {
+        let root = tempfile::tempdir().unwrap();
+        let files = validate_pota_set("logbook", &preview()).unwrap();
+        assert_eq!(publish_pota_set(None, &files).unwrap()["cancelled"], true);
+        let target = root.path().join("activation.pota");
+        let outcome = publish_pota_set(Some(target.clone()), &files).unwrap();
+        assert_eq!(outcome["saved"], true);
+        assert_eq!(std::fs::read_dir(&target).unwrap().count(), 2);
+        assert_eq!(std::fs::read_to_string(target.join(&files[0].0)).unwrap(), files[0].1);
+        let manifest: Value = serde_json::from_slice(&std::fs::read(target.join("manifest.json")).unwrap()).unwrap();
+        assert!(manifest["files"][0].get("text").is_none());
+        assert!(publish_pota_set(Some(target.clone()), &files).is_err());
+        assert_eq!(std::fs::read_dir(&target).unwrap().count(), 2);
+        assert_eq!(std::fs::read_dir(root.path()).unwrap().count(), 1);
+    }
+    #[test]
+    fn invalid_sets_and_write_failures_publish_nothing() {
+        assert!(validate_pota_set("settings", &preview()).is_err());
+        let mut malformed = preview(); malformed["files"][0]["filename"] = json!("../outside.adi");
+        assert!(validate_pota_set("main", &malformed).is_err());
+        malformed = preview(); malformed["files"][0]["text"] = json!("");
+        assert!(validate_pota_set("main", &malformed).is_err());
+        let root = tempfile::tempdir().unwrap();
+        let target = root.path().join("failed.pota");
+        // A second invalid stage path injects a write failure after one file.
+        let files = vec![("first.adi".into(), "test".into()), ("missing/second.adi".into(), "test".into())];
+        assert!(publish_pota_set(Some(target), &files).is_err());
+        assert_eq!(std::fs::read_dir(root.path()).unwrap().count(), 0);
+    }
+    #[test]
+    fn exclusive_rename_keeps_an_unrelated_directory() {
+        let root = tempfile::tempdir().unwrap();
+        let source = root.path().join("source"); let target = root.path().join("target");
+        std::fs::create_dir(&source).unwrap(); std::fs::create_dir(&target).unwrap();
+        assert!(exclusive_directory_rename(&source, &target).is_err());
+        assert!(source.is_dir()); assert!(target.is_dir());
+    }
+}
+
 fn validate_messages_export(label: &str, filename: &str, content: &str) -> Result<(), String> {
     if label != "contest-setup" { return Err("Only Contest Setup owns message bank exports.".into()); }
     if filename != "messages-not1mm.txt" || content.is_empty() || content.len() > 65536 || content.contains('\0') {

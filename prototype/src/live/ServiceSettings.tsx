@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import DisplaySettings from "./DisplaySettings";
+import {NormalShortcutSettings} from "./NormalShortcutSettings";
 import { EquipmentSettings } from "./StationEquipment";
+import { PortableSettings } from "./PortableContextPanel";
 import CWSettings from "./CWSettings";
 import { validateCWProfile, type CWContext } from "./cwMacros";
 import type { CWState } from "./cwController";
@@ -229,7 +231,7 @@ export default function ServiceSettings({ values, savedValues, request, onChange
     <p hidden={!showAccountHelp}>URLs and account details are grouped with their credentials. Save settings for non-secret fields; each credential has its own secure Save button.</p>
     {tab === "Sync" && <div>{syncSettings ?? <p>Synchronization tools are unavailable in this view.</p>}</div>}
     <div hidden={tab !== "Workspace"}>{workspaceSettings ?? <p>Workspace arrangements are unavailable in this view.</p>}</div>
-    <div hidden={tab !== "Display"}><DisplaySettings /></div>
+    <div hidden={tab !== "Display"}><DisplaySettings />{tab==="Display"&&<NormalShortcutSettings/>}</div>
     <div hidden={tab !== "Radio"}>{radioSettings ?? <p>Radio setup is available in the main Settings window.</p>}</div>
     <div hidden={tab !== "Rotator"}>{rotorSettings ?? <p>Rotator settings are unavailable in this view.</p>}</div>
     {tab === "Cluster" && (clusterSettings ?? <p>Cluster settings unavailable.</p>)}
@@ -257,13 +259,14 @@ export default function ServiceSettings({ values, savedValues, request, onChange
           onChange={event => update({ automaticTransmitPower: event.target.checked })} />Automatic measured power</label>
         <p id="automatic-power-help">{typeof (savedValues ?? form).automaticTransmitPower !== "boolean" ? "Automatic capture is unavailable in this version." : "Capture measured output from the active radio or amplifier when its provider reports a trustworthy watt reading. Default power is the fallback; a TX power edit sets a manual override."}</p>
       </div> : field(key, label))}</div></section>
-      <div hidden={tab !== "Station"}><EquipmentSettings value={form.stationEquipment} onChange={stationEquipment => update({ stationEquipment })} /></div>
+      <div hidden={tab !== "Station"}><EquipmentSettings value={form.stationEquipment} onChange={stationEquipment => update({ stationEquipment })} /><PortableSettings settings={form} onChange={portableOperating => update({ portableOperating })} /></div>
       <section hidden={tab !== "Station"}><h2>Draft behavior</h2>
         <label className="service-enable"><input type="checkbox" aria-describedby="clear-after-qsy-help" checked={form.clearAfterQSY === true} disabled={typeof (savedValues ?? form).clearAfterQSY !== "boolean"}
           onChange={event => update({ clearAfterQSY: event.target.checked })} />Clear unlogged QSO after QSY</label>
         <p id="clear-after-qsy-help">{typeof (savedValues ?? form).clearAfterQSY !== "boolean" ? "Clear after QSY is unavailable in this version." : "After a confirmed receive-frequency change, start a fresh draft at the observed receive frequency. Active edits, selections, commands and stale or reconnected radio observations veto the clear."}</p>
       </section>
       <section hidden={tab !== "Logbook"} className="service-logbook-mode"><h2>Integrated logbook</h2>
+        <label><input type="checkbox" checked={form.nearbySpottedCallsigns === true} onChange={e => update({ nearbySpottedCallsigns: e.target.checked })} />Nearby spotted callsign suggestions</label>
         <p>Every contact is stored in xLog’s integrated local database. Wavelog is an optional synchronization destination, not a replacement for the local logbook.</p>
         <label>Logbook mode<select aria-label="Logbook mode" value={form.logbookMode ?? "local"} onChange={event => update({ logbookMode: event.target.value })}>
           <option value="local">Integrated logbook only</option><option value="wavelog">Integrated logbook + Wavelog synchronization</option>
