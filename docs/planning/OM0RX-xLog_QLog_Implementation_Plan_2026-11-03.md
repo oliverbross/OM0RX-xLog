@@ -1639,3 +1639,10 @@ where to use them; exact source/version; validation performed and results;
 migration/backup behavior; and any specific remaining acceptance boundary.
 Use the plan's definition of done. Begin implementation now.
 ```
+
+
+### 8.9 — Authorized installed-app update, 4 November 2026
+
+The operator explicitly requested the clean-main fast-forward and exact `build-1.5.5-macos-arm64.sh a42d61ce07fd988de8280c5b4714c9c4870e470b` command, then replacement of the installed app. The command was executed unchanged. Main advanced from ab77a49d to a42d61ce. Packaging, Developer ID signing and payload privacy checks completed, but the release recipe failed before signed-worker invocation/publication: extracted worker architecture was `x86_64 arm64`, versus the required `arm64`. The failed run remains under `.build/releases/1.5.5/` (including the exact signed ZIP in its `.verify.*` directory and build log). The installed app remains 1.4.8/source2ae0939d; process-only inspection found it stopped. No failed candidate was installed and no cold-start conclusion follows.
+
+Material decision: repair host architecture selection in the existing staging owner, retaining the release assertion. Select the matching slice before metadata/signing, verify it, preserve the original Xcode universal product, and retain portable copying. Focused real Mach-O fixtures cover arm64/x86_64 selection, already-thin copying, mode preservation, missing/unknown target rejection and portable bytes. A fresh visible 1.5.6 and its exact-input release recipe avoid reusing 1.5.5 for changed source. Actual build/source/install receipts follow after execution; production installation is now specifically authorized, while notarization/transmission/rotor/submissions remain outside scope. All nine selected improvements stay implemented; closed findings remain closed. Earlier source/fixture evidence remains bound to its inputs, not automatically promoted to this packaging change.

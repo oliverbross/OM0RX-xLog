@@ -1,3 +1,9 @@
+# OM0RX-xLog 1.5.6 — host architecture worker staging
+
+The 1.5.5/a42d61ce release attempt built and signed successfully but failed its unchanged arm64-only worker check: Xcode produced a universal worker. That failed archive and build log are retained; it was not installed. Mac staging now selects the Rust host target slice before metadata and signing, checks the result, and preserves the original Xcode output. Windows/Linux copying is unchanged.
+
+The [1.5.6 recipe](docs/releases/build-1.5.6-macos-arm64.sh) accepts one exact clean canonical source SHA and records that source, visible version, signatures, archive hash and the first signed-worker protocol results. No artifact or acceptance result is claimed by this input preparation. Production replacement is authorized by the operator's 4 November follow-up and remains conditional on successful candidate checks and protected backup. Notarization, controlled cold-system and connected/RF acceptance remain separate.
+
 # OM0RX-xLog 1.5.5 — macOS arm64 packaging inputs
 
 All nine QLog improvements and the POTA counting/export correction are on

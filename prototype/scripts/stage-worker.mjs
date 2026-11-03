@@ -4,6 +4,7 @@ import { dirname, join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { swiftWorkerBuildInvocation } from './swift-worker-build-system.mjs';
+import { stageWorkerExecutable } from './stage-worker-executable.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const executable = `xlog-prototype-worker${process.platform === 'win32' ? '.exe' : ''}`;
@@ -24,13 +25,13 @@ const target = execFileSync('rustc', ['-vV'], { encoding: 'utf8' }).match(/^host
 if (!target) throw new Error('Cannot resolve Rust host triple.');
 const binaries = join(root, 'prototype/src-tauri/binaries');
 mkdirSync(binaries, { recursive: true });
-copyFileSync(source, join(binaries, `xlog-prototype-worker-${target}${process.platform === 'win32' ? '.exe' : ''}`));
+stageWorkerExecutable(source, join(binaries, `xlog-prototype-worker-${target}${process.platform === 'win32' ? '.exe' : ''}`), process.platform, target);
 
 // Cargo-run/development location; release bundlers use externalBin instead.
 for (const mode of ['debug', 'release']) {
   const destination = join(root, 'prototype/src-tauri/target', mode);
   mkdirSync(destination, { recursive: true });
-  copyFileSync(source, join(destination, executable));
+  stageWorkerExecutable(source, join(destination, executable), process.platform, target);
   for (const resourceName of resourceNames) {
     rmSync(join(destination, resourceName), { recursive: true, force: true });
     cpSync(join(binDir, resourceName), join(destination, resourceName), { recursive: true });

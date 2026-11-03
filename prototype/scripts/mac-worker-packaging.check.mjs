@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { swiftWorkerBuildSystemArgs, swiftWorkerBuildInvocation } from './swift-worker-build-system.mjs';
 import './mac-installer-refusal.check.mjs';
+import './stage-worker-executable.check.mjs';
 
 // This standalone node:test gate uses .check.mjs so Vitest does not collect it.
 
