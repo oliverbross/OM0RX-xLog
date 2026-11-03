@@ -69,9 +69,10 @@ describe("grouped service settings", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Cluster" }));
     await screen.findByLabelText("ShackCQ host");
     expect(request).toHaveBeenCalledWith("cluster_snapshot", {});
-    expect(screen.getByLabelText("Worked")).toBeTruthy();
-    expect(screen.getByLabelText("20m")).toBeTruthy();
-    expect(screen.getByLabelText("CW")).toBeTruthy();
+    const clusterControls = within(screen.getByRole("region", { name: "DX Cluster settings" }));
+    expect(clusterControls.getByLabelText("Worked")).toHaveProperty("type", "color");
+    expect(clusterControls.getByLabelText("20m")).toHaveProperty("type", "color");
+    expect(clusterControls.getByLabelText("CW")).toHaveProperty("type", "color");
     expect(screen.queryByRole("button", { name: "Save settings" })).toBeNull();
     expect(screen.getByRole("button", { name: "Save cluster settings" })).toBeTruthy();
   });

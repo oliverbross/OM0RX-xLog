@@ -1,7 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import ServiceSettings from "./ServiceSettings";
-import SyncPanel from "./SyncPanel";
 import WorkspaceSettings from "./WorkspaceSettings";
 import { readSettingsJournal, SettingsSession, settingsDraftIsDirty } from "./settingsSession";
 import { connectSettingsChanges, requestSettings } from "./settingsTransport";
@@ -12,6 +11,7 @@ import { connectRotorConfigurationChanges } from "./rotorConfigurationTransport"
 
 const journalKey = "xlog.integration.settings.detached.v1";
 const rotorJournalKey = "xlog.integration.rotorConfiguration.detached.v1";
+const SyncPanel = lazy(() => import("./SyncPanel"));
 const RotorPanel = lazy(() => import("./RotorPanel"));
 const availableTabs = ["Station", "Logbook", "Wavelog", "Sync", "Integrations", "QRZ", "Online logs", "Reference data", "Rotator", "Radio spots", "Display", "Workspace", "Backups", "Experimental"] as const;
 export const detachedSettingsMethods = [
@@ -78,7 +78,7 @@ export function DetachedSettingsSurface() {
         setMessage(cause instanceof Error ? cause.message : "Saved Settings could not be restored.");
       } }}
       syncSettings={state.draft.logbookMode === "local" ? <p>Integrated-only mode. Wavelog synchronization is disabled. Choose Integrated logbook + Wavelog synchronization in Logbook to enable it.</p>
-      : <SyncPanel request={requestDetachedSettings} onChanged={reload} journalKey="xlog.sync.mutation.settings.v1" />}
+      : <Suspense fallback={<p role="status">Loading synchronization tools…</p>}><SyncPanel request={requestDetachedSettings} onChanged={reload} journalKey="xlog.sync.mutation.settings.v1" /></Suspense>}
       rotorSettings={<Suspense fallback={<p role="status">Loading Rotator settings…</p>}>
         <RotorPanel snapshot={null} request={requestDetachedSettings} configurationSession={rotorSession} configurationOnly />
       </Suspense>}

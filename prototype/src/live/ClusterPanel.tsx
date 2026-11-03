@@ -9,7 +9,7 @@ import { clusterFilterChoices, defaultClusterFilter, normalizeClusterFilter, typ
 import SpecialFilterOptions from "./SpecialFilterOptions";
 import { useLogbookCapacity } from "./logbookCapacity";
 import { useClusterAppearancePreference } from "./clusterAppearance";
-import { contestBandMapMultiplierLabel, contestBandMapSpotColor, contestBandMapSpotPending, contestBandMapSpotWorked, contestNeededMultiplierCount } from "./BandMaps";
+import { contestBandMapMultiplierLabel, contestBandMapSpotColor, contestBandMapSpotPending, contestBandMapSpotWorked, contestNeededMultiplierCount } from "./contestSpotPresentation";
 import "./ClusterPanel.css";
 
 export { clusterFilterChoices, defaultClusterFilter, type ClusterFilter } from "./clusterFilters";

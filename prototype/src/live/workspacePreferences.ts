@@ -1,7 +1,9 @@
-import { BAND_ORDER, BAND_MAP_MODES } from "./BandMaps";
-import type { BandMapViewPreferences } from "./BandMaps";
+import { BAND_ORDER } from "./band";
+import { BAND_MAP_MODES, type BandMapViewPreferences } from "./bandMapView";
 
 export type WorkspacePreferences = {
+  normalCommandBindings?: {version:number;overrides:Record<string,string>};
+  bandMapGuidesJSON?: string;
   deskBandMapBands: string[];
   detachedBandMapBands: string[];
   deskBandMapFollowsRadio: boolean;

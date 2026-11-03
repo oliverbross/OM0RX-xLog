@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 use std::{collections::BTreeMap, sync::{Condvar, Mutex}, time::{Duration, Instant, SystemTime, UNIX_EPOCH}};
 
 pub fn editor_role(label: &str) -> bool { matches!(label, "main" | "log-qso" | "logbook") }
-pub fn activation_role(label: &str) -> bool { matches!(crate::workspace_windows::surface_role(label), "main" | "dx-cluster" | "world-map" | "dxpedition-map" | "band-maps") }
+pub fn activation_role(label: &str) -> bool { matches!(crate::workspace_windows::surface_role(label), "main" | "dx-cluster" | "alerts" | "world-map" | "dxpedition-map" | "band-maps") }
 fn uuid(value: &str) -> Result<(), String> { uuid::Uuid::parse_str(value).map(|_| ()).map_err(|_| "Invalid activation identity.".into()) }
 
 struct Pending {
@@ -19,11 +19,12 @@ struct Pending {
     rejected: Option<String>,
 }
 #[derive(Default)]
-struct State { editors: BTreeMap<String, String>, pending: Option<Pending> }
+struct State { epoch:u64, editors: BTreeMap<String, String>, pending: Option<Pending> }
 #[derive(Default)]
 pub struct EditorBarrier { state: Mutex<State>, changed: Condvar }
 
 impl EditorBarrier {
+    pub fn epoch(&self)->Result<u64,String>{Ok(self.state.lock().map_err(|_|"Editor registry unavailable")?.epoch)}
     pub fn instances(&self, labels: &[String]) -> Result<BTreeMap<String, String>, String> {
         let state = self.state.lock().map_err(|_| "Editor registry unavailable")?;
         labels.iter().map(|label| state.editors.get(label).cloned().map(|instance| (label.clone(), instance))
@@ -34,6 +35,7 @@ impl EditorBarrier {
         uuid(instance)?;
         let mut state = self.state.lock().map_err(|_| "Editor registry unavailable")?;
         if state.editors.get(label).is_some_and(|old| old == instance) { return Ok(()); }
+        state.epoch=state.epoch.checked_add(1).ok_or("Editor epoch exhausted")?;
         state.editors.insert(label.into(), instance.into());
         if let Some(pending) = state.pending.as_mut() {
             if !pending.admitted { pending.rejected = Some("An editor opened or reloaded during spot preparation. Select the spot again.".into()); }
@@ -43,6 +45,7 @@ impl EditorBarrier {
     pub fn unregister(&self, label: &str, instance: &str) -> Result<(), String> {
         let mut state = self.state.lock().map_err(|_| "Editor registry unavailable")?;
         if state.editors.get(label).is_none_or(|old| old != instance) { return Ok(()); }
+        state.epoch=state.epoch.checked_add(1).ok_or("Editor epoch exhausted")?;
         state.editors.remove(label);
         if let Some(pending) = state.pending.as_mut() {
             if !pending.admitted { pending.rejected = Some("An editor closed during spot preparation. Select the spot again.".into()); }
@@ -53,6 +56,7 @@ impl EditorBarrier {
     /// Call only for an actually destroyed native window, never on a heartbeat.
     pub fn destroyed(&self, label: &str) -> Result<(), String> {
         let mut state = self.state.lock().map_err(|_| "Editor registry unavailable")?;
+        state.epoch=state.epoch.checked_add(1).ok_or("Editor epoch exhausted")?;
         state.editors.remove(label);
         if let Some(pending) = state.pending.as_mut() {
             if !pending.admitted && pending.members.contains_key(label) {
@@ -62,9 +66,16 @@ impl EditorBarrier {
         self.changed.notify_all(); Ok(())
     }
     pub fn begin(&self, operation: &str, generation: &str, draft: &str, revision: u64, open_editors: &[String]) -> Result<String, String> {
+        self.begin_checked(operation,generation,draft,revision,open_editors,None)
+    }
+    pub fn begin_at_epoch(&self, operation:&str,generation:&str,draft:&str,revision:u64,open_editors:&[String],expected_epoch:u64)->Result<String,String>{
+        self.begin_checked(operation,generation,draft,revision,open_editors,Some(expected_epoch))
+    }
+    fn begin_checked(&self,operation:&str,generation:&str,draft:&str,revision:u64,open_editors:&[String],expected_epoch:Option<u64>)->Result<String,String>{
         uuid(operation)?; uuid(generation)?; uuid(draft)?;
         if revision > 9_007_199_254_740_991 { return Err("Invalid draft revision.".into()); }
         let mut state = self.state.lock().map_err(|_| "Editor registry unavailable")?;
+        if expected_epoch.is_some_and(|epoch|epoch!=state.epoch){return Err("An editor operation or membership changed before metadata admission.".into());}
         if state.pending.is_some() { return Err("Another spot activation is still in progress.".into()); }
         let mut members = BTreeMap::new();
         for label in open_editors.iter().filter(|label| editor_role(label)) {
@@ -78,6 +89,7 @@ impl EditorBarrier {
         }
         let barrier = uuid::Uuid::new_v4().to_string();
         let deadline = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|_| "Editor clock unavailable")?.as_millis() as u64 + 3000;
+        state.epoch=state.epoch.checked_add(1).ok_or("Editor epoch exhausted")?;
         state.pending = Some(Pending { operation:operation.into(), barrier:barrier.clone(), generation:generation.into(), draft:draft.into(),
             revision, deadline, members, admitted:false, rejected:None });
         Ok(barrier)
@@ -119,7 +131,7 @@ impl EditorBarrier {
     /// Only the activation owner calls this after storing a terminal outcome.
     pub fn finish(&self, operation: &str) -> Result<(), String> {
         let mut state = self.state.lock().map_err(|_| "Editor registry unavailable")?;
-        if state.pending.as_ref().is_some_and(|pending| pending.operation == operation) { state.pending = None; }
+        if state.pending.as_ref().is_some_and(|pending| pending.operation == operation) { state.epoch=state.epoch.checked_add(1).ok_or("Editor epoch exhausted")?; state.pending = None; }
         self.changed.notify_all(); Ok(())
     }
 }
@@ -128,6 +140,16 @@ impl EditorBarrier {
 mod tests {
     use super::*;
     fn id() -> String { uuid::Uuid::new_v4().to_string() }
+    #[test]
+    fn automatic_admission_epoch_rejects_intervening_manual_transaction_and_membership_change(){
+        let owner=EditorBarrier::default();let instance=id();owner.register("main",&instance).unwrap();
+        let captured=owner.epoch().unwrap();let manual=id();
+        owner.begin(&manual,&id(),&id(),0,&["main".into()]).unwrap();owner.finish(&manual).unwrap();
+        assert!(owner.begin_at_epoch(&id(),&id(),&id(),0,&["main".into()],captured).is_err());
+        let current=owner.epoch().unwrap();owner.register("main",&id()).unwrap();
+        assert!(owner.begin_at_epoch(&id(),&id(),&id(),0,&["main".into()],current).is_err());
+        assert_eq!(owner.snapshot().unwrap(),Value::Null);
+    }
     #[test]
     fn missing_editor_or_veto_prevents_admission_and_preserves_membership() {
         let owner = EditorBarrier::default(); let op = id(); let instance = id();

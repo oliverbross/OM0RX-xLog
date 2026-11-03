@@ -30,6 +30,32 @@ struct LiveLogbookAggregateQuery: Sendable {
     var group = ""
     var mode = ""
     var role = ""
+    var definition: LogbookQuery? = nil
+    var referenceTime = Date().timeIntervalSince1970
+    var programme = "dxcc"
+    var stationScope = ""
+    var band = ""
+    var unit = ""
+    var unitRole = ""
+    var dayOffset = 0
+    var scopeSearch = ""
+    var referenceDirectory = ""
+    var referenceVersion = ""
+    var selectionCount: Int? = nil
+
+    func request() throws -> LogbookAggregateRequest {
+        var result = try LogbookAggregateRequest.current(kind)
+        if kind == .contacts || kind == .localAwards || kind == .exportContacts {
+            result.query = definition; result.search = search
+            if kind == .contacts { result.offset = offset; result.limit = limit }
+            if kind == .exportContacts { result.limit=Int(Int32.max) }
+            result.referenceTime = referenceTime
+        }
+        if kind == .localAwards {
+            result.programme = programme; result.referenceDirectory = referenceDirectory; result.referenceVersion = referenceVersion
+        }
+        return result
+    }
 }
 
 struct LiveLogbookAggregateOwner: Sendable {
@@ -83,12 +109,16 @@ actor LiveLogbookAggregateReads {
     private let service: LiveLogbookMethods
     private let statisticsQueue = DispatchQueue(label: "xlog.logbook-statistics", qos: .utility)
     private let catalogueQueue = DispatchQueue(label: "xlog.logbook-catalogue", qos: .utility)
+    private let contactsQueue = DispatchQueue(label: "xlog.logbook-contacts", qos: .userInitiated)
+    private let exportQueue = DispatchQueue(label: "xlog.logbook-export", qos: .utility)
+    private let localAwardsQueue = DispatchQueue(label: "xlog.logbook-local-awards", qos: .utility)
     private let evaluate: LiveLogbookAggregateEvaluator
     private var epoch = UUID()
     private var suspended = 0
     private var terminal = false
-    // Fixed at two physical operations: one per kind. Cold stats cannot wait
-    // behind catalogue evaluation; retained windows still join identical work.
+    // One bounded operation per typed kind. Interactive pages cannot queue
+    // behind optional catalogue, local-award or frozen export calculations.
+    // Retained windows still join identical work through this single owner.
     private var active: [LogbookAggregateKind: Flight] = [:]
     // One small typed result for each kind, never contact arrays or shaped pages.
     private var cached: [LogbookAggregateKind: Cached] = [:]
@@ -108,10 +138,11 @@ actor LiveLogbookAggregateReads {
             guard suspended == 0 else { throw LiveLogbookAggregateChange.retired.failure }
             do {
                 let owner = try service.aggregateReadOwner(expectedGeneration: query.expectedGeneration)
-                let request = try LogbookAggregateRequest.current(query.kind)
+                let request = try query.request()
                 let key = Key(epoch: epoch, database: ObjectIdentifier(owner.database), generation: owner.generation,
                               authority: owner.authority, request: request)
                 if let value = cached[query.kind], value.key == key {
+                    await preparePresentation(value.result, query: query)
                     return LiveLogbookAggregateReply(payload: try service.renderAggregate(value.result, owner: owner, query: query), owner: owner)
                 }
 
@@ -121,7 +152,14 @@ actor LiveLogbookAggregateReads {
                     if running.key != key { running.cancellation.cancel() }
                 } else {
                     let cancellation = LogbookAggregateCancellation()
-                    let queue = query.kind == .statistics ? statisticsQueue : catalogueQueue
+                    let queue: DispatchQueue
+                    switch query.kind {
+                    case .statistics: queue = statisticsQueue
+                    case .catalogue: queue = catalogueQueue
+                    case .contacts: queue = contactsQueue
+                    case .exportContacts: queue = exportQueue
+                    case .localAwards: queue = localAwardsQueue
+                    }
                     let evaluate = evaluate, url = owner.database.url
                     let authority = owner.authority
                     let task = Task.detached(priority: .utility) {
@@ -143,6 +181,7 @@ actor LiveLogbookAggregateReads {
                     continue
                 }
                 let result = try completion.get()
+                await preparePresentation(result, query: query)
                 return LiveLogbookAggregateReply(payload: try service.renderAggregate(result, owner: owner, query: query), owner: owner)
             } catch {
                 guard let change = change(error) else { throw error }
@@ -189,7 +228,7 @@ actor LiveLogbookAggregateReads {
                 let result = try outcome.get()
                 guard result.request == flight.key.request else { throw LogbookDatabaseError.corruptRecord }
                 try service.acceptAggregate(result, owner: flight.owner)
-                cached[result.request.kind] = Cached(key: flight.key, result: result)
+                if result.request.kind != .exportContacts { cached[result.request.kind] = Cached(key: flight.key, result: result) }
                 completion = .success(result)
             } catch {
                 if error is CancellationError {
@@ -203,6 +242,16 @@ actor LiveLogbookAggregateReads {
         }
         flight.completion = completion
         return completion
+    }
+
+    private func preparePresentation(_ result: LogbookAggregateResult, query: LiveLogbookAggregateQuery) async {
+        guard case .localAwards(let value)=result.value else { return }
+        await withCheckedContinuation { continuation in
+            localAwardsQueue.async {
+                value.preparePresentation(scope:query.stationScope,band:query.band,mode:query.mode,role:query.role)
+                continuation.resume()
+            }
+        }
     }
 
     private func change(_ error: Error) -> LiveLogbookAggregateChange? {

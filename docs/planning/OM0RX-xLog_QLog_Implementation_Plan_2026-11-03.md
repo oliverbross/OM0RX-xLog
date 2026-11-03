@@ -10,7 +10,7 @@
 **Planning baseline:** `main` at `f15dbb11eb727419689869f8f4907ed9b4809970`  
 **Installed macOS baseline recorded by the repository:** 1.4.8, package source `2ae0939d1a69fb8c8210a24880b04929b8d46d7c`  
 **Comparison reference:** QLog 0.54.1, source `40b1651a644e557ec1579d52c5c0cb9a422a2627`  
-**Programme status:** Implementation in progress on canonical `main`; baseline synchronized and clean at `f15dbb11eb727419689869f8f4907ed9b4809970` on 3 November 2026. Existing baseline functionality is not counted as new delivery.  
+**Programme status:** All nine selected epics implemented on canonical `main`; integrated validation and exact-source candidate acceptance in progress. Baseline synchronized and clean at `f15dbb11eb727419689869f8f4907ed9b4809970` on 3 November 2026; existing baseline functionality is not counted as new delivery.
 **Suggested canonical location after handoff:** `docs/planning/OM0RX-xLog_QLog_Implementation_Plan_2026-11-03.md`
 
 This is one complete handoff: scope, dependencies, source integration points, feature specifications, acceptance criteria, delivery tracking and the copy-ready Codex execution prompt. The final section contains the prompt to paste into Codex after attaching this file or placing it in the repository.
@@ -241,12 +241,12 @@ Each executed query carries the workspace identity and relevant contact revision
 
 | Task | Deliverable | Depends on | State | Evidence/commit |
 |---|---|---|---|---|
-| EP-01.1 | Inventory current fetch/count/export/filter storage contracts; record the agreed query schema and supported fields/operators | Baseline reconciliation | Planned | — |
-| EP-01.2 | Implement one native typed predicate/compiler and bounded validation; add the measured projection/index changes required by chosen fields | EP-01.1 | Planned | — |
-| EP-01.3 | Version and migrate saved-query persistence and backup restoration without losing existing text searches | EP-01.1 | Planned | — |
-| EP-01.4 | Build compact filter editor, human-readable summary, presets and complete save/clone/edit/apply behavior | EP-01.2, EP-01.3 | Planned | — |
-| EP-01.5 | Use the same query in list/count and current ADI/ADX export; expose scoped evidence-query support for awards | EP-01.2 | Planned | — |
-| EP-01.6 | Verify semantics, migration, cancellation and measured large-log behavior; document operator examples | EP-01.4, EP-01.5 | Planned | — |
+| EP-01.1 | Inventory current fetch/count/export/filter storage contracts; record the agreed query schema and supported fields/operators | Baseline reconciliation | Implemented | Source implemented; integrated acceptance below |
+| EP-01.2 | Implement one native typed predicate/compiler and bounded validation; add the measured projection/index changes required by chosen fields | EP-01.1 | Implemented | Source implemented; integrated acceptance below |
+| EP-01.3 | Version and migrate saved-query persistence and backup restoration without losing existing text searches | EP-01.1 | Implemented | Source implemented; integrated acceptance below |
+| EP-01.4 | Build compact filter editor, human-readable summary, presets and complete save/clone/edit/apply behavior | EP-01.2, EP-01.3 | Implemented | Source implemented; integrated acceptance below |
+| EP-01.5 | Use the same query in list/count and current ADI/ADX export; expose scoped evidence-query support for awards | EP-01.2 | Implemented | Source implemented; integrated acceptance below |
+| EP-01.6 | Verify semantics, migration, cancellation and measured large-log behavior; document operator examples | EP-01.4, EP-01.5 | Implemented | Source implemented; integrated acceptance below |
 
 #### Acceptance scenarios
 
@@ -316,13 +316,13 @@ For each calculator keep a compact rule manifest: programme/variant ID, rules ve
 
 | Task | Deliverable | Depends on | State | Evidence/commit |
 |---|---|---|---|---|
-| EP-02.1 | Inventory basic and specialist progress, candidate prefilters, compact projections and cache keys; define shared evidence-result contract | Baseline reconciliation | Planned | — |
-| EP-02.2 | Add scoped paged supporting-QSO query and temporary drilldown/navigation state for existing progress | EP-02.1, EP-01.2 / EP-01.5 | Planned | — |
-| EP-02.3 | Add usable detailed matrices and correct distinct-unit versus QSO counts; preserve nonselected award behavior | EP-02.2 | Planned | — |
-| EP-02.4 | Implement WAC and WPX local rule packs, verified rule manifests and exception fixtures | EP-02.1 | Planned | — |
-| EP-02.5 | Implement IOTA local progress and operation-evidence distinctions | EP-02.1 | Planned | — |
-| EP-02.6 | Implement separate POTA/SOTA/WWFF local role-based progress and unknown-data outcomes | EP-02.1; EP-09 enriches new own-activation context but is not required for historical explicit references | Planned | — |
-| EP-02.7 | Update registry capability state, aggregate invalidation, source links and coverage documentation; reconcile new calculations with all-contact fixture oracle | EP-02.3 / EP-02.4 / EP-02.5 / EP-02.6 | Planned | — |
+| EP-02.1 | Inventory basic and specialist progress, candidate prefilters, compact projections and cache keys; define shared evidence-result contract | Baseline reconciliation | Implemented | Source implemented; integrated acceptance below |
+| EP-02.2 | Add scoped paged supporting-QSO query and temporary drilldown/navigation state for existing progress | EP-02.1, EP-01.2 / EP-01.5 | Implemented | Source implemented; integrated acceptance below |
+| EP-02.3 | Add usable detailed matrices and correct distinct-unit versus QSO counts; preserve nonselected award behavior | EP-02.2 | Implemented | Source implemented; integrated acceptance below |
+| EP-02.4 | Implement WAC and WPX local rule packs, verified rule manifests and exception fixtures | EP-02.1 | Implemented | Source implemented; integrated acceptance below |
+| EP-02.5 | Implement IOTA local progress and operation-evidence distinctions | EP-02.1 | Implemented | Source implemented; integrated acceptance below |
+| EP-02.6 | Implement separate POTA/SOTA/WWFF local role-based progress and unknown-data outcomes | EP-02.1; EP-09 enriches new own-activation context but is not required for historical explicit references | Implemented | Source implemented; integrated acceptance below |
+| EP-02.7 | Update registry capability state, aggregate invalidation, source links and coverage documentation; reconcile new calculations with all-contact fixture oracle | EP-02.3 / EP-02.4 / EP-02.5 / EP-02.6 | Implemented | Source implemented; integrated acceptance below |
 
 #### Acceptance scenarios
 
@@ -382,12 +382,12 @@ Version the alert configuration and default every added criterion to unrestricte
 
 | Task | Deliverable | Dependency | State | Evidence/commit |
 |---|---|---|---|---|
-| EP-03.1 | Evidence inventory; exact DX/spotter field mapping, missing-data semantics, source-identity path | Baseline review | Planned | — |
-| EP-03.2 | Versioned rule fields, normalization, migration and evaluator | EP-03.1 | Planned | — |
-| EP-03.3 | Rule builder, summary and read-only match preview | EP-03.2 | Planned | — |
-| EP-03.4 | Retained observation reference and exact-source action resolver | EP-03.1 | Planned | — |
-| EP-03.5 | Review action and existing Tune & load integration in table/cards | EP-03.3, EP-03.4 | Planned | — |
-| EP-03.6 | Focused validation, user help and evidence ledger | Integrated epic | Planned | — |
+| EP-03.1 | Evidence inventory; exact DX/spotter field mapping, missing-data semantics, source-identity path | Baseline review | Implemented | Source implemented; integrated acceptance below |
+| EP-03.2 | Versioned rule fields, normalization, migration and evaluator | EP-03.1 | Implemented | Source implemented; integrated acceptance below |
+| EP-03.3 | Rule builder, summary and read-only match preview | EP-03.2 | Implemented | Source implemented; integrated acceptance below |
+| EP-03.4 | Retained observation reference and exact-source action resolver | EP-03.1 | Implemented | Source implemented; integrated acceptance below |
+| EP-03.5 | Review action and existing Tune & load integration in table/cards | EP-03.3, EP-03.4 | Implemented | Source implemented; integrated acceptance below |
+| EP-03.6 | Focused validation, user help and evidence ledger | Integrated epic | Implemented | Source implemented; integrated acceptance below |
 
 #### Acceptance scenarios
 
@@ -427,11 +427,11 @@ QLog reference: [Callsign Whisperer](https://github.com/foldynl/QLog/wiki/Main-W
 
 | Task | Deliverable | Dependency | State | Evidence/commit |
 |---|---|---|---|---|
-| EP-07.1 | Candidate model and bounded projection using retained RX/spot evidence | Baseline review | Planned | — |
-| EP-07.2 | Native admission and canonical callsign-only apply route | EP-07.1 | Planned | — |
-| EP-07.3 | Desk/detached hint, candidate choice and opt-in setting | EP-07.1, EP-07.2 | Planned | — |
-| EP-07.4 | Register `accept-nearby-callsign` action when shortcut registry is available | EP-07.2–3 and EP-15.2 registry contract; button works independently | Planned | — |
-| EP-07.5 | Focused operator-flow tests and release evidence | Integrated epic | Planned | — |
+| EP-07.1 | Candidate model and bounded projection using retained RX/spot evidence | Baseline review | Implemented | Source implemented; integrated acceptance below |
+| EP-07.2 | Native admission and canonical callsign-only apply route | EP-07.1 | Implemented | Source implemented; integrated acceptance below |
+| EP-07.3 | Desk/detached hint, candidate choice and opt-in setting | EP-07.1, EP-07.2 | Implemented | Source implemented; integrated acceptance below |
+| EP-07.4 | Register `accept-nearby-callsign` action when shortcut registry is available | EP-07.2–3 and EP-15.2 registry contract; button works independently | Implemented | Source implemented; integrated acceptance below |
+| EP-07.5 | Focused operator-flow tests and release evidence | Integrated epic | Implemented | Source implemented; integrated acceptance below |
 
 #### Acceptance scenarios
 
@@ -481,12 +481,12 @@ Migrate the existing descriptive record into one retained profile without changi
 
 | Task | Deliverable | Dependency | State | Evidence/commit |
 | --- | --- | --- |---|---|
-| EP-08.1 | Schema, stable IDs, migration and snapshot/interchange decision | Programme baseline review | Planned | — |
-| EP-08.2 | Profile CRUD and revisioned editor on existing equipment settings | EP-08.1 | Planned | — |
-| EP-08.3 | Deterministic TX-band selection, manual override and active-radio behavior | EP-08.1–2 | Planned | — |
-| EP-08.4 | Existing rotor association and offset transform with no implicit movement | EP-08.1–3 | Planned | — |
-| EP-08.5 | Canonical draft/save and backup; expose profile snapshot contract for portable integration | EP-08.1; core delivery is independent of EP-09 | Planned | — |
-| EP-08.6 | Focused acceptance, user help and evidence entry | EP-08.2–5 | Planned | — |
+| EP-08.1 | Schema, stable IDs, migration and snapshot/interchange decision | Programme baseline review | Implemented | Source implemented; integrated acceptance below |
+| EP-08.2 | Profile CRUD and revisioned editor on existing equipment settings | EP-08.1 | Implemented | Source implemented; integrated acceptance below |
+| EP-08.3 | Deterministic TX-band selection, manual override and active-radio behavior | EP-08.1–2 | Implemented | Source implemented; integrated acceptance below |
+| EP-08.4 | Existing rotor association and offset transform with no implicit movement | EP-08.1–3 | Implemented | Source implemented; integrated acceptance below |
+| EP-08.5 | Canonical draft/save and backup; expose profile snapshot contract for portable integration | EP-08.1; core delivery is independent of EP-09 | Implemented | Source implemented; integrated acceptance below |
+| EP-08.6 | Focused acceptance, user help and evidence entry | EP-08.2–5 | Implemented | Source implemented; integrated acceptance below |
 
 #### Acceptance scenarios
 
@@ -559,12 +559,12 @@ For SOTA, IOTA, WWFF and castle references in this phase, preserve contact and o
 
 | Task | Deliverable | Dependency | State | Evidence/commit |
 | --- | --- | --- |---|---|
-| EP-09.1 | Current official POTA source record and fixture matrix; field precedence decisions | Baseline review | Planned | — |
-| EP-09.2 | Portable preset/context schema, migration and minimal editor | EP-09.1; agree shared snapshot contract with EP-08.1 | Planned | — |
-| EP-09.3 | Canonical draft lifecycle, banner, start/end/restart behavior | EP-09.2 | Planned | — |
-| EP-09.4 | Read-only selection/preview and deterministic POTA projection | EP-09.1; EP-01 filtered snapshot contract | Planned | — |
-| EP-09.5 | Multi-file staged export and parser round-trip; integrate optional EP-08 antenna reference | EP-09.3–4; antenna adapter additionally uses EP-08.1/5, without blocking antenna-free export | Planned | — |
-| EP-09.6 | Focused operator flow, preservation evidence and help | EP-09.2–5 | Planned | — |
+| EP-09.1 | Current official POTA source record and fixture matrix; field precedence decisions | Baseline review | Implemented | Source implemented; integrated acceptance below |
+| EP-09.2 | Portable preset/context schema, migration and minimal editor | EP-09.1; agree shared snapshot contract with EP-08.1 | Implemented | Source implemented; integrated acceptance below |
+| EP-09.3 | Canonical draft lifecycle, banner, start/end/restart behavior | EP-09.2 | Implemented | Source implemented; integrated acceptance below |
+| EP-09.4 | Read-only selection/preview and deterministic POTA projection | EP-09.1; EP-01 filtered snapshot contract | Implemented | Source implemented; integrated acceptance below |
+| EP-09.5 | Multi-file staged export and parser round-trip; integrate optional EP-08 antenna reference | EP-09.3–4; antenna adapter additionally uses EP-08.1/5, without blocking antenna-free export | Implemented | Source implemented; integrated acceptance below |
+| EP-09.6 | Focused operator flow, preservation evidence and help | EP-09.2–5 | Implemented | Source implemented; integrated acceptance below |
 
 #### Acceptance scenarios
 
@@ -609,10 +609,10 @@ Retain existing raw/source identity and add a bounded map projection containing 
 
 | Task | Deliverable | Dependency | State | Evidence/commit |
 | --- | --- | --- |---|---|
-| EP-12.1 | Existing-feed subscription audit, normalized bounded map projection and location rules | Baseline review | Planned | — |
-| EP-12.2 | One retained feed for map/sidebar/native windows; generation and freshness handling | EP-12.1 | Planned | — |
-| EP-12.3 | World Map layer, passive inspector, source status and optional sidebar handoff | EP-12.1–2 | Planned | — |
-| EP-12.4 | Bounded load, offline behavior, focused acceptance and help | EP-12.2–3 | Planned | — |
+| EP-12.1 | Existing-feed subscription audit, normalized bounded map projection and location rules | Baseline review | Implemented | Source implemented; integrated acceptance below |
+| EP-12.2 | One retained feed for map/sidebar/native windows; generation and freshness handling | EP-12.1 | Implemented | Source implemented; integrated acceptance below |
+| EP-12.3 | World Map layer, passive inspector, source status and optional sidebar handoff | EP-12.1–2 | Implemented | Source implemented; integrated acceptance below |
+| EP-12.4 | Bounded load, offline behavior, focused acceptance and help | EP-12.2–3 | Implemented | Source implemented; integrated acceptance below |
 
 No dependency on EP-02 award calculations, EP-08 antenna profiles or a new decoder exists. This can be developed independently of the data/query work after shared UI contracts are agreed.
 
@@ -654,12 +654,12 @@ QLog reference: [Initial Setup — GUI shortcuts](https://github.com/foldynl/QLo
 
 | Task | Deliverable | Dependency | State | Evidence/commit |
 |---|---|---|---|---|
-| EP-15.1 | Inventory existing handlers/native accelerators and publish reserved/context conflict table | Baseline review | Planned | — |
-| EP-15.2 | Action registry, chord normalization and contextual conflict validator | EP-15.1 | Planned | — |
-| EP-15.3 | Versioned preference migration, reset and backup inclusion | EP-15.2 | Planned | — |
-| EP-15.4 | Settings capture/editor, discoverable help and effective binding labels | EP-15.2, EP-15.3 | Planned | — |
-| EP-15.5 | Bind existing normal actions once; add EP-07 action when available | EP-15.4; EP-07.2–3 only for nearby binding, not completion of EP-07.4 | Planned | — |
-| EP-15.6 | Cross-context regression and representative native-window acceptance | Integrated epic | Planned | — |
+| EP-15.1 | Inventory existing handlers/native accelerators and publish reserved/context conflict table | Baseline review | Implemented | Source implemented; integrated acceptance below |
+| EP-15.2 | Action registry, chord normalization and contextual conflict validator | EP-15.1 | Implemented | Source implemented; integrated acceptance below |
+| EP-15.3 | Versioned preference migration, reset and backup inclusion | EP-15.2 | Implemented | Source implemented; integrated acceptance below |
+| EP-15.4 | Settings capture/editor, discoverable help and effective binding labels | EP-15.2, EP-15.3 | Implemented | Source implemented; integrated acceptance below |
+| EP-15.5 | Bind existing normal actions once; add EP-07 action when available | EP-15.4; EP-07.2–3 only for nearby binding, not completion of EP-07.4 | Implemented | Source implemented; integrated acceptance below |
+| EP-15.6 | Cross-context regression and representative native-window acceptance | Integrated epic | Implemented | Source implemented; integrated acceptance below |
 
 #### Acceptance scenarios
 
@@ -694,12 +694,12 @@ Relevant anchors: `prototype/src/live/BandMaps.tsx` renders allocations, frequen
 
 | Task | Deliverable | Dependency | State | Evidence/commit |
 |---|---|---|---|---|
-| EP-16.1 | Existing geometry/preference inventory and exact official Region 1/3/IBP source record | Baseline review | Planned | — |
-| EP-16.2 | Guide schema, validation, built-in/custom migration and scoped persistence | EP-16.1 | Planned | — |
-| EP-16.3 | Editor, selection/legend and geometry-integrated guide layer | EP-16.2 | Planned | — |
-| EP-16.4 | Personal/IBP marker presentation and explicit existing-owner tune adapter | EP-16.2, EP-16.3 | Planned | — |
-| EP-16.5 | JSON import/export, conflict preview and backup round trip | EP-16.2 | Planned | — |
-| EP-16.6 | Geometry, behavior and persistence acceptance; operator help | Integrated epic | Planned | — |
+| EP-16.1 | Existing geometry/preference inventory and exact official Region 1/3/IBP source record | Baseline review | Implemented | Source implemented; integrated acceptance below |
+| EP-16.2 | Guide schema, validation, built-in/custom migration and scoped persistence | EP-16.1 | Implemented | Source implemented; integrated acceptance below |
+| EP-16.3 | Editor, selection/legend and geometry-integrated guide layer | EP-16.2 | Implemented | Source implemented; integrated acceptance below |
+| EP-16.4 | Personal/IBP marker presentation and explicit existing-owner tune adapter | EP-16.2, EP-16.3 | Implemented | Source implemented; integrated acceptance below |
+| EP-16.5 | JSON import/export, conflict preview and backup round trip | EP-16.2 | Implemented | Source implemented; integrated acceptance below |
+| EP-16.6 | Geometry, behavior and persistence acceptance; operator help | Integrated epic | Implemented | Source implemented; integrated acceptance below |
 
 #### Acceptance scenarios
 
@@ -836,15 +836,15 @@ Relative complexity below is a planning judgment, not a duration or price estima
 
 | Epic | Priority/milestone | Relative complexity | Initial state | Acceptance set | Evidence/commit |
 |---|---|---|---|---|---|
-| EP-01 | P1 / M1 | L | Planned | A01-01–05 | — |
-| EP-02 | P1 / M1 and M3 | XL | Planned | A02-01–06 | — |
-| EP-03 | P1 / M2 | L | Planned | A03-01–06 | — |
-| EP-07 | P1 / M2 | M | Planned | A07-01–06 | — |
-| EP-08 | P2 / M4 | L | Planned | A08-01–07 | — |
-| EP-09 | P2 / M4 | L | Planned | A09-01–09 | — |
-| EP-12 | P2 / M5 | M | Planned | A12-01–08 | — |
-| EP-15 | P1 support / M2 | L | Planned | A15-01–06 | — |
-| EP-16 | P2 / M5 | M | Planned | A16-01–06 | — |
+| EP-01 | P1 / M1 | L | Implemented | A01-01–05 | Integrated acceptance below |
+| EP-02 | P1 / M1 and M3 | XL | Implemented | A02-01–06 | Integrated acceptance below |
+| EP-03 | P1 / M2 | L | Implemented | A03-01–06 | Integrated acceptance below |
+| EP-07 | P1 / M2 | M | Implemented | A07-01–06 | Integrated acceptance below |
+| EP-08 | P2 / M4 | L | Implemented | A08-01–07 | Integrated acceptance below |
+| EP-09 | P2 / M4 | L | Implemented | A09-01–09 | Integrated acceptance below |
+| EP-12 | P2 / M5 | M | Implemented | A12-01–08 | Integrated acceptance below |
+| EP-15 | P1 support / M2 | L | Implemented | A15-01–06 | Integrated acceptance below |
+| EP-16 | P2 / M5 | M | Implemented | A16-01–06 | Integrated acceptance below |
 
 ### 8.3 Evidence entries
 
@@ -853,11 +853,11 @@ Keep concise entries here or link existing repository acceptance documents from 
 | Entry | Tasks/acceptance covered | Commit/environment | Command or operator action | Observed result and limitation |
 |---|---|---|---|---|
 | Baseline | M0 | `f15dbb11eb727419689869f8f4907ed9b4809970`, canonical macOS checkout | `git status --short --branch`; `git fetch origin`; `git pull --ff-only origin main`; read complete plan, AGENTS and development workflow | Clean and already current; no post-baseline delta. Exact supplied plan imported before tracking edits. Existing CW-skimmer worktree retained untouched. Integrator owns EP-01/02/shared release; three Sol 6.1 high agents own EP-03/07/15, EP-08/09 and EP-12/16. |
-| Query/award evidence | EP-01/02 | Not yet run | Focused semantic suites and actual drilldown path | Not started |
-| Operator actions | EP-03/07/15 | Not yet run | Retained-source/draft/context suites and native command flow | Not started |
-| Station/portable | EP-08/09 | Not yet run | Migration/snapshot/export fixtures and actual portable workflow | Not started |
-| Geographic/guide views | EP-12/16 | Not yet run | Shared-feed/geometry/persistence suites and actual map surfaces | Not started |
-| Final candidate | M6 | Version/source SHA not yet assigned | Required integrated gates, migration/restore and isolated native acceptance | Not started |
+| Query/award evidence | EP-01/02 | Integrated source after `d4505703`; shared commit pending | `swift test --scratch-path .build/qlog-integration-core --jobs 2 --no-parallel`; affected native/frontend suites | Full normal Swift passed712 tests (333 XCTest +379 Swift Testing); `swift build` passed. Typed query/evidence/export native integration passed in focused30-test run; later fractional-UTC/reference fingerprint additions are in final portable gate. Controlled Logbook34 rerun passed after earlier concurrent-load timeouts, with assertions unchanged. Award cell/Back/filter UI33 passed. |
+| Operator actions | EP-03/07/15 | Integrated source after `d4505703`; shared commit pending | `cargo test --locked --jobs 2`; focused native/frontend admission suites | Full Rust1032 unit +31 integration tests passed. Explicit pinned Hamlib dummy31 and contesting-test admission7 passed. Native nearby5/barrier6 and focused operator workflow fixtures passed; capture/preference follow-up14 passed. Detailed [owner evidence](../audits/qlog-implementation-2026-11-03/operator-actions.md); native-window acceptance pending. |
+| Station/portable | EP-08/09 | `26e6a5ae`, `e316ae04`, `2ee3eb60`, `7043d4c6`, `657c4337`, `dc7c26ce` | Normal Swift12 antenna/POTA cases; actual portable owner4; station UI14; Rust publication3 and current precedence/QSY6 | All passed. Owner backup/restore/restart preserves stable profile IDs, active context/own DXCC, saved QSO and captured draft; portable10W survives existing100W power state/context end. Typed APP/USERDEF output and bounded cross-product verified. Shared latest native hooks included in integration commit. |
+| Geographic/guide views | EP-12/16 | `e94c6c1e`, `8de0b7a5`, `9ae427b8`, `b287f1a4`, `d4505703` | Full Rust, normal Swift and focused map/guide suites | Source contracts passed: retained RBN/out-of-order/expiry; native Follow15 +marker5; scoped guide backup1; guide bounds and compact cardinality fixtures. Full native gates include those current owners. Isolated candidate/native visual acceptance pending. [Source/delivery record](QLOG_MAP_GUIDES_DELIVERY_2026-11-03.md). |
+| Final candidate | M6 | Integrated source; version/provenance next | Normal/portable Swift, Rust, Python guards, full frontend and build | Normal Swift712/build and portable diagnostic1943 passed (receipt3bc07e6c-967c-4cbb-9fe5-9c2ef97919b7). Rust1063 +explicit dummy31 +feature7 passed; latest antenna/QSY/precedence6 and barrier6 passed. Six repository Python guard scripts passed. Initial frontend5061/5079:18 failures repaired; all eight affected suites and dependent regressions pass (115/113/85/100/14 groups overlap, not additive). Final full frontend rerun active. `npm run build` passed all unchanged window JS/CSS gates (74ba9f46b53290ce). Packaging/scale/native acceptance remain pending. |
 
 ### 8.4 Decision and blocker log
 
@@ -871,6 +871,15 @@ Record only decisions that affect semantics, scope, compatibility or a real trad
 | D-04 | POTA multi-reference output expands only at export | One physical QSO stays one local row; derive per-own-park/per-contacted-park records | EP-09 | Agreed design |
 | D-05 | Shortcut and nearby-call integration has no epic-level cycle | Build registry contract and callsign button independently, then bind them | EP-07/15 | Agreed sequence |
 | D-06 | Runtime estimates and exact next version are not yet evidence-based | Select from actual current repository state; record at execution/release | M0/M6 | Execution decision |
+| D-07 | Query semantics and scale ownership | Legacy quick text retains LIKE; structured text is literal Unicode-normalized, top-level all/any, one native bound compiler. UTC relative periods capture one reference instant. Existing cancellable aggregate readers own complete-log queries and award evidence. Specialist candidates remain specialist; global programmes get an all-world compact projection. | EP-01/02 | Implemented; validation in progress |
+| D-08 | Draft defaults need retained intent, not a new empty-field heuristic | Add `operatingDefaultsMutable`: legacy drafts default false; new blank drafts true; user replacement freezes defaults; native telemetry/power preserve provenance. Profile/context changes never retag historical QSOs. | EP-08/09 | Implemented; integration validation pending |
+| D-09 | POTA file previews can exceed IPC frame budgets | Retain native immutable preview under existing export token; return bounded metadata/issue pages and 12,000-byte base64 file chunks. Explicit reviewed publication stages a new file set without overwriting unrelated output. | EP-09 | Implemented; integration validation pending |
+| D-10 | Foreground reads must not share optional catalogue execution lane | Existing aggregate owner retains one bounded physical read per kind, with dedicated contacts/statistics/catalogue/local-awards/export queues. Held-catalogue regression exposed and now protects the foreground path. | EP-01/02 | Implemented; regression rerun pending |
+| D-11 | Guide preference bounds must fit real CAS frames | Whole persisted custom-guide document capped at 10,240 UTF-8 bytes; exact escaped CAS envelope checked against native 32,768-byte IPC frame. Import preview ceiling remains128KiB; cardinality limits16 profiles/128 ranges/128 markers apply within aggregate budget. | EP-16 | Verified focused fixtures; `d4505703` |
+| D-12 | Prefix rules without a verified sponsor interpretation | Unsupported/no-digit prefixes stay in inspectable unclassified evidence; full linked WPX2017 PDF unavailable. Published ordinary/portable and listed special cases, band targets and complete local progress still ship. | EP-02 | Bounded eligibility limitation; no local-view blocker |
+| D-13 | Portable power and lossless bounded export | Capture portable default power with each draft; context End never retags it. Preflight POTA cross-product at32MiB/50000 derived records before expansion, never clip. Preserve typed APP/USERDEF metadata and partition incompatible schemas into separate files. Raw activation-day physical-row counts explicitly exclude duplicate/eligibility assertions. | EP-08/09 | Implemented; final portable owner acceptance pending |
+| D-14 | Preserve existing window startup budgets | Conditional filter/POTA controls and settings editors load only when opened. Extract existing pure contest spot/view helpers from BandMaps renderer imports. Final startup JS: Logbook404786/405200, Cluster364545/401000, QSO380121/407000, Settings399774/408000 bytes. Styles remain eager per existing ordering gate. No limit raised. | Shared frontend | Verified build74ba9f46b53290ce |
+| D-15 | Shared activation terminal precedence | Explicit nearby, QSY and Follow admission retire only inactive prior antenna/other terminals under the shared barrier. Active/uncertain reservations remain retained. This prevents old metadata receipts masking current completion. | EP-07/08/shared draft | Focused native6 passed |
 
 ## 9. Programme definition of done
 

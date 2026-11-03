@@ -15,6 +15,8 @@ mod radio_slots;
 mod station_identity;
 mod alerts;
 mod dx_alerts;
+mod nearby_callsign;
+mod antenna_profile;
 mod propagation_session;
 mod map_context;
 mod hm_control;
@@ -263,21 +265,42 @@ mod contesting_test_native_admission_tests {
         assert!(super::acquire_scp_import_lease().is_ok());
     }
 }
+fn retained_activation_terminal(owners: impl IntoIterator<Item = Option<serde_json::Value>>) -> Option<serde_json::Value> {
+    owners.into_iter().flatten().find(|value| value["operationId"].is_string())
+}
 fn combined_activation_snapshot(app: &tauri::AppHandle) -> Result<serde_json::Value, String> {
     let spot = activation_owner(app).snapshot()?;
     let spot_active = spot["reservationActive"] == true
         || matches!(spot["phase"].as_str(), Some("preparing" | "draft_applied" | "tuning"));
     if spot_active { return Ok(spot); }
+    if let Some(antenna) = antenna_profile::status().filter(|value|value["reservationActive"]==true){return Ok(antenna);}
+    if let Some(nearby) = nearby_callsign::status().filter(|value| value["reservationActive"] == true) { return Ok(nearby); }
     if let Some(follow) = radio_follow::activation_snapshot().filter(|value| value["reservationActive"] == true) { return Ok(follow); }
     if let Some(read) = radio_read::snapshot().filter(|value| value["reservationActive"] == true) { return Ok(read); }
     if let Some(qsy) = qsy_clear::snapshot().filter(|value| value["reservationActive"] == true) { return Ok(qsy); }
     if radio_follow::snapshot().is_ok_and(|value| value["settlementPending"] == true) {
         if let Some(follow) = radio_follow::activation_snapshot() { return Ok(follow); }
     }
-    if let Some(read) = radio_read::snapshot().filter(|value| value["operationId"].is_string()) { return Ok(read); }
-    if let Some(qsy) = qsy_clear::snapshot().filter(|value| value["operationId"].is_string()) { return Ok(qsy); }
+    if let Some(terminal) = retained_activation_terminal([antenna_profile::status(), nearby_callsign::status(), radio_read::snapshot(), qsy_clear::snapshot()]) { return Ok(terminal); }
     if let Some(follow) = radio_follow::activation_snapshot() { return Ok(follow); }
     Ok(spot)
+}
+#[cfg(test)]
+mod activation_terminal_precedence_tests {
+    use serde_json::json;
+    #[test]
+    fn admitted_nearby_and_qsy_replace_retired_antenna_terminal_without_dropping_reservations() {
+        for intent in ["nearby-callsign", "qsy-clear"] {
+            let mut antenna = json!({"operationId":"old-antenna","phase":"confirmed","reservationActive":false});
+            assert!(crate::antenna_profile::retire_snapshot(&mut antenna));
+            let current = json!({"operationId":"new-operation","phase":"confirmed","reservationActive":false,"intent":intent});
+            assert_eq!(super::retained_activation_terminal([Some(antenna), Some(current.clone())]), Some(current));
+        }
+        let mut antenna = json!({"operationId":"active-antenna","phase":"uncertain","reservationActive":true});
+        let retained = antenna.clone();
+        assert!(!crate::antenna_profile::retire_snapshot(&mut antenna));
+        assert_eq!(antenna, retained);
+    }
 }
 fn validate_activation_reader(label: &str) -> Result<(), String> {
     if label == "chaser-dx" || spot_editor_barrier::editor_role(label) || spot_editor_barrier::activation_role(label) { Ok(()) }
@@ -301,6 +324,8 @@ fn validate_editor_transition(label: &str) -> Result<(), String> {
         if qsy_clear::reservation_active() {
             return Err("Wait for the QSY draft-clear outcome before closing or docking this editor.".into());
         }
+        if antenna_profile::active(){return Err("Wait for antenna metadata reconciliation before closing this editor.".into());}
+        if nearby_callsign::active() { return Err("Wait for nearby callsign reconciliation before closing this editor.".into()); }
         if radio_read::reservation_active() {
             return Err("Wait for the radio-read outcome before closing or docking this editor.".into());
         }
@@ -356,6 +381,8 @@ fn spot_activation_snapshot(window: tauri::WebviewWindow, app: tauri::AppHandle)
 #[tauri::command]
 fn spot_activation_status(window: tauri::WebviewWindow, app: tauri::AppHandle, operation_id: String) -> Result<serde_json::Value, String> {
     validate_activation_reader(window.label())?;
+    if antenna_profile::owns(&operation_id){return antenna_profile::status().ok_or("Antenna operation unavailable".into());}
+    if nearby_callsign::owns(&operation_id) { return nearby_callsign::status().ok_or("Nearby operation unavailable".into()); }
     if radio_follow::owns(&operation_id) { return Ok(radio_follow::activation_snapshot().unwrap()); }
     if radio_read::owns(&operation_id) { Ok(radio_read::snapshot().unwrap()) }
     else if qsy_clear::owns(&operation_id) { Ok(qsy_clear::snapshot().unwrap()) } else { activation_owner(&app).status(&operation_id) }
@@ -363,6 +390,8 @@ fn spot_activation_status(window: tauri::WebviewWindow, app: tauri::AppHandle, o
 #[tauri::command]
 async fn spot_activation_reconcile(window: tauri::WebviewWindow, app: tauri::AppHandle, operation_id: String) -> Result<serde_json::Value, String> {
     validate_activation_reader(window.label())?;
+    if antenna_profile::owns(&operation_id){return antenna_profile::reconcile(&operation_id);}
+    if nearby_callsign::owns(&operation_id) { return nearby_callsign::reconcile(&operation_id); }
     if radio_follow::owns(&operation_id) { return Ok(radio_follow::activation_snapshot().unwrap()); }
     if radio_read::owns(&operation_id) { return Ok(radio_read::snapshot().unwrap()); }
     if qsy_clear::owns(&operation_id) { return Ok(qsy_clear::snapshot().unwrap()); }
@@ -374,13 +403,53 @@ async fn spot_editor_state(window: tauri::WebviewWindow) -> Result<serde_json::V
     if !spot_editor_barrier::editor_role(window.label()) { return Err("This window is not a QSO editor.".into()); }
     tauri::async_runtime::spawn_blocking(spot_activation_backend::canonical_editor_state).await.map_err(|_| "Draft read task failed".to_string())?
 }
+static NORMAL_SHORTCUT_CAPTURE: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+#[tauri::command]
+fn normal_shortcut_capture(window:tauri::WebviewWindow,active:bool,request_id:String)->Result<serde_json::Value,String>{
+    if !matches!(window.label(),"main"|"settings"){return Err("Shortcut capture belongs to Settings.".into());}
+    uuid::Uuid::parse_str(&request_id).map_err(|_|"Invalid shortcut capture request identity")?;
+    let mut windows=NORMAL_SHORTCUT_CAPTURE.lock().map_err(|_|"Shortcut capture unavailable")?;
+    windows.retain(|label|label!=window.label());
+    if active {windows.push(window.label().into());} Ok(serde_json::json!({"active":active,"requestId":request_id}))
+}
+fn normal_shortcut_is_capturing(app:&tauri::AppHandle)->bool{
+    NORMAL_SHORTCUT_CAPTURE.lock().map(|windows|windows.iter().any(|label|app.get_webview_window(label).is_some_and(|window|window.is_focused().unwrap_or(false)))).unwrap_or(false)
+}
+#[tauri::command]
+async fn normal_command_preferences(window:tauri::WebviewWindow)->Result<serde_json::Value,String>{
+    if !matches!(window.label(),"main"|"log-qso"|"settings"){return Err("Normal shortcuts unavailable in this window.".into());}
+    tauri::async_runtime::spawn_blocking(||radio_read::NativeBackend::call(worker::generation(),"workspace_preferences_load",serde_json::json!({}))).await.map_err(|_|"Shortcut preferences unavailable".to_string())?
+}
+#[tauri::command]
+async fn normal_command_navigate(window:tauri::WebviewWindow,app:tauri::AppHandle,action:String)->Result<(),String>{
+    if !matches!(window.label(),"main"|"log-qso"){return Err("Normal commands are unavailable in this window.".into());}
+    let admission=operating_module::owner()?.admit_selected(operating_module::OperatingModule::NormalLogging)?;
+    if action=="open-alerts" { let _admission=admission; return open_detached_workspace_with_presentation(app,"alerts".into(),PresentationRequest::claim(PresentationIntent::Focus)?).await; }
+    let screen=match action.as_str(){"open-logbook"=>"logbook","open-world-map"=>"world-map","open-band-maps"=>"band-maps","open-awards"=>"awards",_=>return Err("Unknown normal navigation action.".into())};
+    let _admission=admission; navigate_workspace(app,screen.into()).await
+}
+
+#[tauri::command]
+async fn nearby_callsign_snapshot(window:tauri::WebviewWindow,app:tauri::AppHandle)->Result<serde_json::Value,String>{
+    if !matches!(window.label(),"main"|"log-qso") {return Err("Nearby callsigns belong to the live Normal Logging entry.".into());}
+    let _admission=operating_module::owner()?.admit_selected(operating_module::OperatingModule::NormalLogging)?;
+    tauri::async_runtime::spawn_blocking(move||nearby_callsign::snapshot(&app)).await.map_err(|_|"Nearby projection unavailable".to_string())?
+}
+#[tauri::command]
+async fn nearby_callsign_accept(window:tauri::WebviewWindow,app:tauri::AppHandle,state:tauri::State<'_,acceptance::Acceptance>,operation_id:String,candidate:nearby_callsign::Candidate)->Result<serde_json::Value,String>{
+    if !matches!(window.label(),"main"|"log-qso") || runtime_profile::isolated(state.path.is_some()) || APP_EXITING.load(Ordering::Acquire) {return Err("Nearby acceptance unavailable in this window.".into());}
+    let admission=operating_module::owner()?.admit_selected(operating_module::OperatingModule::NormalLogging)?;
+    let _=activation_owner(&app);
+    antenna_profile::retire();qsy_clear::retire_terminal();radio_read::retire_terminal();
+    tauri::async_runtime::spawn_blocking(move||{let _admission=admission;nearby_callsign::accept(&operation_id,candidate)}).await.map_err(|_|"Nearby acknowledgement unavailable; inspect the current draft.".to_string())?
+}
 #[tauri::command]
 async fn activate_spot(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>,
     operation_id: String, source_epoch: String, spot_id: String, spot_version: String) -> Result<serde_json::Value, String> {
     validate_spot_effect(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
     let _module_admission = operating_module::owner()?.admit_selected(operating_module::OperatingModule::NormalLogging)?;
     radio_follow::revoke_silently();
-    qsy_clear::retire_terminal(); radio_read::retire_terminal();
+    antenna_profile::retire(); nearby_callsign::retire(); qsy_clear::retire_terminal(); radio_read::retire_terminal();
     let owner = activation_owner(&app);
     let request = spot_activation::Request { operation_id, source_epoch, spot_id, spot_version };
     tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission; owner.activate(request) }).await.map_err(|_| "Spot activation task failed; inspect its existing operation status before retrying".to_string())?
@@ -394,7 +463,7 @@ async fn activate_opportunity(window: tauri::WebviewWindow, app: tauri::AppHandl
     if !opportunity_selection::owns(&source_epoch) {
         return Err("Opportunity draft selection is unavailable in this window or source.".into());
     }
-    qsy_clear::retire_terminal(); radio_read::retire_terminal();
+    antenna_profile::retire(); nearby_callsign::retire(); qsy_clear::retire_terminal(); radio_read::retire_terminal();
     let owner = activation_owner(&app);
     let request = spot_activation::Request { operation_id, source_epoch, spot_id, spot_version };
     tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission; owner.activate(request) }).await
@@ -497,7 +566,7 @@ async fn operator_draft_read_radio(window: tauri::WebviewWindow, state: tauri::S
     validate_radio_read(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
     let _module_admission = operating_module::owner()?.admit_selected(operating_module::OperatingModule::NormalLogging)?;
     radio_follow::revoke("An explicit radio read disabled Follow Radio.");
-    qsy_clear::retire_terminal(); radio_read::retire_terminal();
+    antenna_profile::retire(); nearby_callsign::retire(); qsy_clear::retire_terminal(); radio_read::retire_terminal();
     let admission = radio_read::admit();
     tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission; let _admission = admission; radio_read::execute(operation_id) })
         .await.map_err(|_| "Radio-read task failed; inspect the existing operation before trying again".to_string())?
@@ -517,13 +586,15 @@ async fn operator_draft_read_radio_recover(window: tauri::WebviewWindow, state: 
 async fn operator_draft_follow_set(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, enabled: bool, expected_epoch: u64) -> Result<serde_json::Value, String> {
     validate_follow_set(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire), enabled)?;
     let _module_admission = if enabled { Some(operating_module::owner()?.admit_selected(operating_module::OperatingModule::NormalLogging)?) } else { None };
-    if enabled { qsy_clear::retire_terminal(); radio_read::retire_terminal(); }
+    if enabled { antenna_profile::retire(); nearby_callsign::retire(); qsy_clear::retire_terminal(); radio_read::retire_terminal(); }
     tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission; radio_follow::set(enabled, expected_epoch) }).await.map_err(|_| "Follow Radio permission task failed".to_string())?
 }
 #[tauri::command]
 fn operator_draft_follow_settled(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, instance: String, operation_id: String) -> Result<(), String> {
     validate_follow_settlement(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
-    radio_follow::settled(window.label(), &instance, &operation_id)
+    antenna_profile::settled(window.label(), &instance, &operation_id)?;
+    if radio_follow::owns(&operation_id) {radio_follow::settled(window.label(), &instance, &operation_id)?;}
+    Ok(())
 }
 fn validate_follow_settlement(label: &str, isolated: bool, exiting: bool) -> Result<(), String> {
     if isolated || exiting || !spot_editor_barrier::editor_role(label) { Err("This window cannot settle Follow Radio.".into()) } else { Ok(()) }
@@ -2203,6 +2274,35 @@ fn dx_alerts_save(window: tauri::WebviewWindow, state: tauri::State<'_, acceptan
 }
 
 #[tauri::command]
+async fn dx_alerts_entities(window:tauri::WebviewWindow,state:tauri::State<'_,acceptance::Acceptance>)->Result<serde_json::Value,String>{
+    dx_alerts::validate(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
+    tauri::async_runtime::spawn_blocking(||radio_read::NativeBackend::call(worker::generation(),"logbook_alert_entities",serde_json::json!({})).map(|result|result["entities"].clone())).await.map_err(|_|"Entity directory unavailable".to_string())?
+}
+#[tauri::command]
+fn dx_alerts_preview(window: tauri::WebviewWindow, app:tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, rules:serde_json::Value) -> Result<serde_json::Value,String> {
+    dx_alerts::validate(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
+    dx_alerts::existing().ok_or("DX alerts unavailable")?.preview(rules,&cluster_session::owner(&app)?.projection_value()?)
+}
+#[tauri::command]
+fn dx_alerts_review(window: tauri::WebviewWindow, app:tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>, epoch:String, id:String) -> Result<serde_json::Value,String> {
+    dx_alerts::validate(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
+    let mut review = dx_alerts::existing().ok_or("DX alerts unavailable")?.review(&epoch,&id)?;
+    let token = &review["observation"];
+    let result = token["activation"]["sourceEpoch"].as_str().zip(token["id"].as_str()).zip(token["activation"]["spotVersion"].as_str())
+        .ok_or("Historical/test/WSJT-X entry has no cluster tune authority.".to_string())
+        .and_then(|((epoch,id),version)|cluster_session::owner(&app)?.activation_spot(epoch,id,version));
+    review["admissible"] = serde_json::json!(result.is_ok());
+    review["reason"] = serde_json::json!(result.err());
+    if review["admissible"]!=true && review["entry"]["test"]!=true {
+        let projection=cluster_session::owner(&app)?.projection_value()?;
+        let alternatives:Vec<_>=projection["response"]["snapshot"]["spots"].as_array().into_iter().flatten()
+            .filter(|spot|spot["callsign"]==review["entry"]["callsign"] && spot["activation"].is_object()).take(3).cloned().collect();
+        review["alternatives"]=serde_json::json!(alternatives);
+    }
+    Ok(review)
+}
+
+#[tauri::command]
 fn dx_alerts_test(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>) -> Result<serde_json::Value, String> {
     dx_alerts::validate(window.label(), runtime_profile::isolated(state.path.is_some()), APP_EXITING.load(Ordering::Acquire))?;
     dx_alerts::existing().ok_or("DX alerts are unavailable.")?.test_alert()
@@ -2603,6 +2703,12 @@ async fn station_session_request(app: tauri::AppHandle, window: tauri::WebviewWi
 }
 
 #[tauri::command]
+async fn band_map_marker_tune(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, params: serde_json::Value) -> Result<serde_json::Value,String> {
+    runtime_profile::require_external_io_disabled()?;
+    guide_marker_tune::execute(app,window.label().to_owned(),runtime_profile::isolated(state.path.is_some()),APP_EXITING.load(Ordering::Acquire),params).await
+}
+
+#[tauri::command]
 async fn manual_rotor_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, params: serde_json::Value) -> Result<serde_json::Value, String> {
     runtime_profile::require_external_io_disabled()?;
     let action = params["action"].as_str().unwrap_or("");
@@ -2691,12 +2797,6 @@ fn worker_request_admission_module(label: &str, request: &serde_json::Value) -> 
     contest_setup_digital_worker_module(label, method)
         .filter(|_| !matches!(method, "wsjtx_snapshot" | "fldigi_snapshot"))
         .or_else(|| operating_module::worker_module(request))
-}
-
-#[tauri::command]
-async fn band_map_marker_tune(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, params: serde_json::Value) -> Result<serde_json::Value,String> {
-    runtime_profile::require_external_io_disabled()?;
-    guide_marker_tune::execute(app,window.label().to_owned(),runtime_profile::isolated(state.path.is_some()),APP_EXITING.load(Ordering::Acquire),params).await
 }
 
 #[tauri::command]
@@ -3115,7 +3215,7 @@ fn require_module_transition_idle(app: &tauri::AppHandle) -> Result<(), String> 
     }
     if SPOT_ACTIVATION.get().and_then(|owner| owner.snapshot().ok())
         .is_some_and(|value| value["reservationActive"] == true)
-        || qsy_clear::reservation_active() || radio_read::reservation_active() || radio_follow::reservation_active() {
+        || nearby_callsign::active() || antenna_profile::active() || qsy_clear::reservation_active() || radio_read::reservation_active() || radio_follow::reservation_active() {
         return Err("Resolve the protected draft or radio operation before changing module.".into());
     }
     if let Some(owner) = cw_session_backend::existing() {
@@ -4346,6 +4446,7 @@ fn main() {
     let builder = tauri::Builder::default()
         .menu(workspace_menu)
         .on_window_event(|window, event| {
+            if matches!(event,tauri::WindowEvent::Destroyed) {if let Ok(mut captures)=NORMAL_SHORTCUT_CAPTURE.lock(){captures.retain(|label|label!=window.label());}}
             if window.label()==contest_analytics::WINDOW || window.label()==CONTEST_SETUP_WINDOW {
                 // The renderer flushes annotations before acknowledging close.
                 // A missing listener leaves the editor available.
@@ -4407,7 +4508,7 @@ fn main() {
                     tauri::WindowEvent::CloseRequested { api, .. } => {
                         // A renderer crash or missed close listener cannot remove
                         // an editor while its shared draft is reserved.
-                        if owner.snapshot().map(|state| state["reservationActive"] == true).unwrap_or(true) { api.prevent_close(); }
+                        if owner.snapshot().map(|state| state["reservationActive"] == true).unwrap_or(true) || nearby_callsign::active() || antenna_profile::active() { api.prevent_close(); }
                     }
                     _ => {}
                 }
@@ -4571,6 +4672,7 @@ fn main() {
                 return;
             }
             if let Some(screen) = workspace_navigation::menu_screen(&event.id().0) {
+                if normal_shortcut_is_capturing(app) { return; }
                 let Some(presentation) = menu_presentation_request() else { return; };
                 let app = app.clone(); let screen = screen.id.clone();
                 tauri::async_runtime::spawn(async move {
@@ -4579,6 +4681,7 @@ fn main() {
                 return;
             }
             if let Some(kind) = event.id().0.strip_prefix("workspace_window_") {
+                if normal_shortcut_is_capturing(app) { return; }
                 if workspace_windows::supports(kind) {
                     let Some(presentation) = menu_presentation_request() else { return; };
                     let app = app.clone(); let kind = kind.to_owned();
@@ -4626,7 +4729,9 @@ fn main() {
             // the owner for isolated acceptance as well so renderer reads do
             // not fail merely because hardware/session startup is suppressed.
             let activation = activation_owner(app.handle());
-            radio_follow::install(app.handle(), activation.editors.clone());
+            antenna_profile::install(app.handle(), activation_owner(app.handle()).editors.clone());
+                nearby_callsign::install(app.handle(), activation_owner(app.handle()).editors.clone());
+                radio_follow::install(app.handle(), activation.editors.clone());
             let production = !runtime_profile::isolated(app.state::<acceptance::Acceptance>().path.is_some());
             if production {
                 if normal_module {
@@ -4720,7 +4825,7 @@ fn main() {
             workspace_windows_status, workspace_windows_reconcile, contest_window_open, contest_window_toggle, contest_contact_editor_open, contest_contact_editor_close, contest_surface_context_close, contest_setup_service_open,
             contest_log_review::contest_log_review_read,
             contest_analytics::contest_analytics_read,
-            contest_analytics::contest_analytics_export, contest_analytics::logbook_export_file, contest_lane_output_request,
+            contest_analytics::contest_analytics_export, contest_analytics::logbook_export_file, contest_analytics::logbook_export_pota_set, contest_lane_output_request,
         contest_analytics::contest_messages_export,
             contest_analytics::contest_analytics_print,
             open_contest_recorder, contest_recorder::contest_recorder_request, contest_recorder::contest_recorder_stop_replay,
@@ -4737,7 +4842,7 @@ fn main() {
             contest_voice_profile_write, contest_voice_profile_pick,
             contest_surface_action, contest_surface_diagnostic_report, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_owner_claim, contest_surface_publish, contest_surface_snapshot, contest_rotor_target,
             workspace_mode_present, workspace_presentation_begin, workspace_canvas_close_ack, set_cw_decode_menu_visibility, close_about_window,
-            workspace_navigation_snapshot, workspace_navigation_ack, hm_control_snapshot, hm_control_feed, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, contest_history_preview, contest_history_manager_request, contest_qrz_details_lookup, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,
+            workspace_navigation_snapshot, workspace_navigation_ack, hm_control_snapshot, hm_control_feed, map_context_snapshot, monitor_context_snapshot, monitor_station_action, monitor_rotor_stop, rotor_telemetry_snapshot, station_telemetry_snapshot, station_selection_snapshot, station_status_snapshot, connection_doctor_snapshot, connection_doctor_export, contest_export_save, contest_scp_import, contest_history_preview, contest_history_manager_request, contest_qrz_details_lookup, propagation_session_request, station_identity_snapshot, alerts_snapshot, dx_alerts_snapshot, dx_alerts_entities, dx_alerts_preview, dx_alerts_review, nearby_callsign_snapshot, nearby_callsign_accept, normal_command_preferences, normal_command_navigate, normal_shortcut_capture, antenna_profile::antenna_transmit_context, dx_alerts_save, dx_alerts_test, dx_alerts_clear, dx_alerts_clear_selected, antenna_snapshot,
             detached_cluster_ready, cluster_session_selection, contest_post_spot, dock_detached_window, close_logbook_window, close_qso_window, close_main_window, close_cw_window, show_cw_desk, close_rotor_window, show_rotor_desk, close_station_status_window, show_station_status_desk, close_propagation_window, show_propagation_desk, close_station_identity_window, show_station_identity_desk, close_alerts_window, show_alerts_desk, close_antenna_window, show_antenna_desk,
              hf_propagation_fetch,
              acceptance::acceptance_enabled, acceptance::acceptance_large_log, acceptance::acceptance_monitor,

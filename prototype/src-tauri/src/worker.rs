@@ -56,7 +56,7 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     if label == "station-status" { return Err("Station Status can only read retained native station observations.".into()); }
     if label == "propagation" { return Err("Propagation can only use the typed shared public-conditions session.".into()); }
     if matches!(label, "station-identity" | "alerts" | "antenna") { return Err("This display can only read its retained non-secret projection.".into()); }
-    if request["method"].as_str().is_some_and(|method| method.starts_with("spot_draft_") || matches!(method, "logbook_operator_draft_qsy_clear" | "logbook_operator_draft_radio_read" | "logbook_operator_draft_radio_follow")) {
+    if request["method"].as_str().is_some_and(|method| method.starts_with("spot_draft_") || matches!(method, "logbook_operator_draft_antenna_proposal" | "logbook_operator_draft_antenna_follow" | "logbook_operator_draft_nearby_call" | "logbook_operator_draft_qsy_clear" | "logbook_operator_draft_radio_read" | "logbook_operator_draft_radio_follow")) {
         return Err("Only the native transaction owner can use this method.".into());
     }
     if request["method"] == "workspace_layout_load" {
@@ -75,7 +75,7 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     }
     if label == "settings" {
         return if matches!(request["method"].as_str(), Some(
-            "settings_load" | "settings_receipt" | "settings_save"
+            "settings_load" | "settings_receipt" | "settings_save" | "workspace_preferences_load" | "workspace_commands_apply"
             | "workspace_rotor_configuration_load" | "workspace_rotor_configuration_receipt" | "workspace_rotor_configuration_save"
             | "secret_status" | "secret_save" | "online_log_status" | "online_log_configure"
             | "sync_status" | "sync_summary" | "sync_mutation" | "sync_receipt"
@@ -92,6 +92,7 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
         return if label == "main" || label == "band-maps" && request["params"]["scope"] == "detached" { Ok(()) }
         else { Err("This window cannot change band-map preferences.".into()) };
     }
+    if request["method"] == "workspace_commands_apply" { return if matches!(label,"main"|"settings"){Ok(())}else{Err("Shortcut preferences belong to Settings.".into())}; }
     if request["method"] == "workspace_logbook_filters_apply" {
         return if matches!(label, "main" | "logbook") { Ok(()) }
         else { Err("This window cannot change saved Logbook filters.".into()) };
@@ -117,7 +118,7 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
         } else { Err("Log QSO can only edit the shared new-contact draft and read its lookup evidence.".into()) };
     }
     if label == "awards" {
-        return if matches!(request["method"].as_str(), Some("logbook_stats" | "logbook_catalog")) {
+        return if matches!(request["method"].as_str(), Some("logbook_stats" | "logbook_catalog" | "logbook_award_progress" | "logbook_contact" | "workspace_preferences_load")) {
             Ok(())
         } else { Err("Awards can only read local statistics and the awards catalogue.".into()) };
     }
@@ -359,6 +360,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "workspace_create",
         "workspace_preferences_load",
         "workspace_preferences_save",
+        "workspace_commands_apply",
         "workspace_band_map_apply",
         "workspace_logbook_filters_apply",
         "workspace_map_context",
@@ -387,6 +389,9 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "logbook_operator_draft_receipt",
         "logbook_operator_draft_qsy_clear",
         "logbook_operator_draft_radio_read",
+        "logbook_operator_draft_nearby_call",
+        "logbook_operator_draft_antenna_proposal",
+        "logbook_operator_draft_antenna_follow",
         "logbook_operator_draft_radio_follow",
         "spot_draft_apply", "spot_draft_status", "spot_draft_stage", "spot_draft_finish", "spot_draft_abandon", "spot_draft_cw_status", "spot_draft_cw_pending", "spot_draft_cw_reconcile",
         "logbook_contact",
@@ -395,12 +400,14 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "logbook_catalog",
         "logbook_list",
         "logbook_cty_preview",
+        "logbook_alert_entities",
         "logbook_follow_up",
         "logbook_data_quality",
         "logbook_save",
         "logbook_delete",
         "logbook_undo",
         "logbook_stats",
+        "logbook_award_progress",
         "logbook_previous",
         "logbook_duplicate",
         "logbook_matrix",
@@ -1918,11 +1925,25 @@ mod tests {
     }
 
     #[test]
+    fn nearby_callsign_transaction_is_native_only_and_shortcuts_are_settings_scoped() {
+        let mutation=json!({"id":"nearby","method":"logbook_operator_draft_nearby_call","params":{}});
+        assert!(validate_request(&mutation).is_ok());
+        for label in ["main","log-qso","logbook","awards","alerts","settings","contest-setup","unknown"] {
+            assert!(validate_surface(label,&mutation).is_err(),"{label}");
+        }
+        let commands=json!({"id":"shortcuts","method":"workspace_commands_apply","params":{}});
+        for label in ["main","settings"] {assert!(validate_surface(label,&commands).is_ok(),"{label}");}
+        for label in ["log-qso","logbook","awards","alerts","contest-setup","unknown"] {
+            assert!(validate_surface(label,&commands).is_err(),"{label}");
+        }
+    }
+
+    #[test]
     fn detached_awards_is_strictly_read_only() {
-        for method in ["logbook_stats", "logbook_catalog"] {
+        for method in ["logbook_stats", "logbook_catalog", "logbook_award_progress", "logbook_contact", "workspace_preferences_load"] {
             assert!(validate_surface("awards", &json!({"id":"test","method":method,"params":{}})).is_ok());
         }
-        for method in ["logbook_list", "logbook_contact_apply", "logbook_operator_draft_apply", "logbook_save",
+        for method in ["workspace_logbook_filters_apply", "workspace_preferences_save", "logbook_list", "logbook_contact_apply", "logbook_operator_draft_apply", "logbook_save",
             "station_connect", "station_tune", "rotor_goto", "hamlib_control", "settings_load", "settings_save",
             "secret_save", "sync_run", "backup_restore", "cluster_connect", "cluster_resume", "health"] {
             assert!(validate_surface("awards", &json!({"id":"test","method":method,"params":{}})).is_err(), "{method}");

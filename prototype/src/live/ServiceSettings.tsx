@@ -1,6 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import DisplaySettings from "./DisplaySettings";
-import {NormalShortcutSettings} from "./NormalShortcutSettings";
 import { EquipmentSettings } from "./StationEquipment";
 import { PortableSettings } from "./PortableContextPanel";
 import CWSettings from "./CWSettings";
@@ -12,6 +11,7 @@ import "./ServiceSettings.css";
 
 type Data = Record<string, any>;
 type Request = (method: string, params?: Data) => Promise<Data>;
+const NormalShortcutSettings = lazy(() => import("./NormalShortcutSettings").then(module => ({ default: module.NormalShortcutSettings })));
 const QRZLookupTest = lazy(() => import("./QRZLookupTest"));
 const RadioSpotSettings = lazy(() => import("./RadioSpotSettings"));
 const SpotBridgePanel = lazy(() => import("./SpotBridgePanel"));
@@ -231,7 +231,7 @@ export default function ServiceSettings({ values, savedValues, request, onChange
     <p hidden={!showAccountHelp}>URLs and account details are grouped with their credentials. Save settings for non-secret fields; each credential has its own secure Save button.</p>
     {tab === "Sync" && <div>{syncSettings ?? <p>Synchronization tools are unavailable in this view.</p>}</div>}
     <div hidden={tab !== "Workspace"}>{workspaceSettings ?? <p>Workspace arrangements are unavailable in this view.</p>}</div>
-    <div hidden={tab !== "Display"}><DisplaySettings />{tab==="Display"&&<NormalShortcutSettings/>}</div>
+    <div hidden={tab !== "Display"}><DisplaySettings />{tab==="Display"&&<Suspense fallback={<p role="status">Loading keyboard shortcuts…</p>}><NormalShortcutSettings/></Suspense>}</div>
     <div hidden={tab !== "Radio"}>{radioSettings ?? <p>Radio setup is available in the main Settings window.</p>}</div>
     <div hidden={tab !== "Rotator"}>{rotorSettings ?? <p>Rotator settings are unavailable in this view.</p>}</div>
     {tab === "Cluster" && (clusterSettings ?? <p>Cluster settings unavailable.</p>)}

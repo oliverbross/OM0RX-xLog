@@ -47,6 +47,12 @@ pub struct Rule {
     call_statuses: Vec<String>,
     dxcc_statuses: Vec<String>,
     specials: Vec<String>,
+    #[serde(default)] dx_entities: Vec<u16>,
+    #[serde(default)] dx_continents: Vec<String>,
+    #[serde(default)] dx_cq_zones: Vec<u8>,
+    #[serde(default)] dx_itu_zones: Vec<u8>,
+    #[serde(default)] spotter_entities: Vec<u16>,
+    #[serde(default)] spotter_continents: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -78,6 +84,26 @@ struct Configuration {
     rules: Vec<Rule>,
 }
 
+#[derive(Clone, Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Geography {
+    dx_entity: Option<u16>, dx_continent: Option<String>, dx_cq_zone: Option<u8>, dx_itu_zone: Option<u8>,
+    spotter_entity: Option<u16>, spotter_continent: Option<String>,
+}
+fn geography(value: &Value) -> Geography {
+    let number = |key: &str, max| value[key].as_u64().filter(|n| (1..=max).contains(n));
+    let continent = |key: &str| value[key].as_str().filter(|s| ["AF","AN","AS","EU","NA","OC","SA"].contains(s)).map(str::to_owned);
+    Geography { dx_entity:number("adif",999).map(|n|n as u16), dx_continent:continent("continent"),
+        dx_cq_zone:number("cqZone",40).map(|n|n as u8), dx_itu_zone:number("ituZone",90).map(|n|n as u8),
+        spotter_entity:number("spotterAdif",999).map(|n|n as u16), spotter_continent:continent("spotterContinent") }
+}
+fn choices<T: Eq + std::hash::Hash>(values: &[T], maximum: usize, valid: impl Fn(&T)->bool) -> bool {
+    values.len() <= maximum && values.iter().all(valid) && values.iter().collect::<HashSet<_>>().len() == values.len()
+}
+fn criterion<T: PartialEq>(values: &[T], evidence: &Option<T>) -> bool {
+    values.is_empty() || evidence.as_ref().is_some_and(|value| values.contains(value))
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Entry {
@@ -93,6 +119,8 @@ struct Entry {
     dxcc_status: String,
     special_tags: Vec<String>,
     rule_names: Vec<String>,
+    geography: Geography,
+    observation: Option<Value>,
     count: u64,
     first_seen_ms: u64,
     last_seen_ms: u64,
@@ -102,6 +130,8 @@ struct Entry {
 struct Spot {
     source: String,
     source_key: String,
+    geography: Geography,
+    observation: Option<Value>,
     callsign: String,
     frequency_khz: f64,
     band: String,
@@ -236,6 +266,12 @@ impl Rule {
                         byte.is_ascii_uppercase() || byte.is_ascii_digit() || byte == b'-'
                     })
             })
+            || !choices(&self.dx_entities, 999, |n| (1..=999).contains(n))
+            || !choices(&self.spotter_entities, 999, |n| (1..=999).contains(n))
+            || !choices(&self.dx_cq_zones, 40, |n| (1..=40).contains(n))
+            || !choices(&self.dx_itu_zones, 90, |n| (1..=90).contains(n))
+            || !choices(&self.dx_continents, 7, |s| ["AF","AN","AS","EU","NA","OC","SA"].contains(&s.as_str()))
+            || !choices(&self.spotter_continents, 7, |s| ["AF","AN","AS","EU","NA","OC","SA"].contains(&s.as_str()))
             || self.callsign_glob.is_empty()
                 && self.comment_contains.is_empty()
                 && self.bands.is_empty()
@@ -243,6 +279,9 @@ impl Rule {
                 && self.call_statuses.is_empty()
                 && self.dxcc_statuses.is_empty()
                 && self.specials.is_empty()
+                && self.dx_entities.is_empty() && self.dx_continents.is_empty()
+                && self.dx_cq_zones.is_empty() && self.dx_itu_zones.is_empty()
+                && self.spotter_entities.is_empty() && self.spotter_continents.is_empty()
         {
             return Err("A DX alert rule is invalid or has no condition.".into());
         }
@@ -250,7 +289,13 @@ impl Rule {
     }
 
     fn matches(&self, spot: &Spot) -> bool {
-        self.enabled
+        criterion(&self.dx_entities, &spot.geography.dx_entity)
+            && criterion(&self.dx_continents, &spot.geography.dx_continent)
+            && criterion(&self.dx_cq_zones, &spot.geography.dx_cq_zone)
+            && criterion(&self.dx_itu_zones, &spot.geography.dx_itu_zone)
+            && criterion(&self.spotter_entities, &spot.geography.spotter_entity)
+            && criterion(&self.spotter_continents, &spot.geography.spotter_continent)
+            && self.enabled
             && self.sources.contains(&spot.source)
             && (self.callsign_glob.is_empty() || glob_matches(&self.callsign_glob, &spot.callsign))
             && (self.comment_contains.is_empty()
@@ -296,7 +341,7 @@ impl EditableConfiguration {
 impl Configuration {
     fn default_off() -> Self {
         Self {
-            version: 1,
+            version: 2,
             generation: uuid::Uuid::new_v4().to_string(),
             revision: 0,
             enabled: false,
@@ -316,12 +361,13 @@ impl Configuration {
                 call_statuses: vec![],
                 dxcc_statuses: vec!["ATNO".into()],
                 specials: vec![],
+                dx_entities:vec![], dx_continents:vec![], dx_cq_zones:vec![], dx_itu_zones:vec![], spotter_entities:vec![], spotter_continents:vec![],
             }],
         }
     }
 
     fn validate(&self) -> Result<(), String> {
-        if self.version != 1 || !valid_uuid(&self.generation) || self.revision > MAX_REVISION {
+        if self.version != 2 || !valid_uuid(&self.generation) || self.revision > MAX_REVISION {
             return Err("The saved DX alert configuration is invalid.".into());
         }
         EditableConfiguration {
@@ -415,6 +461,10 @@ fn spot(value: &Value) -> Option<Spot> {
     Some(Spot {
         source: "cluster".into(),
         source_key,
+        geography: geography(value),
+        observation: value["activation"]["sourceEpoch"].as_str().filter(|s|valid_uuid(s))
+            .zip(value["activation"]["spotVersion"].as_str().filter(|s|valid_uuid(s)))
+            .zip(bounded_text(value,"id",128)).map(|((epoch,version),id)| json!({"id":id,"activation":{"sourceEpoch":epoch,"spotVersion":version}})),
         callsign,
         frequency_khz,
         band,
@@ -449,6 +499,7 @@ fn migrate_statuses(values: &mut Vec<String>, callsign: bool) {
 }
 
 fn migrate_configuration(mut configuration: Configuration) -> Configuration {
+    if configuration.version == 1 { configuration.version = 2; }
     for rule in &mut configuration.rules {
         migrate_statuses(&mut rule.call_statuses, true);
         migrate_statuses(&mut rule.dxcc_statuses, false);
@@ -478,8 +529,9 @@ fn persist(path: &Path, configuration: &Configuration) -> Result<(), String> {
         .map_err(|_| "DX alert storage could not be created.".to_string())?;
     let mut file = tempfile::NamedTempFile::new_in(directory)
         .map_err(|_| "DX alert settings could not be staged.".to_string())?;
-    serde_json::to_writer(file.as_file_mut(), configuration)
-        .map_err(|_| "DX alert settings could not be encoded.".to_string())?;
+    let encoded=serde_json::to_vec(configuration).map_err(|_|"DX alert settings could not be encoded.".to_string())?;
+    if encoded.len()>FILE_LIMIT{return Err("DX alert settings exceed the supported file size; reduce the selected criteria before saving.".into());}
+    file.write_all(&encoded).map_err(|_|"DX alert settings could not be staged.".to_string())?;
     file.flush()
         .and_then(|_| file.as_file().sync_all())
         .map_err(|_| "DX alert settings could not be sealed.".to_string())?;
@@ -656,7 +708,7 @@ impl Owner {
             .filter(|value| *value <= MAX_REVISION)
             .ok_or("DX alert settings revision exhausted.")?;
         let next = Configuration {
-            version: 1,
+            version: 2,
             generation: state.configuration.generation.clone(),
             revision,
             enabled: editable.enabled,
@@ -684,6 +736,25 @@ impl Owner {
         Ok(snapshot)
     }
 
+    pub fn review(&self, epoch: &str, id: &str) -> Result<Value, String> {
+        let state = self.state.lock().map_err(|_| "DX alert history unavailable")?;
+        if state.epoch != epoch { return Err("Alert history changed. Select the alert again.".into()); }
+        let entry = state.entries.iter().find(|entry| entry.id == id).ok_or("This alert is no longer retained.")?;
+        Ok(json!({"entry":entry,"observation":entry.observation}))
+    }
+    /// Read-only preview uses the same evaluator without touching the event baseline.
+    pub fn preview(&self, rules: Value, projection: &Value) -> Result<Value,String> {
+        let rules: Vec<Rule> = serde_json::from_value(rules).map_err(|_| "Invalid preview rules")?;
+        if rules.len() > MAX_RULES { return Err("Too many preview rules".into()); }
+        for rule in &rules { rule.validate()?; }
+        let values = projection["response"]["snapshot"]["spots"].as_array().ok_or("Cluster reports unavailable")?;
+        let matches:Vec<Value> = values.iter().take(500).filter_map(spot).filter_map(|spot| {
+            let names:Vec<_> = rules.iter().filter(|rule|rule.matches(&spot)).map(|rule|rule.name.clone()).collect();
+            (!names.is_empty()).then(||json!({"callsign":spot.callsign,"frequencyKHz":spot.frequency_khz,"ruleNames":names,"geography":spot.geography}))
+        }).collect();
+        Ok(json!({"matches":matches,"readOnly":true}))
+    }
+
     pub fn test_alert(&self) -> Result<Value, String> {
         if self.stopped.load(Ordering::Acquire) {
             return Err("DX alerts are shutting down.".into());
@@ -706,6 +777,7 @@ impl Owner {
             dxcc_status: "ATNO".into(),
             special_tags: vec![],
             rule_names: vec!["Test alert".into()],
+            geography:Geography::default(), observation:None,
             count: 1,
             first_seen_ms: now,
             last_seen_ms: now,
@@ -904,13 +976,14 @@ impl Owner {
                 entry.call_status = spot.call_status;
                 entry.dxcc_status = spot.dxcc_status;
                 entry.special_tags = spot.special_tags;
+                entry.geography = spot.geography; entry.observation = if spot.source == "cluster" { spot.observation } else { None };
                 changed = true;
                 continue;
             }
             let entry = Entry {
                 id: uuid::Uuid::new_v4().to_string(),
                 test: false,
-                source: spot.source,
+                source: spot.source.clone(),
                 callsign: spot.callsign,
                 frequency_khz: spot.frequency_khz,
                 band: spot.band,
@@ -920,6 +993,7 @@ impl Owner {
                 dxcc_status: spot.dxcc_status,
                 special_tags: spot.special_tags,
                 rule_names,
+                geography:spot.geography, observation:if spot.source == "cluster" { spot.observation } else { None },
                 count: 1,
                 first_seen_ms: now,
                 last_seen_ms: now,
@@ -1050,6 +1124,7 @@ mod tests {
             call_statuses: vec![],
             dxcc_statuses,
             specials: vec![],
+                dx_entities:vec![], dx_continents:vec![], dx_cq_zones:vec![], dx_itu_zones:vec![], spotter_entities:vec![], spotter_continents:vec![],
         }
     }
     fn spot(id: &str, callsign: &str, dxcc_status: &str) -> Value {
@@ -1062,6 +1137,74 @@ mod tests {
     fn projection(revision: u64, spots: Vec<Value>) -> Value {
         json!({"revision":revision,"available":true,
         "received_at_ms":revision * 1000,"response":{"snapshot":{"spots":spots}}})
+    }
+
+    #[test]
+    fn geographic_conditions_are_or_within_and_across_and_missing_is_not_false_evidence() {
+        let mut rule=rule("geo","Needed 40 CW Europe",&["ATNO"]);
+        rule.bands=vec!["40m".into()];rule.modes=vec!["cw".into()];
+        rule.dx_entities=vec![504,291];rule.dx_continents=vec!["OC".into(),"NA".into()];
+        rule.dx_cq_zones=vec![29,30];rule.dx_itu_zones=vec![55];rule.spotter_entities=vec![230,223];rule.spotter_continents=vec!["EU".into()];
+        rule.validate().unwrap();
+        let mut value=spot("geo","VK8RX","ATNO");
+        value["band"]=json!("40m");value["mode"]=json!("CW");value["adif"]=json!(504);
+        value["continent"]=json!("OC");value["cqZone"]=json!(29);value["ituZone"]=json!(55);
+        value["spotterAdif"]=json!(230);value["spotterContinent"]=json!("EU");
+        assert!(rule.matches(&super::spot(&value).unwrap()));
+        value["spotterContinent"]=json!("OC");assert!(!rule.matches(&super::spot(&value).unwrap()));
+        value["spotterContinent"]=Value::Null;assert!(!rule.matches(&super::spot(&value).unwrap()));
+        value["spotterContinent"]=json!("EU");value["cqZone"]=json!(15);assert!(!rule.matches(&super::spot(&value).unwrap()));
+        value["cqZone"]=json!(30);assert!(rule.matches(&super::spot(&value).unwrap()));
+        rule.dx_itu_zones=vec![91];assert!(rule.validate().is_err());
+    }
+    #[test]
+    fn preview_cannot_change_baseline_history_delivery_or_exact_review_identity() {
+        let directory=tempfile::tempdir().unwrap();let owner=owner(directory.path());
+        let before=owner.snapshot().unwrap();
+        let mut value=spot("report","VK8RX","ATNO");
+        let epoch=uuid::Uuid::new_v4().to_string();let version=uuid::Uuid::new_v4().to_string();
+        value["activation"]=json!({"sourceEpoch":epoch,"spotVersion":version});
+        let preview=owner.preview(json!([rule("all","All",&["ATNO"])]),&projection(1,vec![value.clone()])).unwrap();
+        assert_eq!(preview["matches"].as_array().unwrap().len(),1);
+        assert_eq!(owner.snapshot().unwrap(),before);
+        let parsed=super::spot(&value).unwrap();
+        assert_eq!(parsed.observation.unwrap(),json!({"id":"report","activation":{"sourceEpoch":epoch,"spotVersion":version}}));
+        let tested=owner.test_alert().unwrap();
+        let id=tested["entries"][0]["id"].as_str().unwrap();
+        let review=owner.review(tested["epoch"].as_str().unwrap(),id).unwrap();
+        assert!(review["observation"].is_null());assert!(owner.review(&uuid::Uuid::new_v4().to_string(),id).is_err());
+    }
+    #[test]
+    fn expanded_geography_cannot_persist_a_configuration_that_exceeds_its_read_limit(){
+        let directory=tempfile::tempdir().unwrap();let owner=owner(directory.path());let before=owner.snapshot().unwrap();
+        let mut rules=Vec::new();
+        for index in 0..MAX_RULES {
+            let mut value=rule(&format!("rule-{index}"),&"G".repeat(80),&["ATNO"]);
+            value.dx_entities=(1..=999).collect();value.spotter_entities=(1..=999).collect();value.dx_cq_zones=(1..=40).collect();value.dx_itu_zones=(1..=90).collect();
+            value.bands=BANDS.iter().map(|s|s.to_string()).collect();value.modes=MODE_GROUPS.iter().map(|s|s.to_string()).collect();
+            value.call_statuses=CALL_STATUSES.iter().map(|s|s.to_string()).collect();value.dxcc_statuses=DXCC_STATUSES.iter().map(|s|s.to_string()).collect();
+            value.specials=(0..16).map(|n|format!("SPECIAL-{n}")).collect();rules.push(value);
+        }
+        let oversized=editable(true,rules);assert!(serde_json::to_vec(&oversized).unwrap().len()>FILE_LIMIT);
+        assert!(owner.save(before["configuration"]["generation"].as_str().unwrap(),0,oversized).is_err());
+        assert_eq!(owner.snapshot().unwrap()["configuration"],before["configuration"]);
+    }
+    #[test]
+    fn geographic_rule_round_trips_and_stale_editor_cannot_replace_it(){
+        let directory=tempfile::tempdir().unwrap();let owner=owner(directory.path());let before=owner.snapshot().unwrap();
+        let mut geographic=rule("wanted","Wanted",&["ATNO"]);geographic.dx_entities=vec![504];geographic.spotter_continents=vec!["EU".into()];geographic.dx_cq_zones=vec![29,30];
+        let saved=owner.save(before["configuration"]["generation"].as_str().unwrap(),0,editable(true,vec![geographic.clone()])).unwrap();
+        assert!(owner.save(before["configuration"]["generation"].as_str().unwrap(),0,editable(false,vec![])).is_err());
+        let (reloaded,error)=read(&directory.path().join("dx-alert-rules.json"));assert!(error.is_none());assert_eq!(reloaded.rules,vec![geographic]);assert!(reloaded.enabled);
+        assert_eq!(saved["configuration"]["revision"],1);
+    }
+    #[test]
+    fn version_one_geography_migrates_unrestricted_without_altering_old_fields() {
+        let mut legacy=serde_json::to_value(Configuration::default_off()).unwrap();legacy["version"]=json!(1);
+        for key in ["dxEntities","dxContinents","dxCqZones","dxItuZones","spotterEntities","spotterContinents"] {legacy["rules"][0].as_object_mut().unwrap().remove(key);}
+        let migrated=migrate_configuration(serde_json::from_value(legacy).unwrap());migrated.validate().unwrap();
+        assert_eq!(migrated.version,2);assert!(!migrated.enabled);assert_eq!(migrated.rules[0].dxcc_statuses,vec!["ATNO"]);
+        assert!(migrated.rules[0].dx_entities.is_empty());assert!(migrated.rules[0].spotter_continents.is_empty());
     }
 
     #[test]
@@ -1413,6 +1556,7 @@ mod tests {
             call_statuses: vec![],
             dxcc_statuses: vec![],
             specials: vec![],
+                dx_entities:vec![], dx_continents:vec![], dx_cq_zones:vec![], dx_itu_zones:vec![], spotter_entities:vec![], spotter_continents:vec![],
         };
         assert!(owner
             .save(generation, 1, editable(true, vec![invalid]))

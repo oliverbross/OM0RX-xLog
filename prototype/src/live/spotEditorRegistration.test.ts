@@ -53,9 +53,9 @@ it("retains invalid text through ready=false, active reservation and explicit st
   expect(await f.session.refresh()).toBe(false); expect(f.session.getSnapshot().draft?.call).toBe("K1ABC");
   expect(f.call.mock.calls.some(([method]) => method === "activate_spot")).toBe(false); await connection.dispose();
 });
-it("settles a confirmed Follow operation only after canonical editor reconciliation", async () => {
+it.each(["follow-radio","nearby-callsign","antenna-profile","read-radio"] as const)("settles %s only after canonical editor reconciliation", async (intent) => {
   const f = await fixture(), instance = "00000000-0000-4000-8000-000000000012", connection = f.connect(Promise.resolve(), instance); await settle();
-  f.snapshot = { ...terminal(), phase: "confirmed", intent: "follow-radio", draftOnly: true };
+  f.snapshot = { ...terminal(), phase: "confirmed", intent, draftOnly: true };
   f.wake(); await settle();
   const canonicalRead = f.call.mock.calls.findIndex(([method]) => method === "spot_editor_state");
   const settlement = f.call.mock.calls.findIndex(([method]) => method === "operator_draft_follow_settled");

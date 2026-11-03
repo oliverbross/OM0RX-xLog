@@ -44,3 +44,4 @@ import "./live/RotorPanel.css";
 import "./live/SpotBridgePanel.css";
 import "./live/AboutSurface.css";
 import "./live/FirstRunSetup.css";
+import "./live/NormalShortcuts.css";

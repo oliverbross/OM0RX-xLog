@@ -1,3 +1,4 @@
+import {editorCommand,commandTitle} from "./normalCommands";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type FormEvent, type KeyboardEvent, type ReactNode, type RefObject, type SetStateAction } from "react";
 import { Radio, PanelsTopLeft, UserRound, Star, RadioTower, ContactRound, History, Grid3X3, CircleX, CircleCheck } from "lucide-react";
 import "./QSOEditor.css";
@@ -283,7 +284,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
     // turn automatic provenance into a manual edit during the pre-save flush.
     void save(automaticStart && canonicalAutomaticStart === undefined && draft ? { ...draft, start: new Date().toISOString() } : draft ?? undefined); };
   const keyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); submit(); }
+    if (editorCommand(event,{save:()=>submit(),focus:()=>callRef.current?.focus()})) return;
     if (event.key === "Escape") { event.preventDefault(); window.setTimeout(() => callRef.current?.focus(), 0); }
   };
   const changeFrequency = (key: "frequencyHz" | "receiveFrequencyHz", text: string) => {
@@ -423,7 +424,7 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
         { id: "band-mode-matrix", title: "Band / mode matrix", content: matrixPanel },
       ]} /> : <div className="qso-editor-flow">{activePanel}{detailsPanel}{inspector && intelligencePanel}{inspector && previousPanel}{matrixPanel}</div>}
       {showErrors && <div className="qso-validation" role="alert">{errors.length ? <ul>{errors.map((issue) => <li key={issue}>{issue}</li>)}</ul> : <span>QSO is ready to save.</span>}</div>}
-      <footer className="qso-actions"><div className="qso-footer-context">{followControls && <label><input type="checkbox" checked={follow} onChange={(event) => { if (acceptsInput()) setFollow(event.target.checked); }} />Follow radio</label>}<span>Saved to your local logbook.</span></div><div className="qso-footer-buttons">{contactActions}<button type="button" onClick={() => { if (acceptsInput()) clear(); }} disabled={busy}><CircleX size={13} aria-hidden="true" /> {clearLabel}</button><button className="qso-save" type="submit" disabled={!canSave}><CircleCheck size={13} aria-hidden="true" /> {isEditing ? "Update QSO" : "Log QSO"}</button></div></footer>
+      <footer className="qso-actions"><div className="qso-footer-context">{followControls && <label><input type="checkbox" checked={follow} onChange={(event) => { if (acceptsInput()) setFollow(event.target.checked); }} />Follow radio</label>}<span>Saved to your local logbook.</span></div><div className="qso-footer-buttons">{contactActions}<button type="button" onClick={() => { if (acceptsInput()) clear(); }} disabled={busy}><CircleX size={13} aria-hidden="true" /> {clearLabel}</button><button className="qso-save" type="submit" title={commandTitle("save-current-qso")} disabled={!canSave}><CircleCheck size={13} aria-hidden="true" /> {isEditing ? "Update QSO" : "Log QSO"}</button></div></footer>
     </form></div>
     {viewedImage && viewedImage.image === profileImage && viewedImage.call === matrixCall && failedImage !== profileImage && <QRZPhotoViewer image={viewedImage.image} callsign={viewedImage.call} trigger={photoTrigger} onClose={() => setViewedImage(null)} onError={() => { setFailedImage(viewedImage.image); setViewedImage(null); }} />}
   </section>;

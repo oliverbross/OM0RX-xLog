@@ -119,3 +119,16 @@ it.each(["conflict", "workspace_changed"])("refreshes %s evidence without retryi
     generation: "generation-2", expected: [{ name: "Worked", query: "Refreshed" }],
   }));
 });
+
+it("applies a complete structured saved filter in read-only mode without exposing or calling mutations",async()=>{
+ const definition={version:1 as const,join:"all" as const,clauses:[{field:"mode",op:"eq",values:["CW"]},{field:"ownPota",op:"eq",values:["US-0001"]}]};
+ const request=vi.fn(async(method:string)=>{if(method!=="workspace_preferences_load")throw new Error("Read-only fixture rejects mutation");return {generation:"00000000-0000-4000-8000-000000000001",revision:3,preferences:{savedLogbookFilters:[{name:"Portable CW",query:"POTA",definition}]}};});
+ const apply=vi.fn();render(<LogbookSavedFilters readOnly onRequest={request} currentQuery="" onApply={apply}/>);
+ await screen.findByRole("option",{name:"Portable CW"});
+ fireEvent.change(screen.getByRole("combobox",{name:"Saved Logbook filter"}),{target:{value:"Portable CW"}});
+ fireEvent.click(screen.getByRole("button",{name:"Apply"}));
+ expect(apply).toHaveBeenCalledWith("POTA",definition);
+ expect(screen.queryByRole("textbox",{name:"Saved filter name"})).toBeNull();
+ for(const name of ["Save current","Update selected","Clone","Rename","Delete filter"])expect(screen.queryByRole("button",{name})).toBeNull();
+ expect(request.mock.calls).toEqual([["workspace_preferences_load"]]);
+});

@@ -159,6 +159,8 @@ public struct AwardProgramme: Codable, Identifiable, Equatable, Sendable {
     public var deliveryState: AwardDeliveryState
     public var deliveryDetail: String
     public var progress: AwardCatalogItem?
+    public var localProgressCode: String? = nil
+    public var localCapabilities: [String: String]? = nil
     public var id: String { record.id }
 }
 
@@ -248,6 +250,14 @@ public enum AwardRegistry {
                 deliveryDetail: "Existing xLog native calculator retained alongside the 190-programme research registry.",
                 progress: live
             ))
+        }
+
+        let local = ["iaru.wac":"wac", "cq.wpx":"wpx", "iota.iota":"iota", "pota.awards":"pota", "sota.points":"sota", "wwff.references":"wwff"]
+        for index in programmes.indices {
+            guard let code=local[programmes[index].id] else { continue }
+            programmes[index].localProgressCode=code
+            programmes[index].localCapabilities=["localProgress":"available", "supportingContacts":"available", "eligibility":"incomplete", "officialCredit":"unavailable"]
+            programmes[index].deliveryDetail="Local progress and supporting contacts available in the native matrix. Sponsor eligibility is incomplete and official credit unavailable; this family is not wholly executable."
         }
 
         return (programmes.sorted { lhs, rhs in

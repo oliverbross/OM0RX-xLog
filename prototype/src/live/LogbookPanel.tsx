@@ -7,12 +7,15 @@ import { useLogbookCapacity } from "./logbookCapacity";
 import { LogbookColumnHeader, LogbookColumns, useLogbookColumns } from "./LogbookColumns";
 import { orderedLogbookColumns, type LogbookColumn, type LogbookColumnContext } from "./logbookColumnPreferences";
 import { adifImportBatches, decodeADIFDocument, ADIFExportDocument, type ADIFExportFormat, type ADIFImportEncoding, type ADIFFieldMetadata } from "./adifTransfer";
-import { LogbookSavedFilters } from "./LogbookSavedFilters";
+import { emptyLogbookQuery, logbookQuerySummary, type LogbookQuery } from "./logbookQuery";
 import { clusterBandColors, clusterModeColors, paletteColor } from "./clusterPalette";
 import { countryDisplay } from "./countryDisplay";
 import { retryStartupRead, startupReadFailureMessage } from "./startupReadRecovery";
 import type { LogbookMenuTarget } from "./LogbookContactMenu";
 
+const LogbookSavedFilters = lazy(() => import("./LogbookSavedFilters").then(module => ({ default: module.LogbookSavedFilters })));
+const LogbookFilterBuilder = lazy(() => import("./LogbookFilterBuilder").then(module => ({ default: module.LogbookFilterBuilder })));
+const POTAExportPanel = lazy(() => import("./POTAExportPanel").then(module => ({ default: module.POTAExportPanel })));
 const LogbookContactReview = lazy(() => import("./LogbookContactReview").then(module => ({ default: module.LogbookContactReview })));
 const CTYCorrectionPreview = lazy(() => import("./CTYCorrectionPreview").then(module => ({ default: module.CTYCorrectionPreview })));
 const OnlineLogFollowUpPanel = lazy(() => import("./OnlineLogFollowUp").then(module => ({ default: module.OnlineLogFollowUpPanel })));
@@ -105,6 +108,15 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
 }) {
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
+  const [filterDraft, setFilterDraft] = useState<LogbookQuery>(emptyLogbookQuery);
+  const [filter, setFilter] = useState<LogbookQuery>(emptyLogbookQuery);
+  const [referenceTime, setReferenceTime] = useState(() => new Date().toISOString().replace(/\.\d{3}Z$/, "Z"));
+  const filterKey = JSON.stringify([search, filter, referenceTime]);
+  const queryParams = filter.clauses.length ? { query: filter, reference_time: referenceTime } : {};
+  function applyFilter(text = query, definition = filterDraft) {
+    cancelDelete(); setOffset(0); setSearch(text.trim()); setFilter(definition);
+    setReferenceTime(new Date().toISOString().replace(/\.\d{3}Z$/, "Z"));
+  }
   const [offset, setOffset] = useState(0);
   const [page, setPage] = useState<LogbookPage | null>(null);
   const tableArea = useRef<HTMLDivElement>(null);
@@ -112,6 +124,8 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
   const [details, setDetails] = useState(false);
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [potaExportSelection, setPotaExportSelection] = useState<Record<string, unknown> | null>(null);
+  useLayoutEffect(() => { setPotaExportSelection(null); }, [readScope, onRequest]);
   const [ctyPreviewOpen, setCTYPreviewOpen] = useState(false);
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const columnsID = useId();
@@ -200,7 +214,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
     // rather than silently upgrading consent to a different contact version.
     cancelDelete();
     return () => { preparation.current++; };
-  }, [onRequest, search, selectedID]);
+  }, [onRequest, filterKey, selectedID]);
   useLayoutEffect(closeContactMenu, [closeContactMenu, compact, refreshKey, readIdentity, search, offset, pageSize, busy, loading]);
 
   function contactActions(qso: QSO, event: MouseEvent<HTMLElement> | KeyboardEvent<HTMLElement>) {
@@ -216,14 +230,14 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
   }
 
   async function readPage(pageOffset: number, pageSearch: string, firstReady?: (page: LogbookPage) => void) {
-    const first = result<LogbookPage>(await onRequest("logbook_list", { search: pageSearch, offset: pageOffset, limit: Math.min(requestPageSize, pageSize) }));
+    const first = result<LogbookPage>(await onRequest("logbook_list", { search: pageSearch, ...queryParams, offset: pageOffset, limit: Math.min(requestPageSize, pageSize) }));
     // A warmed first chunk can paint while the remaining bounded frames arrive.
     // Keep the requested page size; navigation remains busy until the page settles.
     firstReady?.({ ...first, limit: pageSize });
     const remainingOffsets: number[] = [];
     for (let next = pageOffset + requestPageSize; next < Math.min(first.total, pageOffset + pageSize); next += requestPageSize) remainingOffsets.push(next);
     const rest = await Promise.all(remainingOffsets.map(async next => result<LogbookPage>(
-      await onRequest("logbook_list", { search: pageSearch, offset: next, limit: Math.min(requestPageSize, pageOffset + pageSize - next) }),
+      await onRequest("logbook_list", { search: pageSearch, ...queryParams, offset: next, limit: Math.min(requestPageSize, pageOffset + pageSize - next) }),
     )));
     const unique = new Map<string, QSO>();
     for (const qso of [first, ...rest].flatMap(chunk => chunk.qsos)) unique.set(qso.id, qso);
@@ -233,7 +247,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
   useLayoutEffect(() => {
     let cancelled = false;
     const retained = loadedPage.current;
-    const sameAuthority = retained?.[0] === search && retained[3] === readIdentity;
+    const sameAuthority = retained?.[0] === filterKey && retained[3] === readIdentity;
     const sameQuery = sameAuthority && retained[1] === offset && retained[2] === pageSize;
     if (!sameQuery) { setPage(null); setReadStale(false); }
     // Capacity changes re-anchor the selected contact. Keep its identity and
@@ -260,7 +274,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
           else {
             setPage(result<LogbookPage>(response));
             setReadStale(false);
-            loadedPage.current = [search, offset, pageSize, readIdentity];
+            loadedPage.current = [filterKey, offset, pageSize, readIdentity];
             setSelectedID(current => response.qsos.some(qso => qso.id === current) ? current : null);
           }
         }
@@ -275,7 +289,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
       .finally(() => { if (!cancelled) setLoading(false); });
     void load();
     return () => { cancelled = true; };
-  }, [onRequest, readIdentity, search, offset, refreshKey, pageSize, readRetry]);
+  }, [onRequest, readIdentity, filterKey, offset, refreshKey, pageSize, readRetry]);
 
   async function reload(pageOffset = offset) {
     setExportSelection([]);
@@ -285,16 +299,14 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
     } else if (!response.total && pageOffset > 0) setOffset(0);
     else {
       setPage(response);
-      loadedPage.current = [search, pageOffset, pageSize, readIdentity];
+      loadedPage.current = [filterKey, pageOffset, pageSize, readIdentity];
       setReadStale(false);
     }
   }
 
   function submitSearch(event: FormEvent) {
     event.preventDefault();
-    cancelDelete();
-    setOffset(0);
-    setSearch(query.trim());
+    applyFilter();
   }
 
   async function prepareDelete(id: string) {
@@ -406,7 +418,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
     setError(""); setNotice("");
     try {
       const snapshot = result<{ token: string; total: number }>(await onRequest("logbook_export_adif", {
-        action: "begin", scope, ...(scope === "filtered" ? { search } : scope === "selected" ? { ids } : {}),
+        action: "begin", scope, ...(scope === "filtered" ? { search, ...queryParams } : scope === "selected" ? { ids } : {}),
       }));
       const total = snapshot.total;
       if (!Number.isSafeInteger(total) || total < 0 || typeof snapshot.token !== "string" || !snapshot.token) throw new Error("Export snapshot could not be verified.");
@@ -485,8 +497,10 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
           <button type="button" onClick={() => void exportAll()} disabled={busy}>
             <Download size={14} /> Export all
           </button>
-          <button type="button" onClick={() => void exportAll("filtered")} disabled={busy || loading || !search || !total}>Export filtered</button>
+          <button type="button" onClick={() => void exportAll("filtered")} disabled={busy || loading || (!search && !filter.clauses.length) || !total}>Export filtered</button>
           <button type="button" onClick={() => void exportAll("selected")} disabled={busy || loading || !exportIDs.length}>Export selected</button>
+          <button type="button" disabled={busy || loading || !total} onClick={() => setPotaExportSelection(exportIDs.length
+            ? { scope: "selected", ids: exportIDs } : search || filter.clauses.length ? { scope: "filtered", search, ...queryParams } : { scope: "all" })}>Export POTA logs</button>
           {onUndock && <button type="button" onClick={onUndock} disabled={busy}><ExternalLink size={14} /> Undock</button>}
           {onDock && <button type="button" onClick={onDock} disabled={busy}><PanelsTopLeft size={14} /> Dock back</button>}
           </>}
@@ -496,10 +510,16 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
         onDone={() => { setColumnsOpen(false); columnsButton.current?.focus(); }} />}
       {ctyPreviewOpen && <Suspense fallback={<p role="status">Opening country preview…</p>}><CTYCorrectionPreview onRequest={onRequest} refreshKey={refreshKey} /></Suspense>}
       {followUpOpen && selected && <Suspense fallback={<p role="status">Opening upload follow-up…</p>}><OnlineLogFollowUpPanel key={selected.id} contactID={selected.id} call={selected.call} onRequest={onRequest} refreshKey={refreshKey} onClose={() => setFollowUpOpen(false)} /></Suspense>}
-      {filtersOpen && <LogbookSavedFilters onRequest={onRequest} currentQuery={query} disabled={busy}
-        onApply={value => { cancelDelete(); setQuery(value); setOffset(0); setSearch(value); }} />}
+      {filtersOpen && <Suspense fallback={<p role="status">Loading contact filter controls…</p>}>
+        <LogbookFilterBuilder value={filterDraft} onChange={setFilterDraft} onApply={() => applyFilter()} disabled={busy} />
+        <LogbookSavedFilters onRequest={onRequest} currentQuery={query} currentDefinition={filterDraft} disabled={busy}
+          onApply={(value, definition) => { const next = definition ?? emptyLogbookQuery(); setQuery(value); setFilterDraft(next); applyFilter(value, next); }} />
+      </Suspense>}
+      {!compact && filter.clauses.length > 0 && <p role="status">Active filter · {logbookQuerySummary(filter)} · {total.toLocaleString()} contacts · relative periods fixed at {referenceTime}
+        <button type="button" disabled={busy} onClick={() => { setQuery(""); setFilterDraft(emptyLogbookQuery()); applyFilter("", emptyLogbookQuery()); }}>Reset filter and search</button></p>}
       {error && <p className="live-logbook-feedback error" role="alert">{error} <button type="button" disabled={loading} onClick={() => setReadRetry(value => value + 1)}>Retry logbook</button></p>}
       {notice && <p className="live-logbook-feedback" role="status">{notice}</p>}
+      {potaExportSelection && <Suspense fallback={<p role="status">Loading POTA export controls…</p>}><POTAExportPanel request={onRequest} selection={potaExportSelection} onClose={() => setPotaExportSelection(null)} onWorking={value => { setBusy(value); localWorking.current=value; workingChanged.current?.(value); }} /></Suspense>}
     {readStale && !loading && <p className="live-logbook-feedback" role="status">Refresh unavailable. Showing the previous page. <button type="button" onClick={() => setReadRetry(value => value + 1)}>Retry logbook</button></p>}
       {importReview && <div className="live-logbook-feedback" role="group" aria-label="Review ADIF import">
         <p>Source encoding: {importReview.encoding === "utf-8" ? "UTF-8" : importReview.encoding === "windows-1252" ? "Windows-1252" : "ISO-8859-1"}. Review uses normalized UTF-8 ADI.</p>

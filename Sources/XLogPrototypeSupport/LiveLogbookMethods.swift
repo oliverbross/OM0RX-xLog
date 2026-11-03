@@ -62,6 +62,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
     private var adifExport: (token: String, generation: String, created: Date, snapshot: ADIFExportSnapshot)?
+    private var potaExport: (token: String, preview: POTAExportPreview)?
     private struct ADIFPreviewSession {
         let token: String
         let generation: String
@@ -254,6 +255,16 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
     func aggregateQuery(method: String, params: [String: Any]) throws -> LiveLogbookAggregateQuery {
         let kind: LogbookAggregateKind
         switch method {
+        case "logbook_list":
+            kind = .contacts
+            try requireKeys(params, allowed: ["search", "limit", "offset", "query", "reference_time", "expected_generation"])
+        case "logbook_award_progress":
+            kind = .localAwards
+            try requireKeys(params, allowed: ["search", "limit", "offset", "query", "reference_time", "expected_generation", "programme", "station_scope", "band", "mode", "role", "unit", "unit_role", "day_offset", "scope_search"])
+        case "logbook_export_adif":
+            kind = .exportContacts
+            try requireKeys(params, allowed:["action","scope","search","ids","query","reference_time"], required:["action","scope"])
+            guard params["action"] as? String == "begin" else { throw invalid() }
         case "logbook_stats":
             kind = .statistics
             try requireKeys(params, allowed: ["expected_generation"])
@@ -269,6 +280,43 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
             expected = value.uuidString.lowercased()
         } else { expected = nil }
         var query = LiveLogbookAggregateQuery(kind: kind, expectedGeneration: expected)
+        if kind == .contacts || kind == .localAwards || kind == .exportContacts {
+            query.limit = try integer(params, "limit", default: 20, range: 1...25)
+            query.offset = try integer(params, "offset", default: 0, range: 0...Int(Int32.max))
+            query.search = try string(params, "search", max: 128) ?? ""
+            query.definition = try contactQuery(params)
+            query.referenceTime = try queryReferenceTime(params).timeIntervalSince1970
+            if !(query.definition?.clauses.contains(where: { $0.op == "relative" }) ?? false) { query.referenceTime = 0 }
+        }
+        if kind == .exportContacts {
+            switch params["scope"] as? String {
+            case "all":
+                guard params["query"] == nil, params["search"] == nil, params["ids"] == nil else { throw invalid() }
+            case "filtered":
+                guard params["ids"] == nil, !query.search.isEmpty || !(query.definition?.clauses.isEmpty ?? true) else { throw invalid() }
+            case "selected":
+                guard params["query"] == nil, params["search"] == nil,
+                      let ids=params["ids"] as? [String], (1...128).contains(ids.count), ids.allSatisfy({ UUID(uuidString:$0) != nil }) else { throw invalid() }
+                let values=Array(Set(ids.map{$0.uppercased()})).sorted()
+                query.definition=LogbookQuery(clauses:[.init("id","in",values)])
+                query.selectionCount=values.count
+            default: throw invalid()
+            }
+        }
+        if kind == .localAwards {
+            query.programme = try string(params, "programme", max: 16) ?? "dxcc"
+            guard LocalAwardEngine.programmes.contains(query.programme) else { throw invalid() }
+            query.stationScope = try string(params, "station_scope", max: 512) ?? ""
+            query.band = try string(params, "band", max: 16) ?? ""
+            query.mode = try string(params, "mode", max: 16) ?? ""
+            query.role = try string(params, "role", max: 16) ?? ""
+            query.unit = try string(params, "unit", max: 64) ?? ""
+            query.unitRole = try string(params, "unit_role", max: 16) ?? ""
+            query.dayOffset = try integer(params,"day_offset",default:0,range:0...Int(Int32.max))
+            query.scopeSearch = try string(params,"scope_search",max:128) ?? ""
+            query.referenceDirectory = try referenceDirectoryURL().path
+            query.referenceVersion = try ActivationReferenceDirectory.fingerprint(directory: URL(fileURLWithPath: query.referenceDirectory))
+        }
         if kind == .catalogue {
             query.limit = try integer(params, "limit", default: 20, range: 1...25)
             query.offset = try integer(params, "offset", default: 0, range: 0...Int(Int32.max))
@@ -330,6 +378,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
             var result = try preferencesSnapshot()
             result["dxccStatuses"] = statuses
             result["home"] = home
+            result["ownCall"] = try currentSettings().stationCall
             try validateAggregateOwner(statistics.owner)
             return result
         } } catch let change as LiveLogbookAggregateChange { throw change.failure }
@@ -361,6 +410,21 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 guard query.kind == .catalogue else { throw LogbookDatabaseError.corruptRecord }
                 response = try catalogJSON(value, offset: query.offset, limit: query.limit,
                     search: query.search, delivery: query.delivery, group: query.group, mode: query.mode, role: query.role)
+            case let .contacts(value):
+                if query.kind == .exportContacts {
+                    guard query.selectionCount == nil || query.selectionCount == value.contacts.count else { throw WorkerFailure("export_selection_changed","A selected contact is no longer available. Select it again.") }
+                    let token=UUID().uuidString
+                    let snapshot=ADIFExportSnapshot(contacts:value.contacts,scope:.all)
+                    adifExport=(token,owner.generation,Date(),snapshot); potaExport=nil
+                    response=["token":token,"total":snapshot.records.count]
+                } else {
+                    response = ["qsos": try json(value.contacts), "total": value.total, "offset": query.offset,
+                        "limit": query.limit, "reference_time": ISO8601DateFormatter().string(from: Date(timeIntervalSince1970: query.referenceTime))]
+                }
+            case let .localAwards(value):
+                response = try value.projection(scope: query.stationScope, band: query.band, mode: query.mode,
+                    role: query.role, unit: query.unit, unitRole: query.unitRole, offset: query.offset, limit: query.limit,
+                    dayOffset:query.dayOffset,scopeSearch:query.scopeSearch)
             }
             // Settings/CTY/queue shaping above uses today's owner context. Check
             // again after it, never against the old readonly transaction.
@@ -392,7 +456,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         let owner = try aggregateReadOwner(expectedGeneration: query.expectedGeneration)
         let cancellation = LogbookAggregateCancellation()
         let snapshot = try LogbookDatabase.readAggregateSnapshot(at: owner.database.url, authority: owner.authority,
-            request: try LogbookAggregateRequest.current(query.kind), cancellation: cancellation)
+            request: try query.request(), cancellation: cancellation)
         let result = try snapshot.evaluate(cancellation: cancellation)
         try acceptAggregate(result, owner: owner)
         return try renderAggregate(result, owner: owner, query: query)
@@ -503,9 +567,10 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
             let workspaceID = try powerWorkspaceID(expected: expectedWorkspaceID)
             let settings = try currentSettings()
             let db = try readyDatabase()
-            _ = try db.operatorDraft(initial: newOperatorDraft())
+            let current = try db.operatorDraft(initial: newOperatorDraft())
             let draft = try db.configureOperatorDraftPower(enabled: settings.automaticTransmitPower,
-                fallback: settings.defaultPower, workspaceID: workspaceID)
+                fallback: current.qso.extraFields["APP_OM0RXXLOG_PORTABLE_DEFAULT_POWER"] ?? settings.defaultPower,
+                workspaceID: workspaceID)
             return OperatorDraftPowerOwnerSnapshot(workspaceID: workspaceID, draft: draft, settings: settings)
         }
     }
@@ -802,6 +867,9 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 let contacts = try readyDatabase().historyRows(call: call, adif: adif)
                 return ["history": LocalContactHistory.project(rows: contacts, call: call, adif: adif,
                             resolver: try? currentCTYResolver())]
+            case "logbook_alert_entities":
+                try requireKeys(params,allowed:[])
+                return ["entities":try currentCTYResolver().reachableCountryEndpoints(at:Date()).map { ["adif":$0.adif,"name":$0.name] as [String:Any] }]
             case "logbook_cty_preview":
                 try requireKeys(params, allowed: ["limit", "offset"])
                 let limit = try integer(params, "limit", default: 20, range: 1...25)
@@ -811,15 +879,9 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                         "source": source.source == "bundled" ? "bundled" : "downloaded",
                         "read_only": true]
             case "logbook_list":
-                try requireKeys(params, allowed: ["search", "limit", "offset"])
-                let search = try string(params, "search", max: 128) ?? ""
-                let limit = try integer(params, "limit", default: 20, range: 1...25)
-                let offset = try integer(params, "offset", default: 0, range: 0...Int(Int32.max))
-                let db = try readyDatabase()
-                let rows = try db.fetch(limit: limit, search: search, offset: offset)
-                return ["qsos": try json(rows),
-                        "offset": offset, "limit": limit,
-                        "total": try db.count(search: search)]
+                return try synchronousAggregate(method: method, params: params)
+            case "logbook_award_progress":
+                return try synchronousAggregate(method: method, params: params)
             case "logbook_draft":
                 try requireKeys(params, allowed: [])
                 return ["qso": try json(newOperatorDraft())]
@@ -879,6 +941,83 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                     throw WorkerFailure("draft_existing_contact", "This draft cannot replace an existing logged contact.")
                 } catch OperatorDraftError.invalid { throw invalid() }
                 catch OperatorDraftPowerError.invalid { throw invalid() }
+            case "logbook_operator_draft_nearby_call":
+                try requireKeys(params, allowed: ["operationID","draftID","expectedRevision","generation","callsign"],
+                                required: ["operationID","draftID","expectedRevision","generation","callsign"])
+                let generation = try editGeneration()
+                if try !matchesEditGeneration(params, generation) { return ["status":"workspace_changed","generation":generation] }
+                guard let operationText = params["operationID"] as? String, let operationID = UUID(uuidString:operationText),
+                      let draftText = params["draftID"] as? String, let draftID = UUID(uuidString:draftText),
+                      let callsign = try string(params,"callsign",max:32),
+                      callsign.range(of: #"^[A-Z0-9/\-]{3,32}$"#, options:.regularExpression) != nil else { throw invalid() }
+                let revision = try integer(params,"expectedRevision",default:-1,range:0...9_007_199_254_740_990)
+                let db = try readyDatabase()
+                if let receipt = try db.operatorDraftReceipt(operationID:operationID) {
+                    guard receipt.mutation.draftID == draftID, receipt.mutation.expectedRevision == Int64(revision),
+                          receipt.mutation.action == .replace, receipt.mutation.qso?.call == callsign else { throw OperatorDraftError.operationReused }
+                    return ["status":"applied","receipt":try scopedReceipt(receipt,field:"draft",generation:generation)]
+                }
+                guard try currentSettings().nearbySpottedCallsigns else { throw WorkerFailure("nearby_disabled","Enable Nearby spotted callsigns in Logbook settings first.") }
+                guard !db.spotDraftActivationActive else { throw WorkerFailure("spot_activation_busy","Wait for the current draft operation.") }
+                let current = try db.operatorDraft(initial:newOperatorDraft())
+                guard current.qso.id == draftID, current.revision == Int64(revision) else {
+                    return ["status":"conflict","draft":try scopedSnapshot(current,generation:generation)]
+                }
+                guard current.qso.call.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty else {
+                    throw WorkerFailure("callsign_present","Your entered callsign is retained.")
+                }
+                let next = try OperatorDraftNearbyCallsign.applying(to:current.qso,callsign:callsign)
+                let mutation = OperatorDraftMutation(operationID:operationID,draftID:draftID,expectedRevision:Int64(revision),action:.replace,qso:next)
+                let receipt = try db.applyOperatorDraft(mutation,nextDraft:current.qso)
+                return ["status":"applied","receipt":try scopedReceipt(receipt,field:"draft",generation:generation)]
+            case "logbook_operator_draft_antenna_proposal", "logbook_operator_draft_antenna_follow":
+                let applying = method == "logbook_operator_draft_antenna_follow"
+                try requireKeys(params, allowed: ["operationID", "draftID", "expectedRevision", "generation", "frequencyHz"],
+                                required: applying ? ["operationID", "draftID", "expectedRevision", "generation", "frequencyHz"] : ["draftID", "expectedRevision", "generation", "frequencyHz"])
+                let generation = try editGeneration()
+                if try !matchesEditGeneration(params, generation) { return ["status": "workspace_changed", "generation": generation] }
+                guard let rawID = params["draftID"] as? String, let draftID = UUID(uuidString: rawID) else { throw invalid() }
+                let revision = try integer(params, "expectedRevision", default: -1, range: 0...9_007_199_254_740_990)
+                let frequency = try integer(params, "frequencyHz", default: -1, range: 1...1_000_000_000_000)
+                let db = try readyDatabase()
+                var operationID: UUID?
+                if applying {
+                    guard let raw = params["operationID"] as? String, let value = UUID(uuidString: raw) else { throw invalid() }
+                    operationID = value
+                    if let receipt = try db.operatorDraftReceipt(operationID: value) {
+                        guard receipt.mutation.draftID == draftID, receipt.mutation.expectedRevision == Int64(revision),
+                              receipt.mutation.qso?.extraFields["APP_OM0RXXLOG_ANTENNA_TX_HZ"] == String(frequency) else { throw invalid() }
+                        return ["status": "applied", "receipt": try scopedReceipt(receipt, field: "draft", generation: generation)]
+                    }
+                }
+                let current = try db.operatorDraft(initial: newOperatorDraft())
+                guard current.qso.id == draftID, current.revision == Int64(revision) else {
+                    return ["status": "conflict", "draft": try scopedSnapshot(current, generation: generation)]
+                }
+                let settings = try currentSettings()
+                guard current.operatingDefaultsMutable, settings.stationEquipment.automaticSelection,
+                      current.qso.extraFields["APP_OM0RXXLOG_ANTENNA_MANUAL"] != "Y",
+                      settings.portableOperating.activeContext?.preset.antennaProfileID == nil,
+                      case .selected(let profile) = settings.stationEquipment.profileChoice(transmitBand: BandPlan.band(for: Int64(frequency)), fresh: true) else {
+                    return ["status": "unchanged", "proposed": false]
+                }
+                var projected = profile.applying(to: current.qso)
+                // Equal profile metadata needs no transaction or editor barrier.
+                guard projected != current.qso else { return ["status": "unchanged", "proposed": false] }
+                guard applying, let operationID else {
+                    let fingerprint = try JSONSerialization.data(withJSONObject: json(profile), options: [.sortedKeys]).base64EncodedString()
+                    return ["status": "proposed", "proposed": true, "profileFingerprint": fingerprint,
+                            "settingsRevision": try storedSettingsSnapshot(validatedDatabase: db).revision]
+                }
+                projected.extraFields["APP_OM0RXXLOG_ANTENNA_TX_HZ"] = String(frequency)
+                projected.extraFields["APP_OM0RXXLOG_ANTENNA_TX_BAND"] = BandPlan.band(for: Int64(frequency))
+                let mutation = OperatorDraftMutation(operationID: operationID, draftID: draftID, expectedRevision: Int64(revision), action: .replace, qso: projected)
+                do {
+                    let receipt = try db.applyOperatorDraft(mutation, nextDraft: current.qso, preserveOperatingDefaultsEligibility: true)
+                    return ["status": "applied", "receipt": try scopedReceipt(receipt, field: "draft", generation: generation)]
+                } catch OperatorDraftError.conflict(let updated) {
+                    return ["status": "conflict", "draft": try scopedSnapshot(updated, generation: generation)]
+                }
             case "logbook_operator_draft_radio_read", "logbook_operator_draft_radio_follow":
                 // Native admission supplies observed radio evidence, never a renderer
                 // replacement QSO. Project only onto the canonical revision below.
@@ -909,15 +1048,25 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                     }
                     let current = try db.operatorDraft(initial: newOperatorDraft())
                     guard current.qso.id == draftID, current.revision == Int64(revision) else { throw OperatorDraftError.conflict(current) }
-                    let projected = try OperatorDraftRadioFollow.applying(to: current.qso, frequencyHz: Int64(frequency),
+                    var projected = try OperatorDraftRadioFollow.applying(to: current.qso, frequencyHz: Int64(frequency),
                         receiveFrequencyHz: receiveFrequency.map(Int64.init),
                         observedMode: observedMode, enabled: true)
+                    // frequencyHz here is admitted native TX evidence (including
+                    // split), never RX-only renderer telemetry. Operator intent
+                    // locks this snapshot independently of prefilled defaults.
+                    if current.operatingDefaultsMutable,
+                       current.qso.extraFields["APP_OM0RXXLOG_ANTENNA_MANUAL"] != "Y",
+                       try currentSettings().portableOperating.activeContext?.preset.antennaProfileID == nil,
+                       case .selected(let antenna) = try currentSettings().stationEquipment.profileChoice(
+                        transmitBand: projected.band, fresh: true) {
+                        projected = antenna.applying(to: projected)
+                    }
                     if method == "logbook_operator_draft_radio_follow", projected == current.qso {
                         return ["status": "unchanged", "draft": try scopedSnapshot(current, generation: generation)]
                     }
                     let mutation = OperatorDraftMutation(operationID: operationID, draftID: draftID,
                         expectedRevision: Int64(revision), action: .replace, qso: projected)
-                    let receipt = try db.applyOperatorDraft(mutation, nextDraft: current.qso)
+                    let receipt = try db.applyOperatorDraft(mutation, nextDraft: current.qso, preserveOperatingDefaultsEligibility: true)
                     return ["status": "applied", "receipt": try scopedReceipt(receipt, field: "draft", generation: generation)]
                 } catch OperatorDraftError.conflict(let current) {
                     return ["status": "conflict", "draft": try scopedSnapshot(current, generation: generation)]
@@ -1274,26 +1423,10 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
             case "logbook_export_adif":
                 if let action = params["action"] as? String {
                     if action == "begin" {
-                        try requireKeys(params, allowed: ["action", "scope", "search", "ids"], required: ["action", "scope"])
-                        let db = try readyDatabase()
-                        let snapshot: ADIFExportSnapshot
-                        switch params["scope"] as? String {
-                        case "all":
-                            guard params["search"] == nil, params["ids"] == nil else { throw invalid() }
-                            snapshot = try db.adifExportSnapshot(scope: .all)
-                        case "filtered":
-                            guard params["ids"] == nil, let search = try string(params, "search", max: 128), !search.isEmpty else { throw invalid() }
-                            snapshot = ADIFExportSnapshot(contacts: try db.fetch(limit: Int(Int32.max), search: search), scope: .all)
-                        case "selected":
-                            guard params["search"] == nil, let rawIDs = params["ids"] as? [String], (1...128).contains(rawIDs.count) else { throw invalid() }
-                            let ids = try Set(rawIDs.map { raw -> UUID in guard let id = UUID(uuidString: raw) else { throw invalid() }; return id })
-                            snapshot = try db.adifExportSnapshot(scope: .selected(ids))
-                            guard snapshot.contactIDs.count == ids.count else { throw WorkerFailure("export_selection_changed", "A selected contact is no longer available. Select it again.") }
-                        default: throw invalid()
-                        }
-                        let token = UUID().uuidString
-                        adifExport = (token, try editGeneration(), Date(), snapshot)
-                        return ["token": token, "total": snapshot.records.count]
+                        return try synchronousAggregate(method:method,params:params)
+                    }
+                    if ["pota_preview", "pota_files", "pota_issues", "pota_read"].contains(action) {
+                        return try potaExportAction(action, params: params)
                     }
                     guard action == "read" else { throw invalid() }
                     try requireKeys(params, allowed: ["action", "token", "offset", "limit"], required: ["action", "token"])
@@ -1515,6 +1648,24 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                     defaults.set(expected + 1, forKey: "OM0RX-xLog.workspacePreferencesRevision")
                 }
                 return try preferencesSnapshot().merging(["status": "applied"]) { _, new in new }
+            case "workspace_commands_apply":
+                try requireKeys(params,allowed:["generation","expectedRevision","bindings"],required:["generation","expectedRevision","bindings"])
+                let current = try preferencesSnapshot()
+                if try !matchesEditGeneration(params,current["generation"] as! String) {
+                    return current.merging(["status":"workspace_changed"]) { _,new in new }
+                }
+                let expected = try integer(params,"expectedRevision",default:-1,range:0...9_007_199_254_740_990)
+                if expected != current["revision"] as? Int { return current.merging(["status":"conflict"]) { _,new in new } }
+                guard let object = params["bindings"] as? [String:Any] else { throw invalid() }
+                let bindings:XLogNormalCommandBindings = try decode(object)
+                guard bindings.valid, let defaults = workspace?.makeDefaults() else { throw invalid() }
+                var preferences = try currentBackupPreferences()
+                if preferences.normalCommandBindings != bindings {
+                    preferences.normalCommandBindings=bindings
+                    applyBackupPreferences(preferences,to:defaults)
+                    defaults.set(expected+1,forKey:"OM0RX-xLog.workspacePreferencesRevision")
+                }
+                return try preferencesSnapshot().merging(["status":"applied"]) { _,new in new }
             case "workspace_band_map_apply":
                 return try applyBandMapPreferences(params)
             case "workspace_logbook_filters_apply":
@@ -1532,6 +1683,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 result["home"] = MaidenheadLocator.coordinate(settings.gridSquare).map {
                     ["lat": $0.latitude, "lon": $0.longitude, "call": settings.stationCall, "grid": settings.gridSquare] as [String: Any]
                 } as Any? ?? NSNull()
+                result["ownCall"] = settings.stationCall
                 result["dxccStatuses"] = statuses
                 return result
             case "backup_create":
@@ -2134,7 +2286,8 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         } ?? []
         var seenFilterNames = Set<String>()
         let savedFilters = Array(decodedFilters.filter { filter in
-            (try? savedFilterName(filter.name)) == filter.name && (try? savedFilterQuery(filter.query)) == filter.query &&
+            (try? savedFilterName(filter.name)) == filter.name && (try? savedFilterQuery(filter.query, allowEmpty: filter.definition != nil)) == filter.query &&
+                (filter.definition == nil || (try? filter.definition?.validate()) != nil) &&
                 seenFilterNames.insert(savedFilterKey(filter.name)).inserted
         }.prefix(32)).sorted {
             let left = savedFilterKey($0.name), right = savedFilterKey($1.name)
@@ -2150,6 +2303,8 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
             clusterSpotOpensFullEditor: defaults.bool(forKey: "OM0RX-xLog.clusterSpotOpensFullEditor"),
             detachedBandMapFollowsRadio: defaults.bool(forKey: "OM0RX-xLog.detachedBandMapFollowsRadio"),
             detachedBandMapModes: modes,
+            bandMapGuidesJSON: defaults.string(forKey: "OM0RX-xLog.bandMapGuidesJSON") ?? "",
+            normalCommandBindings: defaults.data(forKey:"OM0RX-xLog.normalCommandBindings").flatMap { try? JSONDecoder().decode(XLogNormalCommandBindings.self,from:$0) } ?? .init(),
             savedLogbookFilters: savedFilters
         )
     }
@@ -2165,7 +2320,9 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         guard value.detachedBandMapModes.count <= 3,
               Set(value.detachedBandMapModes).count == value.detachedBandMapModes.count,
               Set(value.detachedBandMapModes).isSubset(of: ["cw", "data", "phone"]) else { throw invalid() }
+        guard value.normalCommandBindings.valid else { throw invalid() }
         try validateSavedLogbookFilters(value.savedLogbookFilters)
+        try BandMapGuides.validate(value.bandMapGuidesJSON)
     }
 
     private func applyBackupPreferences(_ value: XLogBackupPreferences, to defaults: UserDefaults) {
@@ -2178,6 +2335,8 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         defaults.set(value.clusterSpotOpensFullEditor, forKey: "OM0RX-xLog.clusterSpotOpensFullEditor")
         defaults.set(value.detachedBandMapFollowsRadio, forKey: "OM0RX-xLog.detachedBandMapFollowsRadio")
         defaults.set(value.detachedBandMapModes, forKey: "OM0RX-xLog.detachedBandMapModes")
+        defaults.set(value.bandMapGuidesJSON, forKey: "OM0RX-xLog.bandMapGuidesJSON")
+        defaults.set(try? JSONEncoder().encode(value.normalCommandBindings),forKey:"OM0RX-xLog.normalCommandBindings")
         defaults.set(try? JSONEncoder().encode(value.savedLogbookFilters), forKey: "OM0RX-xLog.savedLogbookFilters")
     }
 
@@ -2186,7 +2345,21 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         guard let defaults = workspace?.makeDefaults() else { throw WorkerFailure("workspace_required", "Create an isolated logbook first.") }
         let revision = defaults.integer(forKey: "OM0RX-xLog.workspacePreferencesRevision")
         guard (0...9_007_199_254_740_990).contains(revision) else { throw invalid() }
+        let bindingData = defaults.data(forKey:"OM0RX-xLog.normalCommandBindings")
+        var bindingWarning:Any = NSNull()
+        if let bindingData, (try? JSONDecoder().decode(XLogNormalCommandBindings.self,from:bindingData)) == nil {
+            bindingWarning = "Saved shortcuts could not be decoded; known defaults are active."
+        }
+        var filterWarning=""
+        if let data=defaults.data(forKey:"OM0RX-xLog.savedLogbookFilters") {
+            do {
+                guard data.count<=16_384 else { throw invalid() }
+                try validateSavedLogbookFilters(JSONDecoder().decode([XLogSavedLogbookFilter].self,from:data))
+            } catch { filterWarning="Some saved filters are invalid and have not been applied. Original preferences remain retained until a valid filter change is saved. Restore a known backup or review definitions before replacing them." }
+        }
         return ["preferences": try json(backupPreferences(from: defaults)), "revision": revision,
+                "normalCommandBindingsWarning":bindingWarning,
+                "saved_filter_warning":filterWarning,
                 "generation": try editGeneration(), "stored": defaults.object(forKey: "OM0RX-xLog.deskBandMapBands") != nil]
     }
 
@@ -2198,8 +2371,8 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         guard let scope = params["scope"] as? String, ["desk", "detached"].contains(scope),
               let expected = params["expected"] as? [String: Any], let patch = params["patch"] as? [String: Any],
               Set(expected.keys) == Set(patch.keys) else { throw invalid() }
-        let fields = scope == "desk" ? ["bands": "deskBandMapBands", "followRadio": "deskBandMapFollowsRadio", "fontScale": "bandMapFontScale"]
-            : ["bands": "detachedBandMapBands", "followRadio": "detachedBandMapFollowsRadio", "fontScale": "bandMapFontScale", "layout": "detachedBandMapLayout", "modes": "detachedBandMapModes"]
+        let fields = scope == "desk" ? ["bands": "deskBandMapBands", "followRadio": "deskBandMapFollowsRadio", "fontScale": "bandMapFontScale", "guidesJSON": "bandMapGuidesJSON"]
+            : ["bands": "detachedBandMapBands", "followRadio": "detachedBandMapFollowsRadio", "fontScale": "bandMapFontScale", "layout": "detachedBandMapLayout", "modes": "detachedBandMapModes", "guidesJSON": "bandMapGuidesJSON"]
         guard Set(patch.keys).isSubset(of: Set(fields.keys)) else { throw invalid() }
         let current = try preferencesSnapshot()
         let original = current["preferences"] as! [String: Any]
@@ -2236,18 +2409,20 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
     /// Mutate only the saved Logbook-query collection. Detached Logbook windows
     /// never receive authority to write the rest of the workspace preferences.
     private func applySavedLogbookFilters(_ params: [String: Any]) throws -> [String: Any] {
-        try requireKeys(params, allowed: ["generation", "expected", "action", "name", "source", "query"],
-                        required: ["generation", "expected", "action"])
+        try requireKeys(params, allowed: ["generation", "expected", "expectedRevision", "action", "name", "source", "query", "definition"],
+                        required: ["generation", "action"])
         guard let action = params["action"] as? String else { throw invalid() }
-        let expected = try decodeSavedLogbookFilters(params["expected"])
-        try validateSavedLogbookFilters(expected)
+        guard (params["expected"] == nil) != (params["expectedRevision"] == nil) else { throw invalid() }
+        let expected = try params["expected"].map { try decodeSavedLogbookFilters($0) }
+        if let expected { try validateSavedLogbookFilters(expected) }
+        let expectedRevision = try params["expectedRevision"].map { _ in try integer(params,"expectedRevision",default:0,range:0...9_007_199_254_740_990) }
         let current = try preferencesSnapshot()
         let originalObject = current["preferences"] as! [String: Any]
         var value: XLogBackupPreferences = try decode(originalObject)
         if try !matchesEditGeneration(params, current["generation"] as! String) {
             return current.merging(["status": "workspace_changed"]) { _, new in new }
         }
-        guard value.savedLogbookFilters == expected else {
+        guard expected.map({ value.savedLogbookFilters == $0 }) ?? (current["revision"] as? Int == expectedRevision) else {
             return current.merging(["status": "conflict"]) { _, new in new }
         }
         var filters = value.savedLogbookFilters
@@ -2256,33 +2431,37 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         }
         switch action {
         case "save":
-            try requireKeys(params, allowed: ["generation", "expected", "action", "name", "query"],
-                            required: ["generation", "expected", "action", "name", "query"])
-            let name = try savedFilterName(params["name"]), query = try savedFilterQuery(params["query"])
+            try requireKeys(params, allowed: ["generation", "expected", "expectedRevision", "action", "name", "query", "definition"],
+                            required: ["generation", "action", "name", "query"])
+            let name = try savedFilterName(params["name"]), query = try savedFilterQuery(params["query"], allowEmpty: params["definition"] != nil)
+            let definition = try params["definition"].map { try contactQuery(["query": $0]) }
             guard filters.count < 32, existingIndex(name) == nil else { throw invalid() }
-            filters.append(.init(name: name, query: query))
+            filters.append(.init(name: name, query: query, id: definition == nil ? nil : UUID().uuidString.lowercased(), definition: definition))
         case "clone":
-            try requireKeys(params, allowed: ["generation", "expected", "action", "source", "name"],
-                            required: ["generation", "expected", "action", "source", "name"])
+            try requireKeys(params, allowed: ["generation", "expected", "expectedRevision", "action", "source", "name"],
+                            required: ["generation", "action", "source", "name"])
             let source = try savedFilterName(params["source"]), name = try savedFilterName(params["name"])
             guard filters.count < 32, existingIndex(name) == nil, let index = existingIndex(source) else { throw invalid() }
-            filters.append(.init(name: name, query: filters[index].query))
+            filters.append(.init(name: name, query: filters[index].query,
+                id: filters[index].id == nil ? nil : UUID().uuidString.lowercased(), definition: filters[index].definition))
         case "rename":
-            try requireKeys(params, allowed: ["generation", "expected", "action", "source", "name"],
-                            required: ["generation", "expected", "action", "source", "name"])
+            try requireKeys(params, allowed: ["generation", "expected", "expectedRevision", "action", "source", "name"],
+                            required: ["generation", "action", "source", "name"])
             let source = try savedFilterName(params["source"]), name = try savedFilterName(params["name"])
             guard let index = existingIndex(source),
                   existingIndex(name).map({ $0 == index }) ?? true else { throw invalid() }
             filters[index].name = name
         case "update":
-            try requireKeys(params, allowed: ["generation", "expected", "action", "source", "query"],
-                            required: ["generation", "expected", "action", "source", "query"])
-            let source = try savedFilterName(params["source"]), query = try savedFilterQuery(params["query"])
+            try requireKeys(params, allowed: ["generation", "expected", "expectedRevision", "action", "source", "query", "definition"],
+                            required: ["generation", "action", "source", "query"])
+            let source = try savedFilterName(params["source"]), query = try savedFilterQuery(params["query"], allowEmpty: params["definition"] != nil)
             guard let index = existingIndex(source) else { throw invalid() }
             filters[index].query = query
+            filters[index].definition = try params["definition"].map { try contactQuery(["query": $0]) }
+            if filters[index].definition != nil, filters[index].id == nil { filters[index].id = UUID().uuidString.lowercased() }
         case "delete":
-            try requireKeys(params, allowed: ["generation", "expected", "action", "source"],
-                            required: ["generation", "expected", "action", "source"])
+            try requireKeys(params, allowed: ["generation", "expected", "expectedRevision", "action", "source"],
+                            required: ["generation", "action", "source"])
             let source = try savedFilterName(params["source"])
             guard let index = existingIndex(source) else { throw invalid() }
             filters.remove(at: index)
@@ -2313,11 +2492,14 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
 
     private func validateSavedLogbookFilters(_ filters: [XLogSavedLogbookFilter]) throws {
         guard filters.count <= 32 else { throw invalid() }
+        guard try JSONEncoder().encode(filters).count <= 16_384 else { throw invalid() }
         var names = Set<String>()
         for filter in filters {
             guard (try? savedFilterName(filter.name)) == filter.name,
-                  (try? savedFilterQuery(filter.query)) == filter.query,
+                  (try? savedFilterQuery(filter.query, allowEmpty: filter.definition != nil)) == filter.query,
                   names.insert(savedFilterKey(filter.name)).inserted else { throw invalid() }
+            if let definition = filter.definition { try definition.validate() }
+            if let id = filter.id { guard UUID(uuidString: id) != nil else { throw invalid() } }
         }
     }
 
@@ -2328,20 +2510,81 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         return value
     }
 
-    private func savedFilterQuery(_ raw: Any?) throws -> String {
+    private func savedFilterQuery(_ raw: Any?, allowEmpty: Bool = false) throws -> String {
         guard let value = raw as? String, value == value.trimmingCharacters(in: .whitespacesAndNewlines),
-              (1...128).contains(value.unicodeScalars.count), value.utf8.count <= 512,
+              ((allowEmpty ? 0 : 1)...128).contains(value.unicodeScalars.count), value.utf8.count <= 512,
               !value.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) || CharacterSet.newlines.contains($0) }) else { throw invalid() }
         return value
     }
 
     private func savedFilterKey(_ value: String) -> String { value.lowercased() }
 
+    private func contactQuery(_ params: [String: Any]) throws -> LogbookQuery {
+        guard let raw = params["query"] else { return LogbookQuery() }
+        guard JSONSerialization.isValidJSONObject(raw), let data = try? JSONSerialization.data(withJSONObject: raw), data.count <= 16_384 else { throw invalid() }
+        let query = try decoder.decode(LogbookQuery.self, from: data)
+        try query.validate()
+        return query
+    }
+
+    private func potaExportAction(_ action: String, params: [String: Any]) throws -> [String: Any] {
+        guard let export = adifExport, params["token"] as? String == export.token,
+              export.generation == (try editGeneration()), Date().timeIntervalSince(export.created) < 300 else {
+            throw WorkerFailure("export_expired", "The export snapshot expired or the workspace changed. Preview again.")
+        }
+        func file(_ value: POTAExportFile) -> [String: Any] {
+            ["filename": value.filename, "stationCall": value.stationCall, "ownPark": value.ownPark, "state": value.state,
+             "physicalContacts": value.physicalContacts, "derivedRecords": value.derivedRecords, "text": ""]
+        }
+        if action == "pota_preview" {
+            try requireKeys(params, allowed: ["action","token","assignment","splitByDay"], required: ["action","token"])
+            guard params["splitByDay"] == nil || params["splitByDay"] is Bool else { throw invalid() }
+            let assignment: POTAExportAssignment? = try params["assignment"].map { raw in
+                guard let value = raw as? [String: Any], Set(value.keys).isSubset(of: ["ownParks","state","clubOrGroup"]),
+                      let parks = value["ownParks"] as? [String], parks.count <= 32, parks.allSatisfy(POTAExportPreview.validPark),
+                      let state = value["state"] as? String, state.utf8.count <= 64 else { throw invalid() }
+                return try decode(value)
+            }
+            let preview=try POTAExportPreview.prepare(snapshot:export.snapshot,now:Date(),assignment:assignment,splitByDay:params["splitByDay"] as? Bool ?? false)
+            potaExport=(export.token,preview)
+        } else {
+            try requireKeys(params, allowed: ["action","token","offset","limit","fileIndex"],required:["action","token"])
+        }
+        guard let retained=potaExport, retained.token == export.token else { throw invalid() }
+        let preview=retained.preview
+        if action == "pota_read" {
+            let index=try integer(params,"fileIndex",default:0,range:0...max(0,preview.files.count-1))
+            guard index < preview.files.count else { throw invalid() }
+            let data=Data(preview.files[index].text.utf8)
+            let offset=try integer(params,"offset",default:0,range:0...data.count)
+            let limit=try integer(params,"limit",default:12000,range:1...12000)
+            let bytes=data.subdata(in:offset..<min(data.count,offset+limit))
+            return ["bytes":bytes.base64EncodedString(),"count":bytes.count,"total":data.count]
+        }
+        let offset=try integer(params,"offset",default:0,range:0...Int(Int32.max))
+        let limit=try integer(params,"limit",default:25,range:1...25)
+        if action == "pota_files" { return ["files":preview.files.dropFirst(offset).prefix(limit).map(file),"total":preview.files.count] }
+        if action == "pota_issues" { return ["issues":try json(Array(preview.issues.dropFirst(offset).prefix(limit))),"total":preview.issues.count] }
+        var response: [String:Any] = ["version":preview.version,"rulesVersion":preview.rulesVersion,"sourceURLs":preview.sourceURLs,
+            "capturedAt":ISO8601DateFormatter().string(from:preview.capturedAt),"physicalContacts":preview.physicalContacts,
+            "includedContacts":preview.includedContacts,"derivedRecords":preview.derivedRecords,
+            "files":preview.files.prefix(25).map(file),"issues":try json(Array(preview.issues.prefix(25))),
+            "warnings":preview.warnings,"token":export.token,"fileCount":preview.files.count,"issueCount":preview.issues.count]
+        if let assignment=preview.assignment { response["assignment"]=try json(assignment) }
+        return ["preview":response]
+    }
+
+    private func queryReferenceTime(_ params: [String: Any]) throws -> Date {
+        guard let raw = params["reference_time"] else { return Date() }
+        guard let text = raw as? String, text.count <= 40, let date = LogbookQuery.absoluteUTCDate(text) else { throw invalid() }
+        return date
+    }
+
     private func newOperatorDraft(settings suppliedSettings: XLogSettings? = nil) throws -> QSO {
         let settings = try suppliedSettings ?? currentSettings()
-        return QSO(call: "", band: "20m", mode: "SSB", stationLocation: settings.stationLocation,
+        return settings.applyingOperatingDefaults(to: QSO(call: "", band: "20m", mode: "SSB", stationLocation: settings.stationLocation,
                    radio: settings.defaultRadio, txPower: settings.defaultPower,
-                   operatorCall: settings.operatorCall, myCall: settings.stationCall, myGrid: settings.gridSquare)
+                   operatorCall: settings.operatorCall, myCall: settings.stationCall, myGrid: settings.gridSquare))
     }
 
     private func requireKeys(_ params: [String: Any], allowed: Set<String>, required: Set<String> = []) throws {
@@ -2479,6 +2722,8 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
              "checked_on_utc": programme.record.checkedOnUTC,
              "delivery_state": programme.deliveryState.rawValue,
              "delivery_detail": programme.deliveryDetail,
+              "local_progress_code": programme.localProgressCode as Any? ?? NSNull(),
+              "local_capabilities": programme.localCapabilities as Any? ?? NSNull(),
              "progress_code": programme.progress?.code as Any? ?? NSNull()]
         }
         return ["reference_date": value.referenceDate, "research_date": value.researchDate,

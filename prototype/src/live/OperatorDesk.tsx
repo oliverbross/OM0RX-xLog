@@ -1,3 +1,4 @@
+import {editorCommand,commandTitle} from "./normalCommands";
 import { useEffect, useLayoutEffect, useRef, useState, type SetStateAction, type ReactNode } from "react";
 import { Radio, Navigation, CircleX, CircleCheck } from "lucide-react";
 import { DeskIntelligence } from "./CallsignIntelligence";
@@ -102,7 +103,7 @@ export function DeskQSO({ draft, setDraft: writeDraft, save, clear, busy, draftL
     save(automaticStart && canonicalAutomaticStart === undefined ? { ...draft, start: now.toISOString() } : draft);
   };
   return <section className="desk-panel desk-active" aria-label="Active QSO"><QSOHeader title="Active QSO" /><form inert={draftLocked} aria-busy={draftLocked} onSubmit={event => { event.preventDefault(); if (acceptsInput() && canSave) saveCurrent(); }} onKeyDown={event => {
-    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); if (acceptsInput() && canSave) saveCurrent(); }
+    if (editorCommand(event,{save:()=>{if(acceptsInput()&&canSave)saveCurrent();},focus:()=>event.currentTarget.querySelector<HTMLInputElement>('[aria-label="Desk Callsign"]')?.focus()})) return;
     if (event.key === "Escape") { event.preventDefault(); event.currentTarget.querySelector<HTMLInputElement>('[aria-label="Desk Callsign"]')?.focus(); }
   }}>
     <div className="desk-active-primary">{textField("call", "Callsign", "desk-call")}
@@ -124,7 +125,7 @@ export function DeskQSO({ draft, setDraft: writeDraft, save, clear, busy, draftL
     {duplicateDate && <p className="desk-active-duplicate" role="status" title="Previously worked on this band and mode · UTC date">Dupe: Worked on {duplicateDate}</p>}
     {error && <p className="desk-error" role="alert">{error}</p>}
     {(!validFrequency || !validTime || frequencyBand && frequencyBand !== draft.band) && <p className="desk-error" role="alert">Check the UTC date, frequency and band before logging.</p>}
-    <footer className="desk-active-actions">{onEditor && <button type="button" onClick={() => { if (!acceptsInput()) return; if (pendingInput) { setError("Finish the buffered frequency and UTC fields before changing editor views."); return; } onEditor(); }}>Full editor</button>}{(radioControls || onReadRadio) && <button type="button" disabled={busy || reading || !onReadRadio} onClick={() => void read()}><Radio size={12} />{reading ? "Reading…" : "Read radio"}</button>}{followControls && <label className="desk-toggle"><input type="checkbox" checked={follow} onChange={event => { if (acceptsInput()) setFollow(event.target.checked); }} />Follow radio</label>}<span /><button type="button" disabled={busy} onClick={() => { if (acceptsInput()) clear(); }}><CircleX size={12} />Clear QSO</button><button className="desk-log" disabled={!canSave}><CircleCheck size={13} />{isEditing ? "Update QSO" : "Log QSO"}</button></footer>
+    <footer className="desk-active-actions">{onEditor && <button type="button" onClick={() => { if (!acceptsInput()) return; if (pendingInput) { setError("Finish the buffered frequency and UTC fields before changing editor views."); return; } onEditor(); }}>Full editor</button>}{(radioControls || onReadRadio) && <button type="button" disabled={busy || reading || !onReadRadio} onClick={() => void read()}><Radio size={12} />{reading ? "Reading…" : "Read radio"}</button>}{followControls && <label className="desk-toggle"><input type="checkbox" checked={follow} onChange={event => { if (acceptsInput()) setFollow(event.target.checked); }} />Follow radio</label>}<span /><button type="button" disabled={busy} onClick={() => { if (acceptsInput()) clear(); }}><CircleX size={12} />Clear QSO</button><button className="desk-log" title={commandTitle("save-current-qso")} disabled={!canSave}><CircleCheck size={13} />{isEditing ? "Update QSO" : "Log QSO"}</button></footer>
   </form>{cwControls}</section>;
 }
 

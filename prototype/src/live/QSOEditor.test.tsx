@@ -463,14 +463,18 @@ describe("QSOEditor", () => {
     expect(screen.getByRole("button", { name: /Log QSO/ }).hasAttribute("disabled")).toBe(false);
   });
 
-  it("validates before save, then permits Command-Return and Escape focus", async () => {
+  it.each([
+    { platform: "MacIntel", modifier: { metaKey: true } },
+    { platform: "Win32", modifier: { ctrlKey: true } },
+  ])("validates before save, then permits primary Return and Escape focus on $platform", async ({ platform, modifier }) => {
+    vi.spyOn(navigator, "platform", "get").mockReturnValue(platform);
     const save = vi.fn(); render(<Harness save={save} />);
     fireEvent.change(screen.getByLabelText("Callsign"), { target: { value: "NO" } });
-    fireEvent.keyDown(screen.getByLabelText("Callsign"), { key: "Enter", metaKey: true });
+    fireEvent.keyDown(screen.getByLabelText("Callsign"), { key: "Enter", code: "Enter", ...modifier });
     expect(save).not.toHaveBeenCalled();
     expect(screen.getByRole("alert").textContent).toContain("3–32 character callsign");
     fireEvent.change(screen.getByLabelText("Callsign"), { target: { value: "OM0RX" } });
-    fireEvent.keyDown(screen.getByLabelText("Callsign"), { key: "Enter", metaKey: true });
+    fireEvent.keyDown(screen.getByLabelText("Callsign"), { key: "Enter", code: "Enter", ...modifier });
     expect(save).toHaveBeenCalledOnce();
     fireEvent.keyDown(screen.getByLabelText("QSO note"), { key: "Escape" });
     await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Callsign")));

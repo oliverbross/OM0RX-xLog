@@ -1,4 +1,6 @@
 import { formatSpotFrequency } from "../spotFrequency";
+import { contestBandMapMultiplierLabel, contestBandMapSpotColor, contestBandMapSpotPending, contestBandMapSpotWorked, contestNeededMultiplierCount } from "./contestSpotPresentation";
+export { contestBandMapMultiplierLabel, contestBandMapSpotColor, contestBandMapSpotPending, contestBandMapSpotWorked, contestNeededMultiplierCount } from "./contestSpotPresentation";
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
@@ -18,8 +20,8 @@ export type BandMapSpot = Record<string, any> & { id?: unknown };
 // An explicit host slot lets compact maps share the workspace toolbar without
 // changing ownership, remounting charts, or searching/moving DOM nodes.
 export const BandMapsToolbarContext = createContext<HTMLElement | null>(null);
-export const BAND_MAP_MODES = ["cw", "data", "phone"] as const;
-export type BandMapMode = typeof BAND_MAP_MODES[number];
+import { BAND_MAP_MODES, type BandMapMode, type BandMapViewPreferences } from "./bandMapView";
+export { BAND_MAP_MODES, type BandMapMode, type BandMapViewPreferences } from "./bandMapView";
 export const BAND_MAP_RESOLUTIONS = [1, 2, 3, 4, 5, 7, 10, 15, 20, 30, 40] as const;
 export const BAND_MAP_AGES = [15, 30, 45, 60] as const;
 export type BandMapResolution = "full" | "custom" | typeof BAND_MAP_RESOLUTIONS[number];
@@ -29,7 +31,6 @@ export function bandMapCapacity(width: number, height: number, singleRow: boolea
   const rows = singleRow ? 1 : Math.max(1, Math.floor((Math.max(0, height - 20) + 10) / 240));
   return { columns, capacity: Math.max(1, columns * rows) };
 }
-export type BandMapViewPreferences = { bands: string[]; followRadio: boolean; layout: "row" | "grid"; fontScale: number; modes?: BandMapMode[] };
 type Props = { spots: BandMapSpot[]; onSelect: (spot: BandMapSpot) => void; radioFrequencyHz?: number; compact?: boolean;
   onGuideTune?: (marker: GuideMarker) => Promise<unknown>;
   observedReceiveBandwidthHz?: number | null;
@@ -171,33 +172,6 @@ export function opportunityCode(spot: BandMapSpot): string {
 export function bandMapSpotColor(spot: BandMapSpot): string {
   if (hex(spot.statusHex)) return spot.statusHex;
   return paletteColor(opportunityStatus(spot), undefined, clusterStatusColors);
-}
-export function contestBandMapSpotWorked(spot:BandMapSpot):boolean{
-  return spot.contestDupe===true;
-}
-export function contestBandMapSpotPending(spot:BandMapSpot):boolean{
-  const count=contestNeededMultiplierCount(spot);
-  return !contestBandMapSpotWorked(spot)&&(count===null||count===0&&spot.contestDupe!==false);
-}
-export function contestNeededMultiplierCount(spot:BandMapSpot):number|null{
-  if(typeof spot.contestCountryMultiplier==="boolean"&&typeof spot.contestZoneMultiplier==="boolean")
-    return Number(spot.contestCountryMultiplier)+Number(spot.contestZoneMultiplier);
-  return finite(spot.contestMultiplierCount);
-}
-export function contestBandMapMultiplierLabel(spot:BandMapSpot):string{
-  if(spot.contestCountryMultiplier===true&&spot.contestZoneMultiplier===true)return "C+Z";
-  if(spot.contestCountryMultiplier===true&&spot.contestZoneMultiplier===false)return "C";
-  if(spot.contestCountryMultiplier===false&&spot.contestZoneMultiplier===true)return "Z";
-  if(spot.contestCountryMultiplier===false&&spot.contestZoneMultiplier===false)return "—";
-  const count=finite(spot.contestMultiplierCount);return count===null?"?":count===0?"—":String(count);
-}
-export function contestBandMapSpotColor(spot:BandMapSpot):string{
-  if(contestBandMapSpotWorked(spot))return "#aeb5b7";
-  const multipliers=contestNeededMultiplierCount(spot);
-  if(multipliers!==null&&multipliers>1)return "#00e51b";
-  if(multipliers===1)return "#ff5267";
-  if(multipliers===0&&spot.contestDupe===false)return "#3da5f4";
-  return "#d9b56f";
 }
 function contestPointDescription(spot:BandMapSpot):string{
   const points=finite(spot.contestPoints),pointLabel=points===null?"Points unavailable":`${points} pt`;

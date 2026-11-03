@@ -460,8 +460,9 @@ pub fn owner_for(app: &tauri::AppHandle, radio_id: &str) -> Result<Arc<StationTe
                 Arc::new(move |value| {
                     crate::qsy_clear::observe(&value);
                     crate::radio_follow::observe(&value);
+                    crate::antenna_profile::observe(&value);
                     let _ = app.emit_to("alerts", "xlog:alerts", ());
-                    for label in ["main", "monitor", "world-map", "band-maps", "station-status", "station-control", "contest--station-control"] {
+                    for label in ["main", "log-qso", "monitor", "world-map", "band-maps", "station-status", "station-control", "contest--station-control"] {
                         let _ = app.emit_to(
                             label,
                             "xlog:station-telemetry",

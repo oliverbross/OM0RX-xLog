@@ -47,6 +47,11 @@ import { mergeBandMapPreferenceIntent } from "./live/detachedBandMapPreferences"
 import IntegratedAwards, { startAggregateRead } from "./live/AwardsPanel";
 import { useDeferredPanelReads } from "./live/deferredPanelReads";
 import QSOEditor from "./live/QSOEditor";
+import {NormalShortcutHelp} from "./live/NormalShortcutHelp";
+import "./live/NormalShortcuts.css";
+import {setNormalBindings,selectNormalBindingScope} from "./live/normalCommands";
+import {useNormalCommands} from "./live/useNormalCommands";
+import {NearbyCallsigns} from "./live/NearbyCallsigns";
 import { ContactDeleteAction } from "./live/ContactDeleteAction";
 import OperatorDesk, { DeskQSO, DeskIntelligence, DeskRotor } from "./live/OperatorDesk";
 import { useQSOLoggedToast } from "./live/QSOLoggedToast";
@@ -56,6 +61,7 @@ import { useWorkspaceRecovery } from "./live/useWorkspaceRecovery";
 import { presentWorkspaceMode, switchWorkspaceMode, workspaceMode, workspaceModeEditorBusy } from "./live/workspaceMode";
 import { WorkspaceModeSurface } from "./live/WorkspaceModeSurface";
 import { DeskAntenna } from "./live/StationEquipment";
+import { PortableContextBanner, AntennaDraftSelector } from "./live/PortableContextPanel";
 import SidebarOwnSpots from "./live/SidebarOwnSpots";
 import { deskEquipmentKind, equipmentProfile, hasConfiguredRotor } from "./live/equipmentPreferences";
 import CWDesk from "./live/CWDesk";
@@ -800,6 +806,7 @@ function MainLiveApp() {
     };
     window.addEventListener("keydown", shortcut); return () => window.removeEventListener("keydown", shortcut);
   }, [readRadioIntoDraft, showSyncSettings]);
+  useNormalCommands(!monitor && normalAccess.active, setError,workspace?.generation);
   const run = async (operation: () => Promise<unknown>) => {
     if (moduleTransitioning.current || readingRadio.current) return;
     busyRef.current = true;
@@ -849,7 +856,7 @@ function MainLiveApp() {
       const preferences = saved.preferences as WorkspacePreferences;
       latestPreferenceSnapshot.current = validPreferenceSnapshot(saved) ? saved : null;
       latestWorkspacePreferences.current = preferences;
-      setWorkspacePreferences(preferences);
+      setWorkspacePreferences(preferences); selectNormalBindingScope(saved.generation); setNormalBindings(preferences.normalCommandBindings,{generation:saved.generation,revision:saved.revision});
       loadedWorkspaceGeneration.current = typeof state.generation === "string" ? state.generation : null;
     }
     if (revision !== reloadRevision.current) return;
@@ -1321,6 +1328,7 @@ function MainLiveApp() {
     adif: s.adif, callStatus: s.callStatus, statusHex: s.statusHex, bandHex: s.bandHex,
   })), [liveSpots]);
   const map = <WorldMap data={mapSpots} selected={selected} palette={cluster?.configuration?.palette}
+    ownCall={settings?.stationCall} ownRbnContext={`${loadedWorkspaceGeneration.current ?? ""}|${activeRadio ?? ""}`}
     home={stats?.map_home} dxccStatuses={stats?.dxcc_statuses}
     target={mapTarget} frequencyHz={station?.radio?.observed && station?.radio?.connected ? station.radio.frequency_hz : undefined}
     persistenceKey="main" onSpot={spot => { const real = liveSpots.find(s => s.id === spot.id); if (real) selectSpot(real); }} />;
@@ -1352,6 +1360,7 @@ function MainLiveApp() {
       <span className="rail-cluster-count">{cluster?.snapshot?.connectedClusters || 0} clusters · {liveSpots.length} spots</span>
       <SpotActivationStatus inline status={spotActivation.status && spotActivation.status.phase !== "idle" ? spotActivation.status : spotEditor.status} />
       {workspace?.workspace_exists && <SharedPropagationConditions compact includeWeather={false} />}
+      {normalAccess.active&&<NormalShortcutHelp/>}
     </header>
     <aside className="sidebar" style={displayedSeparateWindows ? { display: "none" } : undefined}>
       <nav>{navigation.map(([name, Icon, group], i) => <div key={name}>{(i === 0 || navigation[i - 1][2] !== group) && <div className="nav-group">{group === "Logbook" ? "Station log" : group === "View" ? "Explore" : group === "Station" ? "Services" : "Application"}</div>}<button aria-current={view === name ? "page" : undefined} onClick={() => void setView(name)}><Icon size={17} />{name}</button></div>)}</nav>
@@ -1382,6 +1391,14 @@ function MainLiveApp() {
       <SpotActivationStatus status={spotActivation.status && spotActivation.status.phase !== "idle" ? spotActivation.status : spotEditor.status} error={spotEditor.error || spotActivation.error} checking={spotActivation.requesting} />
       {nativeAutoRotor.error && <p className="live-error" role="status">{nativeAutoRotor.error}</p>}
       {workspace?.workspace_exists && <OperatorDraftStatus state={sharedDraft} session={draftSession} run={operation => run(async () => { await operation(); setRefresh(n => n + 1); })} />}
+      {draft && !editing.current && settingsState.snapshot?.settings && ["Log QSO", "Operator Desk"].includes(view) && <>
+        <PortableContextBanner settings={settingsState.snapshot.settings} draft={draft} onApply={setOperatorDraft}
+          disabled={busy || editorBlocked || editorBufferPending.current || settingsDraftIsDirty(settingsState.base, settingsState.draft) || !!settingsState.pending}
+          onEnd={() => void run(async () => { const saved = settingsSession.getSnapshot().snapshot?.settings; if (!saved) throw new Error("Load settings before ending portable operation."); await settingsSession.save({ ...saved, portableOperating: { ...saved.portableOperating, activeContext: null } }); })} />
+        <AntennaDraftSelector settings={settingsState.snapshot.settings} draft={draft} txBand={draft.band ?? null} fresh={false}
+          disabled={busy || editorBlocked || editorBufferPending.current} onApply={setOperatorDraft} rotor={rotorState}
+          onGoto={bearing => { disarmAutoRotor(); void run(async () => { await request("rotor_goto", rotorCommandParams(rotorState, { bearing, label: "Antenna profile target" })); }); }} />
+      </>}
       {workspace?.workspace_exists && <ContactEditStatus state={contactEdit} session={contactSession} run={operation => run(async () => { await operation(); setRefresh(n => n + 1); })} />}
       {workspace?.workspace_exists && <LogbookMutationStatus state={logbookMutation} session={logbookMutations} run={operation => run(async () => { await operation(); setRefresh(n => n + 1); })} />}
       {workspace?.workspace_exists && legacyDraft && <div className="live-message" role="status">
@@ -1442,6 +1459,9 @@ function MainLiveApp() {
         busy={logbookWorking || logbookMutation.busy || !!logbookMutation.pending}
         canChangeView={() => !logbookWorkingRef.current && !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookMutations.getSnapshot().busy && !logbookMutations.getSnapshot().pending} />}
         cluster={cluster} selectedSpotId={selected} onSelect={selectSpot} onRequest={request} bandMaps={deskBands} /></div></>} />}
+      {(view === "Log QSO" || view === "Operator Desk") && !editing.current && <NearbyCallsigns disabled={editorLocked || busy || editorBlocked}
+        beforeApply={async()=>{if(!acceptsInput() || editorBufferPending.current)throw new Error("Finish the buffered editor fields first.");await draftSession.flush();}}
+        onApplied={async result=>{await spotEditor.reconcile(result);}} />}
       {view === "Log QSO" && <QSOEditor resetInputEpoch={spotEditorEpoch} referenceEvidence={referenceEvidence} draftLocked={editorLocked} draft={draft} setDraft={setOperatorDraft} save={save} clear={() => void run(clear)} busy={busy || editorBlocked} lookup={lookup} previous={previous} follow={follow} setFollow={setFollowImmediate} request={request} onReadRadio={readRadioIntoDraft} isEditing={editing.current} automaticStationMetadata={automaticStationMetadata}
         automaticStart={automaticStart}
         clearLabel={editing.current ? "Cancel edit" : "Clear QSO"}

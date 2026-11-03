@@ -15,7 +15,7 @@ export function connectSpotEditor(participants: readonly SpotEditorParticipant[]
   let active = true, started = false, registered = false, registering = false, reading = false, again = false, epoch = 0;
   let stop: (() => void) | undefined;
   const acknowledgements = new Set<string>();
-  const followSettlements = new Set<string>();
+  const terminalSettlements = new Set<string>();
   const adopt = async (snapshot: unknown, registration = false) => {
     const acknowledgement = registration ? editor.registeredWith(snapshot) : editor.observe(snapshot);
     // The pure coordinator synchronously freezes before this first await.
@@ -29,10 +29,10 @@ export function connectSpotEditor(participants: readonly SpotEditorParticipant[]
       await adapter.call("spot_editor_ack", { instance, ...ack });
       if (active) { again = true; }
     }
-    if (status.phase !== "idle" && status.intent === "follow-radio" && status.phase === "confirmed" &&
-        status.reservationActive !== true && !followSettlements.has(status.operationId)) {
+    if (status.phase !== "idle" && ["confirmed","blocked","failed","uncertain"].includes(status.phase) &&
+        status.reservationActive !== true && !terminalSettlements.has(status.operationId)) {
       await adapter.call("operator_draft_follow_settled", { instance, operationId: status.operationId });
-      followSettlements.add(status.operationId);
+      terminalSettlements.add(status.operationId);
       if (active) again = true;
     }
   };

@@ -261,6 +261,7 @@ public struct ClassifiedClusterSpot: Codable, Hashable, Identifiable, Sendable {
     public var clusterName: String
     public var spotter: String
     public var spotterContinent: String? = nil
+    public var spotterAdif: Int? = nil
     public var frequencyKHz: Double
     public var frequencyText: String
     public var callsign: String
@@ -785,7 +786,7 @@ public actor ClusterSessionService {
                                                specials: specials, source: source)
         var spot = ClassifiedClusterSpot(
             id: UUID(), receivedAt: raw.receivedAt, clusterName: raw.clusterName, spotter: raw.spotter,
-            spotterContinent: spotterCountry?.continent,
+            spotterContinent: spotterCountry?.continent, spotterAdif: spotterCountry?.adif,
             frequencyKHz: raw.frequencyKHz, frequencyText: raw.frequencyText, callsign: raw.callsign,
             comment: displayComment,
             band: band, mode: mode, country: country?.name ?? "Unknown", adif: country?.adif,

@@ -357,8 +357,10 @@ describe("logbook confirmation visibility", () => {
     });
     render(<LogbookPanel mutations={new LogbookMutationSession(request, () => {})} onRequest={request} onEdit={vi.fn()} refreshKey={0} />);
     await screen.findByText("OM0RX");
+    expect(request).not.toHaveBeenCalledWith("workspace_preferences_load");
     fireEvent.click(screen.getByRole("button", { name: "Saved filters" }));
-    fireEvent.change(await screen.findByRole("combobox", { name: "Saved Logbook filter" }), { target: { value: "Slovakia" } });
+    await screen.findByRole("option", { name: "Slovakia" });
+    fireEvent.change(screen.getByRole("combobox", { name: "Saved Logbook filter" }), { target: { value: "Slovakia" } });
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     await waitFor(() => expect(request).toHaveBeenCalledWith("logbook_list", { search: "Slovakia", offset: 0, limit: 20 }));
     expect((screen.getByRole("textbox", { name: "Search logbook" }) as HTMLInputElement).value).toBe("Slovakia");

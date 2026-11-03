@@ -1,4 +1,11 @@
 import Foundation
+#if os(Windows)
+import WinSDK
+#elseif os(Linux)
+import Glibc
+#else
+import Darwin
+#endif
 
 public enum ActivationReferenceKind: String, CaseIterable, Codable, Hashable, Sendable {
     case pota
@@ -28,6 +35,11 @@ public struct ActivationReference: Codable, Equatable, Hashable, Sendable {
     public var latitude: Double?
     public var longitude: Double?
     public var grid: String
+    public var points: Int?
+    public var validFrom: String?
+    public var validTo: String?
+    public var association: String?
+    public var pointSource: String?
 
     public init(
         kind: ActivationReferenceKind,
@@ -36,7 +48,8 @@ public struct ActivationReference: Codable, Equatable, Hashable, Sendable {
         detail: String = "",
         latitude: Double? = nil,
         longitude: Double? = nil,
-        grid: String = ""
+        grid: String = "", points: Int? = nil, validFrom: String? = nil, validTo: String? = nil,
+        association: String? = nil, pointSource: String? = nil
     ) {
         self.kind = kind
         self.reference = reference
@@ -45,15 +58,55 @@ public struct ActivationReference: Codable, Equatable, Hashable, Sendable {
         self.latitude = latitude
         self.longitude = longitude
         self.grid = grid
+        self.points=points; self.validFrom=validFrom; self.validTo=validTo; self.association=association; self.pointSource=pointSource
     }
 }
 
 public struct ActivationReferenceDirectory: Sendable {
     private var records: [ActivationReferenceKind: [String: ActivationReference]]
 
-    public init(directory: URL) throws {
+    /// Metadata-only cache identity. Preserve native subsecond precision and
+    /// physical identity so an equal-size atomic replacement cannot reuse a view.
+    public static func fingerprint(directory: URL) throws -> String {
+        try ActivationReferenceKind.allCases.map { kind in
+            let url = directory.appendingPathComponent(kind.fileName)
+            guard let path = LocalFilePath.nativeFileSystemPath(for: url) else {
+                throw CocoaError(.fileReadInvalidFileName)
+            }
+            #if os(Windows)
+            let handle = path.withCString(encodedAs: UTF16.self) {
+                CreateFileW($0, DWORD(FILE_READ_ATTRIBUTES),
+                    DWORD(FILE_SHARE_READ) | DWORD(FILE_SHARE_WRITE) | DWORD(FILE_SHARE_DELETE),
+                    nil, DWORD(OPEN_EXISTING), DWORD(FILE_ATTRIBUTE_NORMAL), nil)
+            }
+            guard let handle, handle != HANDLE(bitPattern: -1) else {
+                let code = GetLastError()
+                if code == DWORD(ERROR_FILE_NOT_FOUND) || code == DWORD(ERROR_PATH_NOT_FOUND) { return "\(kind.rawValue):missing" }
+                throw CocoaError(.fileReadNoPermission)
+            }
+            defer { CloseHandle(handle) }
+            var info = BY_HANDLE_FILE_INFORMATION()
+            guard GetFileInformationByHandle(handle, &info) else { throw CocoaError(.fileReadUnknown) }
+            return "\(kind.rawValue):\(info.dwVolumeSerialNumber):\(info.nFileIndexHigh):\(info.nFileIndexLow):\(info.nFileSizeHigh):\(info.nFileSizeLow):\(info.ftLastWriteTime.dwHighDateTime):\(info.ftLastWriteTime.dwLowDateTime)"
+            #else
+            var info = stat()
+            guard stat(path, &info) == 0 else {
+                if errno == ENOENT || errno == ENOTDIR { return "\(kind.rawValue):missing" }
+                throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+            }
+            #if os(Linux)
+            let modified = info.st_mtim
+            #else
+            let modified = info.st_mtimespec
+            #endif
+            return "\(kind.rawValue):\(info.st_dev):\(info.st_ino):\(info.st_size):\(modified.tv_sec):\(modified.tv_nsec)"
+            #endif
+        }.joined(separator: ";")
+    }
+
+    public init(directory: URL, kinds: Set<ActivationReferenceKind> = Set(ActivationReferenceKind.allCases)) throws {
         var loaded: [ActivationReferenceKind: [String: ActivationReference]] = [:]
-        for kind in ActivationReferenceKind.allCases {
+        for kind in ActivationReferenceKind.allCases where kinds.contains(kind) {
             let url = directory.appendingPathComponent(kind.fileName)
             guard FileManager.default.fileExists(atPath: url.path) else { continue }
             let data = try Data(contentsOf: url, options: .mappedIfSafe)
@@ -144,7 +197,11 @@ public struct ActivationReferenceDirectory: Sendable {
                 name: name,
                 detail: detail,
                 latitude: Double(value("latitude", row, header) ?? ""),
-                longitude: Double(value("longitude", row, header) ?? "")
+                longitude: Double(value("longitude", row, header) ?? ""),
+                points: value("points",row,header).flatMap(Int.init),
+                validFrom: value("validfrom",row,header), validTo: value("validto",row,header),
+                association: association.isEmpty ? nil : association,
+                pointSource: "https://www.sotadata.org.uk/summitslist.csv"
             )
         }
     }

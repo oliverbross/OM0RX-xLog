@@ -12,12 +12,20 @@ import Glibc
 import Darwin
 #endif
 
-public enum LogbookAggregateKind: Hashable, Sendable { case statistics, catalogue }
+public enum LogbookAggregateKind: Hashable, Sendable { case statistics, catalogue, contacts, localAwards, exportContacts }
 
 public struct LogbookAggregateRequest: Hashable, Sendable {
     public let kind: LogbookAggregateKind
     public let semanticKey: String
     let yearStart: TimeInterval
+    public var query: LogbookQuery? = nil
+    public var search = ""
+    public var offset = 0
+    public var limit = 20
+    public var referenceTime: Double = 0
+    public var programme = "dxcc"
+    public var referenceDirectory = ""
+    public var referenceVersion = ""
 
     public static func current(_ kind: LogbookAggregateKind, at date: Date = Date()) throws -> Self {
         let yearStart: TimeInterval
@@ -30,6 +38,15 @@ public struct LogbookAggregateRequest: Hashable, Sendable {
         case .catalogue:
             yearStart = 0
             key = try AwardCatalogEngine.persistedCacheKey.get()
+        case .contacts:
+            yearStart = 0
+            key = "contact-query-v1"
+        case .exportContacts:
+            yearStart = 0
+            key = "export-contact-query-v1"
+        case .localAwards:
+            yearStart = 0
+            key = LocalAwardEngine.rulesVersion
         }
         return Self(kind: kind, semanticKey: key, yearStart: yearStart)
     }
@@ -192,6 +209,13 @@ public struct LogbookStatisticsAggregate: Equatable, Sendable {
 public enum LogbookAggregateValue: Equatable, Sendable {
     case statistics(LogbookStatisticsAggregate)
     case catalogue(AwardCatalogSnapshot)
+    case contacts(LogbookQueryPage)
+    case localAwards(LocalAwardSnapshot)
+}
+
+public struct LogbookQueryPage: Equatable, Sendable {
+    public var contacts: [QSO]
+    public var total: Int
 }
 
 public struct LogbookAggregateResult: Sendable {
@@ -203,7 +227,10 @@ public struct LogbookAggregateResult: Sendable {
 /// Contains copied values only. The WAL transaction, statements and reader
 /// handle are already closed before this snapshot reaches a CPU evaluator.
 public struct LogbookAggregateSnapshot: Sendable {
-    enum Payload: Sendable { case value(LogbookAggregateValue), contacts([AwardCatalogContact]) }
+    enum Payload: Sendable {
+        case value(LogbookAggregateValue), contacts([AwardCatalogContact])
+        case awardEvidence([AwardEvidenceContact], ActivationReferenceDirectory)
+    }
     public let authority: LogbookAggregateAuthority
     public let request: LogbookAggregateRequest
     let payload: Payload
@@ -215,6 +242,10 @@ public struct LogbookAggregateSnapshot: Sendable {
         case .value(let cached): value = cached
         case .contacts(let contacts):
             value = .catalogue(try AwardCatalogEngine.compute(contacts: contacts, cancellation: cancellation))
+        case .awardEvidence(let contacts, let directory):
+            value = .localAwards(try LocalAwardEngine.compute(contacts: contacts, programme: request.programme,
+                directory: directory, referenceVersion: request.referenceVersion,
+                wacMembership: LocalAwardEngine.wacMembership(), cancellation: cancellation))
         }
         try cancellation.check()
         return LogbookAggregateResult(authority: authority, request: request, value: value)

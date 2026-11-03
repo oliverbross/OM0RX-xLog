@@ -1,9 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { LocalAwardProgressPanel } from "./LocalAwardProgressPanel";
 import { AlertTriangle, Award, BookOpen, CheckCircle2, Clock3, ExternalLink, Search, PanelsTopLeft } from "lucide-react";
 import "./AwardsPanel.css";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
-type Props = { request: Request; refresh: number; readScope?: string; initialStats?: AwardsStats | null; onUndock?: () => void; onDock?: () => void; taskOnly?: boolean };
+type Props = { request: Request; refresh: number; readScope?: string; initialStats?: AwardsStats | null; onUndock?: () => void; onDock?: () => void; taskOnly?: boolean; readOnlySavedFilters?: boolean };
 type Counts = Record<string, number>;
 type AwardsStats = {
   qso_count: number; dxcc_worked: number; dxcc_confirmed: number;
@@ -168,8 +169,10 @@ function MixSection({ title, counts, limit }: { title: string; counts: Counts; l
   return <div className="awards-mix-section"><h4>{title}</h4>{sorted.length ? sorted.map(([name, count]) => <div className="awards-mix-row" key={name}><span>{name}</span><div aria-hidden="true"><i style={{ width: `${Math.max(2, count / largest * 100)}%` }} /></div><b>{format(count)}</b></div>) : <p>No contacts yet.</p>}</div>;
 }
 
-export function AwardsPanel({ request, refresh, readScope, initialStats, onUndock, onDock, taskOnly = false }: Props) {
+export function AwardsPanel({ request, refresh, readScope, initialStats, onUndock, onDock, taskOnly = false, readOnlySavedFilters = false }: Props) {
   const [stats, setStats] = useState<AwardsStats | null>(initialStats ?? null);
+  const [localProgressOpen, setLocalProgressOpen] = useState(false);
+  const [localProgressRequested, setLocalProgressRequested] = useState(false);
   const [catalogue, setCatalogue] = useState<Catalogue | null>(null);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -260,6 +263,8 @@ export function AwardsPanel({ request, refresh, readScope, initialStats, onUndoc
     {statsError && <p className="awards-error" role="alert">{statsError} <button type="button" onClick={() => setStatsRetry((value) => value + 1)}>Retry totals</button></p>}
     {statsWaiting && !statsError && <p role="status">Award totals are updating. <button type="button" onClick={() => setStatsRetry(value => value + 1)}>Retry totals</button></p>}
     <ProgressOverview stats={stats} />
+    <button type="button" aria-expanded={localProgressOpen} onClick={() => { setLocalProgressRequested(true); setLocalProgressOpen(value => !value); }}>Local progress and supporting contacts</button>
+    <div hidden={!localProgressOpen}>{localProgressRequested && <LocalAwardProgressPanel readOnlySavedFilters={readOnlySavedFilters} request={request} refresh={refresh} readScope={readScope} />}</div>
     <section className="awards-section awards-library" aria-label="Awards library"><h3>Awards library</h3>
       {catalogue && <div className="awards-summary" aria-label="Awards library summary"><div><b>{format(catalogue.catalogue_total)}</b><span>Library</span></div>{deliveryOptions.slice(1).map(([key, label]) => <div key={key}><b className={`awards-summary-${key}`}>{catalogue.delivery_counts?.[key] == null ? "—" : format(catalogue.delivery_counts[key])}</b><span>{label.replace(" calculations", "").replace("Research ", "")}</span></div>)}</div>}
       <div className="awards-filters"><label className="awards-search"><Search size={14} aria-hidden="true" /><span className="sr-only">Search programmes</span><input value={search} maxLength={120} placeholder="Search programme, sponsor or rule focus" onChange={(event) => setSearch(event.target.value)} aria-label="Search programmes" /></label>

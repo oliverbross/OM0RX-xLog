@@ -696,7 +696,7 @@ public actor LiveWorker {
                 let reply = try await aggregateReads.handle(method: "logbook_stats", params: [:])
                 guard !terminalShutdown else { throw WorkerFailure("worker_stopping", "The worker is shutting down.") }
                 result = try logbookMethods.renderMapContext(reply)
-            } else if method == "logbook_stats" || method == "logbook_catalog" {
+            } else if method == "logbook_stats" || method == "logbook_catalog" || method == "logbook_list" || method == "logbook_award_progress" || (method == "logbook_export_adif" && params["action"] as? String == "begin") {
                 guard !terminalShutdown else { throw WorkerFailure("worker_stopping", "The worker is shutting down.") }
                 let reply = try await aggregateReads.handle(method: method, params: params)
                 guard !terminalShutdown else { throw WorkerFailure("worker_stopping", "The worker is shutting down.") }

@@ -51,13 +51,27 @@ public enum XLogBackupError: Error, LocalizedError {
 public struct XLogSavedLogbookFilter: Codable, Equatable, Sendable {
     public var name: String
     public var query: String
+    public var id: String?
+    public var definition: LogbookQuery?
 
-    public init(name: String, query: String) {
+    public init(name: String, query: String, id: String? = nil, definition: LogbookQuery? = nil) {
         self.name = name
         self.query = query
+        self.id = id; self.definition = definition
     }
 }
 
+public struct XLogNormalCommandBindings: Codable, Equatable, Sendable {
+    public var version: Int
+    public var overrides: [String:String]
+    public init(version:Int = 1, overrides:[String:String] = [:]) { self.version=version; self.overrides=overrides }
+    public var valid: Bool {
+        version == 1 && overrides.count <= 64 && overrides.allSatisfy { key,value in
+            !key.isEmpty && key.utf8.count <= 64 && key.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") } &&
+            value.utf8.count <= 64 && !value.contains(where: { $0.isNewline || $0.asciiValue.map { $0 < 32 } == true })
+        }
+    }
+}
 public struct XLogBackupPreferences: Codable, Equatable, Sendable {
     public var deskBandMapBands: [String]
     public var detachedBandMapBands: [String]
@@ -68,6 +82,8 @@ public struct XLogBackupPreferences: Codable, Equatable, Sendable {
     public var clusterSpotOpensFullEditor: Bool
     public var detachedBandMapFollowsRadio: Bool
     public var detachedBandMapModes: [String]
+    public var bandMapGuidesJSON: String
+    public var normalCommandBindings: XLogNormalCommandBindings = .init()
     public var savedLogbookFilters: [XLogSavedLogbookFilter]
 
     public init(
@@ -80,6 +96,8 @@ public struct XLogBackupPreferences: Codable, Equatable, Sendable {
         clusterSpotOpensFullEditor: Bool,
         detachedBandMapFollowsRadio: Bool = false,
         detachedBandMapModes: [String] = ["cw", "data", "phone"],
+        bandMapGuidesJSON: String = "",
+        normalCommandBindings: XLogNormalCommandBindings = .init(),
         savedLogbookFilters: [XLogSavedLogbookFilter] = []
     ) {
         self.deskBandMapBands = deskBandMapBands
@@ -91,6 +109,8 @@ public struct XLogBackupPreferences: Codable, Equatable, Sendable {
         self.clusterSpotOpensFullEditor = clusterSpotOpensFullEditor
         self.detachedBandMapFollowsRadio = detachedBandMapFollowsRadio
         self.detachedBandMapModes = detachedBandMapModes
+        self.bandMapGuidesJSON = bandMapGuidesJSON
+        self.normalCommandBindings = normalCommandBindings
         self.savedLogbookFilters = savedLogbookFilters
     }
 
@@ -98,7 +118,7 @@ public struct XLogBackupPreferences: Codable, Equatable, Sendable {
         case deskBandMapBands, detachedBandMapBands, deskBandMapFollowsRadio,
              detachedBandMapLayout, bandMapFontScale, intelligenceBands,
              clusterSpotOpensFullEditor, detachedBandMapFollowsRadio, detachedBandMapModes,
-             savedLogbookFilters
+              savedLogbookFilters, normalCommandBindings, bandMapGuidesJSON
     }
 
     public init(from decoder: Decoder) throws {
@@ -112,6 +132,8 @@ public struct XLogBackupPreferences: Codable, Equatable, Sendable {
         clusterSpotOpensFullEditor = try values.decode(Bool.self, forKey: .clusterSpotOpensFullEditor)
         detachedBandMapFollowsRadio = try values.decodeIfPresent(Bool.self, forKey: .detachedBandMapFollowsRadio) ?? false
         detachedBandMapModes = try values.decodeIfPresent([String].self, forKey: .detachedBandMapModes) ?? ["cw", "data", "phone"]
+        bandMapGuidesJSON = try values.decodeIfPresent(String.self, forKey: .bandMapGuidesJSON) ?? ""
+        normalCommandBindings = try values.decodeIfPresent(XLogNormalCommandBindings.self, forKey: .normalCommandBindings) ?? .init()
         savedLogbookFilters = try values.decodeIfPresent([XLogSavedLogbookFilter].self, forKey: .savedLogbookFilters) ?? []
     }
 }

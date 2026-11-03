@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type SetStateAction } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore, type SetStateAction } from "react";
 import { workerRequest } from "../worker";
 import QSOEditor from "./QSOEditorCore";
-import { DeskQSO } from "./OperatorDesk";
+import {NormalShortcutHelp} from "./NormalShortcutHelp";
+import "./NormalShortcuts.css";
+import {useNormalCommands} from "./useNormalCommands";
+import {NearbyCallsigns} from "./NearbyCallsigns";
 import { useQSOLoggedToast } from "./QSOLoggedToast";
 import { OperatorDraftSession, readDraftJournal, type DraftQSO } from "./operatorDraftSession";
 import { effectiveDraftAutomaticStart } from "./operatorDraftTimeIntent";
@@ -17,6 +20,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { validSpotActivationSnapshot } from "./spotActivation";
 import { loadReadRadioJournal, type ReadRadioJournal } from "./readRadioJournal";
 import "./DetachedQSOSurface.css";
+
+const DeskQSO = lazy(() => import("./OperatorDesk").then(module => ({ default: module.DeskQSO })));
 
 export const detachedQSOJournalKey = "xlog.integration.operatorDraft.log-qso.v1";
 const readRadioJournalKey = `${detachedQSOJournalKey}.readRadio`;
@@ -47,6 +52,7 @@ export function DetachedQSOSurface() {
   const automaticStart = effectiveDraftAutomaticStart(state);
   const referenceEvidence = useReferenceEvidence(state.draft, state.base?.generation, request);
   const [error, setError] = useState("");
+  useNormalCommands(true,setError,state.base?.generation);
   const loggedFeedback = useQSOLoggedToast();
   const [savingQSO, setSavingQSO] = useState(false);
   const [working, setWorking] = useState(false), [closing, setClosing] = useState(false);
@@ -195,12 +201,21 @@ export function DetachedQSOSurface() {
     <SpotActivationStatus status={spotEditor.status} error={spotEditor.error} reconcile={() => void spotEditor.reconcile()} />
     <OperatorDraftStatus state={state} session={session} run={run} />
     </StableFeedbackLayer>
+    {state.draft && (state.draft.extraFields?.APP_OM0RXXLOG_PORTABLE_NAME || state.draft.extraFields?.APP_OM0RXXLOG_ANTENNA_NAME) && <aside role="status" className="portable-context-banner">
+      {state.draft.extraFields.APP_OM0RXXLOG_PORTABLE_NAME && <p>Captured portable context: <strong>{state.draft.extraFields.APP_OM0RXXLOG_PORTABLE_NAME}</strong> · {state.draft.myCall} · {state.draft.myGrid} · {state.draft.extraFields.MY_SIG_INFO || state.draft.extraFields.MY_POTA_REF}</p>}
+      {state.draft.extraFields.APP_OM0RXXLOG_ANTENNA_NAME && <p>Antenna software profile: {state.draft.extraFields.APP_OM0RXXLOG_ANTENNA_NAME}</p>}
+      <small>These are this draft's retained values. Start or end portable defaults in the main window's Station settings; explicitly apply them to the current draft in Log QSO or Operator Desk.</small>
+    </aside>}
+    <NormalShortcutHelp/>
+    {nativeSpotEditor() && <NearbyCallsigns disabled={working||closing||blocked}
+      beforeApply={async()=>{if(!acceptsInput()||localInput.current)throw new Error("Finish the buffered fields first.");await session.flush();}}
+      onApplied={async result=>{await spotEditor.reconcile(result);}} />}
     <div className="detached-qso-modes" role="group" aria-label="QSO editor mode">{(["simple", "full"] as const).map(value => <button key={value} type="button" aria-pressed={mode === value} disabled={working || closing || blocked} onClick={() => switchMode(value)}>{value === "simple" ? "Simple" : "Full"}</button>)}</div>
-    {mode === "simple" ? <><DeskQSO referenceEvidence={referenceEvidence} draft={state.draft} setDraft={setDraft} save={() => void save()} clear={clear}
+    {mode === "simple" ? <Suspense fallback={<p role="status">Loading simple QSO editor…</p>}><DeskQSO referenceEvidence={referenceEvidence} draft={state.draft} setDraft={setDraft} save={() => void save()} clear={clear}
       automaticStart={automaticStart}
       busy={working || closing || blocked} draftLocked={working || closing || blocked} request={request} refresh={state.base?.revision ?? 0}
       follow={false} setFollow={() => {}} radioControls={false} onReadRadio={readRadio} onLocalInputState={inputState} canAcceptLocalInput={acceptsInput} />
-      <button className="detached-qso-fill" type="button" disabled={working || closing || blocked || !normalizedCall(state.draft?.call) || normalizedCall(lookup?.call) !== normalizedCall(state.draft?.call)} onClick={() => setDraft(current => fillEmptyLookupFields(current, lookup))}>Fill empty fields from lookup</button></> :
+      <button className="detached-qso-fill" type="button" disabled={working || closing || blocked || !normalizedCall(state.draft?.call) || normalizedCall(lookup?.call) !== normalizedCall(state.draft?.call)} onClick={() => setDraft(current => fillEmptyLookupFields(current, lookup))}>Fill empty fields from lookup</button></Suspense> :
     <QSOEditor referenceEvidence={referenceEvidence} draft={state.draft} setDraft={setDraft} save={save} clear={clear} inspector={false}
       automaticStart={automaticStart}
       busy={working || closing || blocked} draftLocked={working || closing || blocked}

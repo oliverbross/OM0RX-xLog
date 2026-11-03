@@ -164,7 +164,7 @@ public enum AwardCatalogEngine {
             }
             digest.update(data: try Data(contentsOf: url))
         }
-        return "catalog-rules-v1-" + digest.finalize().map { String(format: "%02x", $0) }.joined()
+        return "catalog-rules-v2-local-capabilities-" + digest.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
     /// Candidate superset for every implemented calculator below (JARL,

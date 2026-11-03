@@ -418,7 +418,13 @@ it("arms native automatic following for typed calls without renderer-owned turns
   expect(bridge.native.mock.calls.filter(([command]) => command === "auto_rotor_set")).toHaveLength(1);
 });
 
-it.each(["Operator Desk", "Log QSO"])("saves exactly once on Command-Enter in %s without a global shortcut duplicate", async view => {
+it.each([
+  { view: "Operator Desk", platform: "MacIntel", modifier: { metaKey: true } },
+  { view: "Log QSO", platform: "MacIntel", modifier: { metaKey: true } },
+  { view: "Operator Desk", platform: "Win32", modifier: { ctrlKey: true } },
+  { view: "Log QSO", platform: "Win32", modifier: { ctrlKey: true } },
+])("saves exactly once on primary Enter in $view on $platform without a global shortcut duplicate", async ({ view, platform, modifier }) => {
+  vi.spyOn(navigator, "platform", "get").mockReturnValue(platform);
   const base = bridge.request.getMockImplementation()!;
   bridge.request.mockImplementation(async (method: string, params: any = {}) => method === "logbook_save" ? { result: { qso: params.qso } } : base(method, params));
   render(<LiveApp />);
@@ -426,7 +432,7 @@ it.each(["Operator Desk", "Log QSO"])("saves exactly once on Command-Enter in %s
   if (view === "Log QSO") fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: view }));
   const input = await screen.findByLabelText(view === "Log QSO" ? "Callsign" : "Desk Callsign");
   fireEvent.change(input, { target: { value: "K1ABC" } });
-  fireEvent.keyDown(input, { key: "Enter", metaKey: true });
+  fireEvent.keyDown(input, { key: "Enter", code: "Enter", ...modifier });
   await waitFor(() => expect(bridge.request.mock.calls.filter(([method, params]) => method === "logbook_operator_draft_apply" && params.action === "save")).toHaveLength(1));
   expect(bridge.request.mock.calls.some(([method]) => method === "logbook_save")).toBe(false);
 });

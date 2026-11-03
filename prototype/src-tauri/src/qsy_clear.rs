@@ -247,6 +247,11 @@ impl Coordinator {
             let _barrier_id =
                 self.editors
                     .begin(&request.operation_id, generation, draft, revision, &editors)?;
+            // This admitted operation supersedes the old metadata terminal.
+            // Retire after begin so a concurrent antenna proposal loses its epoch fence.
+            crate::antenna_profile::retire();
+            crate::nearby_callsign::retire();
+            crate::radio_read::retire_terminal();
             let barrier = self.editors.snapshot()?;
             self.store(
                 json!({"operationId":request.operation_id,"phase":"preparing","barrier":barrier,

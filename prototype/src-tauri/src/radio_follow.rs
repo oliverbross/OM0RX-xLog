@@ -12,7 +12,7 @@ use std::{
 };
 use tauri::{Emitter, Manager};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Selection {
     provider: String,
     identity: String,
@@ -20,7 +20,7 @@ pub struct Selection {
     control: u64,
 }
 impl Selection {
-    fn parse(value: &Value) -> Result<Self, String> {
+    pub(crate) fn parse(value: &Value) -> Result<Self, String> {
         let provider = value["provider"]
             .as_str()
             .filter(|p| crate::station_telemetry::valid_provider(p))
@@ -44,16 +44,16 @@ impl Selection {
         })
     }
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Observation {
-    selection: Selection,
-    revision: u64,
-    frequency: u64,
-    receive_frequency: Option<u64>,
-    mode: String,
-    connection: Option<u64>,
+    pub(crate) selection: Selection,
+    pub(crate) revision: u64,
+    pub(crate) frequency: u64,
+    pub(crate) receive_frequency: Option<u64>,
+    pub(crate) mode: String,
+    pub(crate) connection: Option<u64>,
 }
-fn observation(projection: &Value, selected: &Value, now: u64) -> Result<Observation, String> {
+pub(crate) fn observation(projection: &Value, selected: &Value, now: u64) -> Result<Observation, String> {
     let selection = Selection::parse(selected)?;
     let snapshot = &projection["snapshot"];
     let radio = &snapshot["radio"];
@@ -141,7 +141,7 @@ fn observation(projection: &Value, selected: &Value, now: u64) -> Result<Observa
             parse_frequency(&radio["transmit_frequency_hz"])
                 .ok_or("Observed radio transmit frequency is unavailable for split logging.")?
         } else { receive };
-        (Some(frequency), split.then_some(receive), radio["mode"].as_str(), None)
+        (Some(frequency), split.then_some(receive), radio["mode"].as_str(), snapshot["generation"].as_u64())
     };
     let frequency = frequency
         .filter(|n| (1..=1_000_000_000_000).contains(n))

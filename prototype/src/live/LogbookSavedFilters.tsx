@@ -2,14 +2,17 @@ import { useEffect, useState } from "react";
 import { duplicateSavedLogbookFilter, parseSavedLogbookFilterSnapshot, validateSavedLogbookFilterName,
   validateSavedLogbookFilterQuery, type SavedLogbookFilterSnapshot } from "./savedLogbookFilters";
 import { useSettingsSaveToast } from "./SettingsSaveToast";
+import { logbookQuerySummary, type LogbookQuery } from "./logbookQuery";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
 
-export function LogbookSavedFilters({ onRequest, currentQuery, onApply, disabled = false }: {
+export function LogbookSavedFilters({ onRequest, currentQuery, currentDefinition, onApply, disabled = false, readOnly = false }: {
   onRequest: Request;
   currentQuery: string;
-  onApply: (query: string) => void;
+  currentDefinition?: LogbookQuery;
+  onApply: (query: string, definition?: LogbookQuery) => void;
   disabled?: boolean;
+  readOnly?: boolean;
 }) {
   const [snapshot, setSnapshot] = useState<SavedLogbookFilterSnapshot | null>(null);
   const [selected, setSelected] = useState("");
@@ -27,24 +30,28 @@ export function LogbookSavedFilters({ onRequest, currentQuery, onApply, disabled
   }, [onRequest]);
   const chosen = snapshot?.filters.find(filter => filter.name === selected);
   let updateQuery: string | undefined;
-  try { updateQuery = validateSavedLogbookFilterQuery(currentQuery.trim()); } catch { /* Invalid searches cannot update a saved filter. */ }
+  try { updateQuery = currentDefinition?.clauses.length && !currentQuery.trim() ? "" : validateSavedLogbookFilterQuery(currentQuery.trim()); } catch { /* Invalid searches cannot update a saved filter. */ }
+  const definitionChanged = JSON.stringify(currentDefinition?.clauses.length ? currentDefinition : undefined) !== JSON.stringify(chosen?.definition);
   const messageIsSuccess = message === "Filter saved." || message === "Filter cloned." || message === "Filter renamed." ||
     message === "Filter updated." || message === "Filter deleted." || message.startsWith("Applied ");
 
   async function mutate(action: "save" | "clone" | "rename" | "update" | "delete") {
-    if (!snapshot || busy || disabled) return;
+    if (readOnly || !snapshot || busy || disabled) return;
     setMessage("");
     try {
-      const params: Record<string, unknown> = { generation: snapshot.generation, expected: snapshot.filters, action };
+      const boundedLegacy = !currentDefinition?.clauses.length && !snapshot.filters.some(value=>value.definition) && new TextEncoder().encode(JSON.stringify(snapshot.filters)).length < 8000;
+      const params: Record<string, unknown> = { generation: snapshot.generation, ...(boundedLegacy ? { expected: snapshot.filters } : { expectedRevision: snapshot.revision }), action };
       if (action === "save") {
         params.name = validateSavedLogbookFilterName(name);
-        params.query = validateSavedLogbookFilterQuery(currentQuery.trim());
+        params.query = currentDefinition?.clauses.length && !currentQuery.trim() ? "" : validateSavedLogbookFilterQuery(currentQuery.trim());
+        if (currentDefinition?.clauses.length) params.definition = currentDefinition;
         if (duplicateSavedLogbookFilter(snapshot.filters, params.name as string)) throw new Error("A filter with that name already exists.");
       } else if (action === "update") {
         if (!chosen) throw new Error("Choose a saved filter first.");
         params.source = chosen.name;
-        params.query = validateSavedLogbookFilterQuery(currentQuery.trim());
-        if (params.query === chosen.query) return;
+        params.query = currentDefinition?.clauses.length && !currentQuery.trim() ? "" : validateSavedLogbookFilterQuery(currentQuery.trim());
+        if (currentDefinition?.clauses.length) params.definition = currentDefinition;
+        if (params.query === chosen.query && !definitionChanged) return;
       } else if (action === "delete") {
         if (!chosen) throw new Error("Choose a saved filter first.");
         params.source = chosen.name;
@@ -56,6 +63,7 @@ export function LogbookSavedFilters({ onRequest, currentQuery, onApply, disabled
           throw new Error("A filter with that name already exists.");
       }
       setBusy(true);
+      if (new TextEncoder().encode(JSON.stringify(params)).length > 30_000) throw new Error("This filter change is too large for the desktop request. Shorten the values or reduce conditions before saving.");
       const response = await onRequest("workspace_logbook_filters_apply", params);
       const next = parseSavedLogbookFilterSnapshot(response);
       setSnapshot(next);
@@ -71,6 +79,7 @@ export function LogbookSavedFilters({ onRequest, currentQuery, onApply, disabled
   }
 
   return <section className="live-logbook-saved-filters" aria-label="Saved Logbook filters">
+    {snapshot?.warning && <p role="alert">{snapshot.warning}</p>}
     <div className="live-logbook-filter-row">
       <label>Saved filter <select aria-label="Saved Logbook filter" disabled={busy || disabled || !snapshot}
         value={selected} onChange={event => { const value = event.target.value; setSelected(value); setName(value); setMessage(""); }}>
@@ -78,18 +87,21 @@ export function LogbookSavedFilters({ onRequest, currentQuery, onApply, disabled
         {snapshot?.filters.map(filter => <option key={filter.name} value={filter.name}>{filter.name}</option>)}
       </select></label>
       <button type="button" disabled={busy || disabled || !chosen} onClick={() => {
-        if (!chosen) return; onApply(chosen.query); setMessage(`Applied ${chosen.name}.`);
+        if (!chosen) return;
+        if (chosen.definition) onApply(chosen.query, chosen.definition); else onApply(chosen.query);
+        setMessage(`Applied ${chosen.name}.`);
       }}>Apply</button>
-      <label>Filter name <input aria-label="Saved filter name" maxLength={48} disabled={busy || disabled}
+      {!readOnly && <><label>Filter name <input aria-label="Saved filter name" maxLength={48} disabled={busy || disabled}
         value={name} onChange={event => { setName(event.target.value); setMessage(""); }} /></label>
       <button type="button" disabled={busy || disabled || !snapshot} onClick={() => void mutate("save")}>Save current</button>
-      <button type="button" disabled={busy || disabled || !chosen || !updateQuery || updateQuery === chosen.query}
+      <button type="button" disabled={busy || disabled || !chosen || updateQuery === undefined || (updateQuery === chosen.query && !definitionChanged)}
         onClick={() => void mutate("update")}>Update selected</button>
       <button type="button" disabled={busy || disabled || !chosen} onClick={() => void mutate("clone")}>Clone</button>
       <button type="button" disabled={busy || disabled || !chosen} onClick={() => void mutate("rename")}>Rename</button>
-      <button type="button" disabled={busy || disabled || !chosen} onClick={() => void mutate("delete")}>Delete filter</button>
+      <button type="button" disabled={busy || disabled || !chosen} onClick={() => void mutate("delete")}>Delete filter</button></>}
     </div>
-    {chosen && <p>Selected saved query: <span>{chosen.query}</span></p>}
+    {readOnly && <p>Saved filters are read only here. Manage them in Logbook.</p>}
+    {chosen && <p>Selected saved query: <span>{chosen.query} {chosen.definition && logbookQuerySummary(chosen.definition)}</span></p>}
     <p className={message && !messageIsSuccess ? "error" : ""}
       role={message && !messageIsSuccess ? "alert" : "status"}>{busy ? "Loading saved filters…" : message || "Saved filters reuse the same callsign, name, country or note search."}</p>
     {saveToast.toast}

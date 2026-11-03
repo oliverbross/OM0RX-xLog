@@ -86,8 +86,9 @@ it.each(["Full-rapid","Simple-rapid","Full-blur-clock","Simple-blur-clock","Full
   "reconciles reversed UTC display and Save with automatic session intent after %s",async path=>{
     const f=backend();api.draft.mockImplementation(f.request);
     render(<DetachedQSOSurface/>);await screen.findByDisplayValue("K1ABC");
+    const simple=path.startsWith("Simple");
+    if(simple){fireEvent.click(screen.getByRole("button",{name:"Simple"}));await screen.findByLabelText("Desk UTC date");}
     vi.useFakeTimers();vi.setSystemTime(new Date("2026-10-28T12:34:56Z"));
-    const simple=path.startsWith("Simple");if(simple)fireEvent.click(screen.getByRole("button",{name:"Simple"}));
     const dateLabel=simple?"Desk UTC date":"Start UTC date",timeLabel=simple?"Desk UTC time":"Start UTC time";
     fireEvent.change(screen.getByLabelText(dateLabel),{target:{value:"2026-10-15"}});
     fireEvent.change(screen.getByLabelText(timeLabel),{target:{value:"00:00:00"}});

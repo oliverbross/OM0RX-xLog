@@ -11,6 +11,6 @@ export function DetachedAwardsSurface() {
   useEffect(() => connectLogbookChanges(() => setRefresh(value => value + 1), setError), []);
   return <div className="app live monitor-app detached-awards-app"><main aria-label="Detached Awards">
     {error && <p className="live-error" role="alert">{error}</p>}
-    <AwardsPanel taskOnly request={request} refresh={refresh} />
+    <AwardsPanel taskOnly readOnlySavedFilters request={request} refresh={refresh} />
   </main></div>;
 }

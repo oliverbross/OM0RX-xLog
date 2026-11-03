@@ -1,8 +1,10 @@
-export type SavedLogbookFilter = { name: string; query: string };
+import { parseLogbookQuery, type LogbookQuery } from "./logbookQuery";
+export type SavedLogbookFilter = { name: string; query: string; id?: string; definition?: LogbookQuery };
 export type SavedLogbookFilterSnapshot = {
   filters: SavedLogbookFilter[];
   revision: number;
   generation: string;
+  warning?: string;
 };
 
 const controlCharacters = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/u;
@@ -43,9 +45,14 @@ export function parseSavedLogbookFilterSnapshot(value: unknown): SavedLogbookFil
     if (!item || typeof item !== "object" || Array.isArray(item)) throw new Error("Saved Logbook filters are unavailable.");
     const { name, query } = item as Record<string, unknown>;
     if (typeof name !== "string" || typeof query !== "string") throw new Error("Saved Logbook filters are unavailable.");
-    validateSavedLogbookFilterName(name); validateSavedLogbookFilterQuery(query);
+    const { id, definition } = item as SavedLogbookFilter;
+    validateSavedLogbookFilterName(name);
+    if (query || !definition) validateSavedLogbookFilterQuery(query);
+    if (definition) parseLogbookQuery(definition);
+    if (id !== undefined && (typeof id !== "string" || !/^[a-f\d-]{36}$/i.test(id))) throw new Error("Invalid saved filter identity.");
     if (!names.add(savedLogbookFilterKey(name))) throw new Error("Saved Logbook filters are unavailable.");
-    parsed.push({ name, query });
+    parsed.push({ name, query, ...(id ? { id } : {}), ...(definition ? { definition } : {}) });
   }
-  return { filters: parsed, revision: raw.revision as number, generation: raw.generation };
+  return { filters: parsed, revision: raw.revision as number, generation: raw.generation,
+    ...(typeof raw.saved_filter_warning === "string" && raw.saved_filter_warning ? { warning: raw.saved_filter_warning } : {}) };
 }

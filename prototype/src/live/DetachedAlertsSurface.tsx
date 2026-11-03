@@ -1,13 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { connectAlerts, type AlertsSnapshot, type AlertCode } from "./alerts";
-import { clearDxAlerts, clearSelectedDxAlerts, connectDxAlerts, saveDxAlerts, testDxAlert, type DxAlertRule, type DxAlertsSnapshot } from "./dxAlerts";
+import { clearDxAlerts, clearSelectedDxAlerts, connectDxAlerts, saveDxAlerts, testDxAlert, dxRuleSummary, previewDxAlerts, reviewDxAlert, type DxAlertEntry, type DxAlertRule, type DxAlertsSnapshot } from "./dxAlerts";
 import { AlertColumns, useAlertColumns } from "./AlertColumns";
 import { orderedAlertColumns } from "./alertColumnPreferences";
 import { useSettingsSaveToast } from "./SettingsSaveToast";
 import { clusterStatusCode } from "./clusterPalette";
 import "./DetachedReferenceSurface.css";
+import {invoke} from "@tauri-apps/api/core";
+import {useSpotActivation} from "./useSpotActivation";
+import {activationMessage} from "./spotActivationClient";
 const messages: Record<AlertCode, string> = { radio_inhibitors: "Radio safety inhibitors reported", radio_alarm: "Station alarm reported — review Station Status or Desk", rotor_uncertain: "Rotor outcome uncertain — review Rotor before further commands" };
 export function DetachedAlertsSurface() {
+  const [review,setReview] = useState<Awaited<ReturnType<typeof reviewDxAlert>>|null>(null);
+  const [ruleConflict,setRuleConflict]=useState(false);
+  const [entities,setEntities]=useState<{adif:number;name:string}[]>([]);
+  const [entitySearch,setEntitySearch]=useState("");
+  const [preview,setPreview] = useState<string>("");
+  const reviewEntry = async (id:string) => { if(!dx)return; try { setReview(await reviewDxAlert(dx.epoch,id)); } catch(cause){setDxError(String(cause));} };
   const [snapshot, setSnapshot] = useState<AlertsSnapshot | null>(null), [verified, setVerified] = useState(false);
   const [error, setError] = useState("");
   const [dx, setDx] = useState<DxAlertsSnapshot | null>(null), [draft, setDraft] = useState<DxAlertsSnapshot["configuration"] | null>(null);
@@ -23,7 +32,14 @@ export function DetachedAlertsSurface() {
     if (previous?.epoch === value.epoch && previous.revision > value.revision) return;
     latestDx.current = value;
     setDx(value);
-    setDraft(current => current?.generation === value.configuration.generation && current.revision === value.configuration.revision ? current : structuredClone(value.configuration));
+    setDraft(current => {
+      if(current?.generation===value.configuration.generation && current.revision===value.configuration.revision)return current;
+      const editable=(config:DxAlertsSnapshot["configuration"])=>{const {generation:_,revision:__,...fields}=config;return JSON.stringify(fields);};
+      if(current&&previous&&editable(current)!==editable(previous.configuration)&&editable(current)!==editable(value.configuration)){
+        setRuleConflict(true);return current;
+      }
+      return structuredClone(value.configuration);
+    });
     setSelectedIds(current => previous?.epoch === value.epoch ? current.filter(id => value.entries.some(entry => entry.id === id)) : []);
     setDxError("");
   };
@@ -51,12 +67,14 @@ export function DetachedAlertsSurface() {
     {dx?.storageError && <p className="dx-alert-error">{dx.storageError}</p>}{dxError && <p className="dx-alert-error" role="alert">{dxError}</p>}{message && <p className="dx-alert-message" role="status">{message}</p>}
     {dx?.delivery.error && <p className="dx-alert-error" role="alert">{dx.delivery.error}</p>}
     {!!dx?.delivery.suppressed && <p className="secondary">{dx.delivery.suppressed} native notifications suppressed by the {dx.delivery.maximumPerWindow}-per-{dx.delivery.windowSeconds}-second safety limit.</p>}
-    {draft && dx && <details className="dx-alert-settings"><summary>Rules · {draft.rules.filter(rule => rule.enabled).length} enabled</summary>
+    {draft && dx && <details className="dx-alert-settings" onToggle={event=>{if(event.currentTarget.open&&!entities.length)void invoke<{adif:number;name:string}[]>("dx_alerts_entities").then(setEntities).catch(()=>{});}}><summary>Rules · {draft.rules.filter(rule => rule.enabled).length} enabled</summary>
       <div className="dx-alert-global"><label><input type="checkbox" checked={draft.enabled} onChange={event => setDraft({ ...draft, enabled:event.currentTarget.checked })}/> Enable DX alerts</label>
         <label><input type="checkbox" checked={draft.nativePopup} onChange={event => setDraft({ ...draft, nativePopup:event.currentTarget.checked, notificationSound:event.currentTarget.checked ? draft.notificationSound : false })}/> Native popup</label>
         <label><input type="checkbox" checked={draft.notificationSound} disabled={!draft.nativePopup} onChange={event => setDraft({ ...draft, notificationSound:event.currentTarget.checked })}/> Notification sound</label>
         <label>Repeat guard (seconds)<input type="number" min="15" max="3600" value={draft.dedupSeconds} onChange={event => setDraft({ ...draft, dedupSeconds:Number(event.currentTarget.value) })}/></label>
         <label>Keep alerts (minutes)<input type="number" min="1" max="1440" value={draft.retentionMinutes} onChange={event => setDraft({ ...draft, retentionMinutes:Number(event.currentTarget.value) })}/></label></div>
+      <label>Find DXCC entity<input value={entitySearch} onChange={event=>setEntitySearch(event.target.value)} placeholder="Country name or ADIF ID"/></label>
+      {entitySearch && <p aria-label="DXCC entity search results">{entities.filter(entity=>entity.name.toLowerCase().includes(entitySearch.toLowerCase())||String(entity.adif).includes(entitySearch)).slice(0,15).map(entity=>`${entity.name}: ${entity.adif}`).join(" · ")||"No matching entity"}</p>}
       {draft.rules.map((rule,index) => <div className="dx-alert-rule" key={rule.id}><div className="dx-alert-rule-head"><label><input type="checkbox" checked={rule.enabled} onChange={event => updateRule(index,{ enabled:event.currentTarget.checked })}/> On</label>
         <input type="text" aria-label={`Rule ${index + 1} name`} value={rule.name} maxLength={80} onChange={event => updateRule(index,{ name:event.currentTarget.value })}/>
         <button onClick={() => setDraft({ ...draft, rules:[...draft.rules,{ ...structuredClone(rule), id:crypto.randomUUID(), name:`${rule.name} copy` }] })} disabled={draft.rules.length >= dx.limits.maximumRules}>Clone</button>
@@ -64,25 +82,31 @@ export function DetachedAlertsSurface() {
         <div className="dx-alert-rule-fields"><label>Source<select value={(rule.sources ?? ["cluster"]).length === 2 ? "both" : rule.sources?.[0] ?? "cluster"} onChange={event => updateRule(index,{ sources:event.currentTarget.value === "both" ? ["cluster", "wsjtx"] : [event.currentTarget.value as "cluster" | "wsjtx"] })}><option value="cluster">DX Cluster</option><option value="wsjtx">WSJT-X CQ</option><option value="both">DX Cluster and WSJT-X CQ</option></select></label><label>Callsign pattern<input value={rule.callsignGlob} placeholder="* or OM0*" onChange={event => updateRule(index,{ callsignGlob:event.currentTarget.value.toUpperCase() })}/></label>
           <label>Comment contains<input value={rule.commentContains} maxLength={80} placeholder="e.g. POTA" onChange={event => updateRule(index,{ commentContains:event.currentTarget.value })}/></label>
           <label>Bands (comma separated)<input value={rule.bands.join(", ")} onChange={event => updateRule(index,{ bands:csv(event.currentTarget.value).map(value => value.toLowerCase()) })}/></label>
-          <label>Modes: CW, SSB, DATA<input value={rule.modes.join(", ")} onChange={event => updateRule(index,{ modes:csv(event.currentTarget.value).map(value => value.toLowerCase()) })}/></label>
+          <label>Modes: CW, PHONE, DATA<input value={rule.modes.join(", ")} onChange={event => updateRule(index,{ modes:csv(event.currentTarget.value).map(value => value.toLowerCase()) })}/></label>
           <label>DXCC status<input value={rule.dxccStatuses.join(", ")} onChange={event => updateRule(index,{ dxccStatuses:csv(event.currentTarget.value) })}/></label>
           <label>Call status<input value={rule.callStatuses.join(", ")} onChange={event => updateRule(index,{ callStatuses:csv(event.currentTarget.value) })}/></label>
           <label>Special tags<input value={rule.specials.join(", ")} onChange={event => updateRule(index,{ specials:csv(event.currentTarget.value).map(value => value.toUpperCase()) })}/></label></div></div>)}
+      <p className="secondary">Rule summary: {draft.rules.filter(rule=>rule.enabled).map(dxRuleSummary).join("; ") || "No enabled rules"}</p>
+      <button type="button" onClick={()=>void previewDxAlerts(draft.rules).then(value=>setPreview(value.matches.length ? value.matches.map(match=>`${match.callsign} ${match.frequencyKHz.toFixed(1)} kHz: ${match.ruleNames.join(", ")}`).join("; ") : "No retained reports match.")).catch(cause=>setDxError(String(cause)))}>Preview retained reports (read only)</button>
+      {preview && <p role="status">{preview}</p>}
       <p className="secondary">Popup delivery is local and rate-limited. It contains no action button and cannot tune or transmit.</p>
       <p className="secondary">Each rule requires all its filled conditions. Comment contains matches literal text, ignoring case; leave it blank for any comment.</p>
-      <div className="dx-alert-actions"><button disabled={draft.rules.length >= dx.limits.maximumRules} onClick={() => setDraft({ ...draft, rules:[...draft.rules,newRule()] })}>Add rule</button><button onClick={() => setDraft(structuredClone(dx.configuration))}>Revert</button><button className="primary" onClick={() => void action(() => saveDxAlerts(dx,{ enabled:draft.enabled,dedupSeconds:draft.dedupSeconds,retentionMinutes:draft.retentionMinutes,nativePopup:draft.nativePopup,notificationSound:draft.notificationSound,rules:draft.rules }), "Rules saved. Existing spots were baselined without alerts.")}>Save rules</button></div>
+      {ruleConflict&&<p role="alert">Rules changed in another window. Your attempted edits are retained. Revert to the current saved rules before making a new edit.</p>}
+      <div className="dx-alert-actions"><button disabled={draft.rules.length >= dx.limits.maximumRules} onClick={() => setDraft({ ...draft, rules:[...draft.rules,newRule()] })}>Add rule</button><button onClick={() => {setDraft(structuredClone(dx.configuration));setRuleConflict(false);}}>Revert</button><button disabled={ruleConflict} className="primary" onClick={() => void action(() => saveDxAlerts(dx,{ enabled:draft.enabled,dedupSeconds:draft.dedupSeconds,retentionMinutes:draft.retentionMinutes,nativePopup:draft.nativePopup,notificationSound:draft.notificationSound,rules:draft.rules }), "Rules saved. Existing spots were baselined without alerts.")}>Save rules</button></div>
     </details>}
     {entries.length ? <div className="dx-alert-table"><table style={{ width:visibleColumns.reduce((total, [id]) => total + columnPreferences.widths[id], 0) }}>
       <colgroup>{visibleColumns.map(([id]) => <col key={id} style={{ width:columnPreferences.widths[id] }}/>)}</colgroup>
       <thead><tr>{visibleColumns.map(([id, label]) => <th scope="col" key={id}>{label}</th>)}</tr></thead><tbody>{entries.map(entry => {
         const cells = { select:<AlertSelection entry={entry} checked={selectedIds.includes(entry.id)} onChange={selectEntry}/>, call:entry.callsign,
           source:sourceLabel(entry), frequency:entry.test ? "Test" : `${entry.frequencyKHz.toFixed(1)} kHz`, mode:entry.mode,
-          why:<AlertEvidence entry={entry}/>, comment:entry.comment || "—", history:<AlertHistory entry={entry}/> };
+          why:<><AlertEvidence entry={entry}/><button type="button" onClick={()=>void reviewEntry(entry.id)}>Review spot</button></>, comment:entry.comment || "—", history:<AlertHistory entry={entry}/> };
         return <tr key={entry.id}>{visibleColumns.map(([id]) => <td key={id} className={id === "call" ? "dx-call" : id === "comment" ? "dx-comment" : undefined}>{cells[id]}</td>)}</tr>;
       })}</tbody></table>
       <div className="dx-alert-cards" aria-label="DX alert history">{entries.map(entry => <article className="dx-alert-card" key={entry.id}><header><AlertSelection entry={entry} checked={selectedIds.includes(entry.id)} onChange={selectEntry}/><strong className="dx-call">{entry.callsign}</strong><span>{sourceLabel(entry)}</span></header>
-        <p className="dx-alert-card-spot">{entry.test ? "Test alert" : `${entry.frequencyKHz.toFixed(1)} kHz`} · {entry.band} · {entry.mode}</p><AlertEvidence entry={entry}/>{entry.comment && <p className="dx-comment">{entry.comment}</p>}<AlertHistory entry={entry}/></article>)}</div>
+        <p className="dx-alert-card-spot">{entry.test ? "Test alert" : `${entry.frequencyKHz.toFixed(1)} kHz`} · {entry.band} · {entry.mode}</p><AlertEvidence entry={entry}/>{entry.comment && <p className="dx-comment">{entry.comment}</p>}<AlertHistory entry={entry}/><button type="button" onClick={()=>void reviewEntry(entry.id)}>Review spot</button></article>)}</div>
     </div> : <p className="dx-alert-empty">No DX alerts yet. Enabling rules never tunes or transmits.</p>}
+    {review && <AlertReview key={review.entry.id} review={review} onClose={()=>setReview(null)} onError={setDxError}/>}
+
   </section></main></div>;
 }
 
@@ -113,4 +137,20 @@ function AlertHistory({ entry }: { entry: AlertEntry }) {
 function AlertTime({ milliseconds }: { milliseconds: number }) {
   const value = new Date(milliseconds);
   return Number.isNaN(value.getTime()) ? <span>Time unavailable</span> : <time dateTime={value.toISOString()} title={value.toLocaleString()}>{value.toLocaleTimeString()}</time>;
+}
+
+function AlertReview({review,onClose,onError}:{review:Awaited<ReturnType<typeof reviewDxAlert>>;onClose:()=>void;onError:(message:string)=>void}) {
+  const activation=useSpotActivation();
+  const [requested,setRequested]=useState(false);
+  const [alternative,setAlternative]=useState<NonNullable<typeof review.alternatives>[number]|null>(null);
+  return <section aria-label="Review alert spot"><h3>{review.entry.callsign} · {review.entry.frequencyKHz.toFixed(1)} kHz</h3>
+      <p>Matched at the recorded time: {review.entry.ruleNames.join(", ")} · {review.entry.callStatus} · {review.entry.dxccStatus}</p>
+      <p>DXCC {review.entry.geography?.dxEntity??"unknown"} · continent {review.entry.geography?.dxContinent??"unknown"} · DX CQ {review.entry.geography?.dxCqZone??"unknown"} · DX ITU {review.entry.geography?.dxItuZone??"unknown"} · spotter DXCC {review.entry.geography?.spotterEntity??"unknown"} · spotter continent {review.entry.geography?.spotterContinent??"unknown"}</p>
+      <p>{review.admissible ? "Exact retained cluster observation is available. Tune & load rechecks the active radio and shared editors." : review.reason || "Historical evidence only."}</p>
+      <button type="button" disabled={requested || !(alternative || review.admissible) || !activation.canActivate()} onClick={()=>{setRequested(true);const observation=alternative||review.observation;if(observation)void activation.activate(observation).catch(cause=>onError(String(cause)));}}>Tune &amp; load{alternative?" current selection":""}</button>
+      {!!review.alternatives?.length&&<div><p>Current ordinary cluster alternatives require an explicit selection:</p>{review.alternatives.map(spot=><button type="button" key={spot.id} onClick={()=>{setAlternative(spot);setRequested(false);}}>Review current {spot.callsign} · {spot.frequencyKHz.toFixed(1)} kHz</button>)}</div>}
+      {alternative&&<p role="status">Current selection: {alternative.callsign} · {alternative.frequencyKHz.toFixed(1)} kHz. The historical alert above remains unchanged.</p>}
+      <button type="button" onClick={()=>onClose()}>Close review</button>
+      {(activation.error||activationMessage(activation.status))&&<p role="status">{activation.error||activationMessage(activation.status)}</p>}
+    </section>;
 }

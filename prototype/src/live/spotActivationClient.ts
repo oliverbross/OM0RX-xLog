@@ -8,6 +8,8 @@ export function activationMessage(status: SpotActivationSnapshot | null): string
   if (status.phase === "preparing") return "Checking shared editors before loading this spot…";
   if (status.phase === "draft_applied") return "Spot loaded. Waiting for native radio admission…";
   if (status.phase === "tuning") return "Spot loaded. Waiting for observed radio confirmation…";
+  if (status.phase === "confirmed" && status.draftOnly && status.intent === "antenna-profile") return "Software antenna metadata checked for the observed transmit band. No hardware command was sent.";
+  if (status.phase === "confirmed" && status.draftOnly && status.intent === "nearby-callsign") return "Spot callsign entered. Receiver and all other draft fields are unchanged.";
   if (status.phase === "confirmed" && status.draftOnly) return "Chaser selection loaded into the shared draft. Radio follow and Auto rotor are off; no station command was sent.";
   if (status.phase === "confirmed") return `${status.tuneConfirmed ? "Spot loaded · observed radio tune confirmed." : "Spot loaded; radio tune is not confirmed."}${status.error ? ` ${status.error}` : ""}${status.rotor && status.rotor !== "not_requested" ? ` Rotor: ${status.rotor.replaceAll("_", " ")}.` : ""}`;
   if (status.phase === "uncertain") return "";

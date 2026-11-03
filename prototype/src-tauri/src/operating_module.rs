@@ -432,7 +432,7 @@ pub fn shared_worker_mutation(request: &Value) -> bool {
                 | "backup_restore"
                 | "workspace_create"
                 | "workspace_rotor_configuration_save"
-                | "workspace_preferences_save"
+                | "workspace_preferences_save" | "workspace_commands_apply"
                 | "workspace_band_map_apply"
                 | "workspace_logbook_filters_apply"
                 | "workspace_layout_apply"

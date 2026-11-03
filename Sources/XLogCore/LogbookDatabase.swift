@@ -173,6 +173,7 @@ public final class LogbookDatabase: @unchecked Sendable {
             return try LogbookAggregateFileIdentity.capture(connection: handle, at: self.url)
         }
         sqlite3_busy_timeout(handle, 5_000)
+        Self.registerQueryFunctions(handle)
         try execute("PRAGMA journal_mode=WAL;")
         try execute("PRAGMA foreign_keys=ON;")
         try migrate()
@@ -198,6 +199,7 @@ public final class LogbookDatabase: @unchecked Sendable {
             aggregateOpenedFileIdentity = .success(try LogbookAggregateFileIdentity.capture(connection: handle, at: url))
             try cancellation.register(handle)
             sqlite3_busy_timeout(handle, 100)
+            Self.registerQueryFunctions(handle)
             sqlite3_progress_handler(handle, 500, { context in
                 guard let context else { return 0 }
                 let cancellation = Unmanaged<LogbookAggregateCancellation>.fromOpaque(context).takeUnretainedValue()
@@ -1398,7 +1400,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 }
                 try initial.validateOperatorDraft(forSave: false)
                 guard try lookup(localID: initial.id) == nil else { throw OperatorDraftError.existingContact }
-                let draft = OperatorDraftSnapshot(revision: 0, qso: initial, automaticStart: true)
+                let draft = OperatorDraftSnapshot(revision: 0, qso: initial, automaticStart: true, operatingDefaultsMutable: true)
                 try writeOperatorDraft(draft)
                 try execute("COMMIT;")
                 return draft
@@ -1939,7 +1941,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                     try power.manual(value: current.qso.txPower)
                 }
                 return OperatorDraftSnapshot(revision: current.revision,
-                    qso: power.applying(to: current.qso), automaticStart: current.automaticStart, power: power)
+                    qso: power.applying(to: current.qso), automaticStart: current.automaticStart, power: power, operatingDefaultsMutable: current.operatingDefaultsMutable)
             }
             operatorPowerScopeID = result.power?.activeScope?.id == previousAuthority ? previousAuthority : nil
             return result
@@ -1965,7 +1967,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 }
                 _ = try power.arm(context: context, qso: current.qso, workspaceID: workspaceID, now: now)
                 return OperatorDraftSnapshot(revision: current.revision,
-                    qso: power.applying(to: current.qso), automaticStart: current.automaticStart, power: power)
+                    qso: power.applying(to: current.qso), automaticStart: current.automaticStart, power: power, operatingDefaultsMutable: current.operatingDefaultsMutable)
             }
             operatorPowerScopeID = result.power?.activeScope?.id
             return result
@@ -1987,7 +1989,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 // Later revocation may proceed while this admitted write commits.
                 guard authorize() else { return current }
                 return OperatorDraftSnapshot(revision: current.revision,
-                    qso: power.applying(to: current.qso), automaticStart: current.automaticStart, power: power)
+                    qso: power.applying(to: current.qso), automaticStart: current.automaticStart, power: power, operatingDefaultsMutable: current.operatingDefaultsMutable)
             }
         }
     }
@@ -1999,7 +2001,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 guard var power = current.power else { return current }
                 try power.invalidateSession()
                 return OperatorDraftSnapshot(revision: current.revision,
-                    qso: power.applying(to: current.qso), automaticStart: current.automaticStart, power: power)
+                    qso: power.applying(to: current.qso), automaticStart: current.automaticStart, power: power, operatingDefaultsMutable: current.operatingDefaultsMutable)
             }
         }
     }
@@ -2032,6 +2034,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// Replacements and receipt replays never evaluate the next blank draft.
     public func applyOperatorDraft(_ mutation: OperatorDraftMutation, nextDraft: @autoclosure () throws -> QSO,
                                   powerConfiguration: (workspaceID: UUID, enabled: Bool, fallback: String)? = nil,
+                                   preserveOperatingDefaultsEligibility: Bool = false,
                                   now: Date = Date()) throws -> OperatorDraftReceipt {
         try withDatabaseLock {
             guard spotDraftLeaseID == nil else { throw SpotDraftError.busy }
@@ -2050,6 +2053,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 var updated: QSO
                 var power = current.power
                 var automaticStart = current.automaticStart
+                var operatingDefaultsMutable = current.operatingDefaultsMutable
                 if power == nil, let intent = mutation.powerIntent {
                     guard mutation.action == .replace, intent.action == .manual,
                           let configuration = powerConfiguration else { throw OperatorDraftError.notInitialized }
@@ -2060,6 +2064,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 var saved: QSO?
                 switch mutation.action {
                 case .replace:
+                    operatingDefaultsMutable = preserveOperatingDefaultsEligibility && current.operatingDefaultsMutable
                     guard var replacement = mutation.qso, replacement.id == current.qso.id else { throw OperatorDraftError.invalid }
                     if replacement.mode != current.qso.mode { replacement.applyDefaultSignalReportsForMode() }
                     if replacement.start != current.qso.start || replacement.end != current.qso.end {
@@ -2097,6 +2102,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                     guard try lookup(localID: nextDraft.id) == nil else { throw OperatorDraftError.existingContact }
                     updated = nextDraft
                     automaticStart = true
+                    operatingDefaultsMutable = true
                     if mutation.action == .save {
                         var resolved = power?.applying(to: current.qso, includeProvenance: true) ?? current.qso
                         // Resolve this contact using its retained provenance;
@@ -2109,6 +2115,14 @@ public final class LogbookDatabase: @unchecked Sendable {
                         saved = value
                     }
                     if var nextPower = power {
+                        let portablePower = "APP_OM0RXXLOG_PORTABLE_DEFAULT_POWER"
+                        if let fallback = nextDraft.extraFields[portablePower] {
+                            try nextPower.configure(enabled: nextPower.enabled, fallback: fallback)
+                        } else if current.qso.extraFields[portablePower] != nil {
+                            // Ending a context affects only this new blank. The
+                            // previous contact keeps its captured power default.
+                            try nextPower.configure(enabled: nextPower.enabled, fallback: nextDraft.txPower)
+                        }
                         try nextPower.reset(qso: nextDraft, workspaceID: nextPower.workspaceID)
                         updated = nextPower.applying(to: nextDraft)
                         power = nextPower
@@ -2117,7 +2131,7 @@ public final class LogbookDatabase: @unchecked Sendable {
                 try updated.validateOperatorDraft(forSave: false)
                 try power?.validate()
                 let draft = OperatorDraftSnapshot(revision: current.revision + 1, qso: updated,
-                                                  automaticStart: automaticStart, power: power)
+                                                  automaticStart: automaticStart, power: power, operatingDefaultsMutable: operatingDefaultsMutable)
                 try writeOperatorDraft(draft)
                 let receipt = OperatorDraftReceipt(mutation: mutation, draft: draft, savedQSO: saved)
                 let payload = try encoder.encode(receipt)
@@ -2409,22 +2423,18 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func fetch(limit: Int = 500, search: String = "", offset: Int = 0) throws -> [QSO] {
+        try fetch(limit: limit, search: search, offset: offset, query: LogbookQuery())
+    }
+
+    public func fetch(limit: Int = 500, search: String = "", offset: Int = 0,
+                      query: LogbookQuery, at now: Date = Date()) throws -> [QSO] {
         try withDatabaseLock {
-            let needle = search.trimmingCharacters(in: .whitespacesAndNewlines)
-            let filtered = !needle.isEmpty
-            let sql = filtered
-                ? "SELECT record_json FROM qsos WHERE deleted_at IS NULL AND (call LIKE ? OR record_json LIKE ?) ORDER BY qso_start DESC LIMIT ? OFFSET ?;"
-                : "SELECT record_json FROM qsos WHERE deleted_at IS NULL ORDER BY qso_start DESC LIMIT ? OFFSET ?;"
+            let predicate = try query.compile(search: search, at: now)
+            let sql = "SELECT record_json FROM qsos WHERE \(predicate.sql) ORDER BY qso_start DESC, local_id ASC LIMIT ? OFFSET ?;"
             return try withStatement(sql) { statement in
-                if filtered {
-                    let pattern = "%\(needle)%"
-                    bind(pattern, to: 1, in: statement); bind(pattern, to: 2, in: statement)
-                    sqlite3_bind_int(statement, 3, Int32(limit))
-                    sqlite3_bind_int(statement, 4, Int32(offset))
-                } else {
-                    sqlite3_bind_int(statement, 1, Int32(limit))
-                    sqlite3_bind_int(statement, 2, Int32(offset))
-                }
+                bindQuery(predicate, in: statement)
+                sqlite3_bind_int(statement, Int32(predicate.bindings.count + 1), Int32(clamping: limit))
+                sqlite3_bind_int(statement, Int32(predicate.bindings.count + 2), Int32(clamping: offset))
                 return try decodeRows(statement)
             }
         }
@@ -2843,18 +2853,15 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func count(search: String = "") throws -> Int {
+        try count(search: search, query: LogbookQuery())
+    }
+
+    public func count(search: String = "", query: LogbookQuery, at now: Date = Date()) throws -> Int {
         try withDatabaseLock {
-            let needle = search.trimmingCharacters(in: .whitespacesAndNewlines)
-            let filtered = !needle.isEmpty
-            let sql = filtered
-                ? "SELECT COUNT(*) FROM qsos WHERE deleted_at IS NULL AND (call LIKE ? OR record_json LIKE ?);"
-                : "SELECT COUNT(*) FROM qsos WHERE deleted_at IS NULL;"
+            let predicate = try query.compile(search: search, at: now)
+            let sql = "SELECT COUNT(*) FROM qsos WHERE \(predicate.sql);"
             return try withStatement(sql) { statement in
-                if filtered {
-                    let pattern = "%\(needle)%"
-                    bind(pattern, to: 1, in: statement)
-                    bind(pattern, to: 2, in: statement)
-                }
+                bindQuery(predicate, in: statement)
                 guard sqlite3_step(statement) == SQLITE_ROW else {
                     throw LogbookDatabaseError.sqlite(String(cString: sqlite3_errmsg(handle)))
                 }
@@ -3057,6 +3064,26 @@ public final class LogbookDatabase: @unchecked Sendable {
                 if let cached: AwardCatalogSnapshot = try reader.persistedAggregate(request.semanticKey) {
                     payload = .value(.catalogue(cached))
                 } else { payload = .contacts(try reader.awardCatalogContacts()) }
+            case .contacts, .exportContacts:
+                let date = Date(timeIntervalSince1970: request.referenceTime)
+                let query = request.query ?? LogbookQuery()
+                let contacts=try reader.fetch(limit: request.limit, search: request.search, offset: request.offset, query: query, at: date)
+                payload = .value(.contacts(LogbookQueryPage(contacts:contacts,
+                    total: request.kind == .exportContacts ? contacts.count : try reader.count(search: request.search, query: query, at: date))))
+            case .localAwards:
+                let kinds=ActivationReferenceKind(rawValue:request.programme).map{Set([$0])} ?? []
+                let referenceURL = URL(fileURLWithPath: request.referenceDirectory)
+                // A directory captured under another version must never be
+                // published with this request's immutable cache identity.
+                guard try ActivationReferenceDirectory.fingerprint(directory: referenceURL) == request.referenceVersion else {
+                    throw LogbookAggregateReadError.superseded
+                }
+                let directory = try ActivationReferenceDirectory(directory: referenceURL, kinds:kinds)
+                guard try ActivationReferenceDirectory.fingerprint(directory: referenceURL) == request.referenceVersion else {
+                    throw LogbookAggregateReadError.superseded
+                }
+                payload = .awardEvidence(try reader.awardEvidenceContacts(query: request.query ?? LogbookQuery(), search: request.search,
+                    at: Date(timeIntervalSince1970: request.referenceTime)), directory)
             }
             return LogbookAggregateSnapshot(authority: authority, request: request, payload: payload)
         }
@@ -3118,6 +3145,9 @@ public final class LogbookDatabase: @unchecked Sendable {
                 persistAggregate(value.dxccStatuses, key: "dxcc-map-v1", revision: result.authority.revision)
             case (.catalogue, .catalogue(let value)):
                 persistAggregate(value, key: result.request.semanticKey, revision: result.authority.revision)
+            case (.contacts, .contacts): break
+            case (.exportContacts, .contacts): break
+            case (.localAwards, .localAwards): break
             default: throw LogbookDatabaseError.corruptRecord
             }
             guard try currentAggregateFileIdentity() == result.authority.fileIdentity,
@@ -3133,6 +3163,8 @@ public final class LogbookDatabase: @unchecked Sendable {
                 cachedStats = value.stats; cachedStatsYearStart = result.request.yearStart
                 cachedAwards = value.awards; cachedDXCCStatuses = value.dxccStatuses
             case .catalogue(let value): cachedAwardCatalog = value
+            case .contacts: break
+            case .localAwards: break
             }
             return true
         }
@@ -3337,6 +3369,31 @@ public final class LogbookDatabase: @unchecked Sendable {
                 guard step == SQLITE_DONE else { throw error() }
                 return values
             }
+        }
+    }
+
+    /// Global programmes have an all-world candidate path. Specialist catalogue
+    /// candidates above remain deliberately narrower and are never reused here.
+    func awardEvidenceContacts(query: LogbookQuery, search: String, at date: Date) throws -> [AwardEvidenceContact] {
+        let fields = ["id","call","start","band","mode","submode","dxcc","continent","cqZone","state","gridSquare",
+            "myCall","myGrid","stationLocation","iota","potaReference","sotaReference","wwffReference","qslReceived","lotwReceived","extraFields","sig","sigInfo"]
+        let columns = "json_extract(record_json," + fields.map { "'$.\($0)'" }.joined(separator: ",") + ")"
+        let predicate = try query.compile(search: search, at: date)
+        return try withStatement("SELECT \(columns), CASE WHEN instr(record_json,'\\u0000')>0 THEN record_json END FROM qsos WHERE \(predicate.sql) ORDER BY qso_start DESC,local_id ASC;") { statement in
+            bindQuery(predicate, in: statement)
+            var values: [AwardEvidenceContact] = []
+            var step = sqlite3_step(statement)
+            while step == SQLITE_ROW {
+                try aggregateReadCancellation?.check()
+                let fallback = sqlite3_column_type(statement,1) != SQLITE_NULL
+                let column: Int32 = fallback ? 1 : 0
+                guard let bytes=sqlite3_column_blob(statement,column) else { throw LogbookDatabaseError.corruptRecord }
+                let data=Data(bytes:bytes,count:Int(sqlite3_column_bytes(statement,column)))
+                values.append(fallback ? try decoder.decode(AwardEvidenceContact.self,from:data) : try decoder.decode(AwardEvidenceSQLRow.self,from:data).contact)
+                step=sqlite3_step(statement)
+            }
+            guard step == SQLITE_DONE else { throw error() }
+            return values
         }
     }
 
@@ -4617,6 +4674,50 @@ public final class LogbookDatabase: @unchecked Sendable {
     private func bind(_ value: String?, to index: Int32, in statement: OpaquePointer?) {
         guard let value else { sqlite3_bind_null(statement, index); return }
         sqlite3_bind_text(statement, index, value, -1, Self.transient)
+    }
+
+    private func bindQuery(_ predicate: LogbookQuery.Predicate, in statement: OpaquePointer?) {
+        for (index, value) in predicate.bindings.enumerated() {
+            switch value {
+            case .text(let text): bind(text, to: Int32(index + 1), in: statement)
+            case .number(let number): sqlite3_bind_double(statement, Int32(index + 1), number)
+            }
+        }
+    }
+
+    private static func registerQueryFunctions(_ handle: OpaquePointer?) {
+        sqlite3_create_function_v2(handle,"xlog_query_field",2,SQLITE_UTF8 | SQLITE_DETERMINISTIC,nil,{context,count,values in
+            guard count == 2,let raw=values?[0],let path=values?[1],let bytes=sqlite3_value_text(raw),let pathBytes=sqlite3_value_text(path),
+                  let object=try? JSONSerialization.jsonObject(with:Data(bytes:bytes,count:Int(sqlite3_value_bytes(raw)))) as? [String:Any] else { sqlite3_result_null(context);return }
+            var value:Any=object
+            for key in String(cString:pathBytes).split(separator:".") { value=(value as? [String:Any])?[String(key)] ?? NSNull() }
+            if let text=value as? String { text.withCString{sqlite3_result_text(context,$0,Int32(text.utf8.count),LogbookDatabase.transient)} }
+            else if let number=value as? NSNumber { sqlite3_result_double(context,number.doubleValue) }
+            else { sqlite3_result_null(context) }
+        },nil,nil,nil)
+        sqlite3_create_function_v2(handle,"xlog_query_references",2,SQLITE_UTF8 | SQLITE_DETERMINISTIC,nil,{context,count,values in
+            guard count == 2,let value=values?[0],sqlite3_value_type(value) == SQLITE_TEXT,let bytes=sqlite3_value_text(value) else { sqlite3_result_text(context,"[]",-1,LogbookDatabase.transient);return }
+            let raw=String(decoding:UnsafeBufferPointer(start:bytes,count:Int(sqlite3_value_bytes(value))),as:UTF8.self)
+            let field=values?[1].flatMap{sqlite3_value_text($0)}.map{String(cString:$0)} ?? ""
+            var references=LocalAwardEngine.references(raw)
+            if ["pota","ownPota"].contains(field) { references=Array(Set(references+POTAExportPreview.parkReferences(raw))).sorted() }
+            guard !raw.contains("\0"),let data=try? JSONEncoder().encode(references),let text=String(data:data,encoding:.utf8) else { sqlite3_result_text(context,"[]",-1,LogbookDatabase.transient);return }
+            text.withCString{sqlite3_result_text(context,$0,Int32(text.utf8.count),LogbookDatabase.transient)}
+        },nil,nil,nil)
+        sqlite3_create_function_v2(handle, "xlog_query_text", 1, SQLITE_UTF8 | SQLITE_DETERMINISTIC, nil, { context, count, values in
+            guard count == 1, let value=values?[0], sqlite3_value_type(value) != SQLITE_NULL, let bytes=sqlite3_value_text(value) else { sqlite3_result_null(context); return }
+            let text=String(decoding:UnsafeBufferPointer(start:bytes,count:Int(sqlite3_value_bytes(value))),as:UTF8.self).trimmingCharacters(in:.whitespacesAndNewlines).uppercased()
+            text.withCString { sqlite3_result_text(context,$0,Int32(text.utf8.count),LogbookDatabase.transient) }
+        }, nil, nil, nil)
+        sqlite3_create_function_v2(handle, "xlog_query_number", 1, SQLITE_UTF8 | SQLITE_DETERMINISTIC, nil, { context, count, values in
+            guard count == 1, let value = values?[0], sqlite3_value_type(value) != SQLITE_NULL,
+                  let bytes = sqlite3_value_text(value),
+                  case let text = String(decoding:UnsafeBufferPointer(start:bytes,count:Int(sqlite3_value_bytes(value))),as:UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines),
+                  !text.contains("\0"), let number = Double(text), number.isFinite else {
+                sqlite3_result_null(context); return
+            }
+            sqlite3_result_double(context, number)
+        }, nil, nil, nil)
     }
 
     private func bind(_ value: Int?, to index: Int32, in statement: OpaquePointer?) {
