@@ -1135,6 +1135,57 @@ Additive observer SHA256`1382b6c04424bead587269545ce28efeed53ff3eb070674bacd53b3
 two disposable copied-owner local fixtures passed21ordered phase checks each,
 one correlated protocol response and ordinary EOF exit0. Vendored source bytes,
 trust checks, SQL and all deadlines are unchanged; only CI observation is added.
+Second Windows phase run41643308095 (job125942059255) passed the same9selected
+cases, with91excluded cases not counted as passes. Its22recorded Python phases
+locate5.631–6.388seconds in the original contest-list seed and0.638–0.826seconds
+in the later host schema. Imports/hash verification are much shorter. The seed
+contains251pinned INSERT statements running without an explicit transaction under
+the existing DELETE journal/FULL synchronization. This is measured fresh-session
+work, not evidence about the separate Mac signed-worker loader failure.
+The repair will group only those existing seed writes atomically through Store,
+retain the exact upstream method/SQL/trust checks and warm catalog behavior,
+and add rollback/retry/preservation fixtures. No timeout or protection is relaxed.
+Actual post-fix timing and the required full Windows/all-platform outcome remain
+pending until executed.
+
+Full Mac beta41636005191 at implementation source11503ca0 completed successfully:
+5104Vitest/371files, portable1349reported XCTest (9existing skips),617reported
+Swift Testing (8existing skips), Rust1041unit+31integration, explicit dummy31
+(overlaps full-suite coverage), worker framing9, desktop build and unchanged
+bundle budgets all passed. Normal CI and the14-case actual aggregate matrix above
+also passed. The pending Python seed repair changes a product owner, so final
+affected backend/platform qualification must use its integrated source rather
+than promote these earlier Mac passes to final-source proof.
+Seed repair implementation: Store temporarily delegates only the original
+upstream `create_contest_table` cursor's script execution, wrapping its exact
+pinned SQL in BEGIN IMMEDIATE/COMMIT. A script exception rolls back and the real
+connection is restored in finally. The upstream nonempty-catalog guard, source
+verification, schema,251rows, DELETE/FULL durability, foreign keys and normal
+mutation owner are retained. No vendor byte, timeout, ordinary host DDL or
+existing catalog-repair policy changed.
+
+Focused pinned-runtime command:
+`PYTHONPATH=python:python/tests /opt/local/bin/python3.12 -m unittest -v
+test_store_catalog_seed test_call_history_store test_trans_tasman_host
+test_multi_operator_host
+test_host.HostTests.test_existing_foreign_or_hardlinked_database_is_never_initialized
+test_host.HostTests.test_session_discovery_never_repairs_malformed_store_after_restart
+test_host.HostTests.test_atomic_rollback_on_sql_error_and_timestamp_collision
+test_host.HostTests.test_process_death_before_and_after_commit_keeps_exact_retry_safe`
+passed31 in2.138s (new3 plus existing28, Python3.12.4). New fixtures compare every
+catalog field/schema with the pinned original, retain custom catalog/contact IDs
+on reopen, check101source hashes/unchanged manifest, inject a mid-seed authorizer
+failure, require zero partial seed rows and released write lock, restore the real
+connection, retry exactly and verify ordinary mutation rollback. The preceding
+Python3.14.3 run is supplementary, not pinned-runtime release evidence.
+`cd prototype && npx --no-install vitest run --maxWorkers=1
+src/contesting/AllContestsPythonDesk.test.tsx` passed100/100 in58.92s with repository
+Vitest5.0.3 and the unchanged15-second case deadline. No Windows performance pass
+is inferred from this local result. The new3 atomic catalog tests are added to
+the existing all-platform beta gate. The diagnostic patch is rebased around the
+actual adapter (SHA256`1ed0ea04486dd642374be30aecbca7dc933cb59d43e67db8a4e694f61f4b472d`),
+with two copied-owner fixtures verifying21phases and unchanged adapter AST. It
+does not replace or bypass the fix. Final affected platform gates follow.
 
 ## 9. Programme definition of done
 

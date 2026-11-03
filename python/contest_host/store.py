@@ -36,6 +36,39 @@ def canonical(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
 
 
+class _CatalogSeedCursor:
+    """Batch the pinned catalog script without changing any of its SQL."""
+
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    def __getattr__(self, name):
+        return getattr(self._cursor, name)
+
+    def executescript(self, script):
+        connection = self._cursor.connection
+        if connection.in_transaction:
+            raise RuntimeError("Catalog initialization requires its own transaction")
+        try:
+            return self._cursor.executescript("BEGIN IMMEDIATE;\n" + script + "\nCOMMIT;")
+        except BaseException:
+            connection.rollback()
+            raise
+
+
+class _CatalogSeedConnection:
+    """Scoped delegate used only by the original create_contest_table call."""
+
+    def __init__(self, connection):
+        self._connection = connection
+
+    def __getattr__(self, name):
+        return getattr(self._connection, name)
+
+    def cursor(self, *args, **kwargs):
+        return _CatalogSeedCursor(self._connection.cursor(*args, **kwargs))
+
+
 class Store(DataBase):
     def __init__(self, path):
         self.atomic = False
@@ -147,6 +180,16 @@ class Store(DataBase):
         except BaseException:
             self.conn.rollback()
             raise
+
+    def create_contest_table(self):
+        # Keep upstream's CREATE, nonempty-catalog guard and verified file read.
+        # Its executescript otherwise commits every INSERT under DELETE/FULL.
+        connection = self.conn
+        self.conn = _CatalogSeedConnection(connection)
+        try:
+            return super().create_contest_table()
+        finally:
+            self.conn = connection
 
     def connect(self, database):
         self.database = database

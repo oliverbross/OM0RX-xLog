@@ -126,6 +126,10 @@ jobs:
           python3 prototype/scripts/test-contest-host-staging.py
           python3 prototype/scripts/test-linux-vault-harness.py
           python3 prototype/scripts/test-portable-swift-lock.py
+      - name: Test atomic pinned contest catalog initialization
+        env:
+          PYTHONPATH: ${{ github.workspace }}/python
+        run: python3 -m unittest discover -s python/tests -p test_store_catalog_seed.py -v
       - name: Parse Windows installer scripts
         if: runner.os == 'Windows'
         shell: pwsh

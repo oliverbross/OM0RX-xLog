@@ -8,6 +8,10 @@ python/vendor/not1mm/upstream/not1mm/data/cwmacros.txt text eol=lf whitespace=-b
 # Do not let a Windows checkout rewrite the pinned sources to CRLF.
 python/vendor/not1mm/upstream/** -text
 
+# Unified-diff context markers include a space on otherwise empty lines.
+# Preserve diagnostic patch identity and syntax across Windows checkouts.
+tools/diagnostics/*.patch text eol=lf whitespace=-blank-at-eol
+
 # HM Control verifies exact asset bytes and adapts LF-delimited pinned source.
 prototype/public/hm-control-assets/** -text
 prototype/vendor/ham-mission-control/** -text
