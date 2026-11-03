@@ -13,11 +13,15 @@ public struct OperatorDraftSnapshot: Codable, Equatable, Sendable {
     /// Meter updates have their own revision; they must not race contact typing.
     /// Absent on legacy drafts and receipts until native capture is configured.
     public let power: OperatorDraftPowerState?
+    /// Native provenance, independent of automatic clock/radio/report fields.
+    /// Once an operator changes this draft, background defaults cannot retag it.
+    public let operatingDefaultsMutable: Bool
 
     public init(revision: Int64, qso: QSO, automaticStart: Bool = false,
-                power: OperatorDraftPowerState? = nil) {
+                power: OperatorDraftPowerState? = nil, operatingDefaultsMutable: Bool = false) {
         self.revision = revision; self.qso = qso
         self.automaticStart = automaticStart; self.power = power
+        self.operatingDefaultsMutable = operatingDefaultsMutable
     }
 
     public func validate() throws {
@@ -32,7 +36,7 @@ public struct OperatorDraftSnapshot: Codable, Equatable, Sendable {
         }
     }
 
-    private enum CodingKeys: String, CodingKey { case revision, qso, automaticStart, power }
+    private enum CodingKeys: String, CodingKey { case revision, qso, automaticStart, power, operatingDefaultsMutable }
 
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -48,6 +52,7 @@ public struct OperatorDraftSnapshot: Codable, Equatable, Sendable {
                 && qso.end == nil && abs(qso.start.timeIntervalSince(qso.updatedAt)) < 1
         }
         power = try values.decodeIfPresent(OperatorDraftPowerState.self, forKey: .power)
+        operatingDefaultsMutable = try values.decodeIfPresent(Bool.self, forKey: .operatingDefaultsMutable) ?? false
         try validate()
     }
 }

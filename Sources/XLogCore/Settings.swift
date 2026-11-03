@@ -43,7 +43,27 @@ public struct StationEquipment: Codable, Equatable, Sendable {
     public var antenna: Antenna = .vertical
     public var name: String = ""
     public var bands: [String] = []
+    public var version = 1
+    public var profiles: [AntennaProfile] = []
+    public var selectedProfileID: String? = nil
+    public var automaticSelection = false
+    public var bandPreferences: [String: String] = [:]
     public init() {}
+
+    private enum CodingKeys: String, CodingKey { case display, antenna, name, bands, version, profiles, selectedProfileID, automaticSelection, bandPreferences }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        display = try c.decodeIfPresent(Display.self, forKey: .display) ?? .automatic
+        antenna = try c.decodeIfPresent(Antenna.self, forKey: .antenna) ?? .vertical
+        name = try c.decodeIfPresent(String.self, forKey: .name) ?? ""
+        bands = try c.decodeIfPresent([String].self, forKey: .bands) ?? []
+        version = try c.decodeIfPresent(Int.self, forKey: .version) ?? 1
+        profiles = try c.decodeIfPresent([AntennaProfile].self, forKey: .profiles)
+            ?? [AntennaProfile(id: "legacy-antenna", name: name.isEmpty ? "Station antenna" : name, antennaType: antenna, bands: bands)]
+        selectedProfileID = c.contains(.selectedProfileID) ? try c.decodeIfPresent(String.self, forKey: .selectedProfileID) : profiles.first?.id
+        automaticSelection = try c.decodeIfPresent(Bool.self, forKey: .automaticSelection) ?? false
+        bandPreferences = try c.decodeIfPresent([String: String].self, forKey: .bandPreferences) ?? [:]
+    }
 }
 
 public struct XLogSettings: Codable, Equatable, Sendable {
@@ -75,6 +95,8 @@ public struct XLogSettings: Codable, Equatable, Sendable {
     public var clubLogCTYURL: String
     public var lotwActivityURL: String
     public var stationEquipment = StationEquipment()
+    public var portableOperating = PortableOperatingSettings()
+    public var nearbySpottedCallsigns = false
     public var cwProfile: CWProfile? = nil
     public var ftpBackup = FTPBackupSettings()
 
@@ -149,6 +171,8 @@ public struct IntegrationSettingsSnapshot: Codable, Equatable, Sendable {
     }
 
     public func validate() throws {
+        try settings.stationEquipment.validateProfiles()
+        try settings.portableOperating.validate()
         guard (0...9_007_199_254_740_991).contains(revision),
               (0...revision).contains(syncTargetRevision),
               (0...Int(Int32.max)).contains(settings.wavelogStationID),
@@ -379,7 +403,7 @@ extension XLogSettings {
         case wavelogURL, wavelogStationID, logbookMode, automaticSync, syncIntervalMinutes
         case qrzUsername, qrzEnabled, callsignLookupProvider, hamqthUsername
         case xcatHost, xcatRigCtlPort, clubLogCTYURL, lotwActivityURL
-        case stationEquipment, cwProfile, ftpBackup
+        case stationEquipment, portableOperating, nearbySpottedCallsigns, cwProfile, ftpBackup
     }
 
     public init(from decoder: Decoder) throws {
@@ -410,6 +434,8 @@ extension XLogSettings {
         clubLogCTYURL = try values.decode(String.self, forKey: .clubLogCTYURL)
         lotwActivityURL = try values.decode(String.self, forKey: .lotwActivityURL)
         stationEquipment = try values.decodeIfPresent(StationEquipment.self, forKey: .stationEquipment) ?? StationEquipment()
+        portableOperating = try values.decodeIfPresent(PortableOperatingSettings.self, forKey: .portableOperating) ?? PortableOperatingSettings()
+        nearbySpottedCallsigns = try values.decodeIfPresent(Bool.self, forKey: .nearbySpottedCallsigns) ?? false
         cwProfile = try values.decodeIfPresent(CWProfile.self, forKey: .cwProfile)
         ftpBackup = try values.decodeIfPresent(FTPBackupSettings.self, forKey: .ftpBackup) ?? FTPBackupSettings()
     }
