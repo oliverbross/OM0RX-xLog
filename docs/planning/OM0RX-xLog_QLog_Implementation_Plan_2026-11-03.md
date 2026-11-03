@@ -1091,6 +1091,34 @@ new version/package; no intermediate installation. Focused regressions precede
 the affected integrated release gates. No unperformed connected/native/hardware
 acceptance will be promoted to passed.
 
+**Repeated Windows gate failure, not waived:** unchanged retry job125911542311
+of beta41627354537 failed8 of the100 Python-host desk cases at the same15-second
+deadline (aadx_cw, arrl_field_day, k1usn_sst, es_field_day, es_manual_key, ref_ssb,
+naqp_ssb, arrl_ss_cw); Helvetia was no longer the failing case. Overall5091passed /
+8failed;100-case duration1151.140seconds. Raw log retained in
+`.build/qlog-followup-20261103/ci-job-125911542311.log`. No phase evidence yet
+attributes the delay to Python startup, requests, React actions or cleanup.
+Packaging remains stopped, no1.5.4artifact exists, and a warm/local pass does not
+repair this gate. Current11503ca0 normal CI41636005225 passed334XCTest and389
+reported Swift Testing cases (12existing conditional skips); current actual
+aggregate-owner14XCTest cases passed on Mac/Linux/Windows in41636059482.
+The portable target does not contain LocalAwardProgressTests: that filter's
+zero Swift Testing completions contribute no portable evidence. Its14core cases
+run separately in normal Mac CI; actual wire cases exercise changed POTA counting
+on all three platforms. Current full Mac beta41636005191 remains in progress.
+
+A bounded `Frontend Python host diagnosis` workflow runs only the failing host
+suite on Windows, initially the eight failed cases plus Helvetia. It applies the
+tracked observation-only patch to the otherwise unchanged test in its disposable
+CI checkout. Phase/child/pending-request evidence is diagnostic, never a substitute
+for the required full Windows gate. All assertions and timeout declarations are
+mechanically unchanged. Diagnostics-enabled focused local10/10 passed in8.63s
+(`9734965e2de95624`); patch SHA256
+`65e45c6126f57b5890b3cfc3f5ffd50aa6247fba674ed374d8946ea1304dd365`.
+No product/test assertion or system protection was altered. The tracker will
+record the actual remote phase evidence, repair and final gate result after they
+are obtained; this is not a completion claim.
+
 ## 9. Programme definition of done
 
 The selected programme is done when all of the following are true:

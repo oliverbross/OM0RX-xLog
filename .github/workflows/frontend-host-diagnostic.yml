@@ -1,0 +1,63 @@
+name: Frontend Python host diagnosis
+
+on:
+  workflow_dispatch:
+    inputs:
+      case_pattern:
+        description: 'Vitest case pattern; empty runs the one 100-case host suite'
+        type: string
+        default: 'commits (aadx_cw|arrl_field_day|k1usn_sst|es_field_day|es_manual_key|ref_ssb|naqp_ssb|arrl_ss_cw|helvetia) through'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-host-diagnosis-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows-host:
+    name: Windows host phases (diagnostic only)
+    runs-on: windows-2022
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: prototype/package-lock.json
+      - uses: actions/setup-python@v5
+        id: python
+        with:
+          python-version: '3.12.4'
+      - name: Apply observation-only harness patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          sha256sum tools/diagnostics/all-contests-python-phases.patch
+          git apply --check tools/diagnostics/all-contests-python-phases.patch
+          git apply tools/diagnostics/all-contests-python-phases.patch
+          git diff --check
+          test "$(git diff --name-only)" = 'prototype/src/contesting/AllContestsPythonDesk.test.tsx'
+      - name: Install existing frontend dependencies
+        working-directory: prototype
+        run: npm ci
+      - name: Observe unchanged case deadlines and assertions
+        working-directory: prototype
+        shell: bash
+        env:
+          XLOG_CONTEST_PYTHON: ${{ steps.python.outputs.python-path }}
+          XLOG_CONTEST_DESK_DIAGNOSTICS: '1'
+          XLOG_DIAGNOSTIC_CASE_PATTERN: ${{ inputs.case_pattern }}
+        run: |
+          set -euo pipefail
+          npx vitest run --maxWorkers=1 src/contesting/AllContestsPythonDesk.test.tsx -t "$XLOG_DIAGNOSTIC_CASE_PATTERN" --reporter=verbose 2>&1 | tee "$RUNNER_TEMP/frontend-host-phases.log"
+      - name: Retain phase evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-frontend-host-phases-${{ github.sha }}
+          path: ${{ runner.temp }}/frontend-host-phases.log
+          if-no-files-found: warn

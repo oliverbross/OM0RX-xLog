@@ -1,0 +1,198 @@
+diff --git a/prototype/src/contesting/AllContestsPythonDesk.test.tsx b/prototype/src/contesting/AllContestsPythonDesk.test.tsx
+index 8010cf92..f06aa314 100644
+--- a/prototype/src/contesting/AllContestsPythonDesk.test.tsx
++++ b/prototype/src/contesting/AllContestsPythonDesk.test.tsx
+@@ -1,11 +1,12 @@
+ // @vitest-environment jsdom
+-import { afterEach, expect, it, vi } from "vitest";
++import { afterEach, expect, it, onTestFailed, vi } from "vitest";
+ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+ import { useEffect } from "react";
+ import { spawn } from "node:child_process";
+ import { mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
+ import { tmpdir } from "node:os";
+ import { resolve } from "node:path";
++import { performance } from "node:perf_hooks";
+ import { Not1MMContestWorkspace } from "./Not1MMContestWorkspace";
+ import { DetachedContestSurface } from "./DetachedContestSurface";
+ import { contestSurfacePanelIDs, validContestSurfaceProjection } from "./contestSurfaceProtocol";
+@@ -50,21 +51,34 @@ const fixtures = JSON.parse(readFileSync(resolve(root, "python/tests/fixtures/al
+ afterEach(() => { cleanup(); localStorage.clear(); owner.current = null; owner.wakes = [];
+   window.history.replaceState({}, "", "/"); });
+ 
+-function pythonHost() {
++type Phase = (name: string, detail?: Record<string, unknown>) => void;
++function pythonHost(phase: Phase) {
+   const directory = realpathSync(mkdtempSync(resolve(tmpdir(), "xlog-ui-catalogue-")));
++  phase("data-root-ready");
++  phase("python-spawn-requested");
+   const process = spawn(globalThis.process.env.XLOG_CONTEST_PYTHON ?? "/opt/local/bin/python3.12",
+     ["-I", "-B", resolve(root, "python/contest_host/launcher.py"), "--data-root", directory],
+     { cwd: root, stdio: ["pipe", "pipe", "pipe"] });
+-  let buffer = "", stderr = "";
+-  const pending = new Map<string, { resolve: (value: any) => void; reject: (error: Error) => void }>();
++  let buffer = "", stderr = "", firstOutput = false, firstReply = false;
++  const pending = new Map<string, { method: string; started: number; resolve: (value: any) => void; reject: (error: Error) => void }>();
++  const slowest: { method: string; elapsedMs: number; ok: boolean }[] = [];
++  let lastReply: { method: string; elapsedMs: number; ok: boolean } | null = null;
++  process.once("spawn", () => phase("python-spawned", { pid: process.pid }));
+   process.stdout.setEncoding("utf8");
+   process.stderr.on("data", value => { stderr += String(value); });
+   process.stdout.on("data", value => {
++    if (!firstOutput) { firstOutput = true; phase("python-first-output"); }
+     buffer += value;
+     while (buffer.includes("\n")) {
+       const end = buffer.indexOf("\n"), message = JSON.parse(buffer.slice(0, end));
+       buffer = buffer.slice(end + 1);
+-      pending.get(message.id)?.resolve(message); pending.delete(message.id);
++      const waiter = pending.get(message.id);
++      if (waiter) {
++        lastReply = { method: waiter.method, elapsedMs: Math.round(performance.now() - waiter.started), ok: message.ok };
++        slowest.push(lastReply); slowest.sort((a, b) => b.elapsedMs - a.elapsedMs); slowest.splice(5);
++        if (!firstReply) { firstReply = true; phase("python-first-reply", { method: waiter.method }); }
++      }
++      waiter?.resolve(message); pending.delete(message.id);
+     }
+   });
+   let terminalError: Error | null = null;
+@@ -74,9 +88,10 @@ function pythonHost() {
+       for (const waiter of pending.values()) waiter.reject(error);
+       pending.clear(); resolve();
+     };
+-    process.once("error", error => finish(error));
+-    process.once("exit", () => finish(Error(`Python exited: ${stderr}`)));
++    process.once("error", error => { phase("python-error", { message: error.message }); finish(error); });
++    process.once("exit", (code, signal) => { phase("python-exit", { code, signal }); finish(Error(`Python exited: ${stderr}`)); });
+   });
++  process.once("close", (code, signal) => phase("python-stdio-closed", { code, signal }));
+   const request = async (method: string, params: Record<string, any> = {}): Promise<any> => {
+     if (terminalError) throw terminalError;
+     const id = crypto.randomUUID();
+@@ -86,26 +101,50 @@ function pythonHost() {
+     // and native output/service owners are unavailable in this isolated test.
+     if (method.startsWith("contest_scp_")) return { id, ok: false, error: { code: "unavailable", message: "No SCP fixture" } };
+     return await new Promise((resolve, reject) => {
+-      pending.set(id, { resolve, reject });
++      pending.set(id, { method, started: performance.now(), resolve, reject });
+       process.stdin.write(JSON.stringify({ id, method, params }) + "\n");
+     });
+   };
+-  return { request, close: async () => {
++  return { request, diagnostics: () => ({
++    pid: process.pid, exitCode: process.exitCode, signalCode: process.signalCode,
++    stdinEnded: process.stdin.writableEnded, stdoutBufferedCharacters: buffer.length,
++    pending: [...pending.values()].map(({ method, started }) => ({ method, elapsedMs: Math.round(performance.now() - started) })),
++    slowest, lastReply, stderrTail: stderr.slice(-2000),
++  }), close: async () => {
++    phase("python-eof-requested");
+     if (!terminalError) process.stdin.end();
+-    await exited; rmSync(directory, { recursive: true });
++    await exited;
++    phase("data-root-remove-start");
++    rmSync(directory, { recursive: true });
++    phase("data-root-removed");
+   } };
+ }
+ 
+ async function qualifyCurrentDesk(plugin: string, raw: any, partialScore = false) {
+-  const fixture = raw as any, host = pythonHost();
++  const started = performance.now(), phases: { phase: string; elapsedMs: number; detail?: Record<string, unknown> }[] = [];
++  const phase: Phase = (name, detail) => { phases.push({ phase: name, elapsedMs: Math.round(performance.now() - started), ...(detail ? { detail } : {}) }); };
++  let inspectHost: (() => unknown) | undefined, failed = false;
++  const report = (event: string) => console.info("[contest-desk-diagnostic]", JSON.stringify({
++    plugin, event, elapsedMs: Math.round(performance.now() - started), phases, host: inspectHost?.(),
++    react: { status: owner.current?.projections["active-qso"]?.status,
++      busy: owner.current?.projections["active-qso"]?.busy, qsos: owner.current?.projections["active-qso"]?.manual?.qsos },
++  }));
++  // The failure hook also runs when Vitest's unchanged deadline wins while the
++  // test body or its finally block still awaits a Python reply/ordinary EOF.
++  onTestFailed(() => { failed = true; report("test-failed"); });
++  phase("case-start");
++  const fixture = raw as any, host = pythonHost(phase);
++  inspectHost = host.diagnostics;
+   const session = crypto.randomUUID(), generation = crypto.randomUUID(), operatingContext = crypto.randomUUID();
+   try {
++    phase("session-create-requested");
+     const created = await host.request("contest_session_create", {
+       sessionID: session, workspaceGeneration: generation, operationID: crypto.randomUUID(), expectedRevision: 0,
+       pluginID: plugin, station: fixture.state.station, settings: fixture.state.settings,
+       reference: fixture.state.reference, frequencyHz: fixture.state.draft.frequencyHz, mode: fixture.mode,
+     });
+     expect(created.ok, JSON.stringify(created)).toBe(true);
++    phase("session-ready");
+     const projection = created.result.projection;
+     if (fixture.expectedSentNr !== undefined) expect(projection.reservedSerial).toBeNull();
+     const serviceRequest = vi.fn(async (method: string, params: any = {}) => method === "lookup_call"
+@@ -115,7 +154,9 @@ async function qualifyCurrentDesk(plugin: string, raw: any, partialScore = false
+       operatingContext={operatingContext} workspaceGeneration={generation} stationCall={fixture.state.station.Call}
+       stationTune={async () => { throw Error("Radio prohibited"); }} contestSpot={async () => { throw Error("Spot upload prohibited"); }}
+       radioFrequencyHz={fixture.state.draft.frequencyHz} spots={[]} cluster={null} />);
++    phase("react-main-rendered");
+     await waitFor(() => expect(owner.current?.projections["active-qso"]?.status).toBe("ready"), { timeout: 10000 });
++    phase("react-main-ready");
+     expect(validContestSurfaceProjection("active-qso", owner.current.projections["active-qso"]),
+       JSON.stringify(owner.current.projections["active-qso"])).toBe(true);
+     const receipts: any[] = [];
+@@ -124,10 +165,12 @@ async function qualifyCurrentDesk(plugin: string, raw: any, partialScore = false
+         projectionRevision: owner.revision, projection: owner.current.projections["active-qso"], receipts: receipts.slice(-64) };
+       if (command === "contest_surface_action") {
+         const envelope = args.envelope;
++        phase("native-action-start", { action: envelope.action });
+         await owner.current.handle(envelope);
+         await new Promise(resolve => setTimeout(resolve, 0));
+         receipts.push({ requestID: envelope.requestID, status: "applied", message: null, projectionRevision: owner.revision });
+         setTimeout(() => owner.wakes.forEach(wake => wake({ payload: null })), 0);
++        phase("native-action-applied", { action: envelope.action });
+         return { requestID: envelope.requestID, status: "applied" };
+       }
+       if (command === "monitor_context_snapshot") return null;
+@@ -136,6 +179,7 @@ async function qualifyCurrentDesk(plugin: string, raw: any, partialScore = false
+     window.history.replaceState({}, "", `?view=active-qso&scope=contesting&operatingContext=${operatingContext}&sessionID=${session}&workspaceGeneration=${generation}`);
+     const detached = render(<DetachedContestSurface />);
+     await screen.findByLabelText("Callsign", {}, { timeout: 5000 });
++    phase("react-detached-ready");
+     for (const field of projection.fields) {
+       const element = detached.container.querySelector<HTMLInputElement>(`[data-contest-field-id="${field.id}"]`);
+       if (!field.visible) { expect(element).toBeNull(); continue; }
+@@ -144,6 +188,7 @@ async function qualifyCurrentDesk(plugin: string, raw: any, partialScore = false
+       expect(element!.readOnly).toBe(field.readOnly);
+       if (!field.readOnly && field.enabled) fireEvent.change(element!, { target: { value: fixture.fields[field.id] } });
+     }
++    phase("entry-input-fired");
+     await waitFor(async () => {
+       const current = (await host.request("contest_projection", { sessionID: session })).result.projection;
+       for (const field of projection.fields.filter((field: any) => field.visible && field.enabled && !field.readOnly)) {
+@@ -152,9 +197,13 @@ async function qualifyCurrentDesk(plugin: string, raw: any, partialScore = false
+       expect(owner.current.projections["active-qso"].busy).toBe(false);
+       expect((screen.getByRole("button", { name: "Log It" }) as HTMLButtonElement).disabled).toBe(false);
+     }, { timeout: 5000 });
++    phase("entry-ready-to-save");
++    phase("save-click-requested");
+     fireEvent.click(screen.getByRole("button", { name: "Log It" }));
+     await waitFor(() => expect(owner.current?.projections["active-qso"]?.manual?.qsos).toBe(1), { timeout: 5000 });
++    phase("save-confirmed");
+     const logged = await host.request("contest_log_page", { sessionID: session });
++    phase("saved-log-read");
+     expect(logged.result.total).toBe(1);
+     expect(logged.result.rows[0].Call).toBe(fixture.firstRow.Call);
+     expect(logged.result.rows[0].raw_fields.other_2).toBe(fixture.fields.other_2.toUpperCase());
+@@ -189,8 +238,18 @@ async function qualifyCurrentDesk(plugin: string, raw: any, partialScore = false
+       await screen.findByText("Score (partial)", {}, {timeout:5000});
+       expect(owner.current.projections["active-qso"].draft.validation.warnings.length).toBeGreaterThan(0);
+     }
++    phase("assertions-complete");
+     view.unmount();
+-  } finally { cleanup(); await host.close(); }
++    phase("react-main-unmounted");
++  } finally {
++    phase("cleanup-start", { status: owner.current?.projections["active-qso"]?.status,
++      busy: owner.current?.projections["active-qso"]?.busy, qsos: owner.current?.projections["active-qso"]?.manual?.qsos });
++    cleanup();
++    phase("react-cleanup-complete");
++    await host.close();
++    phase("finally-complete");
++    if (failed || globalThis.process.env.CI || globalThis.process.env.XLOG_CONTEST_DESK_DIAGNOSTICS === "1") report("finally-complete");
++  }
+ }
+ 
+ it.each(Object.entries(fixtures))("current React desk commits %s through the real Python host",
