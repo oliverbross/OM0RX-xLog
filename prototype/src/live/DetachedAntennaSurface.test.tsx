@@ -19,7 +19,7 @@ afterEach(() => { cleanup(); vi.useRealTimers(); });
 it("reuses Desk antenna rendering with one retained native read and no timer or control", async () => {
   const { unmount } = render(<DetachedAntennaSurface />); await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
   expect(native.invoke.mock.calls).toEqual([["antenna_snapshot"]]); expect(screen.getByText("Garden")).toBeTruthy();
-  expect(screen.getByText("Configured · no telemetry")).toBeTruthy();
+  expect(screen.getByText("Software profile · no switch telemetry")).toBeTruthy();
   expect(screen.queryByRole("button")).toBeNull(); expect(screen.queryByRole("heading", { name: "Antenna reference" })).toBeNull();
   expect(screen.queryByRole("textbox")).toBeNull(); expect(screen.queryByRole("combobox")).toBeNull(); unmount(); expect(native.stop).toHaveBeenCalledOnce();
 });
