@@ -1,15 +1,28 @@
 # OM0RX-xLog 1.5.4 completion candidate
 
+- Restore previous contacts above every visible Traditional-desk Logbook layout.
 - Edit all six alert geography criteria per rule, with searchable DX/spotter entities.
 - Bind nearby callsigns to the selected radio's RX/passband and current generations.
 - Combine compatible IOTA locations while retaining recorded evidence and filters.
 - Show active legacy award searches and clear text plus structured conditions together.
 - Clear an antenna selection safely and recover stale profile IDs.
+- Preserve existing Windows POTA export files and directories during final
+  publication, with wide-path support and the same staged no-clobber contract.
 - Inspect POTA physical rows, countable contacts, programme records, duplicates,
   unknowns and exclusions against the UTC-day ten-contact threshold. Expansion-only
   threshold cases remain conditional; no portal credit is claimed.
 
-Integrated qualification is pending. See [exact source and evidence](docs/releases/v1.5.4-macos-candidate.md).
+Fresh contest stores seed the unchanged verified Not1MM catalog in one atomic
+transaction, with rollback/retry and existing catalog preservation. Post-fix
+Windows timing and final integrated qualification are recorded separately.
+
+Frozen package source is `26466374456447e37c60b1559c6cd7bac8f3d957`, including
+product correction `02f41e9e9a5839d66b77b2cf24c2666c5951e49b`. All 23 required
+CI scopes are qualified with exact-input proofs. The signed archive, first
+signed-worker 9-case protocol, generated 100k scale and visible private native
+correction workflows, strict raw/settings/draft preservation and restart passed.
+See
+[exact source and evidence](docs/releases/v1.5.4-macos-candidate.md).
 No production installation or notarization has occurred; cold first execution
 remains unqualified and separate from later warm/control success.
 

@@ -18,10 +18,16 @@ are integrated in the current React/Tauri application and shared native owners.
 See [operator controls and migration](docs/help/qlog-selected-workflows.md), the
 [single implementation/evidence tracker](docs/planning/OM0RX-xLog_QLog_Implementation_Plan_2026-11-03.md)
 and [exact-source candidate status](docs/releases/v1.5.4-macos-candidate.md).
-The six reviewed completion corrections are integrated; 1.5.4 qualification is in
-progress. Multi-park expansion's effect on the POTA activation minimum remains
+The reviewed completion corrections and Traditional-desk previous-contact repair
+are integrated, including safe Windows POTA publication. Frozen package source is
+`26466374456447e37c60b1559c6cd7bac8f3d957`. All 23 required CI scopes are
+qualified with exact-input proofs. The signed 1.5.4 archive, first signed-worker
+protocol and generated 100k scale checks passed. Visible private native controls
+and restart passed; strict 24 raw-contact, settings/profile and draft preservation
+verification also passed. The candidate is not installed or notarized.
+Multi-park expansion's effect on the POTA activation minimum remains
 explicitly conditional. Retained 1.5.3 cold startup remains unqualified despite
-later warm passes. This work has not replaced the installed application.
+later already-executed/cache-unspecified controls. This work has not replaced the installed application.
 Local progress is distinct from sponsor-issued award credit.
 
 ## Historical shared-app Mac integration — 1.0 beta

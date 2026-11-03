@@ -1,14 +1,24 @@
 # OM0RX-xLog project status
 
-Last updated: 2026-11-03 (selected QLog workflows)
+Last updated: 2026-11-04 (bounded candidate accepted; external boundaries explicit)
 
-Six reviewed QLog completion corrections are integrated through `df942e2a`;
-version **1.5.4** is entering integrated qualification. Earlier signed 1.5.3
+The reviewed QLog completion corrections, Traditional-desk previous-contact
+repair and measured contest-catalog initialization fix are integrated on canonical
+`main`, including the Windows POTA no-clobber fix `02f41e9e`. Frozen package
+source is `26466374456447e37c60b1559c6cd7bac8f3d957`. All **23 required CI
+scopes are qualified** by schema3 evidence and exact-input proofs; full release
+acceptance remains false. The signed **1.5.4** package/archive, first signed-worker
+9-case protocol and generated 100k scale checks passed. Two verified private native
+launches demonstrated the selected correction controls and ordinary Quit/restart. Strict
+preservation verification passed 24 raw-contact byte comparisons, exact draft
+bytes, profile definitions and workspace generation; selected profile is null
+with settings revision 1→2 and expected receipts. The candidate is not installed
+in production or notarized. Earlier signed 1.5.3
 source `310882024be2df056e8e254e03da205a27bae2c7` and valid evidence are retained,
 but its affected completion assertions are superseded. POTA expansion-dependent
 minimum interpretation remains conditional/incomplete. The original five-second
-first-execution failure is preserved; later paired warm controls and isolated app
-launch do not qualify cold startup. Installed state is unchanged.
+first-execution failure is preserved; later paired cache-unspecified controls
+and isolated app launch do not qualify cold startup. Installed state is unchanged.
 Current scope, task states and actual validation live in the
 [single QLog implementation plan](docs/planning/OM0RX-xLog_QLog_Implementation_Plan_2026-11-03.md).
 [Candidate provenance](docs/releases/v1.5.4-macos-candidate.md) records the release boundary;

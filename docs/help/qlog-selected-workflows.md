@@ -4,6 +4,11 @@ The selected QLog-inspired additions extend the existing native logbook, draft,
 radio and settings owners. They do not submit logs, transmit or move a rotor
 automatically.
 
+- **Operator Desk → Previous contacts:** matching previous contacts appear above
+  the Logbook in every Traditional layout that shows the Logbook, including
+  **Logbook above map**. The duplicate warning remains alongside the current QSO.
+  Changing layouts retains the Logbook; entering another callsign refreshes the
+  history without carrying the previous station's rows forward.
 - **Logbook → Saved filters:** open **Filter contacts**, choose Match all/any,
   add typed conditions, then Apply. Quick search is ANDed with the group; values
   within One of are ORed. Save current, Update selected, Clone, Rename and Delete
@@ -25,19 +30,68 @@ automatically.
   eligibility/credit remains separately labelled. Directory-unverified references
   remain visible. SOTA chaser base estimates require dated summit/association
   inputs; missing points/bonus/operation evidence is unavailable, not zero.
-- **Window → Alerts:** geography conditions use AND across fields and OR within a field;
-  missing evidence does not match a selected condition. Preview is read-only.
+- **Awards → Active contact filters:** the active legacy text search and number
+  of applied structured conditions stay visible. Applying a saved search such as
+  `K1` restricts progress until cleared. **Clear all contact filters** clears both
+  the text search and structured conditions and restores that programme/context's
+  contact population. **Reset conditions** edits the condition builder only; it
+  does not clear the legacy text search. Programme, context, band and mode remain
+  separate selections. Opening supporting contacts and using Back preserves the
+  matrix position and applied filters.
+- **Awards → IOTA:** the same exact recorded own callsign and known own DXCC
+  country combine recorded locations in one local progress view. For example,
+  OM0RX with own DXCC 504 at two locations can show both contacted IOTA groups.
+  Different countries and unknown historical country contexts stay separate;
+  other programmes retain their own scope rules. Supporting contacts retain the
+  original own grid, location and context. To narrow the view, open **Filter
+  contacts**, add **Recorded own grid** or **Recorded own location**, then apply
+  the condition; **Clear all contact filters** removes it. HF and VHF/UHF remain
+  separate categories. Grouping does not establish land, personal-operation,
+  licensing or remote-operation eligibility, and does not generate own-island
+  credit or accepted sponsor matching.
+- **Awards → POTA → activator:** UTC-day summaries separate physical rows,
+  conservatively distinct countable contact events, unique programme log records,
+  duplicate records, unresolved counting evidence and excluded rows. Ten supported
+  contact events for the recorded station, park, subdivision and UTC day form a
+  **local candidate**. Extra unknown rows stay visible without erasing a minimum
+  already supported by ten known contacts; nine known plus unknown evidence stays
+  incomplete. Individual records use the recorded station callsign, or the recorded
+  operator if the station callsign is absent. Different operator-only identities
+  stay separate; a recorded club station takes precedence without generating
+  personal credit. SUBMODE takes precedence over MODE. Programme record uniqueness
+  includes the contacted park and excludes QSO time, so changing only the time
+  does not remove a duplicate. One physical contact with two own and three
+  contacted parks remains one event per own park, with three programme records
+  per park; six expanded records do not establish six physical contacts. If only
+  park-record expansion reaches ten, the result is **conditional**: how those
+  expanded records satisfy the ten-QSO activation minimum remains unresolved.
+  Until clarified, use ten supported distinct contact events and review unknown
+  inputs and exclusions. Known self contacts, recorded terrestrial-repeaters and
+  future UTC dates are excluded separately from missing evidence; satellite
+  contacts are permitted. Local counting does not verify park access/boundaries,
+  licensing, relays, automation, account ownership or portal acceptance.
+- **Window → Alerts:** edit geography in each rule: search and add DX or spotter
+  entities, choose their continents, and choose CQ/ITU zones for the DX station.
+  Save, reopen and use Preview to inspect matching and nonmatching reports. Empty
+  selections remain unrestricted. Conditions use AND across fields and OR within
+  a field; missing evidence does not match a selected condition. Preview is read-only.
   Review spot retains the historical match reason and exact source identity.
   Tune & load is available only through the current admitted cluster workflow.
-- **Settings → Logbook → Nearby spotted callsigns:** opt in for Live QSO entries. Suggestions use fresh selected
-  RX telemetry, including split operation. Use callsign accepts an empty callsign
-  only; it never tunes, transmits, logs or replaces typed input. Several nearby
-  calls remain a choice. Main and detached live entries share native admission.
+- **Settings → Logbook → Nearby spotted callsign suggestions:** opt in for Live
+  QSO entries. Suggestions use the selected radio slot’s fresh RX frequency and
+  passband, including split operation. A slot change, reconnect or worker change
+  invalidates an earlier suggestion; switching away and back does not revive it.
+  Use callsign accepts an empty callsign only; it never tunes, transmits, logs or
+  replaces typed input. Several nearby calls remain a choice. Main and detached
+  live entries share native admission.
 - **Settings → Display → Shortcuts:** assign supported Normal Logging commands,
   capture a chord, inspect conflicts, reset one/all, and use shortcut help.
   Native lifecycle, Stop/Escape, CW and contest bindings keep their own contexts.
 - **Settings → General → Station equipment:** manage antenna profiles, archive them, choose
   manual/per-band preferences or explicitly enable automatic software selection.
+  To clear the active choice, select **No selected profile** and Save settings.
+  Definitions and captured historical profiles remain available; an unavailable
+  saved profile can be cleared or replaced using the same selector.
   Automatic proposals use fresh selected TX context. Overlapping profiles need a
   preference; stale/unknown bands do not choose arbitrarily. A profile is metadata,
   not observed physical switch state. Captured profiles and offsets stay with the
@@ -51,7 +105,9 @@ automatically.
   active portable session. Freeze and preview. One physical QSO with two own and
   three contacted parks remains one local row and produces two files of three
   records. Review assignments, location and explicit exclusions before saving a
-  new staged `.pota` directory with ADI files and a manifest. Club/group output
+  new staged `.pota` directory with ADI files and a manifest. Choose a new
+  destination: publication refuses to replace an existing file or directory,
+  including on Windows. Club/group output
   requires both identities. Files preserve portable callsigns and UTC timestamps;
   no upload, timestamp adjustment, local deletion or sync-state change occurs.
 - **World Map → Heard me:** optional passive receiver layer shares the existing
