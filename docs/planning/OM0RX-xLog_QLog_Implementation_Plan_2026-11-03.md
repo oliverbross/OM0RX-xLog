@@ -1205,6 +1205,27 @@ product Store and other application sources remain byte-identical to924c73e1.
 Repeat the affected full Windows gate; retain in-flight Mac/Linux and contest
 results only with exact source-input comparison, rather than rebuilding them
 for a test connection-close correction. Packaging remains unminted pending gates.
+Full Windows replacement41647111873 passed the strict atomic3 and complete
+frontend5104/371 (including all100 original-deadline contest cases), then failed
+the portable Swift step. Its930reported XCTest (7existing skips) completed with
+zero failures, but Swift Testing stopped during the first reported
+`OperatorDraftReversalAcceptanceTests.fractionalHandlerRoundTrip(manual:false)`
+case, with no assertion report or native stack in the console. The portable pin
+receipt reports Swift command exit1; it does not identify a native exception or
+prove a product cause. Raw log/receipt are retained under
+`.build/qlog-followup-20261103/{ci-job-125955249667.log,windows-swift-failure-pins}`.
+Unchanged focused Windows41653055230 reproduced the stop with zero completed
+tests; its diagnostic correctly failed rather than crediting an empty filter.
+
+An observation-only test patch now marks the precise UTC round-trip boundaries,
+including JSON encode/parse and the original sorted-key serializer. All existing
+assertions/canonical comparisons and Save time bounds remain unchanged. With
+markers, Mac portable focused suite passed3test methods/5parameter cases
+(`a8bb7ad96cf1e307`), then the exact patch was reversed from the canonical test.
+Patch SHA256`cb5267cbe095f83f523c4ede1749fcfc2b5edac6b1a9c8195ca0b3e50c945644`.
+The existing diagnostic workflow can opt into this patch in disposable CI only;
+it is not a release gate substitute. No concrete handler trap was found during
+bounded review, no product workaround is asserted, and packaging remains stopped.
 
 ## 9. Programme definition of done
 

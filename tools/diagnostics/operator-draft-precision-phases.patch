@@ -1,0 +1,169 @@
+diff --git a/Tests/XLogPrototypeTests/OperatorDraftReversalAcceptanceTests.swift b/Tests/XLogPrototypeTests/OperatorDraftReversalAcceptanceTests.swift
+index 9b32c812..497be9d3 100644
+--- a/Tests/XLogPrototypeTests/OperatorDraftReversalAcceptanceTests.swift
++++ b/Tests/XLogPrototypeTests/OperatorDraftReversalAcceptanceTests.swift
+@@ -27,38 +27,74 @@ struct OperatorDraftReversalAcceptanceTests {
+     @Test("A whole-second handler round trip preserves fractional native UTC and durable mutation identity",
+           arguments: [false, true])
+     func fractionalHandlerRoundTrip(manual: Bool) throws {
++        func phase(_ stage: String) {
++            FileHandle.standardError.write(Data("[draft-precision manual=\(manual)] \(stage)\n".utf8))
++        }
++        func canonicalJSON(_ value: [String: Any]) throws -> Data {
++            phase("canonicalJSON.sortedKeys.before")
++            let data = try self.canonicalJSON(value)
++            phase("canonicalJSON.sortedKeys.after")
++            return data
++        }
++        phase("entry")
++        defer { phase("exit.afterCleanup") }
+         let root = FileManager.default.temporaryDirectory.appendingPathComponent("handler-precision-\(UUID().uuidString)")
+         defer { try? FileManager.default.removeItem(at: root) }
++        phase("service.init.before")
+         let service = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
++        phase("service.init.after")
++        phase("workspace.create.before")
+         _ = try service.handle(method: "workspace_create", params: ["mode": "empty"])
++        phase("workspace.create.after")
++        phase("database.open.before")
+         let database = try service.openedDatabase()
++        phase("database.open.after")
+         defer { database.close() }
++        phase("historical.qso.before")
+         var initial = try historical()
++        phase("historical.qso.after")
+         initial.call = ""
+         initial.start = Date(timeIntervalSinceReferenceDate: 814_965_161.409445)
++        phase("draft.absence.before")
+         #expect(try database.operatorDraft() == nil)
++        phase("draft.absence.after")
+         let encoder = JSONEncoder()
+         encoder.dateEncodingStrategy = .iso8601
+-        let uninitializedQSO = try JSONSerialization.jsonObject(with: encoder.encode(initial))
++        phase("initial.JSONEncoder.before")
++        let initialJSON = try encoder.encode(initial)
++        phase("initial.JSONEncoder.after")
++        phase("initial.JSONSerialization.before")
++        let uninitializedQSO = try JSONSerialization.jsonObject(with: initialJSON)
++        phase("initial.JSONSerialization.after")
++        phase("workspace.status.before")
+         let status = try service.handle(method: "workspace_status", params: [:])
++        phase("workspace.status.after")
+         let uninitializedGeneration = try #require(status["generation"] as? String)
++        phase("uninitialized.Replace.before")
+         do {
+             _ = try service.handle(method: "logbook_operator_draft_apply", params: [
+                 "generation": uninitializedGeneration, "operationID": UUID().uuidString,
+                 "draftID": initial.id.uuidString, "expectedRevision": 0, "action": "replace", "qso": uninitializedQSO])
+             Issue.record("Replace initialized an unread draft")
+         } catch let failure as WorkerFailure { #expect(failure.code == "draft_not_initialized") }
++        phase("uninitialized.Replace.after")
+         #expect(try database.operatorDraft() == nil)
++        phase("draft.seed.before")
+         var base = try database.operatorDraft(initial: initial)
++        phase("draft.seed.after")
+         if manual {
+             var qso = base.qso
+             qso.start = initial.start.addingTimeInterval(-86_400)
+             qso.end = qso.start.addingTimeInterval(600.125)
++            phase("manual.Replace.before")
+             base = try database.applyOperatorDraft(.init(operationID: UUID(), draftID: qso.id,
+                 expectedRevision: base.revision, action: .replace, qso: qso), nextDraft: blank()).draft
++            phase("manual.Replace.after")
+             #expect(!base.automaticStart)
+         }
++        phase("draft.wireRead.before")
+         let wire = try #require(service.handle(method: "logbook_operator_draft", params: [:])["draft"] as? [String: Any])
++        phase("draft.wireRead.after")
+         let generation = try #require(wire["generation"] as? String)
+         var qso = try #require(wire["qso"] as? [String: Any])
+         #expect((qso["start"] as? String)?.contains(".") == false)
+@@ -66,37 +102,53 @@ struct OperatorDraftReversalAcceptanceTests {
+         let replaceID = UUID()
+         let replace: [String: Any] = ["generation": generation, "operationID": replaceID.uuidString,
+             "draftID": base.qso.id.uuidString, "expectedRevision": base.revision, "action": "replace", "qso": qso]
++        phase("precision.Replace.before")
+         let changed = try service.handle(method: "logbook_operator_draft_apply", params: replace)
++        phase("precision.Replace.after")
+         #expect(changed["status"] as? String == "applied")
++        phase("draft.typedRead.before")
+         let typed = try database.operatorDraft(initial: blank())
++        phase("draft.typedRead.after")
+         #expect(typed.automaticStart == !manual)
+         #expect(typed.qso.end == base.qso.end)
+         if manual { #expect(typed.qso.start == base.qso.start) }
++        phase("replace.receipt.before")
+         let replaceReceipt = try #require(try database.operatorDraftReceipt(operationID: replaceID))
++        phase("replace.receipt.after")
+         #expect(replaceReceipt.mutation.qso?.start == base.qso.start)
+         #expect(replaceReceipt.mutation.qso?.end == base.qso.end)
++        phase("replace.replay.before")
+         #expect(try canonicalJSON(service.handle(method: "logbook_operator_draft_apply", params: replace)) == canonicalJSON(changed))
++        phase("replace.replay.after")
+ 
+         // A stale edit still conflicts, and changed payloads cannot reuse a receipt.
+         var stale = replace
+         stale["operationID"] = UUID().uuidString
++        phase("replace.conflict.before")
+         #expect(try service.handle(method: "logbook_operator_draft_apply", params: stale)["status"] as? String == "conflict")
++        phase("replace.conflict.after")
+         var reused = replace
+         qso["call"] = "K1OTHER"
+         reused["qso"] = qso
++        phase("replace.reuse.before")
+         do {
+             _ = try service.handle(method: "logbook_operator_draft_apply", params: reused)
+             Issue.record("A different payload reused the original operation")
+         } catch let failure as WorkerFailure { #expect(failure.code == "draft_operation_reused") }
++        phase("replace.reuse.after")
+         #expect(try database.operatorDraft(initial: blank()) == typed)
+ 
+         let saveID = UUID()
+         let save: [String: Any] = ["generation": generation, "operationID": saveID.uuidString,
+             "draftID": typed.qso.id.uuidString, "expectedRevision": typed.revision, "action": "save"]
++        phase("save.before")
+         let lowerBound = Date()
+         let result = try service.handle(method: "logbook_operator_draft_apply", params: save)
+         let upperBound = Date()
++        phase("save.after")
++        phase("save.receipt.before")
+         let receipt = try #require(try database.operatorDraftReceipt(operationID: saveID))
++        phase("save.receipt.after")
+         let saved = try #require(receipt.savedQSO)
+         #expect(saved.id == base.qso.id && saved.call == "K1AUTO")
+         #expect(saved.end == base.qso.end)
+@@ -109,20 +161,34 @@ struct OperatorDraftReversalAcceptanceTests {
+         #expect(receipt.draft.automaticStart && receipt.draft.qso.call.isEmpty)
+         #expect(try database.lookup(localID: saved.id) == saved)
+         #expect(try database.count() == 1)
++        phase("save.verified")
++        phase("postSave.replay.before")
+         #expect(try canonicalJSON(service.handle(method: "logbook_operator_draft_apply", params: replace)) == canonicalJSON(changed))
+         #expect(try canonicalJSON(service.handle(method: "logbook_operator_draft_apply", params: save)) == canonicalJSON(result))
++        phase("postSave.replay.after")
++        phase("database.close.before")
+         database.close()
++        phase("database.close.after")
+ 
++        phase("reopen.serviceInit.before")
+         let reopened = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
++        phase("reopen.serviceInit.after")
++        phase("reopen.databaseOpen.before")
+         let reopenedDatabase = try reopened.openedDatabase()
++        phase("reopen.databaseOpen.after")
+         defer { reopenedDatabase.close() }
++        phase("reopen.durableReads.before")
+         #expect(try reopenedDatabase.lookup(localID: saved.id) == saved)
+         #expect(try reopenedDatabase.operatorDraftReceipt(operationID: saveID) == receipt)
+         #expect(try reopenedDatabase.operatorDraftReceipt(operationID: replaceID) == replaceReceipt)
+         #expect(try reopenedDatabase.operatorDraft(initial: blank()) == receipt.draft)
++        phase("reopen.durableReads.after")
++        phase("reopen.replay.before")
+         #expect(try canonicalJSON(reopened.handle(method: "logbook_operator_draft_apply", params: replace)) == canonicalJSON(changed))
+         #expect(try canonicalJSON(reopened.handle(method: "logbook_operator_draft_apply", params: save)) == canonicalJSON(result))
++        phase("reopen.replay.after")
+         #expect(try reopenedDatabase.count() == 1)
++        phase("complete")
+     }
+ 
+     @Test("An unsent date reversal leaves automatic SQLite Save native-owned at the exact clock")
