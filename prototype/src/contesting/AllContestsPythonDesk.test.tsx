@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useEffect } from "react";
 import { spawn } from "node:child_process";
 import { mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -19,7 +20,12 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: async (_name: string, callback
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({ onCloseRequested: async () => () => {} }) }));
 vi.mock("./ContestRecorderStrip", () => ({ ContestRecorderStrip: () => null }));
 vi.mock("./useContestSurfaceOwner", async importOriginal => ({ ...await importOriginal<typeof import("./useContestSurfaceOwner")>(), useContestSurfaceOwner: (value: any) => {
-  owner.current = value; owner.revision += 1; return async () => {};
+  owner.current = value; owner.revision += 1;
+  // Mirror projection publications as well as terminal action receipts. The
+  // final idle render can follow an action's receipt, so that receipt's wake
+  // alone can leave the detached view holding the earlier busy projection.
+  useEffect(() => { owner.wakes.forEach(wake => wake({ payload: null })); }, [JSON.stringify(value.projections)]);
+  return async () => {};
 } }));
 vi.mock("./contestSurfaceNative", async importOriginal => ({ ...await importOriginal<typeof import("./contestSurfaceNative")>(),
   openContestSurfaceWindow: vi.fn(), openContestCallHistoryWindow: vi.fn() }));
