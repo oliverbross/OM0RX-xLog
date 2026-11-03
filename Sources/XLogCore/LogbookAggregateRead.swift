@@ -48,7 +48,9 @@ public struct LogbookAggregateRequest: Hashable, Sendable {
             yearStart = 0
             key = LocalAwardEngine.rulesVersion
         }
-        return Self(kind: kind, semanticKey: key, yearStart: yearStart)
+        var request=Self(kind: kind, semanticKey: key, yearStart: yearStart)
+        if kind == .localAwards { request.referenceTime=date.timeIntervalSince1970 }
+        return request
     }
 }
 
@@ -245,7 +247,7 @@ public struct LogbookAggregateSnapshot: Sendable {
         case .awardEvidence(let contacts, let directory):
             value = .localAwards(try LocalAwardEngine.compute(contacts: contacts, programme: request.programme,
                 directory: directory, referenceVersion: request.referenceVersion,
-                wacMembership: LocalAwardEngine.wacMembership(), cancellation: cancellation))
+                wacMembership: LocalAwardEngine.wacMembership(), at:Date(timeIntervalSince1970:request.referenceTime), cancellation: cancellation))
         }
         try cancellation.check()
         return LogbookAggregateResult(authority: authority, request: request, value: value)

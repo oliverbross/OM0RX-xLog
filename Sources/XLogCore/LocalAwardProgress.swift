@@ -10,6 +10,7 @@ public struct AwardEvidenceContact: Decodable, Equatable, Sendable {
     public var iota: String; public var potaReference: String; public var sotaReference: String; public var wwffReference: String
     public var qslReceived: String; public var lotwReceived: String; public var extraFields: [String: String]
     public var sig: String; public var sigInfo: String
+    public var operatorCall: String?; public var propagationMode: String?
     public init(_ q: QSO) {
         id=q.id; call=q.call; start=q.start; band=q.band; mode=q.mode; submode=q.submode; dxcc=q.dxcc
         continent=q.continent; cqZone=q.cqZone; state=q.state; gridSquare=q.gridSquare
@@ -17,6 +18,7 @@ public struct AwardEvidenceContact: Decodable, Equatable, Sendable {
         iota=q.iota; potaReference=q.potaReference; sotaReference=q.sotaReference; wwffReference=q.wwffReference
         qslReceived=q.qslReceived; lotwReceived=q.lotwReceived; extraFields=q.extraFields
         sig=q.sig;sigInfo=q.sigInfo
+        operatorCall=q.operatorCall;propagationMode=q.propagationMode
     }
     init(fromSQL decoder: Decoder) throws {
         var f = try decoder.unkeyedContainer()
@@ -28,6 +30,7 @@ public struct AwardEvidenceContact: Decodable, Equatable, Sendable {
         iota=try f.decode(String.self); potaReference=try f.decode(String.self); sotaReference=try f.decode(String.self); wwffReference=try f.decode(String.self)
         qslReceived=try f.decode(String.self); lotwReceived=try f.decode(String.self); extraFields=try f.decode([String:String].self)
         sig=try f.decode(String.self);sigInfo=try f.decode(String.self)
+        operatorCall=try f.decodeIfPresent(String.self);propagationMode=try f.decodeIfPresent(String.self)
         guard f.isAtEnd, start.timeIntervalSince1970.isFinite else { throw LogbookDatabaseError.corruptRecord }
     }
     var scope: String {
@@ -35,6 +38,24 @@ public struct AwardEvidenceContact: Decodable, Equatable, Sendable {
         let state=extraFields["MY_STATE"].flatMap{$0.isEmpty ? nil : $0}.map{" · subdivision \($0.uppercased())"} ?? ""
         return "\(myCall.isEmpty ? "Unknown station" : myCall.uppercased()) · own DXCC \(ownCountry) · \(myGrid.isEmpty ? (stationLocation.isEmpty ? "location unknown" : stationLocation) : myGrid.uppercased())\(state)"
     }
+    func scope(for programme: String) -> String {
+        let call=myCall.trimmingCharacters(in:.whitespacesAndNewlines).uppercased()
+        guard !call.isEmpty, let country=extraFields["MY_DXCC"].flatMap(Int.init), country>0 else { return scope }
+        // IOTA B.1.2/B.3.2 permits different land locations in one entity.
+        // Callsign entitlement, land/remote operation and credit stay unverified.
+        if programme == "iota", !call.hasSuffix("/MM"), !call.hasSuffix("/AM") {
+            return "\(call) · own DXCC \(country) · compatible recorded locations"
+        }
+        if programme == "pota", !potaLocation.state.isEmpty, potaLocation.issue == nil {
+            return "\(call) · own DXCC \(country) · subdivision \(potaLocation.state)"
+        }
+        return scope
+    }
+    var ownPOTARaw:String {
+        let own=(extraFields["MY_POTA_REF"] ?? "").trimmingCharacters(in:.whitespacesAndNewlines)
+        return own.isEmpty && extraFields["MY_SIG"]?.uppercased()=="POTA" ? extraFields["MY_SIG_INFO"] ?? "" : own
+    }
+    var potaLocation:(state:String,issue:String?) { POTAExportPreview.countingLocation(own:ownPOTARaw,recordedState:extraFields["MY_STATE"] ?? "") }
 }
 struct AwardEvidenceSQLRow: Decodable {
     let contact: AwardEvidenceContact
@@ -45,6 +66,16 @@ public struct LocalAwardEvidence: Codable, Equatable, Sendable {
     public var id: UUID; public var call: String; public var start: Date
     public var band: String; public var mode: String; public var paper: String; public var lotw: String
     public var reason: String
+    public var recordedContext: String? = nil
+    public var recordedGrid: String? = nil
+    public var recordedLocation: String? = nil
+    public var pota: LocalPOTAContact? = nil
+}
+public struct LocalPOTAContact: Codable, Equatable, Sendable {
+    public var stationCall: String; public var operatorCall: String
+    public var state: String; public var contactedParks: [String]
+    public var countingMode: String
+    public var issue: String?; public var invalid: Bool
 }
 public struct LocalAwardUnit: Equatable, Sendable {
     public var unit: String
@@ -69,7 +100,7 @@ public struct LocalAwardSnapshot: Equatable, Sendable {
 
 public enum LocalAwardEngine {
     public static let programmes = ["dxcc", "waz", "was", "grid", "wac", "wpx", "iota", "pota", "sota", "wwff"]
-    public static let rulesVersion = "local-progress-2026-11-03-v1"
+    public static let rulesVersion = "local-progress-2026-11-03-v2"
     private static let wacContinents = Set(["AF", "AS", "EU", "NA", "OC", "SA"])
     private static let hfBands = Set(["160m","80m","60m","40m","30m","20m","17m","15m","12m","10m"])
     private static let wasStates=Set("AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY".split(separator:" ").map(String.init))
@@ -114,14 +145,15 @@ public enum LocalAwardEngine {
     }
     public static func compute(contacts: [AwardEvidenceContact], programme: String,
         directory: ActivationReferenceDirectory = .init(), referenceVersion: String = "unavailable",
-        wacMembership: [Int: Set<String>] = [:], cancellation: LogbookAggregateCancellation? = nil) throws -> LocalAwardSnapshot {
+        wacMembership: [Int: Set<String>] = [:], at evaluatedAt: Date = Date(), cancellation: LogbookAggregateCancellation? = nil) throws -> LocalAwardSnapshot {
         guard programmes.contains(programme) else { throw LogbookQuery.Failure.invalid("Unknown local award programme.") }
         struct Key: Hashable { var scope: String; var role: String; var unit: String }
         var grouped: [Key: [LocalAwardEvidence]] = [:], scopes = Set<String>(), unknown = 0
         var unclassified: [String:[LocalAwardEvidence]] = [:]
         for q in contacts {
             try cancellation?.evaluationCheck()
-            scopes.insert(q.scope)
+            let scope=q.scope(for:programme)
+            scopes.insert(scope)
             var entries: [(String, String)] = []
             switch programme {
             case "dxcc": if let dxcc=q.dxcc, dxcc > 0 { entries=[("worked",String(dxcc))] }
@@ -137,6 +169,7 @@ public enum LocalAwardEngine {
             case "iota":
                 let category=hfBands.contains(q.band.lowercased()) ? "HF" : ["6m","4m","2m","1.25m","70cm","33cm","23cm","13cm","9cm","6cm","3cm","1.25cm","6mm","4mm","2.5mm","2mm","1mm"].contains(q.band.lowercased()) ? "VHF/UHF" : "Unknown band"
                 entries=references(q.iota).filter { $0.range(of: "^(AF|AN|AS|EU|NA|OC|SA)-[0-9]{3}$", options: .regularExpression) != nil }.map { (category,$0) }
+                if q.myCall.uppercased().hasSuffix("/MM") || q.myCall.uppercased().hasSuffix("/AM") { entries=[] }
             case "pota", "sota", "wwff":
                 let kind=programme.uppercased()
                 let dedicated=programme == "pota" ? q.potaReference : programme == "sota" ? q.sotaReference : q.wwffReference
@@ -155,7 +188,7 @@ public enum LocalAwardEngine {
                 let reason=programme == "wpx" ? "No supported sponsor-prefix interpretation; authorization or no-digit prefix rules are unresolved. No credit inferred."
                     : programme == "wac" ? "No required WAC continent supported by sponsor membership and recorded entity/continent; Antarctica is not a required seventh continent."
                     : "No usable recorded entity, zone, state, grid or activity reference for this programme; missing/unsupported evidence is not a zero or a sponsor credit."
-                unclassified[q.scope,default:[]].append(.init(id:q.id,call:q.call,start:q.start,band:q.band,mode:q.submode.isEmpty ? q.mode : q.submode,paper:q.qslReceived,lotw:q.lotwReceived,reason:reason))
+                unclassified[scope,default:[]].append(.init(id:q.id,call:q.call,start:q.start,band:q.band,mode:q.submode.isEmpty ? q.mode : q.submode,paper:q.qslReceived,lotw:q.lotwReceived,reason:reason,recordedContext:q.scope,recordedGrid:q.myGrid,recordedLocation:q.stationLocation))
             }
             for (role, unit) in entries {
                 let kind=ActivationReferenceKind(rawValue: programme)
@@ -165,8 +198,9 @@ public enum LocalAwardEngine {
                 if ["iota","pota","sota","wwff"].contains(programme) {
                     reason = matched == nil ? "Recorded reference; directory match unavailable. Eligibility unknown; local progress only." : "Recorded reference matches local directory. Operation approval and sponsor credit unavailable."
                 }
-                let evidence=LocalAwardEvidence(id:q.id,call:q.call,start:q.start,band:q.band,mode:q.submode.isEmpty ? q.mode : q.submode,paper:q.qslReceived,lotw:q.lotwReceived,reason:reason)
-                grouped[Key(scope:q.scope,role:role,unit:unit),default:[]].append(evidence)
+                var evidence=LocalAwardEvidence(id:q.id,call:q.call,start:q.start,band:q.band,mode:q.submode.isEmpty ? q.mode : q.submode,paper:q.qslReceived,lotw:q.lotwReceived,reason:reason,recordedContext:q.scope,recordedGrid:q.myGrid,recordedLocation:q.stationLocation)
+                if programme == "pota", role == "activator" { evidence.pota=potaContact(q,at:evaluatedAt) }
+                grouped[Key(scope:scope,role:role,unit:unit),default:[]].append(evidence)
             }
         }
         var units=grouped.map { key, records in LocalAwardUnit(unit:key.unit,scope:key.scope,role:key.role,
@@ -200,6 +234,28 @@ public enum LocalAwardEngine {
         return LocalAwardSnapshot(programme:programme,units:units.sorted { ($0.scope,$0.role,$0.unit) < ($1.scope,$1.role,$1.unit) },
             scopes:scopes.sorted(),unknownContacts:unknown,referenceVersion:referenceVersion,
             unclassified:unclassified.mapValues{$0.sorted{$0.start == $1.start ? $0.id.uuidString<$1.id.uuidString : $0.start>$1.start}})
+    }
+
+    private static func potaContact(_ q: AwardEvidenceContact, at now: Date) -> LocalPOTAContact {
+        func normalized(_ value:String)->String { value.trimmingCharacters(in:.whitespacesAndNewlines).uppercased() }
+        let station=normalized(q.myCall),op=normalized(q.operatorCall ?? ""),call=normalized(q.call)
+        let location=q.potaLocation,state=location.state
+        let interchange=QSO.interchangeMode(q.mode,submode:q.submode)
+        let raw=q.potaReference.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty && q.sig.uppercased()=="POTA" ? q.sigInfo : q.potaReference
+        var issue:String?,invalid=false
+        func validCall(_ value:String)->Bool { value.range(of:"^[A-Z0-9/]{3,32}$",options:.regularExpression) != nil && value.contains(where:\.isNumber) && value.contains(where:\.isLetter) }
+        if !validCall(station) || !validCall(call) || (!op.isEmpty && !validCall(op)) { issue="Station/operator or contacted callsign missing/invalid" }
+        else if call == station || call == op { issue="Self contact is excluded";invalid=true }
+        else if !q.start.timeIntervalSince1970.isFinite { issue="UTC date missing/invalid" }
+        else if floor(q.start.timeIntervalSince1970/86400) > floor(now.timeIntervalSince1970/86400) { issue="Future UTC date is excluded";invalid=true }
+        else if q.propagationMode?.uppercased() == "RPT" { issue="Recorded terrestrial repeater contact is excluded";invalid=true }
+        else if !POTAExportPreview.validCountingBand(q.band) || !POTAExportPreview.validCountingMode(interchange.mode,submode:interchange.submode) { issue="Band/mode counting evidence missing or unsupported" }
+        else if !state.isEmpty && state.range(of:"^[A-Z0-9-]{1,16}$",options:.regularExpression) == nil { issue="Recorded subdivision is invalid" }
+        else if !raw.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty && POTAExportPreview.referenceTokens(raw).contains(where:{!POTAExportPreview.validPark($0)}) { issue="Contacted park reference is invalid" }
+        else if POTAExportPreview.referenceTokens(q.ownPOTARaw).contains(where:{!POTAExportPreview.validPark($0)}) { issue="Own park reference is invalid" }
+        else if let conflict=location.issue { issue=conflict }
+        else if POTAExportPreview.conflictingContactLocations(raw) { issue="The same contacted park has conflicting location qualifiers" }
+        return .init(stationCall:station,operatorCall:op,state:state,contactedParks:POTAExportPreview.parkReferences(raw),countingMode:normalized(interchange.submode.isEmpty ? interchange.mode : interchange.submode),issue:issue,invalid:invalid)
     }
 
     private static func referenceDate(_ raw: String) -> Date? {

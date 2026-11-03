@@ -177,11 +177,9 @@ public extension QSO {
         // submodes. Audited import-only ADIF 3.1.8 MODE values below use
         // export parents from the Submode Enumeration.
         // https://adif.org.uk/318/ADIF_318.htm#Mode_Enumeration
-        let exportParent = ["FT4": "MFSK", "FT2": "MFSK", "JTTY": "MFSK",
-                            "C4FM": "DIGITALVOICE", "DSTAR": "DIGITALVOICE",
-                            "PSK31": "PSK", "PSK63": "PSK", "PSK63F": "PSK", "PSK125": "PSK", "PSKAM10": "PSK", "PSKAM31": "PSK", "PSKAM50": "PSK", "PSKFEC31": "PSK", "PSKHELL": "HELL", "QPSK31": "PSK", "QPSK63": "PSK", "QPSK125": "PSK"][mode.uppercased()]
-        set("BAND", band); set("MODE", exportParent ?? mode)
-        set("SUBMODE", submode.isEmpty && exportParent != nil ? mode : submode)
+        let interchange = Self.interchangeMode(mode, submode: submode)
+        set("BAND", band); set("MODE", interchange.mode)
+        set("SUBMODE", interchange.submode)
         if let frequencyHz { set("FREQ", String(format: "%.6f", Double(frequencyHz) / 1_000_000)) }
         if let receiveFrequencyHz = bridged.receiveFrequencyHz { set("FREQ_RX", String(format: "%.6f", Double(receiveFrequencyHz) / 1_000_000)) }
         set("BAND_RX", bridged.receiveBand)
@@ -196,5 +194,11 @@ public extension QSO {
         set("QSL_SENT", qslSent); set("QSL_RCVD", qslReceived); set("QSL_SENT_VIA", qslMethod)
         set("QSL_VIA", qslVia); set("QSLMSG", bridged.qslMessage); set("LOTW_QSL_SENT", lotwSent); set("LOTW_QSL_RCVD", lotwReceived)
         return ADIFRecord(fields: fields, fieldMetadata: adifFieldMetadata)
+    }
+    static func interchangeMode(_ mode: String, submode: String) -> (mode: String, submode: String) {
+        let parent = ["FT4": "MFSK", "FT2": "MFSK", "JTTY": "MFSK",
+                      "C4FM": "DIGITALVOICE", "DSTAR": "DIGITALVOICE",
+                      "PSK31": "PSK", "PSK63": "PSK", "PSK63F": "PSK", "PSK125": "PSK", "PSKAM10": "PSK", "PSKAM31": "PSK", "PSKAM50": "PSK", "PSKFEC31": "PSK", "PSKHELL": "HELL", "QPSK31": "PSK", "QPSK63": "PSK", "QPSK125": "PSK"][mode.uppercased()]
+        return (parent ?? mode, submode.isEmpty && parent != nil ? mode : submode)
     }
 }

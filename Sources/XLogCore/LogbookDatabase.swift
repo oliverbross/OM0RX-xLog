@@ -3376,7 +3376,7 @@ public final class LogbookDatabase: @unchecked Sendable {
     /// candidates above remain deliberately narrower and are never reused here.
     func awardEvidenceContacts(query: LogbookQuery, search: String, at date: Date) throws -> [AwardEvidenceContact] {
         let fields = ["id","call","start","band","mode","submode","dxcc","continent","cqZone","state","gridSquare",
-            "myCall","myGrid","stationLocation","iota","potaReference","sotaReference","wwffReference","qslReceived","lotwReceived","extraFields","sig","sigInfo"]
+            "myCall","myGrid","stationLocation","iota","potaReference","sotaReference","wwffReference","qslReceived","lotwReceived","extraFields","sig","sigInfo","operatorCall","propagationMode"]
         let columns = "json_extract(record_json," + fields.map { "'$.\($0)'" }.joined(separator: ",") + ")"
         let predicate = try query.compile(search: search, at: date)
         return try withStatement("SELECT \(columns), CASE WHEN instr(record_json,'\\u0000')>0 THEN record_json END FROM qsos WHERE \(predicate.sql) ORDER BY qso_start DESC,local_id ASC;") { statement in

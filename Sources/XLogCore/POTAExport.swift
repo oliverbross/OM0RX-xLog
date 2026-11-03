@@ -82,6 +82,23 @@ public struct POTAExportPreview: Codable, Equatable, Sendable {
         let supplied = state.uppercased()
         return supplied == location || supplied == String(location.dropFirst(3))
     }
+    /// Local counting uses the same recorded qualifier/conflict rules as export.
+    /// No current station settings or export-only assignments enter this value.
+    static func countingLocation(own raw:String, recordedState:String) -> (state:String, issue:String?) {
+        let references=referenceTokens(raw).compactMap(reference)
+        let locations=Set(references.compactMap(\.location))
+        let recorded=recordedState.trimmingCharacters(in:.whitespacesAndNewlines).uppercased()
+        if locations.count>1 { return (recorded,"Own park references specify conflicting station locations") }
+        if let location=locations.first, !recorded.isEmpty, !matchesLocation(recorded,location) {
+            return (recorded,"Recorded subdivision conflicts with own park location")
+        }
+        let state=recorded.isEmpty ? references.first(where:{$0.state != nil})?.state ?? "" : recorded
+        let normalized=state.range(of:"^[A-Z]{2}-[A-Z0-9]{1,3}$",options:.regularExpression) != nil ? String(state.dropFirst(3)) : state
+        return (normalized,nil)
+    }
+    static func conflictingContactLocations(_ raw:String) -> Bool {
+        Dictionary(grouping:referenceTokens(raw).compactMap(reference),by:\.park).values.contains { Set($0.compactMap(\.location)).count>1 }
+    }
     private static func validCall(_ value: String) -> Bool {
         value.range(of: "^[A-Z0-9/]{3,32}$", options: .regularExpression) != nil && value.contains(where: { $0.isNumber }) && value.contains(where: { $0.isLetter })
     }
@@ -95,6 +112,10 @@ public struct POTAExportPreview: Codable, Equatable, Sendable {
     // convenience modes are projected by QSO.adifRecord before this boundary.
     private static let modeValues = Set("AM ARDOP ATV CHIP CLO CONTESTI CW DIGITALVOICE DOMINO DYNAMIC FAX FM FSK441 FSK FT8 HELL ISCAT JT4 JT6M JT9 JT44 JT65 MFSK MSK144 MTONE MT63 OFDM OLIVIA OPERA PAC PAX PKT PSK PSK2K Q15 QRA64 ROS RTTY RTTYM SSB SSTV T10 THOR THRB TOR V4 VOI WINMOR WSPR".split(separator: " ").map(String.init))
     private static let bandValues = Set("2190M 630M 560M 160M 80M 60M 40M 30M 20M 17M 15M 12M 10M 8M 6M 5M 4M 2M 1.25M 70CM 33CM 23CM 13CM 9CM 6CM 3CM 1.25CM 6MM 4MM 2.5MM 2MM 1MM SUBMM".split(separator: " ").map(String.init))
+    static func validCountingBand(_ value:String) -> Bool { bandValues.contains(value.uppercased()) }
+    static func validCountingMode(_ mode:String,submode:String) -> Bool {
+        modeValues.contains(mode.uppercased()) && (submode.isEmpty || submode.range(of:"^[A-Za-z0-9_+-]{1,16}$",options:.regularExpression) != nil)
+    }
     /// Native entry point. Check the prospective cross-product before retaining
     /// expanded dictionaries or serializing files. It never clips a population.
     public static func prepare(snapshot: ADIFExportSnapshot, now: Date = Date(), assignment: POTAExportAssignment? = nil,
@@ -162,9 +183,8 @@ public struct POTAExportPreview: Codable, Equatable, Sendable {
             guard let qso = QSO(adif: record) else { failures.append(.init(contactID: id, message: "Invalid UTC date/time or contact fields")); continue }
             if (record["QSO_DATE"] ?? "") > today { missing.append("future UTC date") }
             else if qso.start > now { futureTimes += 1 }
-            if !Self.bandValues.contains((record["BAND"] ?? "").uppercased()) { missing.append("transmit band") }
-            if !Self.modeValues.contains((record["MODE"] ?? "").uppercased()) ||
-                (record["SUBMODE"] != nil && (record["SUBMODE"] ?? "").range(of: "^[A-Za-z0-9_+-]{1,16}$", options: .regularExpression) == nil) { missing.append("mode/submode") }
+            if !Self.validCountingBand(record["BAND"] ?? "") { missing.append("transmit band") }
+            if !Self.validCountingMode(record["MODE"] ?? "",submode:record["SUBMODE"] ?? "") || record["SUBMODE"] == "" { missing.append("mode/submode") }
             if let issue = ADIFImportPreview(text: record.adifDocument).issues.first { missing.append("ADIF serialization: " + issue.message) }
             if parks.isEmpty || !parks.allSatisfy(Self.validPark) { missing.append("own POTA park") }
             if !contacted.allSatisfy(Self.validPark) { missing.append("contacted POTA park") }
