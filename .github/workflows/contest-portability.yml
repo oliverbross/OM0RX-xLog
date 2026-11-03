@@ -186,7 +186,7 @@ jobs:
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.WorkerStartupTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.LiveOnlineLogDeliveryServiceTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.NativeDraftPowerCaptureTests/')" -ge 1
-          test "$(printf '%s\n' "$discovered" | grep -c '^XCWCoreTests\.CWComputeWirePrimitiveTests/')" -eq 3
+          test "$(printf '%s\n' "$discovered" | grep -c '^XCWCoreTests\.CWComputeWirePrimitiveTests/')" -eq 4
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.LiveClusterMethodsTests/portablePriorCleanupUsesFirstAdmissionClock')" -eq 1
           if test "$(uname -s)" = Darwin; then
             test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.LiveWSJTXBridgeTests/')" -ge 1
@@ -225,7 +225,7 @@ jobs:
           if ($core -lt 1 -or $callHistoryCore -lt 1 -or $callHistoryProjection -lt 1 -or $store -lt 1 -or $adif -lt 1 -or $naqpAdif -lt 1 -or $arrlRttyAdif -lt 1 -or $jidxAdif -lt 1 -or $arrlDxAdif -lt 1 -or $jidxWorker -lt 1 -or $arrlDxWorker -lt 1 -or $service -lt 1 -or $declarativeExportService -lt 1 -or $declarativeActivation -lt 1 -or $lane -lt 1 -or $wire -lt 1 -or $contestingLane -lt 1 -or $assistanceLane -lt 1 -or $scpWorker -lt 1 -or $callHistoryService -lt 1 -or $callHistoryWorker -lt 1 -or $workerStartup -lt 1 -or $onlineDelivery -lt 1 -or $draftPower -lt 1) { throw "Expected contest test targets were not discovered." }
           $wirePrimitives = @($discovered | Where-Object { $_ -match '^XCWCoreTests\.CWComputeWirePrimitiveTests/' }).Count
           $portableCluster = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.LiveClusterMethodsTests/portablePriorCleanupUsesFirstAdmissionClock' }).Count
-          if ($wirePrimitives -ne 3 -or $portableCluster -ne 1) { throw "Expected portable primitive/admission regressions were not discovered." }
+          if ($wirePrimitives -ne 4 -or $portableCluster -ne 1) { throw "Expected portable primitive/admission regressions were not discovered." }
       - name: Test portable CW primitives and cluster admission (macOS and Linux)
         if: runner.os != 'Windows'
         run: |
@@ -385,7 +385,7 @@ jobs:
           test "$(printf '%s\n' "$admission_tests" | grep -c '^contesting_test_native_admission_tests::')" -eq 7
           test "$(printf '%s\n' "$passive_read_test" | grep -c '^worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy: test$')" -eq 1
           test "$(printf '%s\n' "$module_tests" | grep -c '^operating_module::tests::')" -ge 1
-          test "$(printf '%s\n' "$durable_tests" | grep -c '^durable_file::tests::')" -eq 3
+          test "$(printf '%s\n' "$durable_tests" | grep -c '^durable_file::tests::')" -eq 7
           test "$(printf '%s\n' "$restart_intent_tests" | grep -c '^module_restart_intent::tests::')" -ge 1
           test "$(printf '%s\n' "$shutdown_tests" | grep -c '^worker::tests::shutdown_')" -ge 1
           cargo test --locked --jobs 2 --target-dir "$target" --bin xlog-prototype --features contesting-test contest_export::tests::
@@ -406,7 +406,7 @@ jobs:
             @{ Name = 'admission'; Filter = 'contesting_test_native_admission_tests::'; Pattern = '^contesting_test_native_admission_tests::'; Count = 7 },
             @{ Name = 'passive read'; Filter = 'worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy'; Pattern = '^worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy: test$'; Count = 1 },
             @{ Name = 'operating module'; Filter = 'operating_module::tests::'; Pattern = '^operating_module::tests::'; Count = 0 },
-            @{ Name = 'durable file'; Filter = 'durable_file::tests::'; Pattern = '^durable_file::tests::'; Count = 3 },
+            @{ Name = 'durable file'; Filter = 'durable_file::tests::'; Pattern = '^durable_file::tests::'; Count = 8 },
             @{ Name = 'restart intent'; Filter = 'module_restart_intent::tests::'; Pattern = '^module_restart_intent::tests::'; Count = 0 },
             @{ Name = 'worker shutdown'; Filter = 'worker::tests::shutdown_'; Pattern = '^worker::tests::shutdown_'; Count = 7 }
           )
