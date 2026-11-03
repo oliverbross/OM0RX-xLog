@@ -5,11 +5,11 @@ import { antennaCollection, antennaChoice, antennaHeading, rotorTarget, type Ant
 import { rotorProjection, type RotorSnapshot } from "./rotorControl";
 
 type Data = Record<string, any>;
-export type PortablePreset = { id: string; name: string; stationCall: string; operatorCall: string; locator: string; location: string; state: string; ownReferences: Record<string, string[]>; power: string; antennaProfileID?: string | null };
+export type PortablePreset = { id: string; name: string; stationCall: string; operatorCall: string; locator: string; location: string; state: string; ownReferences: Record<string, string[]>; power: string; antennaProfileID?: string | null; ownDXCC?: number | null };
 export type PortableOperating = { version: 1; presets: PortablePreset[]; activeContext?: { sessionID: string; revision: number; startedAt: string; preset: PortablePreset } | null };
 export const portableOperating = (v: any): PortableOperating => v ?? { version: 1, presets: [], activeContext: null };
 // Retain an unfinished trailing token while typing a comma-separated list.
-const tokens = (s: string) => s.toUpperCase().split(/[,;]/).map(value => value.trim());
+const tokens = (s: string) => s.trim() ? s.toUpperCase().split(/[,;]/).map(value => value.trim()) : [];
 export function antennaSnapshot(qso: Data, p: AntennaProfile): Data {
   return { ...qso, extraFields: { ...qso.extraFields, ...Object.fromEntries(Object.entries({ ID: p.id, NAME: p.name, TYPE: p.antennaType, BANDS: p.bands.join(","), OFFSET: String(p.azimuthOffsetDegrees), REVISION: String(p.revision), ROTOR: p.rotorConfigurationID ?? "" }).map(([k, v]) => ["APP_OM0RXXLOG_ANTENNA_" + k, v])) } };
 }
@@ -17,7 +17,7 @@ export function applyPortableDefaults(qso: Data, settings: Data): Data {
   const active = portableOperating(settings.portableOperating).activeContext;
   let next: Data = { ...qso, myCall: settings.stationCall, operatorCall: settings.operatorCall, myGrid: settings.gridSquare,
     stationLocation: settings.stationLocation, txPower: settings.defaultPower, extraFields: { ...qso.extraFields } };
-  for (const key of Object.keys(next.extraFields)) if (key.startsWith("APP_OM0RXXLOG_PORTABLE_") || ["MY_POTA_REF", "MY_SIG", "MY_SIG_INFO", "MY_SOTA_REF", "MY_WWFF_REF", "MY_IOTA", "MY_STATE"].includes(key)) delete next.extraFields[key];
+  for (const key of Object.keys(next.extraFields)) if (key.startsWith("APP_OM0RXXLOG_PORTABLE_") || ["MY_POTA_REF", "MY_SIG", "MY_SIG_INFO", "MY_SOTA_REF", "MY_WWFF_REF", "MY_IOTA", "MY_STATE", "MY_DXCC"].includes(key)) delete next.extraFields[key];
   for (const key of Object.keys(next.extraFields)) if (key.startsWith("APP_OM0RXXLOG_ANTENNA_")) delete next.extraFields[key];
   const equipment = antennaCollection(settings.stationEquipment), homeAntenna = equipment.profiles.find(a => a.id === equipment.selectedProfileID && !a.archived);
   if (homeAntenna) next = antennaSnapshot(next, homeAntenna);
@@ -26,6 +26,7 @@ export function applyPortableDefaults(qso: Data, settings: Data): Data {
   next = { ...next, myCall: p.stationCall, operatorCall: p.operatorCall, myGrid: p.locator, stationLocation: p.location, txPower: p.power };
   Object.assign(next.extraFields, { MY_STATE: p.state, APP_OM0RXXLOG_PORTABLE_SESSION: active.sessionID, APP_OM0RXXLOG_PORTABLE_NAME: p.name,
     APP_OM0RXXLOG_PORTABLE_REVISION: String(active.revision), APP_OM0RXXLOG_PORTABLE_STARTED: active.startedAt });
+  if (p.ownDXCC != null) next.extraFields.MY_DXCC = String(p.ownDXCC);
   for (const [programme, refs] of Object.entries(p.ownReferences)) {
     const field = ({ POTA: "MY_POTA_REF", SOTA: "MY_SOTA_REF", WWFF: "MY_WWFF_REF", IOTA: "MY_IOTA" } as Record<string, string>)[programme];
     if (field) next.extraFields[field] = refs.join(",");
@@ -40,12 +41,13 @@ export function PortableSettings({ settings, onChange }: { settings: Data; onCha
   const update = (patch: Partial<PortablePreset>) => preset && onChange({ ...value, presets: value.presets.map(p => p.id === preset.id ? { ...p, ...patch } : p) });
   return <section className="equipment-settings"><h2>Portable operating defaults</h2><p>These defaults describe the transmitting station. Save settings to start or end the context. Existing drafts retain their values until explicitly applied.</p>
     <label>Portable preset<select aria-label="Portable preset" value={preset?.id ?? ""} onChange={e => setSelected(e.target.value)}><option value="">Choose preset</option>{value.presets.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
-    <button type="button" disabled={value.presets.length >= 32} onClick={() => { const id = crypto.randomUUID(); onChange({ ...value, presets: [...value.presets, { id, name: "Portable station", stationCall: settings.stationCall ?? "", operatorCall: settings.operatorCall ?? "", locator: "", location: "", state: "", ownReferences: {}, power: settings.defaultPower ?? "", antennaProfileID: null }] }); setSelected(id); }}>Add portable preset</button>
+    <button type="button" disabled={value.presets.length >= 32} onClick={() => { const id = crypto.randomUUID(); onChange({ ...value, presets: [...value.presets, { id, name: "Portable station", stationCall: settings.stationCall ?? "", operatorCall: settings.operatorCall ?? "", locator: "", location: "", state: "", ownReferences: {}, power: settings.defaultPower ?? "" }] }); setSelected(id); }}>Add portable preset</button>
     {preset && <><div className="service-fields">{([["name", "Preset name"], ["stationCall", "On-air station callsign"], ["operatorCall", "Portable operator callsign"], ["locator", "Transmitting station locator"], ["location", "Transmitting station location"], ["state", "Own subdivision (MY_STATE)"], ["power", "Portable default power W"]] as const).map(([key, label]) => <label key={key}>{label}<input aria-label={label} maxLength={key === "location" ? 512 : 64} value={preset[key]} onChange={e => update({ [key]: e.target.value })} /></label>)}</div>
       {(["POTA", "SOTA", "WWFF", "IOTA"] as const).map(programme => <label key={programme}>Own {programme} references<input aria-label={`Own ${programme} references`} value={(preset.ownReferences[programme] ?? []).join(", ")} onChange={e => update({ ownReferences: { ...preset.ownReferences, [programme]: tokens(e.target.value) } })} /></label>)}
+      <label>Recorded own DXCC (optional)<input aria-label="Portable transmitting station DXCC" type="number" min={1} max={1000} step={1} value={preset.ownDXCC ?? ""} onChange={e => update({ ownDXCC: e.target.value ? Number(e.target.value) : undefined })} /></label>
       {(preset.ownReferences.POTA ?? []).some(ref => !/^[A-Z0-9]{1,8}-[0-9]{1,8}$/.test(ref)) && <p role="alert">Check own POTA reference syntax. Ordinary contact saving remains available; POTA export validates it separately.</p>}
-      <label>Default antenna profile<select value={preset.antennaProfileID ?? ""} onChange={e => update({ antennaProfileID: e.target.value || null })}><option value="">Use station profile</option>{antennaCollection(settings.stationEquipment).profiles.filter(p => !p.archived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
-      <button type="button" onClick={() => onChange({ ...value, activeContext: { sessionID: crypto.randomUUID(), revision: 0, startedAt: new Date().toISOString(), preset: structuredClone(preset) } })}>Start context after saving</button>
+      <label>Default antenna profile<select value={preset.antennaProfileID ?? ""} onChange={e => update({ antennaProfileID: e.target.value || undefined })}><option value="">Use station profile</option>{antennaCollection(settings.stationEquipment).profiles.filter(p => !p.archived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+      <button type="button" onClick={() => onChange({ ...value, activeContext: { sessionID: crypto.randomUUID(), revision: 0, startedAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"), preset: structuredClone(preset) } })}>Start context after saving</button>
       <button type="button" onClick={() => onChange({ ...value, presets: value.presets.filter(p => p.id !== preset.id) })}>Remove preset</button></>}
     {value.activeContext && <p>Active: {value.activeContext.preset.name} · {value.activeContext.preset.stationCall} · {(value.activeContext.preset.ownReferences.POTA ?? []).join(", ")} <button type="button" onClick={() => onChange({ ...value, activeContext: null })}>End context after saving</button></p>}
   </section>;

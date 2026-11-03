@@ -34,6 +34,9 @@ struct POTAExportTests {
         #expect(preview.physicalContacts == 2); #expect(preview.derivedRecords == 6)
         #expect(preview.warnings.contains(where: { $0.contains("possible POTA duplicate") }))
         #expect(one.extraFields["MY_SIG_INFO"] == "")
+        one.extraFields["MY_STATE"] = ""
+        let assigned = POTAExportPreview(snapshot: ADIFExportSnapshot(contacts: [one], scope: .all), now: now, assignment: .init(ownParks: ["AU-9999"], state: "NT"))
+        #expect(assigned.files.first?.state == "NT"); #expect(one.extraFields["MY_STATE"] == "")
     }
     @Test func locationClubAndUTCDayPartition() {
         var one = contact(); one.myCall = "VK8CLUB"; one.extraFields["MY_SIG_INFO"] = "AU-0001"
@@ -51,5 +54,17 @@ struct POTAExportTests {
         #expect(future.files.isEmpty); #expect(future.issues.first?.message.contains("future UTC date") == true)
         qso = contact(); qso.extraFields["MY_SIG_INFO"] = "bad"
         #expect(POTAExportPreview(snapshot: ADIFExportSnapshot(contacts: [qso], scope: .all), now: now).issues.count == 1)
+    }
+    @Test func clubIdentityAndModesAreReviewedWithoutRepairingSources() {
+        var qso = contact(); qso.operatorCall = ""
+        let snapshot = ADIFExportSnapshot(contacts: [qso], scope: .all)
+        #expect(POTAExportPreview(snapshot: snapshot, now: now).issues.isEmpty)
+        #expect(POTAExportPreview(snapshot: snapshot, now: now, assignment: .init(ownParks: [], clubOrGroup: true)).issues.count == 1)
+        qso.mode = "MADEUP"
+        #expect(POTAExportPreview(snapshot: ADIFExportSnapshot(contacts: [qso], scope: .all), now: now).issues.count == 1)
+        qso.mode = "FT4"
+        let ft4 = POTAExportPreview(snapshot: ADIFExportSnapshot(contacts: [qso], scope: .all), now: now)
+        #expect(ft4.issues.isEmpty)
+        #expect(ADIFParser().records(in: ft4.files[0].text).first?["SUBMODE"] == "FT4")
     }
 }

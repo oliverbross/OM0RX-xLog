@@ -10,6 +10,9 @@ struct AntennaPortableTests {
         let restored = try JSONDecoder().decode(StationEquipment.self, from: JSONEncoder().encode(first))
         #expect(first == restored); #expect(first.profiles.count == 1)
         #expect(first.selectedProfileID == "legacy-antenna"); #expect(!first.automaticSelection)
+        var archived = first; archived.profiles[0].archived = true; archived.selectedProfileID = nil
+        let recovered = try JSONDecoder().decode(StationEquipment.self, from: JSONEncoder().encode(archived))
+        #expect(recovered.selectedProfileID == nil); #expect(recovered.profiles[0].archived)
     }
     @Test func bandSelectionNeverPicksArbitraryOrStale() {
         var equipment = StationEquipment()
@@ -37,7 +40,7 @@ struct AntennaPortableTests {
     @Test func portableHomeSeparationAndSnapshotRoundtrip() throws {
         var settings = XLogSettings.defaults
         settings.stationCall = "OM0RX"; settings.gridSquare = "JN98"
-        let preset = PortablePreset(name: "Park", stationCall: "VK8RX/P", operatorCall: "VK8RX", locator: "PH57", state: "NT", ownReferences: ["POTA": ["AU-0001", "AU-0002"]], power: "10")
+        let preset = PortablePreset(name: "Park", stationCall: "VK8RX/P", operatorCall: "VK8RX", locator: "PH57", state: "NT", ownReferences: ["POTA": ["AU-0001", "AU-0002"]], power: "10", ownDXCC: 150)
         settings.portableOperating.presets = [preset]
         settings.portableOperating.activeContext = PortableActiveContext(preset: preset)
         try IntegrationSettingsSnapshot(revision: 0, settings: settings).validate()
@@ -46,7 +49,13 @@ struct AntennaPortableTests {
         #expect(settings.stationCall == "OM0RX"); #expect(settings.gridSquare == "JN98")
         #expect(draft.myCall == "VK8RX/P"); #expect(draft.myGrid == "PH57")
         #expect(draft.extraFields["MY_SIG_INFO"] == "AU-0001,AU-0002")
+        #expect(draft.extraFields["MY_DXCC"] == "150")
         let restored = try JSONDecoder().decode(XLogSettings.self, from: JSONEncoder().encode(settings))
         #expect(restored.portableOperating.presets == [preset]); #expect(restored.portableOperating.activeContext == nil)
+        let legacy = try JSONSerialization.jsonObject(with: JSONEncoder().encode(preset)) as! [String: Any]
+        let legacyData = try JSONSerialization.data(withJSONObject: legacy.filter { $0.key != "ownDXCC" })
+        #expect(try JSONDecoder().decode(PortablePreset.self, from: legacyData).ownDXCC == nil)
+        settings.portableOperating.presets[0].ownDXCC = 0
+        #expect(throws: IntegrationSettingsError.self) { try IntegrationSettingsSnapshot(revision: 0, settings: settings).validate() }
     }
 }

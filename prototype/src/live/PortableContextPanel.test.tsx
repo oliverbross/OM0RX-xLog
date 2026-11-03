@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { AntennaDraftSelector, PortableContextBanner, applyPortableDefaults } from "./PortableContextPanel";
+import { AntennaDraftSelector, PortableContextBanner, PortableSettings, applyPortableDefaults } from "./PortableContextPanel";
 import { antennaChoice, antennaHeading, rotorTarget } from "./equipmentPreferences";
 
 afterEach(cleanup);
@@ -9,7 +9,7 @@ const profile = { id: "a", name: "Beam", antennaType: "yagi" as const, bands: ["
 const settings = { stationCall: "OM0RX", operatorCall: "OM0RX", gridSquare: "JN98", stationLocation: "Slovakia", defaultPower: "100",
   stationEquipment: { profiles: [profile], selectedProfileID: "a", automaticSelection: true, bandPreferences: {} },
   portableOperating: { version: 1, presets: [], activeContext: { sessionID: "session", revision: 0, startedAt: "2026-11-03T00:00:00Z",
-    preset: { id: "p", name: "Park", stationCall: "VK8RX/P", operatorCall: "VK8RX", locator: "PH57", location: "Darwin", state: "NT", power: "10", ownReferences: { POTA: ["AU-0001", "AU-0002"] }, antennaProfileID: "a" } } } };
+    preset: { id: "p", name: "Park", stationCall: "VK8RX/P", operatorCall: "VK8RX", locator: "PH57", location: "Darwin", state: "NT", power: "10", ownDXCC: 150, ownReferences: { POTA: ["AU-0001", "AU-0002"] }, antennaProfileID: "a" } } } };
 it("never changes a retained draft until explicit context application", () => {
   const draft = { call: "K1ABC", notes: "retained", extraFields: { APP_KEEP: "yes" } }, onApply = vi.fn(), onEnd = vi.fn();
   render(<PortableContextBanner settings={settings} draft={draft} onApply={onApply} onEnd={onEnd} />);
@@ -24,6 +24,7 @@ it("returns home defaults only through explicit projection and preserves other m
   const home = applyPortableDefaults(portable, { ...settings, portableOperating: { version: 1, presets: [] } });
   expect(home.myCall).toBe("OM0RX"); expect(home.extraFields.MY_SIG_INFO).toBeUndefined(); expect(home.extraFields.APP_KEEP).toBe("yes");
   expect(portable.myCall).toBe("VK8RX/P");
+  expect(portable.extraFields.MY_DXCC).toBe("150"); expect(home.extraFields.MY_DXCC).toBeUndefined();
 });
 it("requires a preference when TX-band profiles overlap and preserves stale/manual choices", () => {
   const equipment = { ...settings.stationEquipment, profiles: [profile, { ...profile, id: "b", name: "Other" }] };
@@ -48,4 +49,12 @@ it("maps an explicit antenna target once using its captured offset and observes 
   fireEvent.click(screen.getByText("Turn antenna to bearing")); expect(onGoto).toHaveBeenCalledExactlyOnceWith(350);
   view.rerender(<AntennaDraftSelector settings={{ ...settings, stationEquipment: { ...settings.stationEquipment, profiles: [{ ...profile, azimuthOffsetDegrees: -45 }] } }} draft={draft} txBand="20m" fresh onApply={onApply} rotor={rotor} onGoto={onGoto} />);
   expect(onGoto).toHaveBeenCalledOnce(); expect(screen.getByText(/Antenna observed: 10°/)).toBeTruthy();
+});
+it("starts a preset with canonical whole-second wire time and a copied snapshot", () => {
+  const onChange = vi.fn(), preset = settings.portableOperating.activeContext.preset;
+  render(<PortableSettings settings={{ ...settings, portableOperating: { version: 1, presets: [preset] } }} onChange={onChange} />);
+  fireEvent.click(screen.getByText("Start context after saving"));
+  const active = onChange.mock.calls[0][0].activeContext;
+  expect(active.startedAt).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/);
+  expect(active.preset).toEqual(preset); expect(active.preset).not.toBe(preset);
 });

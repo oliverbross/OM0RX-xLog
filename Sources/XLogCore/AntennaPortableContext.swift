@@ -69,12 +69,14 @@ public struct PortablePreset: Codable, Equatable, Sendable {
     public var ownReferences: [String: [String]]
     public var power: String
     public var antennaProfileID: String?
+    public var ownDXCC: Int?
     public init(id: String = UUID().uuidString, name: String, stationCall: String = "", operatorCall: String = "",
                 locator: String = "", location: String = "", state: String = "", ownReferences: [String: [String]] = [:],
-                power: String = "", antennaProfileID: String? = nil) {
+                power: String = "", antennaProfileID: String? = nil, ownDXCC: Int? = nil) {
         self.id = id; self.name = name; self.stationCall = stationCall; self.operatorCall = operatorCall
         self.locator = locator; self.location = location; self.state = state; self.ownReferences = ownReferences
         self.power = power; self.antennaProfileID = antennaProfileID
+        self.ownDXCC = ownDXCC
     }
 }
 public struct PortableActiveContext: Codable, Equatable, Sendable {
@@ -90,6 +92,8 @@ public struct PortableActiveContext: Codable, Equatable, Sendable {
         qso.myCall = preset.stationCall; qso.operatorCall = preset.operatorCall
         qso.myGrid = preset.locator; qso.stationLocation = preset.location; qso.txPower = preset.power
         qso.extraFields["MY_STATE"] = preset.state
+        if let ownDXCC = preset.ownDXCC { qso.extraFields["MY_DXCC"] = String(ownDXCC) }
+        else { qso.extraFields.removeValue(forKey: "MY_DXCC") }
         qso.extraFields["APP_OM0RXXLOG_PORTABLE_SESSION"] = sessionID
         qso.extraFields["APP_OM0RXXLOG_PORTABLE_NAME"] = preset.name
         qso.extraFields["APP_OM0RXXLOG_PORTABLE_REVISION"] = String(revision)
@@ -110,6 +114,13 @@ public struct PortableOperatingSettings: Codable, Equatable, Sendable {
     public var presets: [PortablePreset] = []
     public var activeContext: PortableActiveContext?
     public init() {}
+    private enum CodingKeys: String, CodingKey { case version, presets, activeContext }
+    public func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(version, forKey: .version); try values.encode(presets, forKey: .presets)
+        if let activeContext { try values.encode(activeContext, forKey: .activeContext) }
+        else { try values.encodeNil(forKey: .activeContext) }
+    }
     public func validate() throws {
         let all = presets + (activeContext.map { [$0.preset] } ?? [])
         guard version == 1, presets.count <= 32, Set(presets.map(\.id)).count == presets.count,
@@ -118,6 +129,7 @@ public struct PortableOperatingSettings: Codable, Equatable, Sendable {
                   !p.id.isEmpty && p.id.utf8.count <= 64 && !p.name.isEmpty && p.name.utf8.count <= 128 &&
                   [p.stationCall, p.operatorCall, p.locator, p.state, p.power].allSatisfy({ $0.utf8.count <= 64 }) &&
                   p.location.utf8.count <= 512 && p.ownReferences.count <= 5 &&
+                  (p.ownDXCC.map { (1...1000).contains($0) } ?? true) &&
                   p.ownReferences.allSatisfy({ ["POTA", "SOTA", "WWFF", "IOTA", "CASTLE"].contains($0.key) && $0.value.count <= 16 && $0.value.allSatisfy({ $0.utf8.count <= 64 }) })
               }) else { throw IntegrationSettingsError.invalid }
     }

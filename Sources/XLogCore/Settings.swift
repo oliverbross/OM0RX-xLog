@@ -51,6 +51,17 @@ public struct StationEquipment: Codable, Equatable, Sendable {
     public init() {}
 
     private enum CodingKeys: String, CodingKey { case display, antenna, name, bands, version, profiles, selectedProfileID, automaticSelection, bandPreferences }
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(display, forKey: .display); try c.encode(antenna, forKey: .antenna)
+        try c.encode(name, forKey: .name); try c.encode(bands, forKey: .bands)
+        try c.encode(version, forKey: .version); try c.encode(profiles, forKey: .profiles)
+        // An explicit empty selection differs from an old document lacking this
+        // key. Keep null so restore cannot select the first archived profile.
+        if let selectedProfileID { try c.encode(selectedProfileID, forKey: .selectedProfileID) }
+        else { try c.encodeNil(forKey: .selectedProfileID) }
+        try c.encode(automaticSelection, forKey: .automaticSelection); try c.encode(bandPreferences, forKey: .bandPreferences)
+    }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         display = try c.decodeIfPresent(Display.self, forKey: .display) ?? .automatic
