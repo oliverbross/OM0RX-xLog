@@ -192,6 +192,11 @@ struct State {
     latest: Value,
     settling: BTreeMap<String, String>,
     error: String,
+    marker_tune: bool,
+}
+struct MarkerPause<'a>(&'a Mutex<State>);
+impl Drop for MarkerPause<'_> {
+    fn drop(&mut self) { if let Ok(mut state) = self.0.lock() { state.marker_tune = false; } }
 }
 pub struct FollowRadio {
     backend: Arc<dyn Backend>,
@@ -217,6 +222,7 @@ impl FollowRadio {
                 latest: idle(),
                 settling: BTreeMap::new(),
                 error: String::new(),
+                marker_tune: false,
             }),
             admission: Mutex::new(()),
         }
@@ -230,6 +236,42 @@ impl FollowRadio {
             json!({"enabled":state.enabled,"epoch":state.epoch,"error":state.error,
             "operation":state.latest,"settlementPending":!state.settling.is_empty()}),
         )
+    }
+    /// A trusted visual-marker tune advances only the existing control epoch.
+    /// Pause observation admission, then rebind that one epoch without changing
+    /// permission. Canonical draft/editor vetoes still run on later telemetry.
+    fn marker_tune<T>(&self, before: &Value, operation: impl FnOnce() -> Result<T, String>, after: impl FnOnce() -> Result<Value, String>) -> Result<T, String> {
+        let admission = self.admission.try_lock().map_err(|_| "Follow Radio admission is busy")?;
+        let selected = Selection::parse(before)?;
+        let epoch = {
+            let mut state = self.state.lock().map_err(|_| "Follow Radio state unavailable")?;
+            if state.marker_tune || state.running || !state.settling.is_empty() || state.latest["phase"] == "uncertain" {
+                return Err("Settle the current Follow Radio/editor operation before tuning a marker.".into());
+            }
+            if state.enabled && state.anchor.as_ref().is_none_or(|(_,_,anchor)| anchor != &selected) { return Err("Follow Radio selection changed before marker tuning.".into()); }
+            state.marker_tune = true;
+            state.pending = None;
+            state.epoch
+        };
+        drop(admission);
+        let _pause = MarkerPause(&self.state);
+        let result = operation();
+        let current = after().and_then(|value| Selection::parse(&value));
+        {
+            let mut state = self.state.lock().map_err(|_| "Follow Radio state unavailable")?;
+            state.marker_tune = false;
+            if state.epoch == epoch && state.enabled {
+                if let Ok(current) = current {
+                    let mut expected = selected.clone(); expected.control = selected.control.saturating_add(1);
+                    if current == selected || current == expected {
+                        if let Some((_,_,anchor)) = state.anchor.as_mut() { *anchor = current; }
+                        state.last = None;
+                    }
+                }
+            }
+        }
+        self.backend.publish();
+        result
     }
     fn activation(&self) -> Value {
         self.snapshot()
@@ -257,7 +299,7 @@ impl FollowRadio {
                 return Err("Follow Radio permission changed. Review its current state.".into());
             }
             if enabled
-                && (state.running
+                && (state.marker_tune || state.running
                     || !state.settling.is_empty()
                     || state.latest["phase"] == "uncertain")
             {
@@ -317,7 +359,7 @@ impl FollowRadio {
             .state
             .lock()
             .map_err(|_| "Follow Radio state unavailable")?;
-        if !state.enabled {
+        if !state.enabled || state.marker_tune {
             return Ok(false);
         }
         if state
@@ -381,7 +423,7 @@ impl FollowRadio {
     fn drain(&self) {
         loop {
             let next = self.state.lock().ok().and_then(|mut state| {
-                if !state.enabled || !state.settling.is_empty() {
+                if !state.enabled || state.marker_tune || !state.settling.is_empty() {
                     state.running = false;
                     return None;
                 }
@@ -628,6 +670,9 @@ fn owner() -> Result<Arc<FollowRadio>, String> {
 pub fn snapshot() -> Result<Value, String> {
     owner()?.snapshot()
 }
+pub(crate) fn marker_tune<T>(before: &Value, operation: impl FnOnce() -> Result<T, String>, after: impl FnOnce() -> Result<Value, String>) -> Result<T, String> {
+    owner()?.marker_tune(before, operation, after)
+}
 pub fn activation_snapshot() -> Option<Value> {
     OWNER
         .get()
@@ -780,6 +825,60 @@ mod tests {
                 "preparation did not start: {state}"
             );
             std::thread::yield_now();
+        }
+    }
+    #[test]
+    fn marker_tune_preserves_permission_and_rebinds_only_its_one_control_epoch() {
+        for enabled in [false,true] {
+            let (owner,backend,_) = fixture(Vec::new(),false);
+            if enabled { owner.set(true,0).unwrap(); }
+            let selection = &backend.selection;
+            let before = json!({"provider":selection.provider,"selection_id":selection.identity,"generation":selection.generation,"control_revision":selection.control});
+            let mut after = before.clone(); after["control_revision"] = json!(selection.control+1);
+            let mut changed = selection.clone(); changed.control += 1;
+            owner.marker_tune(&before, || {
+                assert!(!owner.offer(observed(&changed,10,14100000)).unwrap());
+                Ok(())
+            }, || Ok(after)).unwrap();
+            assert_eq!(owner.snapshot().unwrap()["enabled"],enabled);
+            assert!(backend.calls.lock().unwrap().is_empty(),"marker did not mutate a draft");
+            if enabled { assert_eq!(owner.state.lock().unwrap().anchor.as_ref().unwrap().2,changed); }
+        }
+    }
+    #[test]
+    fn marker_tune_does_not_rearm_an_external_revoke_or_admit_unsettled_editors() {
+        let (owner,backend,_) = fixture(Vec::new(),false); owner.set(true,0).unwrap();
+        let selection=&backend.selection;
+        let before=json!({"provider":selection.provider,"selection_id":selection.identity,"generation":selection.generation,"control_revision":selection.control});
+        owner.marker_tune(&before,|| {owner.revoke("operator stop");Ok(())},||Ok(before.clone())).unwrap();
+        assert_eq!(owner.snapshot().unwrap()["enabled"],false);
+        owner.state.lock().unwrap().settling.insert("main".into(),"editor".into());
+        assert!(owner.marker_tune(&before,||Ok(()),||Ok(before.clone())).is_err());
+    }
+    #[test]
+    fn marker_tune_follow_enabled_and_disabled_use_only_later_authoritative_telemetry() {
+        struct Dynamic { base: Arc<Fake>, selected: Mutex<Selection> }
+        impl Backend for Dynamic {
+            fn canonical(&self)->Result<Canonical,String>{ self.base.canonical() }
+            fn selection(&self)->Result<Selection,String>{ Ok(self.selected.lock().unwrap().clone()) }
+            fn open_editors(&self)->Result<Vec<String>,String>{ self.base.open_editors() }
+            fn transact(&self,operation:&str,canonical:&Canonical,observation:&Observation)->Result<Value,String>{ self.base.transact(operation,canonical,observation) }
+            fn publish(&self){}
+        }
+        for enabled in [false,true] {
+            let (_,base,editors)=fixture(Vec::new(),false);
+            let backend=Arc::new(Dynamic{selected:Mutex::new(base.selection.clone()),base:base.clone()});
+            let owner=FollowRadio::new(backend.clone(),editors);
+            if enabled { owner.set(true,0).unwrap(); }
+            let old=base.selection.clone();let mut new=old.clone();new.control+=1;
+            let before=json!({"provider":old.provider,"selection_id":old.identity,"generation":old.generation,"control_revision":old.control});
+            let mut after=before.clone();after["control_revision"]=json!(new.control);
+            owner.marker_tune(&before,||{*backend.selected.lock().unwrap()=new.clone();Ok(())},||Ok(after)).unwrap();
+            assert!(base.calls.lock().unwrap().is_empty());
+            assert_eq!(owner.offer(observed(&new,12,14100000)).unwrap(),enabled);
+            owner.drain();
+            assert_eq!(base.calls.lock().unwrap().len(),usize::from(enabled));
+            assert_eq!(owner.snapshot().unwrap()["enabled"],enabled);
         }
     }
     fn acknowledge(editors: &EditorBarrier, barrier: &Value, instance: &str, ready: bool) {

@@ -11,6 +11,7 @@ const storage = (radioId: RadioID) => { const key = `xlog.station-session.${radi
   read: () => { try { return sessionStorage.getItem(key); } catch { return "unverified"; } },
   write: (id: string | null) => { if (id) sessionStorage.setItem(key, id); else sessionStorage.removeItem(key); },
 }; };
+export const manualTuneJournal = storage;
 
 /** One renderer intent journal; durable admission and deduplication are native. */
 export class ManualTuneSession {

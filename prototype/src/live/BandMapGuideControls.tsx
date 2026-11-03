@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { builtinGuides } from "./bandMapBuiltinGuides";
 import { emptyGuideDocument, parseGuide, readGuideDocument, type BandMapGuide, type GuideDocument, type GuideMarker } from "./bandMapGuides";
 import { workerRequest } from "../worker";
 import { checkedPreferenceReply, connectPreferenceInvalidation, type PreferenceSnapshot } from "./bandMapPreferenceTransport";
 import { isTauri } from "@tauri-apps/api/core";
 import { BandMapGuideEditor } from "./BandMapGuideEditor";
+import { createPortal } from "react-dom";
+import { guideTuneRecovery } from "./guideTuneSession";
 const requestViaSession = async (method: string, params: Record<string, unknown> = {}) => (await workerRequest(method, params)).result;
 
 export function useBandMapGuides(compact: boolean, enabled = true) {
@@ -28,6 +30,7 @@ export function useBandMapGuides(compact: boolean, enabled = true) {
     try {
       const text = JSON.stringify(next); readGuideDocument(text);
       const reply = checkedPreferenceReply(await requestViaSession("workspace_band_map_apply", { generation: base.generation, scope: compact ? "desk" : "detached", expected: { guidesJSON: base.preferences.bandMapGuidesJSON ?? "" }, patch: { guidesJSON: text } }));
+      operation.current++;
       setBase(reply);
       if (reply.status !== "applied") throw new Error("Guides changed in another window or workspace. Review the current values before saving again.");
       return true;
@@ -37,6 +40,7 @@ export function useBandMapGuides(compact: boolean, enabled = true) {
   return { document, save, error, ready: !!base && !busy };
 }
 export function BandMapGuideControls({ document, save, error, ready, compact }: ReturnType<typeof useBandMapGuides> & { compact: boolean }) {
+  const [open, setOpen] = useState(false);
   const scope = compact ? "desk" : "detached", selection = document[scope];
   const profiles = [...builtinGuides, ...document.custom], selected = profiles.find(g => g.id === selection.id);
   const [editing, setEditing] = useState<string | null>(null), [importText, setImportText] = useState(""), [preview, setPreview] = useState<BandMapGuide | null>(null), [localError, setLocalError] = useState("");
@@ -50,7 +54,8 @@ export function BandMapGuideControls({ document, save, error, ready, compact }: 
       setPreview(null); setEditing(null);
     } catch (cause) { setLocalError(String(cause)); }
   };
-  return <details className="band-map-guides"><summary>Guides · {selected?.name ?? "Original appearance"}</summary><div className="band-map-guide-options">
+  return <div className="band-map-guides"><button type="button" aria-expanded={open} onClick={() => setOpen(!open)}>Guides · {selected?.name ?? "Original appearance"}</button>{createPortal(<div className="band-map-guide-options" role="dialog" aria-label="Band-map guide settings" hidden={!open}>
+    <button type="button" onClick={() => setOpen(false)}>Close guide settings</button>
     <label>Visual guide<select disabled={!ready} value={selection.id} onChange={e => select({ id: e.target.value })}><option value="legacy">Original appearance</option>{profiles.map(g => <option key={g.id} value={g.id}>{g.name}{g.origin === "custom" ? " · custom" : ""}</option>)}</select></label>
     <label><input type="checkbox" disabled={!ready} checked={selection.visible} onChange={e => select({ visible: e.target.checked })} />Show guide</label>
     <label><input type="checkbox" disabled={!ready} checked={selection.beacons} onChange={e => select({ beacons: e.target.checked })} />IBP reference frequencies</label>
@@ -64,9 +69,11 @@ export function BandMapGuideControls({ document, save, error, ready, compact }: 
     <label>Or paste guide JSON<textarea aria-label="Import guide JSON" value={importText} onChange={e => setImportText(e.target.value)} rows={3} /></label><button type="button" disabled={!ready} onClick={() => { try { setPreview(parseGuide(importText)); setLocalError(""); } catch (cause) { setLocalError(String(cause)); } }}>Preview import</button>
     {preview && <div><strong>{preview.name}</strong><p>{preview.ranges.length} ranges · {preview.markers.length} markers · {preview.supportedBands.join(", ")}</p><button type="button" disabled={!ready} onClick={() => add(preview)}>Import as new copy</button>{document.custom.some(g => g.id === preview.id) && <button type="button" disabled={!ready} onClick={() => add(preview, true)}>Replace matching custom ID</button>}<button type="button" onClick={() => setPreview(null)}>Cancel import</button></div>}
     {(error || localError) && <p role="alert">{error || localError}</p>}
-  </div></details>;
+  </div>, window.document.body)}</div>;
 }
 export function GuideMarkerInspector({ marker, tune, close }: { marker: GuideMarker; tune?: (marker: GuideMarker) => Promise<unknown>; close: () => void }) {
   const [error, setError] = useState(""), [busy, setBusy] = useState(false);
-  return <div className="band-map-guide-inspector" role="group" aria-label="Guide marker details"><strong>{marker.label}</strong><span>{(marker.frequencyHz / 1e6).toFixed(6)} MHz · {marker.category} · {marker.mode ?? "keep current radio mode"}</span>{tune && <button type="button" disabled={busy} onClick={async () => { setBusy(true); try { await tune(marker); close(); } catch (cause) { setError(String(cause)); } finally { setBusy(false); } }}>Tune selected radio</button>}<button type="button" onClick={close}>Close marker</button>{error && <p role="alert">{error}</p>}</div>;
+  const recovery = useSyncExternalStore(guideTuneRecovery.subscribe, guideTuneRecovery.getSnapshot);
+  const recover = async (review: boolean) => { try { await (review ? guideTuneRecovery.review() : guideTuneRecovery.check()); setError(""); } catch (cause) { setError(String(cause)); } };
+  return createPortal(<div className="band-map-guide-inspector" role="group" aria-label="Guide marker details"><strong>{marker.label}</strong><span>{(marker.frequencyHz / 1e6).toFixed(6)} MHz · {marker.category} · {marker.mode ?? "keep current radio mode"}</span>{tune && <button type="button" disabled={busy || recovery.busy || !!recovery.pending} onClick={async () => { setBusy(true); try { await tune(marker); close(); } catch (cause) { setError(String(cause)); } finally { setBusy(false); } }}>Tune selected radio</button>}<button type="button" onClick={close}>Close marker</button>{recovery.pending && <><button type="button" disabled={recovery.busy} onClick={() => void recover(false)}>Check tune status</button>{recovery.reviewable && <button type="button" disabled={recovery.busy} onClick={() => void recover(true)}>Review unknown tune</button>}</>}{recovery.message && <p role="status">{recovery.message}</p>}{error && <p role="alert">{error}</p>}</div>, window.document.body);
 }

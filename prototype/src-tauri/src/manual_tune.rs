@@ -185,6 +185,22 @@ pub fn execute_guarded(
     app: &tauri::AppHandle, descriptor: &Value, request: Value, generation: u64,
     identity: &str, guard: impl Fn() -> Result<(), String>,
 ) -> Result<Value, String> {
+    execute_with_origin(app, descriptor, request, generation, identity, guard, false)
+}
+pub(crate) fn execute_guide_marker_guarded(
+    app: &tauri::AppHandle, descriptor: &Value, request: Value, generation: u64,
+    identity: &str, guard: impl Fn() -> Result<(), String>,
+) -> Result<Value, String> {
+    execute_with_origin(app, descriptor, request, generation, identity, guard, true)
+}
+fn operating_effects(marker: bool, revoke: impl FnOnce(), rotor_stop: impl FnOnce() -> Result<(), String>) -> Result<(), String> {
+    if !marker { revoke(); rotor_stop()?; }
+    Ok(())
+}
+fn execute_with_origin(
+    app: &tauri::AppHandle, descriptor: &Value, request: Value, generation: u64,
+    identity: &str, guard: impl Fn() -> Result<(), String>, marker: bool,
+) -> Result<Value, String> {
     let worker = descriptor["worker_generation"]
         .as_u64()
         .ok_or("Missing worker generation")?;
@@ -195,8 +211,7 @@ pub fn execute_guarded(
     let control = descriptor["control_revision"]
         .as_u64()
         .ok_or("Missing control epoch")?;
-    crate::radio_follow::revoke("Manual simplex tuning disabled Follow Radio.");
-    crate::rotor::stop_before_qsy()?;
+    operating_effects(marker, || crate::radio_follow::revoke("Manual simplex tuning disabled Follow Radio."), crate::rotor::stop_before_qsy)?;
     selection.manual_tune(
         request,
         generation,
@@ -227,6 +242,14 @@ pub fn execute_guarded(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn marker_origin_preserves_follow_and_sends_no_rotor_action() {
+        let follow = std::cell::Cell::new(0); let rotor = std::cell::Cell::new(0);
+        operating_effects(true, || follow.set(follow.get()+1), || { rotor.set(rotor.get()+1); Ok(()) }).unwrap();
+        assert_eq!(follow.get(),0); assert_eq!(rotor.get(),0);
+        operating_effects(false, || follow.set(follow.get()+1), || { rotor.set(rotor.get()+1); Ok(()) }).unwrap();
+        assert_eq!(follow.get(),1); assert_eq!(rotor.get(),1);
+    }
     fn descriptor(provider: &str) -> Value {
         json!({"provider":provider,"frequency_hz":14074000,"mode":"SSB","connection_generation":7,
         "control_revision":3,"worker_generation":1,"selection_id":"selection","selection_generation":2})

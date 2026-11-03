@@ -32,6 +32,7 @@ mod cw_tune;
 mod qsy_clear;
 mod radio_read;
 mod manual_tune;
+mod guide_marker_tune;
 mod tci_filter;
 mod radio_release;
 mod carrier_tune;
@@ -2693,6 +2694,12 @@ fn worker_request_admission_module(label: &str, request: &serde_json::Value) -> 
 }
 
 #[tauri::command]
+async fn band_map_marker_tune(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, params: serde_json::Value) -> Result<serde_json::Value,String> {
+    runtime_profile::require_external_io_disabled()?;
+    guide_marker_tune::execute(app,window.label().to_owned(),runtime_profile::isolated(state.path.is_some()),APP_EXITING.load(Ordering::Acquire),params).await
+}
+
+#[tauri::command]
 async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>, request: serde_json::Value) -> Result<serde_json::Value, String> {
     // Only typed integration operations cross this boundary; never shell commands.
     let mut request = request;
@@ -4703,7 +4710,7 @@ fn main() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![hide_prepared_contest_owner, close_learning_window, operating_module_status, operating_module_switch, operating_module_transition_ack, operating_module_transition_pending, worker_request, cw_session_request, contest_cw_speed_request, station_session_request, radio_release_request, carrier_tune_request, ptt_session_request, amplifier_transition_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
+        .invoke_handler(tauri::generate_handler![hide_prepared_contest_owner, close_learning_window, operating_module_status, operating_module_switch, operating_module_transition_ack, operating_module_transition_pending, worker_request, cw_session_request, contest_cw_speed_request, station_session_request, band_map_marker_tune, radio_release_request, carrier_tune_request, ptt_session_request, amplifier_transition_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
             spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
             spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity, supersede_spot_rotor, cw_callsign_request, cw_tune_request, cw_contest_callsign_resolve,
             operator_draft_read_radio,
