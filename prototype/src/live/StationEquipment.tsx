@@ -13,9 +13,14 @@ export function EquipmentSettings({ value, onChange }: { value: unknown; onChang
     </select></label>
     <p>Unconfigured rotators take no dashboard space. An owned rotor session keeps its controls visible until you disconnect it in Rotator settings.</p>
     <label>Antenna profile<select aria-label="Antenna profile" value={collection.selectedProfileID ?? ""} onChange={event => {
-      const p = collection.profiles.find(p => p.id === event.target.value)!;
+      const id = event.currentTarget.value;
+      if (!id) { onChange({ ...collection, selectedProfileID: null }); return; }
+      const p = collection.profiles.find(p => p.id === id && !p.archived);
+      if (!p) return;
       onChange({ ...collection, selectedProfileID: p.id, name: p.name, antenna: p.antennaType, bands: p.bands });
-    }}><option value="">No selected profile</option>{collection.profiles.filter(p => !p.archived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+    }}><option value="">No selected profile</option>
+      {collection.selectedProfileID && !selected && <option value={collection.selectedProfileID} disabled>Unavailable profile ({collection.selectedProfileID})</option>}
+      {collection.profiles.filter(p => !p.archived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
     <div className="service-actions"><button type="button" onClick={() => onChange({ ...collection, profiles: [...collection.profiles, { id: crypto.randomUUID(), name: "New antenna", antennaType: "vertical", bands: [], azimuthOffsetDegrees: 0, archived: false, revision: 0 }] })}>Add profile</button>
       <button type="button" disabled={!selected || collection.profiles.length >= 64} onClick={() => selected && onChange({ ...collection, profiles: [...collection.profiles, { ...selected, id: crypto.randomUUID(), name: selected.name + " copy", revision: 0 }] })}>Duplicate profile</button>
       <button type="button" disabled={!selected} onClick={() => selected && onChange({ ...collection, selectedProfileID: null, profiles: collection.profiles.map(p => p.id === selected.id ? { ...p, archived: true, revision: p.revision + 1 } : p) })}>Archive profile</button></div>
