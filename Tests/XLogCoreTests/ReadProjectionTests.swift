@@ -5,7 +5,7 @@ import Testing
 
 @Suite("Startup read projection")
 struct ReadProjectionTests {
-    private func sql(_ url: URL, _ query: String) throws -> String {
+    private func sql(_ url: URL, _ query: String, column: Int32 = 0, allRows: Bool = false) throws -> String {
         var db: OpaquePointer?
         guard sqlite3_open(url.path, &db) == SQLITE_OK else { throw LogbookDatabaseError.open("fixture") }
         defer { sqlite3_close(db) }
@@ -18,7 +18,14 @@ struct ReadProjectionTests {
         guard step == SQLITE_ROW || step == SQLITE_DONE else {
             throw LogbookDatabaseError.sqlite(String(cString: sqlite3_errmsg(db)))
         }
-        return step == SQLITE_ROW ? sqlite3_column_text(statement, 0).map { String(cString: $0) } ?? "NULL" : ""
+        guard step == SQLITE_ROW else { return "" }
+        var values = [sqlite3_column_text(statement, column).map { String(cString: $0) } ?? "NULL"]
+        if allRows {
+            while sqlite3_step(statement) == SQLITE_ROW {
+                values.append(sqlite3_column_text(statement, column).map { String(cString: $0) } ?? "NULL")
+            }
+        }
+        return values.joined(separator: "\n")
     }
 
     @Test("Upgrade preserves all authoritative bytes and revisions; reopen reuses the projection")
@@ -49,6 +56,36 @@ struct ReadProjectionTests {
         let reopened = try LogbookDatabase(url: url)
         defer { reopened.close() }
         #expect(try sql(url, "SELECT json_continent FROM xlog_qso_read_projection;") == "REOPEN-SENTINEL")
+        #expect(try reopened.currentRevision() == revision)
+    }
+
+    @Test("Live page index migrates without changing records, revisions or tied pagination")
+    func stableLivePageMigration() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appendingPathComponent("log.sqlite"), db = try LogbookDatabase(url: url)
+        let instant = Date(timeIntervalSince1970: 1_793_664_000)
+        for call in ["K1TIE", "K2TIE", "K3DELETED"] {
+            try db.save(QSO(call: call, start: instant, band: "20m", mode: "CW"))
+        }
+        _ = try sql(url, "UPDATE qsos SET deleted_at=1 WHERE call='K3DELETED';")
+        let expected = try db.fetch().map(\.id), revision = try db.currentRevision()
+        let bytes = try sql(url, "SELECT group_concat(hex(record_json)) FROM (SELECT record_json FROM qsos ORDER BY local_id);")
+        db.close()
+        _ = try sql(url, "DROP INDEX idx_qsos_live_order;")
+        let upgraded = try LogbookDatabase(url: url)
+        #expect(try upgraded.currentRevision() == revision)
+        #expect(try sql(url, "SELECT group_concat(hex(record_json)) FROM (SELECT record_json FROM qsos ORDER BY local_id);") == bytes)
+        #expect(try upgraded.count() == 2)
+        #expect(try upgraded.fetch(limit: 1).map(\.id) + upgraded.fetch(limit: 1, offset: 1).map(\.id) == expected)
+        #expect(expected == expected.sorted { $0.uuidString < $1.uuidString })
+        let plan = try sql(url, "EXPLAIN QUERY PLAN SELECT record_json FROM qsos WHERE deleted_at IS NULL ORDER BY qso_start DESC,local_id ASC LIMIT 20;", column: 3, allRows: true)
+        #expect(plan.contains("idx_qsos_live_order"))
+        #expect(!plan.contains("TEMP B-TREE"))
+        upgraded.close()
+        let reopened = try LogbookDatabase(url: url)
+        defer { reopened.close() }
+        #expect(try reopened.fetch().map(\.id) == expected)
         #expect(try reopened.currentRevision() == revision)
     }
 

@@ -4290,6 +4290,10 @@ public final class LogbookDatabase: @unchecked Sendable {
         CREATE INDEX IF NOT EXISTS idx_qsos_semantic
           ON qsos(call COLLATE NOCASE, band COLLATE NOCASE, mode COLLATE NOCASE, qso_start);
         CREATE INDEX IF NOT EXISTS idx_qsos_start ON qsos(qso_start DESC);
+        -- Match the stable live-page order. Otherwise SQLite may choose an
+        -- unrelated partial live index and sort the complete log for page one.
+        CREATE INDEX IF NOT EXISTS idx_qsos_live_order
+          ON qsos(qso_start DESC, local_id ASC) WHERE deleted_at IS NULL;
         CREATE INDEX IF NOT EXISTS idx_qsos_dirty ON qsos(is_dirty, updated_at);
         CREATE TABLE IF NOT EXISTS xlog_qso_revision(
           singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
