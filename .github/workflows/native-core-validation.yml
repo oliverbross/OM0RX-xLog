@@ -48,14 +48,8 @@ jobs:
           sha256sum tools/diagnostics/operator-draft-precision-phases.patch
           git apply --check tools/diagnostics/operator-draft-precision-phases.patch
           git apply tools/diagnostics/operator-draft-precision-phases.patch
-          sha256sum tools/diagnostics/operator-draft-replace-owner-phases.patch
-          git apply --check tools/diagnostics/operator-draft-replace-owner-phases.patch
-          git apply tools/diagnostics/operator-draft-replace-owner-phases.patch
-          sha256sum tools/diagnostics/operator-draft-read-inner-phases.patch
-          git apply --check tools/diagnostics/operator-draft-read-inner-phases.patch
-          git apply tools/diagnostics/operator-draft-read-inner-phases.patch
           git diff --check
-          test "$(git diff --name-only)" = $'Sources/XLogCore/LogbookDatabase.swift\nSources/XLogPrototypeSupport/LiveLogbookMethods.swift\nTests/XLogPrototypeTests/OperatorDraftReversalAcceptanceTests.swift'
+          test "$(git diff --name-only)" = 'Tests/XLogPrototypeTests/OperatorDraftReversalAcceptanceTests.swift'
       - name: Select macOS Swift toolchain
         if: runner.os == 'macOS'
         run: echo "DEVELOPER_DIR=/Applications/Xcode_16.2.app/Contents/Developer" >> "$GITHUB_ENV"

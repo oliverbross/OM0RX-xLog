@@ -796,7 +796,8 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
     }
 
     public func handle(method: String, params: [String: Any]) throws -> [String: Any] {
-        try lock.withLock {
+        if method == "logbook_operator_draft_apply" { return try handleOperatorDraftApply(params: params) }
+        return try lock.withLock {
             if method.hasPrefix("spot_draft_") { return try handleSpotDraft(method: method, params: params) }
             switch method {
             case "workspace_status":
@@ -1086,40 +1087,6 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                     throw WorkerFailure("draft_operation_reused", "This operation ID was already used for a different draft change.")
                 } catch OperatorDraftError.notInitialized {
                     throw WorkerFailure("draft_not_initialized", "Load the shared operator draft before reading into it.")
-                } catch OperatorDraftError.existingContact {
-                    throw WorkerFailure("draft_existing_contact", "This draft cannot replace an existing logged contact.")
-                } catch OperatorDraftError.invalid { throw invalid() }
-                catch OperatorDraftPowerError.invalid { throw invalid() }
-            case "logbook_operator_draft_apply":
-                try requireKeys(params, allowed: ["operationID", "draftID", "expectedRevision", "action", "qso", "generation", "powerIntent"],
-                                required: ["operationID", "draftID", "expectedRevision", "action", "generation"])
-                let generation = try editGeneration()
-                if try !matchesEditGeneration(params, generation) { return ["status": "workspace_changed", "generation": generation] }
-                _ = try integer(params, "expectedRevision", default: -1, range: 0...9_007_199_254_740_990)
-                guard JSONSerialization.isValidJSONObject(params),
-                      try JSONSerialization.data(withJSONObject: params).count <= 32_000 else { throw invalid() }
-                try validatePowerIntent(params)
-                let mutation: OperatorDraftMutation
-                do { mutation = try decode(params) } catch { throw invalid() }
-                guard try !readyDatabase().spotDraftActivationActive else {
-                    throw WorkerFailure("spot_activation_busy", "Wait for the current spot activation before changing this draft.")
-                }
-                do {
-                    let db = try readyDatabase()
-                    let mutation = try preservingOperatorDraftWireDates(mutation, database: db)
-                    let settings = try currentSettings()
-                    guard let workspaceID = UUID(uuidString: generation) else { throw invalid() }
-                    let receipt = try db.applyOperatorDraft(mutation, nextDraft: newOperatorDraft(settings: settings),
-                        powerConfiguration: (workspaceID, settings.automaticTransmitPower, settings.defaultPower))
-                    return ["status": "applied", "receipt": try scopedReceipt(receipt, field: "draft", generation: generation)]
-                } catch OperatorDraftError.conflict(let current) {
-                    // Explicit non-applied result gives the client an atomic
-                    // conflict snapshot without overwriting its pending text.
-                    return ["status": "conflict", "draft": try scopedSnapshot(current, generation: generation)]
-                } catch OperatorDraftError.operationReused {
-                    throw WorkerFailure("draft_operation_reused", "This operation ID was already used for a different draft change.")
-                } catch OperatorDraftError.notInitialized {
-                    throw WorkerFailure("draft_not_initialized", "Load the shared operator draft before changing it.")
                 } catch OperatorDraftError.existingContact {
                     throw WorkerFailure("draft_existing_contact", "This draft cannot replace an existing logged contact.")
                 } catch OperatorDraftError.invalid { throw invalid() }
@@ -1903,6 +1870,47 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
             default:
                 throw WorkerFailure("method_not_allowed", "Unknown live logbook method.")
             }
+        }
+    }
+
+    // Keep this transaction outside the broad dispatch closure's stack frame.
+    // It retains the same workspace lock and the existing worker admission.
+    @inline(never)
+    private func handleOperatorDraftApply(params: [String: Any]) throws -> [String: Any] {
+        try lock.withLock {
+            try requireKeys(params, allowed: ["operationID", "draftID", "expectedRevision", "action", "qso", "generation", "powerIntent"],
+                            required: ["operationID", "draftID", "expectedRevision", "action", "generation"])
+            let generation = try editGeneration()
+            if try !matchesEditGeneration(params, generation) { return ["status": "workspace_changed", "generation": generation] }
+            _ = try integer(params, "expectedRevision", default: -1, range: 0...9_007_199_254_740_990)
+            guard JSONSerialization.isValidJSONObject(params),
+                  try JSONSerialization.data(withJSONObject: params).count <= 32_000 else { throw invalid() }
+            try validatePowerIntent(params)
+            let mutation: OperatorDraftMutation
+            do { mutation = try decode(params) } catch { throw invalid() }
+            guard try !readyDatabase().spotDraftActivationActive else {
+                throw WorkerFailure("spot_activation_busy", "Wait for the current spot activation before changing this draft.")
+            }
+            do {
+                let db = try readyDatabase()
+                let mutation = try preservingOperatorDraftWireDates(mutation, database: db)
+                let settings = try currentSettings()
+                guard let workspaceID = UUID(uuidString: generation) else { throw invalid() }
+                let receipt = try db.applyOperatorDraft(mutation, nextDraft: newOperatorDraft(settings: settings),
+                    powerConfiguration: (workspaceID, settings.automaticTransmitPower, settings.defaultPower))
+                return ["status": "applied", "receipt": try scopedReceipt(receipt, field: "draft", generation: generation)]
+            } catch OperatorDraftError.conflict(let current) {
+                // Explicit non-applied result gives the client an atomic
+                // conflict snapshot without overwriting its pending text.
+                return ["status": "conflict", "draft": try scopedSnapshot(current, generation: generation)]
+            } catch OperatorDraftError.operationReused {
+                throw WorkerFailure("draft_operation_reused", "This operation ID was already used for a different draft change.")
+            } catch OperatorDraftError.notInitialized {
+                throw WorkerFailure("draft_not_initialized", "Load the shared operator draft before changing it.")
+            } catch OperatorDraftError.existingContact {
+                throw WorkerFailure("draft_existing_contact", "This draft cannot replace an existing logged contact.")
+            } catch OperatorDraftError.invalid { throw invalid() }
+            catch OperatorDraftPowerError.invalid { throw invalid() }
         }
     }
 

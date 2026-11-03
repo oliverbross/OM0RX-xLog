@@ -1272,6 +1272,30 @@ then reversed exactly. Native-exit observer SHA256
 `343c46369f88694351c20d27fd843faea7c977a7c0be6408d4d9a9462f7d3447`;
 inner-read patch `ed0b051c9075469a2a1aa36adf520b54be54688efbfebc802b92c410a5f25402`.
 
+Raw native diagnostic41663496679/job126012554585 established Windows
+`0xC00000FD` (stack overflow), signed exit-1073741571, PID2040. Both original
+Swift invocation and direct same-filter native invocation stopped at draft
+decode, after successful SQLite step/blob copy. The executable SHA256 remained
+`3bee279e8d23723630222445b613f9e61b1a44728834c04b52ccfdd407e0d682`;
+its PE reserve1048576/commit4096 were read without modification. Full output and
+receipt remain in `.build/qlog-followup-20261103/windows-native-direct-failure`.
+This is a separate debug native stack failure, not the retained signed-Mac
+first-execution issue. No signing cause, database corruption or lock defect is
+asserted.
+
+The existing draft-apply branch is now dispatched before the large switch
+closure into a private non-inlined same-owner helper. Its original body is
+verbatim apart from indentation and retains the same recursive workspace lock;
+worker admission/Save power drain, revision fences, canonical date handling,
+transactions and receipts are unchanged. No stack limit is raised. The exact
+candidate patch passed31focused methods across4draft/power suites locally
+(`f0af50d24e7bc15e`), including original reversal3methods/5cases. Local arm64
+debug fixed closure allocation falls from83200 to1952bytes; this is local frame
+evidence, not a Windows pass. Uninstrumented integrated gates must now verify
+the correction. Historical owner/read patches remain immutable evidence for
+their original source; the opt-in workflow uses only the still-applicable test
+observer after extraction. All affected native evidence must be refreshed.
+
 ## 9. Programme definition of done
 
 The selected programme is done when all of the following are true:
