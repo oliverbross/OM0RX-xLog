@@ -2,8 +2,13 @@
 
 Last updated: 2026-11-03 (selected QLog workflows)
 
-The nine selected enhancements are integrated at `73ad33edea5fe8c5897313e6a3089dab0c7eb8a1`.
-Version **1.5.3** is the integrated candidate in preparation; the installed application is unchanged.
+The nine selected enhancements are integrated; the signed **1.5.3** candidate was
+packaged from clean canonical source `310882024be2df056e8e254e03da205a27bae2c7`.
+Required CI, cross-platform source gates,100k correctness, signature/archive and
+representative isolated native upgrade/restart passed. The first signed-worker
+five-second gate remains failed at the sampled system-loader stage; warm9/9 is
+separate evidence. This is a reviewable candidate with that acceptance boundary,
+not a production installation or fully accepted release. Installed state is unchanged.
 Current scope, task states and actual validation live in the
 [single QLog implementation plan](docs/planning/OM0RX-xLog_QLog_Implementation_Plan_2026-11-03.md).
 [Candidate provenance](docs/releases/v1.5.3-macos-candidate.md) records the release boundary;

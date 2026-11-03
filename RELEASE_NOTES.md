@@ -10,6 +10,10 @@ Existing native draft, logbook, radio, preferences and backup owners retain auth
 Sponsor eligibility remains accurately bounded. Historical contacts are not retagged.
 The candidate indexes stable live-page ordering and restores scoped saved-filter reads in detached Logbook.
 Strict guide JSON validation also supports Foundation hosts without CoreFoundation.
+RBN map/sidebar/HF share ten-minute source-age expiry, including failed refreshes;
+human spot history remains separate. The signed1.5.3 ZIP from `31088202` passed
+required CI and representative isolated native upgrade/restart. Cold signed-worker
+five-second startup remains unqualified; no installation or notarization is claimed.
 See [candidate provenance, validation and remaining boundaries](docs/releases/v1.5.3-macos-candidate.md)
 and [operator controls and rollback](docs/help/qlog-selected-workflows.md).
 

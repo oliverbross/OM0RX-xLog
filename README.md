@@ -18,7 +18,9 @@ are integrated in the current React/Tauri application and shared native owners.
 See [operator controls and migration](docs/help/qlog-selected-workflows.md), the
 [single implementation/evidence tracker](docs/planning/OM0RX-xLog_QLog_Implementation_Plan_2026-11-03.md)
 and [exact-source candidate status](docs/releases/v1.5.3-macos-candidate.md).
-Candidate validation is in progress; this work has not replaced the installed application.
+The signed1.5.3 candidate passed required source gates and representative isolated
+native upgrade/restart; first signed-worker five-second startup remains unqualified.
+The installable ZIP is retained locally; this work has not replaced the installed application.
 Local progress is distinct from sponsor-issued award credit.
 
 ## Historical shared-app Mac integration — 1.0 beta

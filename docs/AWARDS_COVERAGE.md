@@ -11,7 +11,7 @@ The current Awards surface includes complete-log DXCC/WAZ/WAS/grid matrices and 
 | WAC | Six sponsor continents, Mixed/CW/Phone and band detail; paper versus LoTW evidence; exact contacts | Society/card-check and operation eligibility; ARRL form excludes LoTW-only evidence |
 | WPX | Prefix normalization including published special-call exceptions, basic targets, band targets and exact prefix evidence | Dated authorization, full-rule exceptions, continent endorsements, Honor Roll/Excellence and issued credit |
 | IOTA | Distinct recorded groups, directory match state, HF versus VHF/UHF and mode analytics | Accepted activation/matching and official credit; unrecognized directory references remain marked unverified |
-| POTA | Separate hunter/activator sets, physical-QSO and UTC-day summaries, local 10-QSO candidate threshold | Boundary/operation eligibility, portal acceptance and certificate tiers |
+| POTA | Separate hunter/activator sets, physical-QSO and UTC-day summaries, exact supporting rows; programme duplicate/eligibility checks are not applied | Boundary/operation eligibility, portal acceptance and certificate tiers |
 | SOTA | Separate chased/activated sets; dated chaser base estimates once per summit/UTC day with complete summit/association data | Expedition validity, activator seasonal/annual qualification and sponsor points; unavailable inputs yield unavailable points |
 | WWFF | Separate hunter/activator sets and supporting contact/day summaries | National rules and official LogSearch credits; generic QSL flags do not establish credit |
 
