@@ -107,7 +107,7 @@ public struct LocalAwardSnapshot: Equatable, Sendable {
 
 public enum LocalAwardEngine {
     public static let programmes = ["dxcc", "waz", "was", "grid", "wac", "wpx", "iota", "pota", "sota", "wwff"]
-    public static let rulesVersion = "local-progress-2026-11-03-v2"
+    public static let rulesVersion = "local-progress-2026-11-04-v3"
     private static let wacContinents = Set(["AF", "AS", "EU", "NA", "OC", "SA"])
     private static let hfBands = Set(["160m","80m","60m","40m","30m","20m","17m","15m","12m","10m"])
     private static let wasStates=Set("AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY".split(separator:" ").map(String.init))
@@ -256,7 +256,8 @@ public enum LocalAwardEngine {
         else if !q.start.timeIntervalSince1970.isFinite { issue="UTC date missing/invalid" }
         else if floor(q.start.timeIntervalSince1970/86400) > floor(now.timeIntervalSince1970/86400) { issue="Future UTC date is excluded";invalid=true }
         else if q.propagationMode?.uppercased() == "RPT" { issue="Recorded terrestrial repeater contact is excluded";invalid=true }
-        else if !POTAExportPreview.validCountingBand(q.band) || !POTAExportPreview.validCountingMode(interchange.mode,submode:interchange.submode) { issue="Band/mode counting evidence missing or unsupported" }
+        else if !POTAExportPreview.validCountingBand(q.band) { issue="Band/mode counting evidence missing or unsupported" }
+        else if let modeIssue=POTAExportPreview.countingModeIssue(interchange.mode,submode:interchange.submode) { issue=modeIssue }
         else if !state.isEmpty && state.range(of:"^[A-Z0-9-]{1,16}$",options:.regularExpression) == nil { issue="Recorded subdivision is invalid" }
         else if !raw.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty && POTAExportPreview.referenceTokens(raw).contains(where:{!POTAExportPreview.validPark($0)}) { issue="Contacted park reference is invalid" }
         else if POTAExportPreview.referenceTokens(q.ownPOTARaw).contains(where:{!POTAExportPreview.validPark($0)}) { issue="Own park reference is invalid" }

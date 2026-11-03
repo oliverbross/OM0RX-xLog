@@ -29,11 +29,12 @@ public struct POTAExportFile: Codable, Equatable, Sendable {
     public let text: String
 }
 public struct POTAExportPreview: Codable, Equatable, Sendable {
-    public static let rulesVersion = "POTA rules 1.3 (2026-08-18); xLog exporter 1"
+    public static let rulesVersion = "POTA rules 1.3 (2026-08-18); xLog exporter 2; ADIF 3.1.8 modes"
     public static let sourceURLs = ["https://docs.pota.app/docs/rules.html",
         "https://docs.pota.app/docs/activator_reference/ADIF_for_POTA_reference.html",
         "https://docs.pota.app/docs/activator_reference/submitting_logs.html",
-        "https://docs.pota.app/docs/activator_reference/park_2_park.html"]
+        "https://docs.pota.app/docs/activator_reference/park_2_park.html",
+        "https://adif.org.uk/318/ADIF_318.htm#Submode_Enumeration"]
     public let version: Int
     public let rulesVersion: String
     public let sourceURLs: [String]
@@ -111,11 +112,58 @@ public struct POTAExportPreview: Codable, Equatable, Sendable {
     // Same retained ADIF 3.1.8 root modes/bands used by adifTransfer.ts. Local
     // convenience modes are projected by QSO.adifRecord before this boundary.
     private static let modeValues = Set("AM ARDOP ATV CHIP CLO CONTESTI CW DIGITALVOICE DOMINO DYNAMIC FAX FM FSK441 FSK FT8 HELL ISCAT JT4 JT6M JT9 JT44 JT65 MFSK MSK144 MTONE MT63 OFDM OLIVIA OPERA PAC PAX PKT PSK PSK2K Q15 QRA64 ROS RTTY RTTYM SSB SSTV T10 THOR THRB TOR V4 VOI WINMOR WSPR".split(separator: " ").map(String.init))
+    // Released ADIF 3.1.8 (2026-10-12), Submode Enumeration, reviewed 2026-11-04.
+    // https://adif.org.uk/318/ADIF_318.htm#Submode_Enumeration
+    // 188 enumerated submodes / 26 parents. Delimit with |: spaces and / are
+    // meaningful in values such as JT9E FAST and OLIVIA 4/125. This is POTA
+    // validation only; general ADIF import/export still preserves unknown fields.
+    private static let submodeParents: [String:String] = {
+        let groups = [
+            "CHIP": "CHIP64|CHIP128",
+            "CW": "PCW",
+            "DIGITALVOICE": "C4FM|DMR|DSTAR|FREEDV|M17",
+            "DOMINO": "DOM-M|DOM4|DOM5|DOM8|DOM11|DOM16|DOM22|DOM44|DOM88|DOMINOEX|DOMINOF",
+            "DYNAMIC": "FREEDATA|VARA HF|VARA SATELLITE|VARA FM 1200|VARA FM 9600",
+            "FSK": "SCAMP_FAST|SCAMP_SLOW|SCAMP_VSLOW",
+            "HELL": "FMHELL|FSKH105|FSKH245|FSKHELL|HELL80|HELLX5|HELLX9|HFSK|PSKHELL|SLOWHELL",
+            "ISCAT": "ISCAT-A|ISCAT-B",
+            "JT4": "JT4A|JT4B|JT4C|JT4D|JT4E|JT4F|JT4G",
+            "JT65": "JT65A|JT65B|JT65B2|JT65C|JT65C2",
+            "JT9": "JT9-1|JT9-2|JT9-5|JT9-10|JT9-30|JT9A|JT9B|JT9C|JT9D|JT9E|JT9E FAST|JT9F|JT9F FAST|JT9G|JT9G FAST|JT9H|JT9H FAST",
+            "MFSK": "FSQCALL|FST4|FST4W|FT2|FT4|JS8|JTMS|JTTY|MFSK4|MFSK8|MFSK11|MFSK16|MFSK22|MFSK31|MFSK32|MFSK64|MFSK64L|MFSK128|MFSK128L|Q65",
+            "MTONE": "SCAMP_OO|SCAMP_OO_SLW",
+            "OFDM": "RIBBIT_PIX|RIBBIT_SMS",
+            "OLIVIA": "OLIVIA 4/125|OLIVIA 4/250|OLIVIA 8/250|OLIVIA 8/500|OLIVIA 16/500|OLIVIA 16/1000|OLIVIA 32/1000",
+            "OPERA": "OPERA-BEACON|OPERA-QSO",
+            "PAC": "PAC2|PAC3|PAC4",
+            "PAX": "PAX2",
+            "PSK": "8PSK125|8PSK125F|8PSK125FL|8PSK250|8PSK250F|8PSK250FL|8PSK500|8PSK500F|8PSK1000|8PSK1000F|8PSK1200F|FSK31|PSK10|PSK31|PSK63|PSK63F|PSK63RC10|PSK63RC20|PSK63RC32|PSK63RC4|PSK63RC5|PSK125|PSK125RC10|PSK125RC12|PSK125RC16|PSK125RC4|PSK125RC5|PSK250|PSK250RC2|PSK250RC3|PSK250RC5|PSK250RC6|PSK250RC7|PSK500|PSK500RC2|PSK500RC3|PSK500RC4|PSK800RC2|PSK1000|PSK1000RC2|PSKAM10|PSKAM31|PSKAM50|PSKFEC31|QPSK31|QPSK63|QPSK125|QPSK250|QPSK500|SIM31",
+            "QRA64": "QRA64A|QRA64B|QRA64C|QRA64D|QRA64E",
+            "ROS": "ROS-EME|ROS-HF|ROS-MF",
+            "RTTY": "ASCI",
+            "SSB": "LSB|USB",
+            "THOR": "THOR-M|THOR4|THOR5|THOR8|THOR11|THOR16|THOR22|THOR25X4|THOR50X1|THOR50X2|THOR100",
+            "THRB": "THRBX|THRBX1|THRBX2|THRBX4|THROB1|THROB2|THROB4",
+            "TOR": "AMTORFEC|GTOR|NAVTEX|SITORB"
+        ]
+        return Dictionary(uniqueKeysWithValues: groups.flatMap { parent, values in
+            values.split(separator:"|").map { (String($0),parent) }
+        })
+    }()
     private static let bandValues = Set("2190M 630M 560M 160M 80M 60M 40M 30M 20M 17M 15M 12M 10M 8M 6M 5M 4M 2M 1.25M 70CM 33CM 23CM 13CM 9CM 6CM 3CM 1.25CM 6MM 4MM 2.5MM 2MM 1MM SUBMM".split(separator: " ").map(String.init))
     static func validCountingBand(_ value:String) -> Bool { bandValues.contains(value.uppercased()) }
     static func effectiveStation(station:String,operatorCall:String) -> String { station.isEmpty ? operatorCall : station }
     static func validCountingMode(_ mode:String,submode:String) -> Bool {
-        modeValues.contains(mode.uppercased()) && (submode.isEmpty || submode.range(of:"^[A-Za-z0-9_+-]{1,16}$",options:.regularExpression) != nil)
+        countingModeIssue(mode,submode:submode) == nil
+    }
+    /// Call after QSO.interchangeMode, shared by local counting and export.
+    /// Comparison is case-insensitive; neither stored nor projected values change.
+    static func countingModeIssue(_ mode:String,submode:String) -> String? {
+        guard modeValues.contains(mode.uppercased()) else { return "Missing or unsupported ADIF 3.1.8 MODE '\(mode.prefix(32))'" }
+        guard !submode.isEmpty else { return nil }
+        guard let parent=submodeParents[submode.uppercased()] else { return "Unsupported ADIF 3.1.8 SUBMODE '\(submode.prefix(32))'" }
+        guard parent == mode.uppercased() else { return "ADIF 3.1.8 SUBMODE '\(submode.prefix(32))' requires MODE \(parent), not '\(mode.prefix(32))'" }
+        return nil
     }
     /// Native entry point. Check the prospective cross-product before retaining
     /// expanded dictionaries or serializing files. It never clips a population.
@@ -185,7 +233,8 @@ public struct POTAExportPreview: Codable, Equatable, Sendable {
             if (record["QSO_DATE"] ?? "") > today { missing.append("future UTC date") }
             else if qso.start > now { futureTimes += 1 }
             if !Self.validCountingBand(record["BAND"] ?? "") { missing.append("transmit band") }
-            if !Self.validCountingMode(record["MODE"] ?? "",submode:record["SUBMODE"] ?? "") || record["SUBMODE"] == "" { missing.append("mode/submode") }
+            if let issue=Self.countingModeIssue(record["MODE"] ?? "",submode:record["SUBMODE"] ?? "") { missing.append(issue) }
+            else if record["SUBMODE"] == "" { missing.append("empty SUBMODE field") }
             if let issue = ADIFImportPreview(text: record.adifDocument).issues.first { missing.append("ADIF serialization: " + issue.message) }
             if parks.isEmpty || !parks.allSatisfy(Self.validPark) { missing.append("own POTA park") }
             if !contacted.allSatisfy(Self.validPark) { missing.append("contacted POTA park") }

@@ -67,6 +67,34 @@ struct POTAExportTests {
         #expect(ft4.issues.isEmpty)
         #expect(ADIFParser().records(in: ft4.files[0].text).first?["SUBMODE"] == "FT4")
     }
+    @Test(arguments: [
+        ("CW", "", true), ("SSB", "", true), ("SSB", "USB", true),
+        ("FT4", "", true), ("MFSK", "FT4", true), ("PSK31", "", true),
+        ("C4FM", "", true), ("DSTAR", "", true),
+        ("JT9", "JT9E FAST", true), ("jt9", "jt9e fast", true),
+        ("CW", "BOGUS", false), ("CW", "FT4", false), ("JT9", "JT9E_FAST", false)
+    ]) func modeAndSubmodeValidationAgreesWithCounting(mode:String,submode:String,supported:Bool) throws {
+        var qso=contact();qso.mode=mode;qso.submode=submode
+        let before=qso
+        let snapshot=ADIFExportSnapshot(contacts:[qso],scope:.all)
+        let record=try #require(snapshot.records.first)
+        let preview=POTAExportPreview(snapshot:snapshot,now:now)
+        #expect(POTAExportPreview.validCountingMode(record["MODE"] ?? "",submode:record["SUBMODE"] ?? "") == supported)
+        #expect((preview.includedContacts == 1) == supported)
+        if supported {
+            #expect(preview.issues.isEmpty)
+            #expect(preview.derivedRecords == 6)
+            let exported=try #require(preview.files.first.flatMap{ADIFParser().records(in:$0.text).first})
+            #expect(exported["MODE"] == record["MODE"])
+            #expect(exported["SUBMODE"] == record["SUBMODE"])
+        } else {
+            #expect(preview.files.isEmpty)
+            #expect(preview.issues.first?.message.contains(submode) == true)
+            #expect(preview.issues.first?.message.contains("ADIF 3.1.8") == true)
+        }
+        #expect(snapshot.records == [qso.adifRecord])
+        #expect(qso == before)
+    }
     @Test func qualifiedReferencesPartitionWithoutRewritingOrDuplicatingParks() {
         var michigan = contact(); michigan.extraFields.removeValue(forKey: "MY_STATE")
         michigan.extraFields["MY_POTA_REF"] = "US-0001,US-0001@US-MI,US-0001@US-MI"

@@ -106,6 +106,41 @@ struct LocalAwardProgressTests {
         #expect(below["thresholdReached"] as? Bool == false)
         #expect(below["candidateStatus"] as? String == "incomplete")
     }
+    @Test func potaUnsupportedSubmodeCannotCompleteActivation() throws {
+        var rows=potaRows(10)
+        rows[9].submode="BOGUS" // Otherwise valid, including the supported CW parent.
+        let before=rows
+        let day=try #require(potaDays(rows).first)
+        #expect(day["physicalRows"] as? Int == 10)
+        #expect(day["countableContacts"] as? Int == 9)
+        #expect(day["programmeLogRecords"] as? Int == 9)
+        #expect(day["duplicateProgrammeRecords"] as? Int == 0)
+        #expect(day["unknownEligibilityRows"] as? Int == 1)
+        #expect(day["thresholdReached"] as? Bool == false)
+        #expect(day["candidateStatus"] as? String == "incomplete")
+        #expect((day["reasons"] as? [String])?.contains(where:{$0.contains("BOGUS") && $0.contains("ADIF 3.1.8")}) == true)
+        let result=try LocalAwardEngine.compute(contacts:rows.map(AwardEvidenceContact.init),programme:"pota")
+        let retained=try #require(result.units.flatMap(\.evidence).first(where:{$0.id==rows[9].id}))
+        #expect(retained.mode == "BOGUS")
+        #expect(retained.pota?.issue?.contains("BOGUS") == true)
+        #expect(rows == before)
+    }
+    @Test func potaSupportedModeMinimumSurvivesAdditionalUnknownSubmode() throws {
+        var rows=potaRows(11)
+        rows[1].mode="SSB"
+        rows[2].mode="FT4"
+        rows[3].mode="MFSK";rows[3].submode="FT4"
+        rows[4].mode="JT9";rows[4].submode="JT9E FAST"
+        rows[10].submode="BOGUS"
+        let day=try #require(potaDays(rows).first)
+        #expect(day["physicalRows"] as? Int == 11)
+        #expect(day["countableContacts"] as? Int == 10)
+        #expect(day["programmeLogRecords"] as? Int == 10)
+        #expect(day["unknownEligibilityRows"] as? Int == 1)
+        #expect(day["thresholdReached"] as? Bool == true)
+        #expect(day["candidateStatus"] as? String == "local candidate")
+        #expect((day["reasons"] as? [String])?.contains(where:{$0.contains("BOGUS")}) == true)
+    }
     @Test func potaOperatorOnlyUsesRecordedIdentityWithoutChangingIOTA() throws {
         var rows=potaRows(10)
         for i in rows.indices {

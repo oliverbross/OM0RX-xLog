@@ -207,6 +207,56 @@ final class LiveLogbookAggregateReadsTests: XCTestCase {
         XCTAssertEqual(gate.count(.localAwards),2,"Changing the frozen POTA date requires a new counting snapshot.")
     }
 
+    func testPOTAWireRejectsUnknownSubmodeWithoutChangingStoredEvidence() async throws {
+        let gate=Gate([]),f=try fixture(gate)
+        let reference=try f.service.referenceDirectoryURL().appendingPathComponent("pota-parks.csv")
+        try Data("reference,name,locationDesc,active\nSK-0001,Synthetic park,SK-BL,1\n".utf8).write(to:reference)
+        let day=try XCTUnwrap(LogbookQuery.absoluteUTCDate("2026-11-02T12:00:00Z"))
+        var contacts=(0..<11).map { index in
+            QSO(call:"K\(index+1)SYN",start:day.addingTimeInterval(Double(index)*60),band:"20m",mode:"CW",
+                myCall:"OM0RX/P",myGrid:"JN98",extraFields:["MY_DXCC":"504","MY_STATE":"SK-BL","MY_POTA_REF":"SK-0001"])
+        }
+        contacts[1].mode="SSB"
+        contacts[2].mode="FT4"
+        contacts[3].mode="MFSK";contacts[3].submode="FT4"
+        contacts[4].mode="JT9";contacts[4].submode="JT9E FAST"
+        contacts[9].submode="BOGUS"
+        let db=try f.service.openedDatabase()
+        for contact in contacts.prefix(10) { try db.save(contact) }
+        let before=try db.fetchAll()
+        let params:[String:Any]=["programme":"pota","role":"activator","unit":"SK-0001","unit_role":"activator",
+            "reference_time":"2026-11-03T00:00:00Z","expected_generation":f.generation]
+        let result=try await success(call(f.worker,"logbook_award_progress",params))
+        let candidate=try XCTUnwrap((result["activationCandidates"] as? [[String:Any]])?.first)
+        XCTAssertEqual(candidate["physicalRows"] as? Int,10)
+        XCTAssertEqual(candidate["countableContacts"] as? Int,9)
+        XCTAssertEqual(candidate["programmeLogRecords"] as? Int,9)
+        XCTAssertEqual(candidate["unknownEligibilityRows"] as? Int,1)
+        XCTAssertEqual(candidate["thresholdReached"] as? Bool,false)
+        XCTAssertEqual(candidate["candidateStatus"] as? String,"incomplete")
+        XCTAssertTrue((candidate["reasons"] as? [String] ?? []).contains{$0.contains("BOGUS") && $0.contains("ADIF 3.1.8")})
+        let begin=try await success(call(f.worker,"logbook_export_adif",["action":"begin","scope":"selected","ids":contacts.prefix(10).map{$0.id.uuidString}]))
+        let token=try XCTUnwrap(begin["token"] as? String)
+        let response=try await success(call(f.worker,"logbook_export_adif",["action":"pota_preview","token":token]))
+        let preview=try XCTUnwrap(response["preview"] as? [String:Any])
+        XCTAssertEqual(preview["physicalContacts"] as? Int,10)
+        XCTAssertEqual(preview["includedContacts"] as? Int,9)
+        XCTAssertEqual(preview["derivedRecords"] as? Int,9)
+        let issue=try XCTUnwrap((preview["issues"] as? [[String:Any]])?.first)
+        XCTAssertEqual((issue["contactID"] as? String)?.uppercased(),contacts[9].id.uuidString.uppercased())
+        XCTAssertTrue((issue["message"] as? String ?? "").contains("BOGUS"))
+        XCTAssertEqual(try db.fetchAll(),before)
+        XCTAssertEqual(try db.lookup(localID:contacts[9].id)?.submode,"BOGUS")
+        try db.save(contacts[10])
+        let reached=try await success(call(f.worker,"logbook_award_progress",params))
+        let known=try XCTUnwrap((reached["activationCandidates"] as? [[String:Any]])?.first)
+        XCTAssertEqual(known["physicalRows"] as? Int,11)
+        XCTAssertEqual(known["countableContacts"] as? Int,10)
+        XCTAssertEqual(known["unknownEligibilityRows"] as? Int,1)
+        XCTAssertEqual(known["thresholdReached"] as? Bool,true)
+        XCTAssertEqual(known["candidateStatus"] as? String,"local candidate")
+    }
+
     func testNonrelativeDXCCWireKeepsStableWarmCacheAcrossReferenceTimes() async throws {
         let gate=Gate([]),f=try fixture(gate)
         let first:[String:Any]=["programme":"dxcc","reference_time":"2026-11-03T00:00:00Z","expected_generation":f.generation]
