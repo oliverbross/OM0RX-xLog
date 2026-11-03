@@ -1,3 +1,4 @@
+from contextlib import closing
 import hashlib
 import json
 from pathlib import Path
@@ -135,7 +136,7 @@ class StoreCatalogSeedTests(unittest.TestCase):
         self.assertEqual(failed.conn.execute("PRAGMA integrity_check").fetchone()["integrity_check"], "ok")
         # A second real connection can acquire a write transaction: rollback
         # released the failed initialization lock without closing the first one.
-        with real_connect(self.path, timeout=0) as probe:
+        with closing(real_connect(self.path, timeout=0)) as probe:
             probe.execute("BEGIN IMMEDIATE")
             probe.rollback()
         failed.close()

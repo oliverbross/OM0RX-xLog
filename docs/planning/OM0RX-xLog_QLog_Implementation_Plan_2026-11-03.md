@@ -1186,6 +1186,25 @@ the existing all-platform beta gate. The diagnostic patch is rebased around the
 actual adapter (SHA256`1ed0ea04486dd642374be30aecbca7dc933cb59d43e67db8a4e694f61f4b472d`),
 with two copied-owner fixtures verifying21phases and unchanged adapter AST. It
 does not replace or bypass the fix. Final affected platform gates follow.
+Post-fix Windows diagnostic41645798303 passed9/9 selected cases;91filtered cases
+are not executed passes. Seed time fell from5631.149–6388.197ms to34.886–80.304ms;
+complete selected cases took1917–2674ms with the same15000msdeadline. Raw before/
+after summaries are in`.build/qlog-followup-20261103/windows-seed-before-after.json`.
+This validates the measured Windows seed improvement, not the separate signed
+Mac worker's controlled cold-start criterion.
+
+The new atomic regression gate in Windows job125950625130 failed in fixture
+tearDown: its lock-release probe used SQLite's transaction context manager,
+which does not close the connection, so Windows correctly refused to remove the
+still-open private database. No catalog, rollback or durability assertion failed;
+the cleanup error remains a failed test result, not a pass. The probe now uses
+`contextlib.closing` and retains strict cleanup/all assertions. Pinned3.12.4
+`PYTHONPATH=python /opt/local/bin/python3.12 -m unittest discover -s python/tests
+-p test_store_catalog_seed.py -v` passed3 in0.125s after the correction. The
+product Store and other application sources remain byte-identical to924c73e1.
+Repeat the affected full Windows gate; retain in-flight Mac/Linux and contest
+results only with exact source-input comparison, rather than rebuilding them
+for a test connection-close correction. Packaging remains unminted pending gates.
 
 ## 9. Programme definition of done
 
