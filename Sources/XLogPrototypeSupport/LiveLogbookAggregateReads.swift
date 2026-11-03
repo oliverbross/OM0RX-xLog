@@ -113,6 +113,7 @@ actor LiveLogbookAggregateReads {
     private let exportQueue = DispatchQueue(label: "xlog.logbook-export", qos: .utility)
     private let localAwardsQueue = DispatchQueue(label: "xlog.logbook-local-awards", qos: .utility)
     private let evaluate: LiveLogbookAggregateEvaluator
+    private let beforeExportPreparation: (@Sendable () -> Void)?
     private var epoch = UUID()
     private var suspended = 0
     private var terminal = false
@@ -124,8 +125,10 @@ actor LiveLogbookAggregateReads {
     private var cached: [LogbookAggregateKind: Cached] = [:]
 
     init(service: LiveLogbookMethods,
-         evaluate: @escaping LiveLogbookAggregateEvaluator = { try $0.evaluate(cancellation: $1) }) {
+         evaluate: @escaping LiveLogbookAggregateEvaluator = { try $0.evaluate(cancellation: $1) },
+         beforeExportPreparation: (@Sendable () -> Void)? = nil) {
         self.service = service; self.evaluate = evaluate
+        self.beforeExportPreparation = beforeExportPreparation
     }
 
     func handle(method: String, params: [String: Any]) async throws -> LiveLogbookAggregateReply {
@@ -142,8 +145,9 @@ actor LiveLogbookAggregateReads {
                 let key = Key(epoch: epoch, database: ObjectIdentifier(owner.database), generation: owner.generation,
                               authority: owner.authority, request: request)
                 if let value = cached[query.kind], value.key == key {
-                    await preparePresentation(value.result, query: query)
-                    return LiveLogbookAggregateReply(payload: try service.renderAggregate(value.result, owner: owner, query: query), owner: owner)
+                    let preparedExport = await preparePresentation(value.result, query: query)
+                    try requireActivePresentation(key.epoch)
+                    return LiveLogbookAggregateReply(payload: try service.renderAggregate(value.result, owner: owner, query: query, preparedExport:preparedExport), owner: owner)
                 }
 
                 let flight: Flight
@@ -181,8 +185,9 @@ actor LiveLogbookAggregateReads {
                     continue
                 }
                 let result = try completion.get()
-                await preparePresentation(result, query: query)
-                return LiveLogbookAggregateReply(payload: try service.renderAggregate(result, owner: owner, query: query), owner: owner)
+                let preparedExport = await preparePresentation(result, query: query)
+                try requireActivePresentation(key.epoch)
+                return LiveLogbookAggregateReply(payload: try service.renderAggregate(result, owner: owner, query: query, preparedExport:preparedExport), owner: owner)
             } catch {
                 guard let change = change(error) else { throw error }
                 // Churn is bounded and demand-driven. Never publish the earlier
@@ -244,14 +249,29 @@ actor LiveLogbookAggregateReads {
         return completion
     }
 
-    private func preparePresentation(_ result: LogbookAggregateResult, query: LiveLogbookAggregateQuery) async {
-        guard case .localAwards(let value)=result.value else { return }
+    private func requireActivePresentation(_ expectedEpoch: UUID) throws {
+        guard !terminal else { throw WorkerFailure("worker_stopping", "The worker is shutting down.") }
+        guard suspended == 0, epoch == expectedEpoch else { throw LiveLogbookAggregateChange.retired.failure }
+    }
+
+    private func preparePresentation(_ result: LogbookAggregateResult, query: LiveLogbookAggregateQuery) async -> ADIFExportSnapshot? {
+        if query.kind == .exportContacts, case .contacts(let value) = result.value {
+            let before = beforeExportPreparation
+            return await withCheckedContinuation { continuation in
+                exportQueue.async {
+                    before?()
+                    continuation.resume(returning: ADIFExportSnapshot(contacts:value.contacts,scope:.all))
+                }
+            }
+        }
+        guard case .localAwards(let value)=result.value else { return nil }
         await withCheckedContinuation { continuation in
             localAwardsQueue.async {
                 value.preparePresentation(scope:query.stationScope,band:query.band,mode:query.mode,role:query.role)
                 continuation.resume()
             }
         }
+        return nil
     }
 
     private func change(_ error: Error) -> LiveLogbookAggregateChange? {

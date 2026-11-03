@@ -8,6 +8,17 @@ import XCTest
 #endif
 
 final class LiveLogbookAggregateReadsTests: XCTestCase {
+    private final class ExportGate: @unchecked Sendable {
+        private let condition=NSCondition()
+        private var started=false, released=false
+        var entered: Bool { condition.withLock { started } }
+        func hold() {
+            condition.lock();started=true
+            while !released { condition.wait() }
+            condition.unlock()
+        }
+        func release() { condition.lock();released=true;condition.broadcast();condition.unlock() }
+    }
     private final class Gate: @unchecked Sendable {
         private let condition = NSCondition()
         private let heldKinds: Set<LogbookAggregateKind>
@@ -56,7 +67,7 @@ final class LiveLogbookAggregateReadsTests: XCTestCase {
         let generation: String
     }
 
-    private func fixture(_ gate: Gate) throws -> Fixture {
+    private func fixture(_ gate: Gate, exportGate: ExportGate? = nil) throws -> Fixture {
         let temporary = URL(fileURLWithPath: try AppRuntimeProfile.canonicalFilesystemPath(FileManager.default.temporaryDirectory), isDirectory: true)
         let root = temporary.appendingPathComponent("xlog-aggregate-owner-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false, attributes: LocalFilePermissions.directoryAttributes)
@@ -74,7 +85,8 @@ final class LiveLogbookAggregateReadsTests: XCTestCase {
             band: "20m", mode: "CW", dxcc: 339, state: "01", county: "0102", qslReceived: "Y"))
         let generation = try XCTUnwrap(service.handle(method: "workspace_status", params: [:])["generation"] as? String)
         let worker = LiveWorker(logbook: service, runtimeProfile: profile,
-            aggregateEvaluator: { try gate.evaluate($0, $1) })
+            aggregateEvaluator: { try gate.evaluate($0, $1) },
+            beforeAggregateExportPreparation: { exportGate?.hold() })
         addTeardownBlock { gate.release(); _ = await worker.shutdown() }
         return Fixture(service: service, worker: worker, root: root, generation: generation)
     }
@@ -177,6 +189,55 @@ final class LiveLogbookAggregateReadsTests: XCTestCase {
         let progress = try await success(catalogue)
         XCTAssertEqual(progress["logbook_revision"] as? Int64, try f.service.openedDatabase().currentRevision())
         XCTAssertEqual(gate.count(.catalogue), 2, "The cancelled old revision must be retried once for current demand.")
+    }
+
+    func testHeldExportConversionLeavesForegroundUsableAndRevalidatesBeforeTokenAdmission() async throws {
+        let gate=Gate(), conversion=ExportGate(), f=try fixture(gate,exportGate:conversion)
+        defer { conversion.release();gate.release() }
+        let export=try call(f.worker,"logbook_export_adif",["action":"begin","scope":"all","expected_generation":f.generation])
+        let entered=try await waitUntil { conversion.entered || export.reply.finished }
+        XCTAssertTrue(entered)
+        XCTAssertTrue(conversion.entered)
+        XCTAssertFalse(export.reply.finished)
+        let save=try call(f.worker,"logbook_save",["qso":wireQSO()])
+        let settings=try call(f.worker,"settings_load"),draft=try call(f.worker,"logbook_operator_draft")
+        let status=try call(f.worker,"workspace_status")
+        let finished=try await waitUntil { [save,settings,draft,status].allSatisfy{$0.reply.finished} }
+        if !finished { conversion.release() }
+        XCTAssertTrue(finished,"Frozen ADIF conversion held the shared draft/settings lock.")
+        for request in [save,settings,draft,status] { _=try await success(request) }
+        let page=try call(f.worker,"logbook_list",["limit":20])
+        let pageFinished=try await waitUntil { page.reply.finished }
+        if !pageFinished { conversion.release() }
+        XCTAssertTrue(pageFinished)
+        let listed=try await success(page)
+        XCTAssertEqual(listed["total"] as? Int,2)
+        XCTAssertFalse(export.reply.finished)
+        conversion.release()
+        let admitted=try await success(export)
+        XCTAssertEqual(admitted["total"] as? Int,2,"The changed revision must be recaptured before a token is admitted.")
+        let data=try await success(call(f.worker,"logbook_export_adif",["action":"read","token":admitted["token"]!]))
+        let text=try XCTUnwrap(data["text"] as? String)
+        XCTAssertEqual(Set(ADIFParser().records(in:text).compactMap{$0["CALL"]}),["JA1BASE","JA1NEXT"])
+    }
+
+    func testShutdownRetiresHeldExportPreparationWithoutAdmittingOrReopeningItsSnapshot() async throws {
+        let conversion=ExportGate(),f=try fixture(Gate(),exportGate:conversion)
+        defer { conversion.release() }
+        let export=try call(f.worker,"logbook_export_adif",["action":"begin","scope":"all","expected_generation":f.generation])
+        let entered=try await waitUntil { conversion.entered || export.reply.finished }
+        XCTAssertTrue(entered);XCTAssertTrue(conversion.entered);XCTAssertFalse(export.reply.finished)
+        let completed=Reply()
+        let shutdown=Task { await f.worker.shutdown();completed.finish() }
+        let stopped=try await waitUntil { completed.finished }
+        if !stopped { conversion.release() }
+        XCTAssertTrue(stopped,"Optional export preparation must not hold the shared worker owner during shutdown.")
+        await shutdown.value
+        conversion.release()
+        let rejected=try await object(export)
+        XCTAssertEqual(rejected["ok"] as? Bool,false)
+        XCTAssertEqual((rejected["error"] as? [String:Any])?["code"] as? String,"worker_stopping")
+        XCTAssertNil(rejected["result"])
     }
 
     func testIdenticalCatalogueWorkIsSharedButPagesKeepTheirOwnFilters() async throws {
@@ -288,13 +349,17 @@ final class LiveLogbookAggregateReadsTests: XCTestCase {
         let gate = Gate([]), f = try fixture(gate)
         for (method, params) in [("logbook_stats", ["unexpected": true] as [String: Any]),
                                  ("logbook_stats", ["expected_generation": "invalid"]),
-                                 ("logbook_catalog", ["limit": 26]), ("logbook_catalog", ["offset": -1])] {
+                                 ("logbook_catalog", ["limit": 26]), ("logbook_catalog", ["offset": -1]),
+                                 ("logbook_export_adif", ["action":"begin","scope":"all","expected_generation":"invalid"])] {
             let failed = try await object(call(f.worker, method, params))
             XCTAssertEqual((failed["error"] as? [String: Any])?["code"] as? String, "invalid_params")
         }
         let mismatch = try await object(call(f.worker, "logbook_catalog", ["expected_generation": UUID().uuidString]))
         XCTAssertEqual((mismatch["error"] as? [String: Any])?["code"] as? String, "logbook_refresh_retired")
         XCTAssertEqual(gate.count(.catalogue), 0)
+        let staleExport=try await object(call(f.worker,"logbook_export_adif",["action":"begin","scope":"all","expected_generation":UUID().uuidString]))
+        XCTAssertEqual((staleExport["error"] as? [String:Any])?["code"] as? String,"logbook_refresh_retired")
+        XCTAssertEqual(gate.count(.exportContacts),0)
         let valid = try await success(call(f.worker, "logbook_catalog", ["expected_generation": f.generation.uppercased()]))
         XCTAssertEqual(valid["workspace_generation"] as? String, f.generation)
     }

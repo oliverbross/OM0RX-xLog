@@ -209,14 +209,15 @@ public actor LiveWorker {
           contestDeclarativeDefinitions: [ContestDeclarativeDefinition]? = nil,
           pythonContestConfiguration: PythonContestHostConfiguration? = nil,
           stationRegistry: StationRadioRegistry? = nil,
-          aggregateEvaluator: LiveLogbookAggregateEvaluator? = nil) {
+          aggregateEvaluator: LiveLogbookAggregateEvaluator? = nil,
+          beforeAggregateExportPreparation: (@Sendable () -> Void)? = nil) {
         self.powerCapture = powerCapture
         self.powerDelivery = powerDelivery
         self.logbookMethods = logbook
         let createdLogbookLane = LogbookLane(service: logbook, power: powerCapture)
         logbookLane = createdLogbookLane
-        if let aggregateEvaluator { aggregateReads = LiveLogbookAggregateReads(service: logbook, evaluate: aggregateEvaluator) }
-        else { aggregateReads = LiveLogbookAggregateReads(service: logbook) }
+        if let aggregateEvaluator { aggregateReads = LiveLogbookAggregateReads(service: logbook, evaluate: aggregateEvaluator, beforeExportPreparation:beforeAggregateExportPreparation) }
+        else { aggregateReads = LiveLogbookAggregateReads(service: logbook, beforeExportPreparation:beforeAggregateExportPreparation) }
         contestLogTransfer = ContestLogTransferService(logbook: logbook)
         // The packaged Contesting Test process owns a real bundled Python lane.
         // Keep the retired Swift lane only as a compatibility fixture for

@@ -263,7 +263,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
             try requireKeys(params, allowed: ["search", "limit", "offset", "query", "reference_time", "expected_generation", "programme", "station_scope", "band", "mode", "role", "unit", "unit_role", "day_offset", "scope_search"])
         case "logbook_export_adif":
             kind = .exportContacts
-            try requireKeys(params, allowed:["action","scope","search","ids","query","reference_time"], required:["action","scope"])
+            try requireKeys(params, allowed:["action","scope","search","ids","query","reference_time","expected_generation"], required:["action","scope"])
             guard params["action"] as? String == "begin" else { throw invalid() }
         case "logbook_stats":
             kind = .statistics
@@ -394,8 +394,14 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
     }
 
     func renderAggregate(_ result: LogbookAggregateResult, owner: LiveLogbookAggregateOwner,
-                         query: LiveLogbookAggregateQuery) throws -> [String: Any] {
-        try lock.withLock {
+                         query: LiveLogbookAggregateQuery, preparedExport: ADIFExportSnapshot? = nil) throws -> [String: Any] {
+        // Runtime callers prepare full exports on their existing utility queue.
+        // The synchronous compatibility entry also prepares before this lock.
+        let exportSnapshot: ADIFExportSnapshot?
+        if query.kind == .exportContacts, case .contacts(let value) = result.value {
+            exportSnapshot = preparedExport ?? ADIFExportSnapshot(contacts:value.contacts,scope:.all)
+        } else { exportSnapshot = nil }
+        return try lock.withLock {
             try validateAggregateOwner(owner)
             guard result.authority == owner.authority, result.request.kind == query.kind else {
                 throw LogbookDatabaseError.corruptRecord
@@ -414,7 +420,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 if query.kind == .exportContacts {
                     guard query.selectionCount == nil || query.selectionCount == value.contacts.count else { throw WorkerFailure("export_selection_changed","A selected contact is no longer available. Select it again.") }
                     let token=UUID().uuidString
-                    let snapshot=ADIFExportSnapshot(contacts:value.contacts,scope:.all)
+                    guard let snapshot=exportSnapshot, snapshot.records.count == value.contacts.count else { throw LogbookDatabaseError.corruptRecord }
                     adifExport=(token,owner.generation,Date(),snapshot); potaExport=nil
                     response=["token":token,"total":snapshot.records.count]
                 } else {
