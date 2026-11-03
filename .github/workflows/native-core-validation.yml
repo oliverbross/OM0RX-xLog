@@ -51,6 +51,9 @@ jobs:
           sha256sum tools/diagnostics/operator-draft-replace-owner-phases.patch
           git apply --check tools/diagnostics/operator-draft-replace-owner-phases.patch
           git apply tools/diagnostics/operator-draft-replace-owner-phases.patch
+          sha256sum tools/diagnostics/operator-draft-read-inner-phases.patch
+          git apply --check tools/diagnostics/operator-draft-read-inner-phases.patch
+          git apply tools/diagnostics/operator-draft-read-inner-phases.patch
           git diff --check
           test "$(git diff --name-only)" = $'Sources/XLogCore/LogbookDatabase.swift\nSources/XLogPrototypeSupport/LiveLogbookMethods.swift\nTests/XLogPrototypeTests/OperatorDraftReversalAcceptanceTests.swift'
       - name: Select macOS Swift toolchain
@@ -125,6 +128,7 @@ jobs:
             python3 prototype/scripts/native-core-diagnostic.py -- swift test --scratch-path .build/prototype-tests --no-parallel
           fi
       - name: Complete portable Swift core (Windows)
+        id: windows_core
         if: runner.os == 'Windows'
         shell: pwsh
         env:
@@ -135,6 +139,25 @@ jobs:
         run: |
           python3 prototype/scripts/native-core-diagnostic.py -- python3 prototype/scripts/portable-swift-lock.py run -- swift test --force-resolved-versions --scratch-path .build/prototype-tests --no-parallel -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib"
           exit $LASTEXITCODE
+      - name: Observe exact native test exit after failed Windows precision diagnostic
+        if: ${{ always() && !cancelled() && runner.os == 'Windows' && inputs.draft_precision_phases && steps.windows_core.outcome == 'failure' }}
+        shell: pwsh
+        env:
+          XLOG_PORTABLE_ONLY: '1'
+          XLOG_CONTEST_PYTHON: ${{ steps.python.outputs.python-path }}
+          XLOG_TEST_NATIVE_VAULT: '1'
+          XLOG_SWIFT_TEST_FILTER: ${{ inputs.test_filter }}
+        run: |
+          python3 tools/diagnostics/windows-native-test-exit.py --filter "$env:XLOG_SWIFT_TEST_FILTER"
+          exit $LASTEXITCODE
+      - name: Upload exact native test exit observation
+        if: ${{ always() && runner.os == 'Windows' && inputs.draft_precision_phases }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-direct-exit-${{ runner.os }}-${{ github.sha }}
+          if-no-files-found: warn
+          include-hidden-files: true
+          path: .build/native-direct-diagnostics/**
       - name: Linux Swift vault in a private Secret Service session
         if: ${{ always() && !cancelled() && runner.os == 'Linux' && steps.linux_c_vault.outcome == 'success' }}
         env:

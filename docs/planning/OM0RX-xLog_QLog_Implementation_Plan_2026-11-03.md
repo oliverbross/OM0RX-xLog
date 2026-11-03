@@ -1252,6 +1252,26 @@ and unchanged JS/CSS budgets (`8b6013e8a6ed898b`). This invalidates earlier fron
 integration/build evidence for the final candidate; unaffected backend evidence
 requires exact input comparison before reuse. No signed1.5.4 is minted yet.
 
+Windows owner observation41659617531/job125999054650 failed at database
+`currentDraft.read.before`, after BEGIN and receipt lookup. Both independent
+Int/Int64 probes, wire-date preservation and settings load completed. The same
+draft was decoded successfully before entering apply. Raw log is retained as
+`ci-job-125999054650.log`; no lock/lifetime defect or native exception is yet
+established. SwiftPM6.3.3 maps unrecognized nonzero test-child statuses to generic
+failure ([pinned source](https://github.com/swiftlang/swift-package-manager/blob/swift-6.3.3-RELEASE/Sources/Commands/SwiftTestCommand.swift#L931-L975)).
+An opt-in diagnostic now runs the already-built same filtered native test child
+once after the original failure, retaining its raw Windows exit DWORD, unchanged
+PE stack metadata/hash and complete output alongside the original failed gate.
+Inner read markers separate SQLite/blob copy from decoding. No stack limit,
+assertion, deadline or system protection is altered; observer cap is60seconds.
+Local Python syntax and PE32/PE32+ parser fixtures passed; this does not establish
+the Windows runtime cause. Native acceptance/package remain pending.
+Complete three-patch chain compiled locally and the portable focused suite
+passed3methods/5cases in0.071s (`3b1306a9eba61a5c`); all source/test observers were
+then reversed exactly. Native-exit observer SHA256
+`343c46369f88694351c20d27fd843faea7c977a7c0be6408d4d9a9462f7d3447`;
+inner-read patch `ed0b051c9075469a2a1aa36adf520b54be54688efbfebc802b92c410a5f25402`.
+
 ## 9. Programme definition of done
 
 The selected programme is done when all of the following are true:
