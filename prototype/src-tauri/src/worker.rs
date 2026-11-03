@@ -139,7 +139,7 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
         } else { Err("Spot History can only read the local report archive.".into()) };
     }
     if label == "logbook" {
-        return if matches!(request["method"].as_str(), Some("logbook_list" | "logbook_contact"
+        return if matches!(request["method"].as_str(), Some("workspace_preferences_load" | "logbook_list" | "logbook_contact"
             | "logbook_contact_apply" | "logbook_contact_receipt" | "logbook_matrix" | "logbook_previous"
             | "logbook_import_adif" | "logbook_export_adif" | "logbook_cty_preview" | "logbook_follow_up" | "logbook_data_quality" | "lookup_call" | "cluster_history")) {
             Ok(())
@@ -2021,6 +2021,33 @@ mod tests {
             "station_tune", "station_connect", "station_action", "rotor_goto", "sync_run", "secret_status", "cluster_connect"] {
             assert!(validate_surface("logbook", &json!({"id":"test", "method":method,"params":{}})).is_err(), "{method}");
         }
+    }
+
+    #[test]
+    fn detached_logbook_saved_filters_have_scoped_read_and_mutation_authority() {
+        let read = json!({"id":"saved-filters", "method":"workspace_preferences_load", "params":{}});
+        let apply = json!({"id":"save-filter", "method":"workspace_logbook_filters_apply", "params":{
+            "generation":"00000000-0000-4000-8000-000000000001", "expectedRevision":1,
+            "action":"save", "name":"Slovakia", "query":"Slovakia"
+        }});
+        for request in [&read, &apply] {
+            assert!(validate_request(request).is_ok());
+            assert!(validate_surface("logbook", request).is_ok(), "{}", request["method"]);
+        }
+        for method in ["workspace_preferences_save", "workspace_commands_apply", "workspace_layout_apply",
+            "settings_load", "settings_save", "workspace_rotor_configuration_save", "secret_status", "secret_save",
+            "station_snapshot", "station_configuration", "station_connect", "station_action", "station_tune",
+            "station_radio_control", "rotor_goto", "logbook_operator_draft_apply"] {
+            let request = json!({"id":"denied", "method":method, "params":{}});
+            assert!(validate_request(&request).is_ok(), "invalid fixture method: {method}");
+            assert!(validate_surface("logbook", &request).is_err(), "{method}");
+        }
+        let native_radio = json!({"id":"native-only", "method":"hamlib_control",
+            "params":{"device":"radio", "action":"tune_simplex", "hz":14074000, "mode":"USB"}});
+        assert!(validate_request(&native_radio).is_err());
+        assert!(validate_surface("logbook", &native_radio).is_err());
+        assert!(validate_surface("awards", &read).is_ok());
+        assert!(validate_surface("awards", &apply).is_err());
     }
 
     #[test]
