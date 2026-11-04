@@ -12,6 +12,11 @@
 **Canonical destination:** `docs/planning/OM0RX-xLog_CQRLOG_C01-C06_Implementation_Plan_2026-11-03.md`  
 **Companion prompt:** `OM0RX-xLog_CQRLOG_C01-C06_Codex_Prompt_2026-11-03.txt`, reproduced verbatim in section 11.
 
+**Execution update — 4 November 2026:** implementation is active in the canonical
+checkout. The original planning labels below are historical initial states;
+section 12 and its linked owner evidence record the current task states and
+actual checks. No physical qualification or production installation is inferred.
+
 ### Contents
 
 - [1. Purpose, scope and immediate handoff](#1-purpose-scope-and-immediate-handoff)
@@ -178,12 +183,12 @@ CM3 can proceed while CM1/CM2 mature in nonoverlapping files. C06 asset/native-a
 
 | Task | Deliverable | Dependency | Acceptance/evidence | Initial state |
 |---|---|---|---|---|
-| CP-T01 | Record current checkout/SHA, relevant changes since the planning baseline, actual QLog/TLF progress and unique existing work | Current coherent batch boundary | CM0 baseline entry; no reset or duplicated completed feature | Planned |
-| CP-T02 | Assign shared-owner edits and settle neutral facts, command/input-origin, CW/TX and migration contracts | CP-T01; existing owners participate | Ownership table; cross-links to affected existing task IDs | Planned |
-| CP-T03 | Integrate C01/02 with QLog awards, alerts, suggestions, portable context and maps | Relevant C01/02 tasks and consumer adapters | CX-A01–CX-A05, CX-A11 | Planned |
-| CP-T04 | Integrate C03/04/05/06 with TLF, EP-15 and current station controls | Relevant station/CW tasks and shared registry contract | CX-A06–CX-A10, CX-A12 | Planned |
-| CP-T05 | Verify combined settings/backup migration and measured shared performance | A coherent integrated candidate | CX-A09–CX-A11; existing applicable QLog acceptance | Planned |
-| CP-T06 | Complete source/evidence review, operator help and permitted release candidate/handoff | Required tasks and integrated acceptance | Section 9 definition of done; truthful platform/hardware boundaries | Planned |
+| CP-T01 | Record current checkout/SHA, relevant changes since the planning baseline, actual QLog/TLF progress and unique existing work | Current coherent batch boundary | CM0 baseline entry; no reset or duplicated completed feature | Verified |
+| CP-T02 | Assign shared-owner edits and settle neutral facts, command/input-origin, CW/TX and migration contracts | CP-T01; existing owners participate | Ownership table; cross-links to affected existing task IDs | Verified |
+| CP-T03 | Integrate C01/02 with QLog awards, alerts, suggestions, portable context and maps | Relevant C01/02 tasks and consumer adapters | CX-A01–CX-A05, CX-A11 | Implemented; focused software verified |
+| CP-T04 | Integrate C03/04/05/06 with TLF, EP-15 and current station controls | Relevant station/CW tasks and shared registry contract | CX-A06–CX-A10, CX-A12 | Implemented; focused software verified |
+| CP-T05 | Verify combined settings/backup migration and measured shared performance | A coherent integrated candidate | CX-A09–CX-A11; existing applicable QLog acceptance | In progress; final integrated gate |
+| CP-T06 | Complete source/evidence review, operator help and permitted release candidate/handoff | Required tasks and integrated acceptance | Section 9 definition of done; truthful platform/hardware boundaries | In progress; final integrated gate |
 
 ### 4.3 Working ownership table
 
@@ -332,13 +337,13 @@ Primary references checked for planning on 3 November 2026; recheck relevant rev
 
 | Task | Deliverable and completion evidence | Dependencies / coordination | Initial state | Evidence/commit |
 |---|---|---|---|---|
-| C01-T01 | Reconcile latest source and active QLog contracts; inventory every current country consumer and record which discrepancies are accidental versus domain-specific | Programme baseline; QLog integration-owner handoff for shared files | Planned | — |
-| C01-T02 | Minimal immutable resolution/snapshot contract and compatibility adapter in existing owners; documented field, date and unknown semantics | C01-T01; agree additive projection with EP-02/03/07/09/12 | Planned | — |
-| C01-T03 | Extend deterministic full-call/date/slash/area/ambiguity handling and independently sourced fixture manifest | C01-T02; existing datasets suffice for synthetic/unit fixtures; C02 supplies production richer pack | Planned | — |
-| C01-T04 | Wire live cluster spots, retained-contact classification and logbook lookup to the same admitted snapshot/adapter; remove accidental bundled/static divergence | C01-T02–03; serialize cluster/logbook host edits | Planned | — |
-| C01-T05 | Separate operator enrichment from operating coordinates; add concise explanation/unknown states through existing inspection surfaces | C01-T02–04; EP-09/12 own context/map presentation | Planned | — |
-| C01-T06 | Coordinate QLog consumer adapters, bounded cache invalidation and active-contest snapshot retention without changing sponsor/scoring rules | C01-T04–05; EP-02/03/07/09/12 owner handoffs; existing contest owner | Planned | — |
-| C01-T07 | Complete cross-consumer acceptance, compatibility/round-trip checks and operator documentation; record actual evidence and any precisely scoped pending gate | C01-T03–06; C02 acceptance separately proves production-pack lifecycle | Planned | — |
+| C01-T01 | Reconcile latest source and active QLog contracts; inventory every current country consumer and record which discrepancies are accidental versus domain-specific | Programme baseline; QLog integration-owner handoff for shared files | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C01-T02 | Minimal immutable resolution/snapshot contract and compatibility adapter in existing owners; documented field, date and unknown semantics | C01-T01; agree additive projection with EP-02/03/07/09/12 | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C01-T03 | Extend deterministic full-call/date/slash/area/ambiguity handling and independently sourced fixture manifest | C01-T02; existing datasets suffice for synthetic/unit fixtures; C02 supplies production richer pack | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C01-T04 | Wire live cluster spots, retained-contact classification and logbook lookup to the same admitted snapshot/adapter; remove accidental bundled/static divergence | C01-T02–03; serialize cluster/logbook host edits | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C01-T05 | Separate operator enrichment from operating coordinates; add concise explanation/unknown states through existing inspection surfaces | C01-T02–04; EP-09/12 own context/map presentation | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C01-T06 | Coordinate QLog consumer adapters, bounded cache invalidation and active-contest snapshot retention without changing sponsor/scoring rules | C01-T04–05; EP-02/03/07/09/12 owner handoffs; existing contest owner | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C01-T07 | Complete cross-consumer acceptance, compatibility/round-trip checks and operator documentation; record actual evidence and any precisely scoped pending gate | C01-T03–06; C02 acceptance separately proves production-pack lifecycle | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
 
 #### C01.7 Acceptance tracker
 
@@ -415,13 +420,13 @@ After a successful correction, publish the existing mutation event once for the 
 
 | Task | Deliverable and completion evidence | Dependencies / coordination | Initial state | Evidence/commit |
 |---|---|---|---|---|
-| C02-T01 | Source/format/provenance inventory and explicit normalized-pack scope, precedence, bounds and recovery contract | C01-T01–02; current reference and backup owners | Planned | — |
-| C02-T02 | Faithful source adapters and reproducible normalized real dataset with current/deleted/date/exception/area/ambiguity coverage and attribution | C02-T01; C01-T03 matching contract | Planned | — |
-| C02-T03 | Whole-pack staged validation, atomic activation, prior-good rollback and accurate source/check status in existing updater/surface | C02-T02; C01-T04 snapshot wiring | Planned | — |
-| C02-T04 | Extend existing country/data-quality evidence with field-specific comparisons, zone-only differences and complete-log bounded paging/counts | C01-T02; C02-T03; coordinate EP-01 projection/query owner | Planned | — |
-| C02-T05 | Existing-surface review flow and bounded selected country-only patch; protect retained/manual/unknown-origin values and show dependent-field conflicts | C02-T04; existing editor/mutation owner; no general bulk editor | Planned | — |
-| C02-T06 | Revision/snapshot-fenced idempotent apply, receipt/recovery, ordinary sync semantics and coherent derived-view invalidation | C02-T05; coordinate EP-02 cache and EP-09 snapshot owners | Planned | — |
-| C02-T07 | Run focused lifecycle/migration/correction acceptance on representative fixtures; document actual coverage and unresolved source/rule edges | C02-T02–06; integrated C01 adapters | Planned | — |
+| C02-T01 | Source/format/provenance inventory and explicit normalized-pack scope, precedence, bounds and recovery contract | C01-T01–02; current reference and backup owners | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C02-T02 | Faithful source adapters and reproducible normalized real dataset with current/deleted/date/exception/area/ambiguity coverage and attribution | C02-T01; C01-T03 matching contract | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C02-T03 | Whole-pack staged validation, atomic activation, prior-good rollback and accurate source/check status in existing updater/surface | C02-T02; C01-T04 snapshot wiring | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C02-T04 | Extend existing country/data-quality evidence with field-specific comparisons, zone-only differences and complete-log bounded paging/counts | C01-T02; C02-T03; coordinate EP-01 projection/query owner | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C02-T05 | Existing-surface review flow and bounded selected country-only patch; protect retained/manual/unknown-origin values and show dependent-field conflicts | C02-T04; existing editor/mutation owner; no general bulk editor | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C02-T06 | Revision/snapshot-fenced idempotent apply, receipt/recovery, ordinary sync semantics and coherent derived-view invalidation | C02-T05; coordinate EP-02 cache and EP-09 snapshot owners | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C02-T07 | Run focused lifecycle/migration/correction acceptance on representative fixtures; document actual coverage and unresolved source/rule edges | C02-T02–06; integrated C01 adapters | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
 
 #### C02.6 Acceptance tracker
 
@@ -489,13 +494,13 @@ Protocol source register: `docs/cw/PROTOCOL_SOURCES.md` pins ExpertSDR3/TCI comm
 
 | Task | Concrete output | Dependency | Acceptance | Initial state | Evidence/commit |
 |---|---|---|---|---|---|
-| C03-T01 | One bounded protocol/capability matrix with exact source/version/hash, command/address/status semantics and operator server version requirement; record any unsupported capability without inventing a fallback. Agree the PTT/CW target contract with the shared-owner integrator. | CP-T01, CP-T02 shared contract | C03-A01, C03-A04, C03-A07 | Planned | — |
-| C03-T02 | Typed TCI CW/control requests and corresponding validated observations in the existing protocol/session owner, with bounded framing and generation fencing. Reuse the existing connection and preserve receive/IQ paths. | C03-T01 | C03-A02, C03-A07, C03-A08 | Planned | — |
-| C03-T03 | Additive transmit-permission/configuration migration and provider-aware canonical PTT admission/release; preserve carrier Tune gating and existing-provider recovery. | C03-T01, C03-T02; integrator owns shared PTT edits | C03-A03, C03-A04, C03-A05, C03-A06 | Planned | — |
-| C03-T04 | TCI CW adapter in the existing CW backend, capability projection, send/stop/speed integration and accurate acknowledgements; agreed C05/TLF whole-message/incremental/speed contract. | C03-T02, C03-T03; CW owner handoff | C03-A05, C03-A07, C03-A08, C03-A09 | Planned | — |
-| C03-T05 | Existing connection/CW controls expose permission, supported operations and readable readiness/failure state. Add operation diagnostics to the existing diagnostic owner. | C03-T03, C03-T04 | C03-A03, C03-A09, C03-A10 | Planned | — |
-| C03-T06 | Focused protocol and owner integration cases, legacy/restore coverage and existing Flex/TCI receive regression checks. Record exact commands/results. | C03-T02–C03-T05 integrated | C03-A01–C03-A10 | Planned | — |
-| C03-T07 | Isolated packaged native workflow and one bounded supported ExpertSDR/radio qualification record when the exact setup is available; otherwise record the precise unrun physical cases without mislabelling them passed. | C03-T06; coherent native candidate | C03-A11, C03-A12 | Planned | — |
+| C03-T01 | One bounded protocol/capability matrix with exact source/version/hash, command/address/status semantics and operator server version requirement; record any unsupported capability without inventing a fallback. Agree the PTT/CW target contract with the shared-owner integrator. | CP-T01, CP-T02 shared contract | C03-A01, C03-A04, C03-A07 | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C03-T02 | Typed TCI CW/control requests and corresponding validated observations in the existing protocol/session owner, with bounded framing and generation fencing. Reuse the existing connection and preserve receive/IQ paths. | C03-T01 | C03-A02, C03-A07, C03-A08 | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C03-T03 | Additive transmit-permission/configuration migration and provider-aware canonical PTT admission/release; preserve carrier Tune gating and existing-provider recovery. | C03-T01, C03-T02; integrator owns shared PTT edits | C03-A03, C03-A04, C03-A05, C03-A06 | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C03-T04 | TCI CW adapter in the existing CW backend, capability projection, send/stop/speed integration and accurate acknowledgements; agreed C05/TLF whole-message/incremental/speed contract. | C03-T02, C03-T03; CW owner handoff | C03-A05, C03-A07, C03-A08, C03-A09 | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C03-T05 | Existing connection/CW controls expose permission, supported operations and readable readiness/failure state. Add operation diagnostics to the existing diagnostic owner. | C03-T03, C03-T04 | C03-A03, C03-A09, C03-A10 | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C03-T06 | Focused protocol and owner integration cases, legacy/restore coverage and existing Flex/TCI receive regression checks. Record exact commands/results. | C03-T02–C03-T05 integrated | C03-A01–C03-A10 | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C03-T07 | Isolated packaged native workflow and one bounded supported ExpertSDR/radio qualification record when the exact setup is available; otherwise record the precise unrun physical cases without mislabelling them passed. | C03-T06; coherent native candidate | C03-A11, C03-A12 | Packaged gate pending; physical Not run | [Execution/evidence register](#12-execution-register--4-november-2026) |
 
 #### Acceptance scenarios
 
@@ -552,13 +557,13 @@ The Swift profile currently has version 1 and a strict WinKeyer port/WPM model; 
 
 | Task | Concrete output | Dependency | Acceptance | Initial state | Evidence/commit |
 |---|---|---|---|---|---|
-| C04-T01 | Exact K1EL firmware/command/bit/range matrix for the finite new settings and pot/echo events; list readback limits and unsupported options. Agree per-part-speed/pot behavior with C05/TLF. | CP-T01, CP-T02 shared contract | C04-A01, C04-A04, C04-A08 | Planned | — |
-| C04-T02 | Coherent CW-profile validation/migration, persisted desired settings and requested/applied/reported model in existing settings owners. | C04-T01; integrator reserves shared schema | C04-A02, C04-A03, C04-A09 | Planned | — |
-| C04-T03 | Typed pot/echo/status parser events and bounded generation/job-correlated feedback in the existing actor; retain existing flow control. | C04-T01 | C04-A04, C04-A05, C04-A06 | Planned | — |
-| C04-T04 | Finite validated idle-only settings application, documented command ordering/bit preservation, partial-failure state and priority Stop behavior. | C04-T01, C04-T02, C04-T03 | C04-A03, C04-A06, C04-A07, C04-A08 | Planned | — |
-| C04-T05 | Settings controls and compact CW-desk speed/source/progress display using native snapshots; stage edits while active and explain unsupported/unconfirmed state. | C04-T02–C04-T04; C05 UI handoff | C04-A03, C04-A04, C04-A08, C04-A09 | Planned | — |
-| C04-T06 | Focused serial transcript, actor-race, migration/restore and existing-CW regression coverage; record native UI integration separately. | C04-T03–C04-T05 integrated | C04-A01–C04-A10 | Planned | — |
-| C04-T07 | One bounded recognized WK2/WK3 physical qualification record for applied options, pot/echo, paddles and Stop; exact firmware/transport/setup identified. | C04-T06; available device/candidate | C04-A11 | Planned | — |
+| C04-T01 | Exact K1EL firmware/command/bit/range matrix for the finite new settings and pot/echo events; list readback limits and unsupported options. Agree per-part-speed/pot behavior with C05/TLF. | CP-T01, CP-T02 shared contract | C04-A01, C04-A04, C04-A08 | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C04-T02 | Coherent CW-profile validation/migration, persisted desired settings and requested/applied/reported model in existing settings owners. | C04-T01; integrator reserves shared schema | C04-A02, C04-A03, C04-A09 | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C04-T03 | Typed pot/echo/status parser events and bounded generation/job-correlated feedback in the existing actor; retain existing flow control. | C04-T01 | C04-A04, C04-A05, C04-A06 | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C04-T04 | Finite validated idle-only settings application, documented command ordering/bit preservation, partial-failure state and priority Stop behavior. | C04-T01, C04-T02, C04-T03 | C04-A03, C04-A06, C04-A07, C04-A08 | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C04-T05 | Settings controls and compact CW-desk speed/source/progress display using native snapshots; stage edits while active and explain unsupported/unconfirmed state. | C04-T02–C04-T04; C05 UI handoff | C04-A03, C04-A04, C04-A08, C04-A09 | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C04-T06 | Focused serial transcript, actor-race, migration/restore and existing-CW regression coverage; record native UI integration separately. | C04-T03–C04-T05 integrated | C04-A01–C04-A10 | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C04-T07 | One bounded recognized WK2/WK3 physical qualification record for applied options, pot/echo, paddles and Stop; exact firmware/transport/setup identified. | C04-T06; available device/candidate | C04-A11 | Blocked: external physical qualification | [Execution/evidence register](#12-execution-register--4-november-2026) |
 
 #### Acceptance scenarios
 
@@ -612,14 +617,14 @@ If the selected TLF compiler/scheduler primitive has not yet landed, its current
 
 | ID | Deliverable | Real dependency / owner handoff | Initial state | Evidence |
 |---|---|---|---|---|
-| **C05-T01** | Reconcile current normal/contest CW, TLF work, EP-15 mappings and provider status. Record which existing code already satisfies C05. Agree one plan/progress/input-origin contract and one owner for shared scheduling. | Current local baseline; handoff with existing QLog EP-03/07/15 and C03/C04 implementers. No dependency on completed QLog programme. | Planned | — |
-| **C05-T02** | Extend the existing typed message representation and compiler for preview, supported prosigns and segmented-speed operations. Reuse or jointly deliver the accepted TLF primitive; preserve legacy macros. | C05-T01; only the shared TLF compiler contract, not all TLF features/phases. | Planned | — |
-| **C05-T03** | Add explicit composition state/admission: character, word and first-word-live modes, committed-input origin, staged paste, bounded append protocol with job/generation/sequence identity, and truthful progress projection. | C05-T01/T02; existing native CW scheduler and provider capability interface. Backend-specific upgrades can integrate later. | Planned | — |
-| **C05-T04** | Build the compact workbench, expanded preview, editable/queued/output states, clear error explanations and explicit Send/Stop/Clear-compose controls on existing appropriate surfaces. Preserve the held QSO. | C05-T03; visible controls work without the EP-15 customization editor. | Planned | — |
-| **C05-T05** | Connect deliberate TLF early-start/corrected-call workflows to the same plan/queue and contest serial reservation, requiring fresh intended-route admission for each new correction. Keep Run/S&P and normal banks contextual; preserve existing repeat behavior. | C05-T02/T03 and the current contest owner. Deliver the shared integration even if later QTC/pass work is unfinished. | Planned | — |
-| **C05-T06** | Register workbench/preview/send actions through EP-15 policy; preserve normal CW and contest mapping owners, reserved Stop and one-event dispatch in desk/detached contexts. | EP-15.1/2 agreed registry/conflict contract; C05-T04 handlers. No cyclic dependency on EP-15.4/5 or EP-07.4. | Planned | — |
-| **C05-T07** | Add revisioned configuration migration/backup integration; reject invalid imports and preserve explicit text/prosign semantics, normal/contest bindings and unrelated preferences. | C05-T01/T02; integrator owns shared settings migrations. | Planned | — |
-| **C05-T08** | Complete the acceptance matrix below using existing owner/hardware harnesses; integrate C03/C04 status evidence, add operator help and record exact remaining physical-device boundaries. | Integrated C05 tasks; reuse relevant TLF/C03/C04/EP-15 evidence. | Planned | — |
+| **C05-T01** | Reconcile current normal/contest CW, TLF work, EP-15 mappings and provider status. Record which existing code already satisfies C05. Agree one plan/progress/input-origin contract and one owner for shared scheduling. | Current local baseline; handoff with existing QLog EP-03/07/15 and C03/C04 implementers. No dependency on completed QLog programme. | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| **C05-T02** | Extend the existing typed message representation and compiler for preview, supported prosigns and segmented-speed operations. Reuse or jointly deliver the accepted TLF primitive; preserve legacy macros. | C05-T01; only the shared TLF compiler contract, not all TLF features/phases. | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| **C05-T03** | Add explicit composition state/admission: character, word and first-word-live modes, committed-input origin, staged paste, bounded append protocol with job/generation/sequence identity, and truthful progress projection. | C05-T01/T02; existing native CW scheduler and provider capability interface. Backend-specific upgrades can integrate later. | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| **C05-T04** | Build the compact workbench, expanded preview, editable/queued/output states, clear error explanations and explicit Send/Stop/Clear-compose controls on existing appropriate surfaces. Preserve the held QSO. | C05-T03; visible controls work without the EP-15 customization editor. | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| **C05-T05** | Connect deliberate TLF early-start/corrected-call workflows to the same plan/queue and contest serial reservation, requiring fresh intended-route admission for each new correction. Keep Run/S&P and normal banks contextual; preserve existing repeat behavior. | C05-T02/T03 and the current contest owner. Deliver the shared integration even if later QTC/pass work is unfinished. | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| **C05-T06** | Register workbench/preview/send actions through EP-15 policy; preserve normal CW and contest mapping owners, reserved Stop and one-event dispatch in desk/detached contexts. | EP-15.1/2 agreed registry/conflict contract; C05-T04 handlers. No cyclic dependency on EP-15.4/5 or EP-07.4. | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| **C05-T07** | Add revisioned configuration migration/backup integration; reject invalid imports and preserve explicit text/prosign semantics, normal/contest bindings and unrelated preferences. | C05-T01/T02; integrator owns shared settings migrations. | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| **C05-T08** | Complete the acceptance matrix below using existing owner/hardware harnesses; integrate C03/C04 status evidence, add operator help and record exact remaining physical-device boundaries. | Integrated C05 tasks; reuse relevant TLF/C03/C04/EP-15 evidence. | In progress; final integrated gate | [Execution/evidence register](#12-execution-register--4-november-2026) |
 
 #### C05 acceptance scenarios
 
@@ -688,14 +693,14 @@ Existing WAV assets, slot names, profile paths and valid contest mappings remain
 
 | Task | Concrete output | Dependency | Acceptance | Initial state | Evidence/commit |
 |---|---|---|---|---|---|
-| C06-T01 | Agree a bounded shared voice operation/context contract and current provider/platform capability matrix; identify exact contest compatibility and EP-15 integration boundaries. | CP-T01, CP-T02; PTT integrator handoff | C06-A01, C06-A07, C06-A12 | Planned | — |
-| C06-T02 | Shared existing-library service with canonical normal/contest admission, immutable memory/action identities, retained contest facade and additive metadata/route migration. | C06-T01; settings integrator | C06-A01, C06-A02, C06-A03, C06-A10 | Planned | — |
-| C06-T03 | Reusable native device enumeration/selection and bounded input/monitor/output backend using the existing dependency; explicit device failure and platform capability reporting. | C06-T01; recorder owner review | C06-A04, C06-A05, C06-A06, C06-A12 | Planned | — |
-| C06-T04 | Native preflight/playback job tied to existing PTT authority, priority Stop, watchdog/lifecycle cancellation, accurate completion and unresolved-release handling. | C06-T02, C06-T03; serialize PTT integration with C03-T03 | C06-A05, C06-A06, C06-A07, C06-A08, C06-A09 | Planned | — |
-| C06-T05 | Shared memory-management/record/import/preview controls plus bounded trim/gain validation and identical derived preview/send audio. | C06-T02, C06-T03 | C06-A02, C06-A03, C06-A04, C06-A11 | Planned | — |
-| C06-T06 | Normal-SSB desk Send/Stop/readiness controls; register normal actions with the current EP-15 owner when available and preserve contest dispatch. | C06-T04, C06-T05; EP-15.2 contract for optional binding | C06-A07, C06-A09, C06-A10, C06-A12 | Planned | — |
-| C06-T07 | Focused native admission/audio lifecycle/migration fixtures and existing contest regression acceptance; verify integrated normal/contest UI in one coherent isolated candidate. | C06-T02–C06-T06 integrated | C06-A01–C06-A12 | Planned | — |
-| C06-T08 | Bounded physical route qualification on the actual output/input/PTT setup, with separate device, application and radio evidence; record unavailable setup honestly. | C06-T07; identified hardware/native candidate | C06-A13 | Planned | — |
+| C06-T01 | Agree a bounded shared voice operation/context contract and current provider/platform capability matrix; identify exact contest compatibility and EP-15 integration boundaries. | CP-T01, CP-T02; PTT integrator handoff | C06-A01, C06-A07, C06-A12 | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C06-T02 | Shared existing-library service with canonical normal/contest admission, immutable memory/action identities, retained contest facade and additive metadata/route migration. | C06-T01; settings integrator | C06-A01, C06-A02, C06-A03, C06-A10 | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C06-T03 | Reusable native device enumeration/selection and bounded input/monitor/output backend using the existing dependency; explicit device failure and platform capability reporting. | C06-T01; recorder owner review | C06-A04, C06-A05, C06-A06, C06-A12 | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C06-T04 | Native preflight/playback job tied to existing PTT authority, priority Stop, watchdog/lifecycle cancellation, accurate completion and unresolved-release handling. | C06-T02, C06-T03; serialize PTT integration with C03-T03 | C06-A05, C06-A06, C06-A07, C06-A08, C06-A09 | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C06-T05 | Shared memory-management/record/import/preview controls plus bounded trim/gain validation and identical derived preview/send audio. | C06-T02, C06-T03 | C06-A02, C06-A03, C06-A04, C06-A11 | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C06-T06 | Normal-SSB desk Send/Stop/readiness controls; register normal actions with the current EP-15 owner when available and preserve contest dispatch. | C06-T04, C06-T05; EP-15.2 contract for optional binding | C06-A07, C06-A09, C06-A10, C06-A12 | Implemented; focused software verified | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C06-T07 | Focused native admission/audio lifecycle/migration fixtures and existing contest regression acceptance; verify integrated normal/contest UI in one coherent isolated candidate. | C06-T02–C06-T06 integrated | C06-A01–C06-A12 | In progress; final integrated gate | [Execution/evidence register](#12-execution-register--4-november-2026) |
+| C06-T08 | Bounded physical route qualification on the actual output/input/PTT setup, with separate device, application and radio evidence; record unavailable setup honestly. | C06-T07; identified hardware/native candidate | C06-A13 | Blocked: external physical qualification | [Execution/evidence register](#12-execution-register--4-november-2026) |
 
 #### Acceptance scenarios
 
@@ -1127,3 +1132,85 @@ validation results, migration/recovery behavior and concrete remaining limits.
 Begin implementation now by reconciling the active work and assigning the
 first nonoverlapping tasks. Do not stop after producing another plan.
 ```
+
+## 12. Execution register — 4 November 2026
+
+### Baseline, ownership and programme preservation
+
+CP-T01 and CP-T02 are **Verified** for reconciliation and assignment. Canonical
+`main` was clean at `db4a9ce2739fc8b96371cd432d3b8787e950a45e`; fast-forward-only
+pull was current. There was no unfinished QLog edit batch to absorb. App chat
+inventory showed the earlier QLog implementation not loaded and the last TLF
+follow-up idle; this execution chat was the active canonical writer. QLog's nine
+selected epics remain implemented with their recorded limits, and the actual
+TLF master retains its 1.5.9 follow-ups and open MO2T/physical boundaries. Their
+IDs and historical acceptance have not been reset or relabelled.
+
+The CW-skimmer worktree remains at
+`/Users/oliver/.codex/worktrees/cw-skimmer/OM0RX-xLog`, branch `codex/cw-skimmer`,
+SHA `3a28134caa6c6c981c5f2a564fa22a69d1bc7778`. It was not edited or removed.
+The existing production application/store was not used for implementation tests.
+
+| Current owner | Reserved scope and handoff |
+| --- | --- |
+| Root integrator | C05 native scheduler/compiler/workbench, EP-15 registrations, shared native routing, master, logical commit/push and final release |
+| `country` | C01/C02 resolver/reference/correction, shared logbook/cluster host adapters and country UI; explicit LiveWorker/settings-surface handoff |
+| `devices` | C03/C04 TCI/PTT/keyer actors, CW-profile migration/settings, native permission retirement; backend handed to root for C05 and then returned |
+| `voice` | C06 native audio/library/normal voice/contest facade; Settings voiceProfile and separate components; main routing retained by root |
+
+Shared changes are staged by explicit file/hunk handoff. Unfinished voice/TCI/
+country changes were excluded from earlier completed commits. No automatic stash,
+reset, worktree cleanup or production fallback was used.
+
+### Current implementation/evidence checkpoint
+
+| Scope / task IDs | Current state | Source/evidence and next gate |
+| --- | --- | --- |
+| Exact master import | Verified | `0dc3c1b3`; downloaded and canonical bytes both SHA-256 `2b87408e6d2b73034f2bba249eb2b11b2e06a3e70d7dd49b36e22307e2f7f900` before execution annotations |
+| C01-T02/T03; C02-T01/T02 | Implemented, focused domain verification | Initial `d2f2758d`; `041e235d` tightens duplicate-source exclusion to 21,335 rules / 302 explicit exclusions. [Country evidence](../audits/cqrlog-implementation-2026-11-04/country.md) retains exact source and digest. |
+| C01-T01/T04–T07; C02-T03–T07; CP-T03 | Implemented; final compatibility gate in progress | `041e235d`; shared live snapshot, per-field transactions/receipts/undo and controls. Real combined restore passes; full portable regression exposed PJ/partial-XML/declared-location compatibility cases being resolved before release. |
+| C04-T01–T05 | Implemented, focused protocol/profile/actor verification | `f56f23f1`; bounded feedback/settling follow-up `a3ee5fa1`; [device evidence](../audits/cqrlog-implementation-2026-11-04/devices.md) |
+| C04-T06; C05-T08 | In progress programme integration | Combined native UI, backup and exact-source candidate gates remain |
+| C04-T07 | Blocked external qualification | No identified approved connected keyer setup; exact finite firmware/paddle/Stop check remains |
+| C05-T01–T07 | Implemented, focused software verification | `5bbfd87e`; native owner 41, compiler 2, backend 5, typed Host 14 and scoped UI tests; [CW evidence](../audits/cqrlog-implementation-2026-11-04/cw.md) and [operator guide](../cw/CW_WORKBENCH.md). Overlapping totals are not summed. |
+| C03-T01–T06; CP-T04 | Implemented; focused software verified | `9087b323`; exact protocol, provider-aware PTT, immediate permission retirement and original-route Stop. Portable compile follow-up `00fe85d0`; live TCI owner 20/20 in fresh full run. No hardware pass. |
+| C03-T07 | Blocked external qualification / packaged gate pending | Exact ExpertSDR3/TCI/radio setup not operated; finish independent candidate first |
+| C06-T01–T06 | Implemented; focused software verified | `87f5b875`; explicit routes, frozen normal/contest actions, TX-VFO mode evidence and Stop/preparation epoch fences. [Voice evidence](../audits/cqrlog-implementation-2026-11-04/voice.md) records 30 native tests and exact unrun device cases. |
+| C06-T07; CP-T05/06 | In progress | Combined software/backup/CI, bounded visual/native UI and package/provenance checks remain |
+| C06-T08 | Blocked external qualification | Concrete microphone/monitor/TX wiring and radio/PTT route need operator setup; no device fallback or RF claim |
+
+CM0 is verified; CM1–CM4 are being integrated and CM5 is in progress. Milestones
+are not stop points. Later execution entries will replace this checkpoint with
+exact final source, gate results and remaining acceptance boundaries. Planning
+acceptance rows remain Not run unless the linked evidence establishes the
+specific required layer; authored code or a mocked check is not a packaged or
+physical pass.
+
+### Integrated checkpoint — 5 November 2026 (Darwin)
+
+Additional completed source commits, all immediately pushed: `10b4fdd0` guards
+every explicit CW send during IME preedit; `8fb0a048` permits the next staged
+message on the same freshly verified radio owner and supplies native formatted
+contest preview context; `d1a5025c` strengthens the real Brazilian-prefix corpus;
+`9c3749f3` preserves Settings startup/style budgets and records the bounded actual-
+component browser review. QLog/TLF registers carry additive shared-work links.
+
+The [integration evidence](../audits/cqrlog-implementation-2026-11-04/integration.md)
+records full Python 618, native Rust 1,103, Contesting Test admission 7, pinned
+Hamlib dummy 31, full frontend 5,183/378 files plus 6 Node, and production build
+passes. Normal Swift passes with its reported methods/skips documented. A fresh
+full portable run passed its XCTest portion but exposed 16 country compatibility
+issues in the Swift Testing portion; those cases are being corrected before any
+versioned package. The earlier stale nested-resource scratch is preserved.
+
+Combined actual backup/restore retains QLog settings/preferences, the CW/voice
+profiles, selected country bytes and correction recovery receipts. It restores
+no runnable output state. The externally selected voice WAV library retains its
+existing separate-folder backup contract; the UI/help explicitly says to retain
+that folder with backups.
+
+No new candidate has been packaged or installed at this checkpoint. The next
+unused candidate is 1.5.10, to be built only after the compatibility gate from a
+clean canonical source with recorded provenance. Signed-worker first execution,
+marked native GUI, 100k changed-path measurements and final applicable CI remain.
+No physical acceptance is relabelled by source or static-browser results.
