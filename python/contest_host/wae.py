@@ -280,6 +280,28 @@ def mutate(desk, params, require):
                     for series in journal if series["direction"] == "receive" and series["counterpart"] == batch["counterpart"]
                     for position, other in enumerate(series["items"]) if series is not batch or position != index), "Received QTC was already recorded")
             batch["items"][index].update(item)
+            from .qtc_operating import operating, editor_token
+            metadata = operating(state)
+            edit = metadata["workspace"].get("pendingEdit")
+            edit_id = params.get("editID")
+            require(edit_id is None or isinstance(edit_id, str) and re.fullmatch(r"[0-9a-fA-F-]{36}", edit_id) is not None,
+                    "Invalid QTC correction editor identity")
+            matching = edit and edit.get("batchID") == batch["id"] and edit.get("index") == index
+            # The successful correction consumes its editor identity, including
+            # older autosaves from that editor; unrelated workspace data survives.
+            if matching and (edit_id and edit.get("editID") in {None, edit_id}
+                             or edit_id is None and edit.get("editID") is None and edit.get("row") == item):
+                metadata["workspace"]["pendingEdit"] = None
+                cleared = metadata.setdefault("clearedEditors", [])
+                require(len(cleared) < 5000, "QTC editor clearance history is full; preserve this workspace")
+                cleared.append(editor_token(edit))
+            if edit_id:
+                cleared = metadata.setdefault("clearedEditors", [])
+                token = "id:" + edit_id
+                if token not in cleared:
+                    require(len(cleared) < 5000, "QTC editor clearance history is full; preserve this workspace")
+                    cleared.append(token)
+            state["qtcOperating"] = metadata
         elif action == "qtc_header":
             require(not any(item["status"] == "confirmed" for item in batch["items"]), "Confirmed transfer headers are immutable")
             number = params.get("number")

@@ -16,6 +16,12 @@ def operating(state):
     return deepcopy(value)
 
 
+def editor_token(edit):
+    if edit.get("editID"):
+        return "id:" + edit["editID"]
+    return "legacy:" + hashlib.sha256(json.dumps(edit, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
 def mutate(desk, params, require):
     from .wae import PLUGINS, batches
     state, action = desk.state, params["action"]
@@ -40,11 +46,14 @@ def mutate(desk, params, require):
             and all(isinstance(value, str) and len(value) <= 32 and not any(ord(c) < 32 for c in value) for value in row.values()) for row in rows),
             "Invalid unfinished QTC rows")
         edit = workspace.get("pendingEdit")
-        require(edit is None or isinstance(edit, dict) and set(edit) == {"batchID", "index", "row"}
+        require(edit is None or isinstance(edit, dict) and {"batchID", "index", "row"} <= set(edit) <= {"batchID", "index", "row", "editID"}
             and isinstance(edit["batchID"], str) and len(edit["batchID"]) <= 64 and type(edit["index"]) is int and 0 <= edit["index"] < 10
+            and ("editID" not in edit or isinstance(edit["editID"], str) and re.fullmatch(r"[0-9a-fA-F-]{36}", edit["editID"]) is not None)
             and isinstance(edit["row"], dict) and set(edit["row"]) == {"time", "callsign", "serial"}
             and all(isinstance(value, str) and len(value) <= 32 and not any(ord(c) < 32 for c in value) for value in edit["row"].values()), "Invalid unfinished pending QTC edit")
         data["workspace"] = deepcopy(workspace)
+        if edit and editor_token(edit) in data.get("clearedEditors", []):
+            data["workspace"]["pendingEdit"] = None
     elif action == "qtc_observe":
         call = params.get("counterpart", "").strip().upper()
         require(re.fullmatch(r"[A-Z0-9/]{3,32}", call) is not None, "Enter a QTC counterpart")

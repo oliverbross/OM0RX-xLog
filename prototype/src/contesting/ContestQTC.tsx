@@ -9,7 +9,7 @@ type Batch = { id: string; number: number; count: number; direction: "send" | "r
 export type QTCField = "header" | "all" | "time" | "callsign" | "serial" | "final";
 export type QTCOutputIntent = { batchID: string; index: number; fields: QTCField };
 export type QTCBookmarkIntent = { batchID: string; index?: number; event: "series_start" | "item" | "series_end" | "interruption" };
-type PendingEdit = { batchID: string; index: number; row: Row };
+type PendingEdit = { batchID: string; index: number; row: Row; editID?: string };
 type Workspace = { direction: "send" | "receive"; counterpart: string; number: number; timestamp: string; rows: Row[];
   selectedBatchID: string; selectedIndex: number; selectedField: "time" | "callsign" | "serial"; pendingEdit?: PendingEdit | null };
 type Attempt = { batchID?: string; seriesID?: string; fields?: string; field?: string; outcome?: string | { outcome?: string; basis?: string; acceptanceLevel?: string } | null; status?: string; state?: string;
@@ -114,7 +114,8 @@ export function ContestQTC({ scope, request, disabled, opportunityIntent, onMuta
       setError("Finish or explicitly discard the retained pending correction before editing another item."); return;
     }
     const row = target.items[rowIndex];
-    const pendingEdit = retained ?? { batchID: target.id, index: rowIndex, row: { time: row.time, callsign: row.callsign, serial: row.serial } };
+    const pendingEdit = retained ? { ...retained, editID: retained.editID ?? crypto.randomUUID() }
+      : { batchID: target.id, index: rowIndex, editID: crypto.randomUUID(), row: { time: row.time, callsign: row.callsign, serial: row.serial } };
     setEditing(pendingEdit); update({ pendingEdit });
   }
   function navigate(offset: number) {
@@ -251,7 +252,7 @@ export function ContestQTC({ scope, request, disabled, opportunityIntent, onMuta
         <p>Bookmarks require an existing captured timeline; they never start recording. Missing audio does not block QTC entry.</p>
       </section>}
       {!editing && workspace.pendingEdit && <button disabled={locked} onClick={() => setEditing(workspace.pendingEdit ?? null)}>Continue pending correction</button>}
-      {editing && <form onSubmit={event => { event.preventDefault(); void run(() => onMutate("qtc_item", { batchID: editing.batchID, index: editing.index, item: editing.row })).then(accepted => {
+      {editing && <form onSubmit={event => { event.preventDefault(); void run(() => onMutate("qtc_item", { batchID: editing.batchID, index: editing.index, item: editing.row, editID: editing.editID })).then(accepted => {
         if (accepted) { setEditing(null); update({ pendingEdit: null }); }
       }); }}>
         <h3>Correct pending received item {editing.index + 1}</h3>

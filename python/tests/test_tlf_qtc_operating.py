@@ -168,6 +168,39 @@ class QTCOperatingTests(unittest.TestCase):
         self.assertIn("receive-1", self.view()["operating"]["completedSeries"])
         self.assertEqual(self.view()["operating"]["attempts"], [])
 
+    def test_saved_correction_clears_matching_editor_atomically_and_stale_autosave_cannot_restore_it(self):
+        self.create_wae(); self.receive()
+        edit_id = uid()
+        corrected = {"time": "0801", "callsign": "DL2ABC", "serial": "42"}
+        workspace = {"counterpart": "K1ABC", "selectedBatchID": "receive-1", "selectedIndex": 0,
+                     "pendingEdit": {"editID": edit_id, "batchID": "receive-1", "index": 0, "row": corrected}}
+        self.qtc("qtc_workspace", workspace=workspace)
+        self.qtc("qtc_item", batchID="receive-1", index=0, item=corrected, editID=edit_id)
+        saved = self.view()["operating"]["workspace"]
+        self.assertEqual(saved, {**workspace, "pendingEdit": None})
+        self.qtc("qtc_confirm", batchID="receive-1", index=0)
+        self.qtc("qtc_workspace", workspace=workspace)  # queued older autosave
+        self.host.close(); self.host = Host(self.root)
+        self.assertIsNone(self.view()["operating"]["workspace"]["pendingEdit"])
+        self.assertEqual(self.view()["batches"][0]["items"][0]["status"], "confirmed")
+        self.assertEqual(self.view()["operating"]["workspace"]["counterpart"], "K1ABC")
+
+    def test_legacy_matching_editor_clearance_and_genuinely_unsaved_correction_guard(self):
+        self.create_wae(); self.receive()
+        corrected = {"time": "0801", "callsign": "DL2ABC", "serial": "42"}
+        legacy = {"pendingEdit": {"batchID": "receive-1", "index": 0, "row": corrected}}
+        self.qtc("qtc_workspace", workspace=legacy)
+        self.qtc("qtc_item", batchID="receive-1", index=0, item=corrected)
+        self.qtc("qtc_workspace", workspace=legacy)
+        self.assertIsNone(self.view()["operating"]["workspace"]["pendingEdit"])
+        unsaved = {"pendingEdit": {"editID": uid(), "batchID": "receive-1", "index": 0,
+                                  "row": {**corrected, "serial": "99"}}}
+        self.qtc("qtc_workspace", workspace=unsaved)
+        with self.assertRaisesRegex(HostError, "Save or explicitly discard"):
+            self.qtc("qtc_confirm", batchID="receive-1", index=0)
+        self.qtc("qtc_item", batchID="receive-1", index=0, item=corrected, editID=uid())
+        self.assertEqual(self.view()["operating"]["workspace"], unsaved)
+
     def test_native_output_binding_shapes_are_captured_without_reinterpretation(self):
         voice = {"schemaVersion": 1, "outputIntent": uid(), "target": {"provider": "direct_flex_lan",
             "selection_generation": 1, "selection_id": uid(), "worker_generation": 1, "connection_generation": 2,

@@ -118,9 +118,16 @@ it("retains pending corrections on close and prevents acknowledgment of uncommit
   expect(options.onMutate.mock.calls.some(([action]) => action === "qtc_confirm")).toBe(false);
   fireEvent.click(screen.getByRole("button", { name: "Save unfinished QTC editor" }));
   await waitFor(() => expect(options.onMutate).toHaveBeenCalledWith("qtc_workspace", { workspace: expect.objectContaining({ pendingEdit: {
-    batchID: "batch1", index: 1, row: { time: "0801", callsign: "DL2ABC", serial: "9" } } }) }));
+    batchID: "batch1", index: 1, editID: expect.any(String), row: { time: "0801", callsign: "DL2ABC", serial: "9" } } }) }));
   fireEvent.click(screen.getByRole("button", { name: "Continue pending correction" }));
   expect(screen.getByLabelText("Pending QTC row 2 serial")).toHaveProperty("value", "9");
+  const savedWorkspace = options.onMutate.mock.calls.find(([action]) => action === "qtc_workspace")![1].workspace as any;
+  fireEvent.click(screen.getByRole("button", { name: "Save pending item correction" }));
+  await waitFor(() => expect(screen.queryByLabelText("Pending QTC row 2 serial")).toBeNull());
+  expect(options.onMutate).toHaveBeenCalledWith("qtc_item", { batchID: "batch1", index: 1,
+    item: { time: "0801", callsign: "DL2ABC", serial: "9" }, editID: savedWorkspace.pendingEdit.editID });
+  fireEvent.click(screen.getByRole("button", { name: "Acknowledge item 2" }));
+  await waitFor(() => expect(options.onMutate).toHaveBeenCalledWith("qtc_confirm", { batchID: "batch1", index: 1 }));
 });
 it("records deliberate series completion without sending final QSL or inventing output history", async () => {
   const options = props(), complete = structuredClone(data); complete.batches[0].items[1].status = "confirmed";
