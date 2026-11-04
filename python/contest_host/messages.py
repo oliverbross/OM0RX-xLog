@@ -9,6 +9,7 @@ import re
 
 from .plugins import CONFIGURED_SENTNR_PLUGINS, SSA_MT_PLUGINS
 from .upstream import adapt_cw_template
+from .cw_sequence import compile_sequence, sequence_text, SPEED
 
 MAX_SOURCE = 65536
 MAX_BANKS = 24
@@ -52,6 +53,8 @@ def _inspect(template, mode="CW"):
             if token in ACTIONS:
                 actions.append({"kind": ACTIONS[token], "token": token, "executed": False})
             elif token in TEXT_TOKENS:
+                continue
+            elif SPEED.fullmatch(token) and mode == "CW" and (token == "WPM:BASE" or 5 <= int(token[4:]) <= 99):
                 continue
             elif re.fullmatch(r"VOICE(?:10|[1-9])", token):
                 assets.append("f" + token[5:])
@@ -270,7 +273,7 @@ def preview_message(state, params, projection=None):
     if serial is not None and state["pluginID"] not in CONFIGURED_SENTNR_PLUGINS:
         sentnr = serial_text
     values = {"MYCALL": str(state.get("station", {}).get("Call", "")), "CALL": fields.get("callsign", ""),
-              "RST": fields.get("sent", ""), "EXCHANGE": exchange, "SENTNR": sentnr,
+              "RST": fields.get("sent", ""), "EXCHANGE": exchange, "SENTNR": sentnr, "SERIAL": serial_text,
               "PREVNR": _text(params.get("previousSerial", ""), 32, "previous serial"),
               "OTHER1": fields.get("other_1", ""), "OTHER2": fields.get("other_2", "")}
     values.update({"HISCALL": values["CALL"], "SNT": values["RST"], "EXCH": exchange})
@@ -306,10 +309,19 @@ def preview_message(state, params, projection=None):
         except RuntimeError as exc:
             check["rejections"].append(str(exc))
     rendered = SYNTAX.sub(expand, template) if not check["rejections"] else ""
+    sequence = None
+    if mode == "CW" and not check["rejections"]:
+        preferences = state.get("setup", {}).get("preferences", {})
+        try:
+            sequence = compile_sequence(template, values, preferences)
+            rendered = sequence_text(sequence)
+        except ValueError as exc:
+            check["rejections"].append(str(exc))
+            rendered = ""
     if len(rendered) > 16384:
         raise ValueError("Rendered preview exceeds bound")
     highlighted = [item["id"] for item in (projection or {}).get("functionKeys", []) if item.get("highlighted")]
-    return {"text": rendered, **check, "noOutput": True, "providerAvailable": provider,
+    return {"text": rendered, "cwSequence": sequence, **check, "noOutput": True, "providerAvailable": provider,
             "binding": {"draftID": draft.get("id"), "serial": serial, "sessionID": state.get("sessionID")},
             "nextESM": {"keys": highlighted, "basis": "Current plugin projection highlights" if projection else "Unavailable: no current plugin projection",
                         "draftID": (projection or {}).get("draftID"),

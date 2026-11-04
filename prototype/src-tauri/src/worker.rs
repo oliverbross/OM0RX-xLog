@@ -30,6 +30,9 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     if request["method"].as_str().is_some_and(|method| method.starts_with("contest_multi_")) {
         return Err("Use the native group-authority or replica-sync owner for multi-operator requests.".into());
     }
+    if matches!(request["method"].as_str(), Some("contest_cw_outcome" | "contest_early_cw_start" | "contest_early_cw_append" | "contest_early_cw_finish")) {
+        return Err("Use the native CW owner for streaming and provider outcomes.".into());
+    }
     if request["method"] == "station_tune" || request["method"] == "hamlib_control" && request["params"]["device"] == "radio" && request["params"]["action"] == "tune_simplex" {
         return Err("Only the shared native tune owner can dispatch simplex tuning.".into());
     }
@@ -286,6 +289,10 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "contest_focus",
         "contest_run_state",
         "contest_cw_context",
+        "contest_early_cw_start",
+        "contest_early_cw_append",
+        "contest_early_cw_finish",
+        "contest_cw_outcome",
         "contest_esm",
         "contest_function_key",
         "contest_output_claim",
@@ -2082,6 +2089,14 @@ mod tests {
             assert!(validate_surface("main", &request).is_err(), "{method}");
             assert!(validate_surface("monitor", &request).is_err(), "{method}");
             assert!(validate_surface("settings", &request).is_err(), "{method}");
+        }
+    }
+    #[test]
+    fn cw_stream_admission_and_provider_evidence_are_native_owned() {
+        for method in ["contest_early_cw_start","contest_early_cw_append","contest_early_cw_finish","contest_cw_outcome"] {
+            let request=json!({"id":"native-cw","method":method,"params":{}});
+            assert!(validate_request(&request).is_ok());
+            for surface in ["main","cw","contest-setup","contest--active-qso","settings"] { assert!(validate_surface(surface,&request).is_err()); }
         }
     }
     #[test]

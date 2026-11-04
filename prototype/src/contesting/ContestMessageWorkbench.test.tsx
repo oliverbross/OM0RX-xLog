@@ -82,3 +82,22 @@ it("exports all 24 Not1MM rows without mutating the draft", () => {
   expect(result).toContain("S|F12||\n");
   expect(value).toEqual(before);
 });
+it("edits explicit speed sections and shows the shared compiled sequence without activation",async()=>{
+  const p=props();p.request=vi.fn(async method=>method==="contest_message_preview"?{
+    text:"CQ OM0RX",noOutput:true,warnings:[],rejections:[],actions:[],binding:{draftID:"entry-a",serial:42},
+    cwSequence:{schema:1,segments:[{kind:"speed",wpm:32},{kind:"text",text:"CQ OM0RX"},{kind:"restore"}]},
+    nextESM:{keys:[],basis:"Current plugin projection highlights",warning:"Preview only"},
+  }:{banks:[],activeBankID:null});
+  render(<ContestMessageWorkbench {...p}/>);
+  fireEvent.change(screen.getByLabelText("R F1 message template"),{target:{value:""}});
+  fireEvent.change(screen.getByLabelText("Section speed WPM"),{target:{value:"32"}});
+  fireEvent.click(screen.getByRole("button",{name:"Append speed to selected message"}));
+  fireEvent.change(screen.getByLabelText("R F1 message template"),{target:{value:"{WPM:32}CQ {MYCALL}"}});
+  fireEvent.click(screen.getByRole("button",{name:"Append base speed restore"}));
+  expect((screen.getByLabelText("R F1 message template") as HTMLInputElement).value).toBe("{WPM:32}CQ {MYCALL}{WPM:BASE}");
+  fireEvent.click(screen.getByRole("button",{name:"Preview without output"}));
+  await screen.findByLabelText("Compiled CW speed sequence");
+  expect(screen.getByLabelText("Compiled CW speed sequence").textContent).toContain("32 WPM");
+  expect(screen.getByLabelText("Compiled CW speed sequence").textContent).toContain("Restore captured base speed");
+  expect(p.onMutate).not.toHaveBeenCalled();
+});

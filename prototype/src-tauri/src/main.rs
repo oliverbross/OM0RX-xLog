@@ -125,6 +125,11 @@ fn native_only_worker_method(method: &str) -> bool {
         "contest_legacy_preview" | "contest_legacy_import")
 }
 fn requires_shared_output_acquisition(method: &str) -> bool { method == "fldigi_send" }
+fn is_raw_cw_output(request:&serde_json::Value)->bool {
+    matches!(request["method"].as_str(),Some("winkeyer_arm"|"winkeyer_send"|"winkeyer_sequence"|"winkeyer_stream"|"winkeyer_stop"))
+        || request["method"]=="station_radio_control"&&matches!(request["params"]["control"].as_str(),Some("send_cw"|"clear_cw"))
+        || request["method"]=="hamlib_control"&&matches!(request["params"]["action"].as_str(),Some("cw"|"cw_stop"))
+}
 fn private_picker_final_admission(action: &str, pinned: u64, current: u64, exiting: bool, main_present: bool) -> Result<(), String> {
     if exiting || !main_present { return Err(format!("{action} was cancelled because the main window closed.")); }
     if pinned != current { return Err(format!("{action} was cancelled because the worker restarted.")); }
@@ -2754,8 +2759,11 @@ async fn cw_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow,
     cw_session::validate_contest_route(window.label(), &params, contest_context.as_ref().map(|context| context.session_id.as_str()))?;
     let _module_admission = if output_action && !test_simulation { Some(operating_module::owner()?.admit_current()?) } else { None };
     let label = cw_session::control_window(window.label()).to_owned();
-    let live_focus = cw_session::control_window_focused(window.label(), |label| app.get_webview_window(label).map(|entry|
-        (entry.is_focused().unwrap_or(false), entry.is_visible().unwrap_or(false))));
+    let owner = cw_session_backend::owner(&app);
+    let retained = owner.snapshot()?;
+    let focus_label = cw_session::focus_window(window.label(), &params, &retained)?;
+    let live_focus = app.get_webview_window(focus_label).is_some_and(|entry|
+        entry.is_focused().unwrap_or(false) && entry.is_visible().unwrap_or(false));
     let relayed_focus = match (contest_context.as_ref(), params["contestSurfaceRequestID"].as_str()) {
         (Some(context), Some(request_id)) if matches!(action, "arm" | "contest") =>
             contest_surface::consume_focus_admission(context, request_id, action)?,
@@ -2774,7 +2782,6 @@ async fn cw_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow,
         && (cw_contest_callsign::pending() || contest_surface::cw_callsign_pending() || SPOT_ACTIVATION.get().is_some_and(|owner| owner.snapshot().map_or(true, |state| state["reservationActive"] == true))) {
         return Err("Wait for the protected draft selection before arming or sending CW. Stop remains available.".into());
     }
-    let owner = cw_session_backend::owner(&app);
     tauri::async_runtime::spawn_blocking(move || { let _module_admission = _module_admission;
         let _output=if output_action && !test_simulation {Some(carrier_tune::reserve_output()?)}else{None};
         if output_action && (cw_contest_callsign::pending() || contest_surface::cw_callsign_pending() || SPOT_ACTIVATION.get().is_some_and(|owner|owner.snapshot().map_or(true,|state|state["reservationActive"]==true))){
@@ -2843,9 +2850,7 @@ async fn worker_request(app: tauri::AppHandle, window: tauri::WebviewWindow, sta
     if state.path.is_none() && is_raw_owned_station_lifecycle(&request) {
         return Err("Use the shared Station Control connection owner.".into());
     }
-    if matches!(method, "winkeyer_arm" | "winkeyer_send" | "winkeyer_stop")
-        || method == "station_radio_control" && matches!(request["params"]["control"].as_str(), Some("send_cw" | "clear_cw"))
-        || method == "hamlib_control" && matches!(request["params"]["action"].as_str(), Some("cw" | "cw_stop")) {
+    if is_raw_cw_output(&request) {
         return Err("Use the shared CW session for CW output controls.".into());
     }
     // This explicit role gate precedes every native special dispatcher too.
@@ -5703,6 +5708,15 @@ mod workspace_layout_tests {
             json!({"method":"hamlib_control","params":{"device":"rotor","action":"stop"}}),
             json!({"method":"hamlib_control","params":{"device":"radio","action":"goto"}}),
         ] { assert!(!is_raw_manual_rotor_goto(&request)); }
+    }
+    #[test]
+    fn advanced_cw_adapter_routes_are_reachable_only_through_the_shared_native_owner() {
+        for method in ["winkeyer_arm","winkeyer_send","winkeyer_sequence","winkeyer_stream","winkeyer_stop"] {
+            assert!(super::is_raw_cw_output(&serde_json::json!({"method":method,"params":{"generation":7,"intent":1}})));
+        }
+        for method in ["winkeyer_ports","winkeyer_snapshot","winkeyer_speed","winkeyer_connect","winkeyer_disconnect"] {
+            assert!(!super::is_raw_cw_output(&serde_json::json!({"method":method,"params":{}})));
+        }
     }
     #[test]
     fn station_status_window_docks_to_recoverable_desk_without_control_shortcuts() {

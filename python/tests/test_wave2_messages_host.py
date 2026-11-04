@@ -58,8 +58,8 @@ class MessageHostTests(unittest.TestCase):
             current = self.call("contest_message_preview", {"template": "{CALL} # {LOGIT}{WIPE}", "serial": before["reservedSerial"]})
             synthetic = self.call("contest_message_preview", {"template": "{CALL} #", "serial": before["reservedSerial"] + 1,
                 "draft": {"id": "synthetic-next", "fields": {"callsign": "{#^<XML>"}}})
-        self.assertEqual(current["text"], "K1ABC 1 ")
-        self.assertEqual(synthetic["text"], "{#^<XML> 2")
+        self.assertEqual(current["text"], "K1ABC TT1 ")
+        self.assertEqual(synthetic["text"], "{#^<XML> TT2")
         self.assertEqual(synthetic["binding"]["draftID"], "synthetic-next")
         self.assertEqual(synthetic["nextESM"]["draftID"], before["draftID"])
         self.assertTrue(current["noOutput"])

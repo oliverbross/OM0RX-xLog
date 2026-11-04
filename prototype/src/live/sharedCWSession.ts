@@ -3,7 +3,8 @@ import type { CWState } from "./cwController";
 import { defaultCWProfile, validateCWProfile, type CWContext, type CWMacro, type CWProfile } from "./cwMacros";
 
 type Data = Record<string, any>;
-export type SharedCWState = CWState & { revision: number; lease: string | null; client: string | null; canonical: Data | null };
+export type SharedCWState = CWState & { revision: number; lease: string | null; client: string | null; canonical: Data | null;
+  capabilities?: { speedSegments?: boolean; streaming?: boolean; progressEvidence?: string } };
 export type CWTransport = (client: string, sequence: number, params: Data) => Promise<Data>;
 const native: CWTransport = (client, sequence, params) => invoke("cw_session_request", { client, sequence, params });
 /** Renderer adapter only. Native owns the lease, saved text, context, expiry,
@@ -43,8 +44,9 @@ export class SharedCWSession {
   }
   refresh = () => this.action("snapshot").then(() => {});
   pollWinKeyer = () => this.refresh();
-  arm = (contestSurfaceRequestID?: string) => this.action("arm", {
+  arm = (contestSurfaceRequestID?: string, controlSurface?: "setup") => this.action("arm", {
     expectedRevision: this.state.revision, ...(contestSurfaceRequestID ? { contestSurfaceRequestID } : {}),
+    ...(controlSurface ? {controlSurface} : {}),
   }).then(() => {});
   send = (macro: CWMacro, _previewContext?: CWContext) => this.action("send", { expectedRevision: this.state.revision, lease: this.state.lease, macroID: macro.id }).then(() => {});
   executeContest = (params: Data) => this.action("contest", { ...params, expectedRevision: this.state.revision, lease: this.state.lease });

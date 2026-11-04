@@ -91,13 +91,22 @@ impl Backend for Native {
         let worker = canonical["worker"].as_u64().ok_or("CW worker unavailable")?;
         let method = match params["operation"].as_str() {
             Some("esm") => "contest_esm", Some("function_key") => "contest_function_key",
+            Some("early_start") => "contest_early_cw_start", Some("early_append") => "contest_early_cw_append", Some("early_finish") => "contest_early_cw_finish",
+            Some("qtc") => "contest_strategy_apply",
             _ => return Err("Unknown contest CW operation".into()),
         };
         let result = call(worker, method, json!({
             "sessionID":canonical["contestSessionID"], "operationID":params["operationID"],
+            "workspaceGeneration":canonical["workspaceGeneration"],
             "expectedRevision":canonical["draftRevision"], "draftID":canonical["draftID"],
             "fields":params["fields"], "frequencyHz":params["frequencyHz"],
-            "field":params["field"], "key":params["key"]
+            "field":params["field"], "key":params["key"], "streamID":params["streamID"],
+            "manualStart":params["manualStart"], "inputOrigin":params["inputOrigin"],
+            "earlyStartEnabled":params["earlyStartEnabled"], "threshold":params["threshold"].as_u64().unwrap_or(3),
+            "cwProviderContext":params["cwProviderContext"],
+            "correctionPolicy":params["correctionPolicy"],
+            "action":params["qtcAction"].as_str().unwrap_or("qtc_output"), "batchID":params["batchID"],
+            "index":params["index"], "qtcField":params["qtcField"]
         }))?;
         Ok(result)
     }
@@ -142,8 +151,9 @@ impl Backend for Native {
                 return Err("CW canonical contest revisions are unavailable.".into());
             }
             return Ok(json!({"worker":worker,"generation":settings["generation"],"settingsRevision":settings["revision"],
-                "draftRevision":contest["revision"],"draftID":contest["draftID"],"contestSessionID":contest["sessionID"],
-                "provider":provider,"selection":selection,"profile":profile,"cwFormatting":contest["cwFormatting"],
+                "draftRevision":contest["revision"],"draftID":contest["draftID"],"contestSessionID":contest["sessionID"],"workspaceGeneration":contest["workspaceGeneration"],
+                "selectedLaneID":contest["selectedLaneID"],"bindingVersion":contest["bindingVersion"],
+                "provider":provider,"selection":selection,"profile":profile,"cwFormatting":contest["cwFormatting"],"earlyCW":contest["earlyCW"],
                 "context":{"MYCALL":contest["stationCall"],"CALL":fields["callsign"],"RST":fields["sent"],
                     "NAME":"","GRID":saved["gridSquare"].as_str().unwrap_or(""),"SERIAL":contest["sentSerial"],
                     "SENTNR":contest["sentSerial"],"EXCHANGE":contest["sentExchange"]}}));
@@ -187,7 +197,38 @@ impl Backend for Native {
             if !matches!(value["radio"]["mode"].as_str(), Some("CW" | "CWR")) || !timestamp.is_some_and(|time| fresh(now() - time * 1_000.0, 5_000.0)) { return Err("Set the radio to CW and wait for fresh readback.".into()); }
             (generation(&value["generation"])?, 128, 0)
         };
-        Ok(json!({"output":output,"provider":if output == "winkeyer" { "winkeyer" } else { provider },"generation":identity,"limit":limit,"last_intent":intent,"worker":worker,"selection":canonical["selection"]}))
+        Ok(json!({"output":output,"provider":if output == "winkeyer" { "winkeyer" } else { provider },"generation":identity,"limit":limit,"last_intent":intent,"worker":worker,"selection":canonical["selection"],
+            "speedSegments":output == "winkeyer", "streaming":output == "winkeyer", "progressEvidence":if output == "winkeyer" {"host-queue-and-device-status"} else {"command-acceptance-only"}}))
+    }
+    fn sequence(&self, target: &Value, sequence: &crate::winkeyer::Sequence, intent: u64) -> Result<Value, String> {
+        if target["output"] == "winkeyer" {
+            return local("winkeyer_sequence", json!({"generation":generation(&target["generation"])?,"intent":intent,"sequence":sequence}));
+        }
+        if sequence.variable_speed() { return Err("This adapter cannot execute buffered speed segments; explicitly choose a single-speed message.".into()); }
+        self.output(target, "send", Some(&sequence.text()), intent)
+    }
+    fn stream(&self, target: &Value, stream: &Value, intent: u64) -> Result<Value, String> {
+        if target["output"] != "winkeyer" { return Err("This adapter does not support qualified owned CW append.".into()); }
+        local("winkeyer_stream", json!({"generation":generation(&target["generation"])?,"intent":intent,"streamID":stream["streamID"],
+            "revision":stream["revision"],"text":stream["call"],"finish":stream["complete"]}))
+    }
+    fn continue_sequence(&self,target:&Value,sequence:&crate::winkeyer::Sequence,stream:&str,intent:u64)->Result<Value,String>{
+        if target["output"]!="winkeyer"{return Err("This output cannot continue an owned callsign stream.".into());}
+        local("winkeyer_sequence",json!({"generation":generation(&target["generation"])?,"intent":intent,"sequence":sequence,"continuationStreamID":stream}))
+    }
+    fn contest_outcome(&self, canonical: &Value, result: &Value, target: &Value, outcome: &str) -> Result<(), String> {
+        let worker = canonical["worker"].as_u64().ok_or("CW worker unavailable")?;
+        let accepted_call = result["actions"].as_array().and_then(|actions| actions.iter().find_map(|action| {
+            let call = action["fields"]["callsign"].as_str()?;
+            if !action["template"].as_str()?.contains("{CALL}") { return None; }
+            let text = if action["cwSequence"].is_object() { crate::winkeyer::Sequence::parse(&action["cwSequence"]).ok()?.text() }
+                else { crate::cw_session::render_contest_action(action,&canonical["cwFormatting"],&canonical["context"]["GRID"],128).ok()? };
+            text.split_ascii_whitespace().any(|part| part == call).then_some(call)
+        }));
+        call(worker, "contest_cw_outcome", json!({"sessionID":canonical["contestSessionID"],"operationID":uuid::Uuid::new_v4().to_string(),
+            "outputOperationID":result["operationID"],"outcome":outcome,"providerID":target["provider"],"generation":target["generation"],
+            "acceptedCall":accepted_call,
+            "acceptanceLevel":if target["output"] == "winkeyer" {"native_queue"} else {"provider_accepted"}})).map(|_| ())
     }
     fn output(&self, target: &Value, action: &str, text: Option<&str>, intent: u64) -> Result<Value, String> {
         if crate::runtime_profile::CONTESTING_TEST { return simulate_output(target, action, text, intent); }

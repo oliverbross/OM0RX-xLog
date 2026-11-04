@@ -720,6 +720,9 @@ class Desk:
                    "sentExchange": str(self.contest_settings["SentExchange"]),
                    "sentSerial": (str(self.current_sn) if self.state["pluginID"] in SSA_MT_PLUGINS | SENT_FIELD_SERIAL_PLUGINS
                                   else self.other_1.text() if self.state["pluginID"] in SENTNR_FIELD_PLUGINS else "")}
+        if "{PREVNR}" in text_template:
+            previous = self.database.exec_sql("SELECT SentNr FROM DXLOG WHERE ContestNR=? ORDER BY TS DESC,rowid DESC LIMIT 1", (self.database.current_contest,))
+            context["previousSerial"] = str(previous.get("SentNr") or "") if previous else ""
         rendered = self.process_macro(text_template)
         self.execute_macro_actions(macro_actions)
         if not text_template.strip():
@@ -750,9 +753,30 @@ class Desk:
             return
         if mode != "CW":
             return
-        self.actions.append({"kind": "function_key", "key": button.name,
-                             "label": macro["label"], "template": text_template,
-                             **context})
+        from .cw_sequence import compile_sequence, action_values
+        action = {"kind": "function_key", "key": button.name,
+                  "label": macro["label"], "template": text_template, **context}
+        values = action_values(action)
+        if getattr(self, "cw_esm_operation", False) and button is self.esm_dict.get("HISCALL"):
+            evidence = self.state.get("cwOutputEvidence", {})
+            stream = self.state.get("earlyCW", {})
+            if self.current_widget == "callsign" and stream and stream.get("admitted") and stream.get("complete") and not stream.get("esmConsumed") \
+                    and stream.get("draftID") == context["draftID"] and stream.get("call") == values["CALL"] \
+                    and evidence.get("outcome") == "accepted" and evidence.get("outputOperationID") == stream.get("operationID"):
+                values["CALL"] = ""
+                stream["esmConsumed"] = True
+                action["earlyCallSuppressed"] = True
+            elif self.current_widget != "callsign" and getattr(self, "cw_partial_policy", "full") == "partial" \
+                    and evidence.get("outcome") == "accepted" and evidence.get("acceptanceLevel") == "provider_accepted" \
+                    and evidence.get("draftID") == context["draftID"] and evidence.get("acceptedCall") \
+                    and getattr(self, "cw_provider_context", None) == {"providerID": evidence.get("providerID"), "generation": evidence.get("generation")}:
+                from .cw_operations import corrected_component
+                values["CALL"] = corrected_component(evidence["acceptedCall"], values["CALL"])
+                action["partialCorrection"] = values["CALL"] != context["fields"]["callsign"]
+        action["cwSequence"] = compile_sequence(text_template, values,
+            cw_formatting_preferences(self.state.get("setup", {}).get("preferences", {})))
+        if any(segment.get("text", "").strip() for segment in action["cwSequence"]["segments"]):
+            self.actions.append(action)
 
     def record_fldigi_output(self, value, nlbefore=True, rxafter=True):
         require(self.state["pluginID"] in RTTY_PLUGINS, "This contest has no original fldigi transmit path")
@@ -1219,9 +1243,10 @@ class Host:
     MUTATIONS = {"session_create", "legacy_import", "draft_apply", "focus", "run_state", "esm", "function_key", "qso_commit", "digital_ingest", "qso_correct", "qso_delete", "setup_save", "rover_location", "recalculate", "country_reconcile", "multi_contact_apply", "multi_replica_apply", "note_save", "strategy_apply", "message_bank_save", "message_bank_activate", "operating_plan_save"}
     MUTATIONS |= {"lanes_configure", "lane_context", "lane_select"}
     MUTATIONS |= {"digital_select"}
+    MUTATIONS |= {"early_cw_start", "early_cw_append", "early_cw_finish"}
     REPLICA_BLOCKED = {"legacy_import", "esm", "function_key", "qso_commit", "digital_ingest", "lanes_configure", "lane_context", "lane_select",
                        "qso_correct", "qso_delete", "recalculate", "country_reconcile", "setup_save", "rover_location",
-                       "multi_contact_apply"}
+                       "multi_contact_apply", "early_cw_start", "early_cw_append", "early_cw_finish"}
 
     def __init__(self, data_root):
         supplied = Path(data_root).absolute()
@@ -1562,6 +1587,9 @@ class Host:
                 if method == "message_import":
                     return import_message_bank(params)
                 if method == "message_preview":
+                    if "previousSerial" not in params:
+                        previous = store.exec_sql("SELECT SentNr FROM DXLOG WHERE ContestNR=? ORDER BY TS DESC,rowid DESC LIMIT 1", (store.current_contest,))
+                        params = {**params, "previousSerial": str(previous.get("SentNr") or "") if previous else ""}
                     return preview_message(state, params, Desk(store, state, self.commit).projection())
                 return message_projection(state)
             except ValueError as error:
@@ -1885,14 +1913,29 @@ class Host:
             require(operating_mode(state) == "CW", "This contest does not support CW output", "unsupported_mode")
             from .lanes import attribution
             return {"sessionID": session_id, "revision": state["revision"],
+                    "workspaceGeneration": workspace_generation(state),
+                    "selectedLaneID": state.get("laneState", {}).get("selectedLaneID", "laneA"),
+                    "bindingVersion": attribution(state).get("bindingVersion") if attribution(state) else None,
                     **({"laneContext": attribution(state)} if state.get("laneState") else {}),
                     "draftID": state["draft"]["id"], "stationCall": state["station"]["Call"],
                     "fields": desk.values(), "frequencyHz": state["draft"]["frequencyHz"],
                     "cwFormatting": cw_formatting_preferences(state.get("setup", {}).get("preferences", {})),
+                    "earlyCW": deepcopy(state.get("earlyCW")),
+                    "cwOutputEvidence": deepcopy(state.get("cwOutputEvidence")),
                     "sentExchange": str(state["settings"]["SentExchange"]),
                     "sentSerial": (str(desk.current_sn) if state["pluginID"] in SSA_MT_PLUGINS | SENT_FIELD_SERIAL_PLUGINS
                                    else desk.other_1.text()
                                    if state["pluginID"] in SENTNR_FIELD_PLUGINS else "")}
+        if method == "cw_outcome":
+            from .cw_operations import outcome
+            store.begin()
+            try:
+                value = outcome(store, store.state(session_id), params, require)
+                store.finish(True)
+                return value
+            except BaseException:
+                store.finish(False)
+                raise
         if method == "receipt":
             include_original = params.get("includeOriginalRequest", False)
             require(type(include_original) is bool, "includeOriginalRequest must be a boolean")
@@ -2765,6 +2808,8 @@ class Host:
                     require(state["laneState"]["lanes"][action_lane]["binding"] is not None,
                             "Bind the lane to an explicit radio/receiver before output", "lane_unbound")
             desk = Desk(store, state, self.commit)
+            if method not in {"early_cw_start", "early_cw_append", "early_cw_finish", "esm", "focus"} and isinstance(state.get("earlyCW"), dict):
+                state["earlyCW"]["admitted"] = False
             if method == "lanes_configure":
                 from .lanes import configure, snapshot
                 require(params.get("workspaceGeneration") == workspace_generation(state), "Lane workspace changed", "stale_context")
@@ -2867,6 +2912,13 @@ class Host:
                 self.apply_fields(desk,{"draftID":state["draft"]["id"],"fields":{**desk.values(),field:value}})
                 state.setdefault("digitalSelections",[]).append({"fieldID":field,"value":value,"source":text(params.get("source"),512),"draftID":state["draft"]["id"],"laneID":action_lane})
                 state["digitalSelections"]=state["digitalSelections"][-100:]
+            elif method in {"early_cw_start", "early_cw_append", "early_cw_finish"}:
+                require(params.get("workspaceGeneration") == workspace_generation(state), "Early CW workspace changed", "stale_context")
+                require(params.get("draftID") == state["draft"]["id"], "Early CW draft changed", "stale_draft")
+                self.apply_fields(desk, params)
+                self.prefill(desk)
+                from .cw_operations import admit
+                admit(desk, method, params, require)
             elif method == "draft_apply":
                 previous_call = desk.callsign.text().strip().upper()
                 self.apply_fields(desk, params)
@@ -3130,6 +3182,9 @@ class Host:
                 require(field in INPUTS, "Unknown focused field")
                 desk.current_widget = field
                 if desk.use_esm:
+                    desk.cw_esm_operation = True
+                    desk.cw_partial_policy = params.get("correctionPolicy", "full")
+                    desk.cw_provider_context = params.get("cwProviderContext")
                     desk.contest.process_esm(desk, getattr(desk, field), True)
                 else:
                     desk.save_contact()
@@ -3293,12 +3348,16 @@ class Host:
                 from .strategy import reconcile_worked
                 reconcile_worked(state, store.exec_sql_mult("SELECT ID,Call,Band,Mode FROM DXLOG WHERE ContestNR=?", (store.current_contest,)), BAND_LABELS)
             state["revision"] += 1
+            if method == "focus" and isinstance(state.get("earlyCW"), dict) and state["earlyCW"].get("admitted") and not state["earlyCW"].get("complete"):
+                state["earlyCW"]["revision"] = state["revision"]
             if state.get("laneState"):
                 select_lane(state, {"laneID": state["laneState"]["keyboardLaneID"], "workspaceGeneration": workspace_generation(state)}, require)
             store.save_state(state)
             projection_desk = Desk(store, state, self.commit) if state.get("laneState") else desk
             result = {"operationID": operation, "sessionID": session_id, "revision": state["revision"],
                       "projection": projection_desk.projection(), "actions": desk.actions, "messages": desk.messages, "replayed": False}
+            if method in {"early_cw_start", "early_cw_append", "early_cw_finish"}:
+                result["earlyCW"] = deepcopy(state["earlyCW"])
             if action_context:
                 result.update(laneID=action_context["laneID"], bindingVersion=action_context["bindingVersion"])
             if method == "digital_ingest":

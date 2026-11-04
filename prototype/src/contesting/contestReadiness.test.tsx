@@ -45,6 +45,15 @@ it("labels unsupported macro control tokens and never executes a preview", () =>
   expect(message.status).toBe("LIMITED");
   expect(message.detail).toContain("TX, SHELL");
 });
+it("recognizes bounded CW speed tokens while preserving provider and installed qualification boundaries", () => {
+  const document = newContestSetup("OM0RX"); document.pluginID = "okom_dx_cw"; document.settings.ModeCategory = "CW";
+  document.macros = [{ mode: "R", key: "F1", label: "sequence", template: "{WPM:20}{CALL}{WPM:BASE}" }];
+  expect(contestPreflight(document).find(item => item.label === "Message tokens")?.status).toBe("UNVERIFIED");
+  document.macros[0].template = "{WPM:4}{CALL}";
+  expect(contestPreflight(document).find(item => item.label === "Message tokens")?.status).toBe("LIMITED");
+  expect(contestCapabilities("okom_dx_cw").find(item => item.label === "Current sponsor rules")?.status).toBe("ACCEPTED");
+  expect(contestCapabilities("okom_dx_cw").find(item => item.label === "Installed workflow")?.status).toBe("UNVERIFIED");
+});
 
 it("Practice preview drops credentials and posting without changing the source document", () => {
   const source = newContestSetup("OM0RX");

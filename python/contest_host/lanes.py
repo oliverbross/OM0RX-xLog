@@ -10,6 +10,7 @@ import re
 
 LANE_IDS = ("laneA", "laneB")
 ENTRY_METHODS = {"draft_apply", "digital_select", "digital_ingest", "focus", "run_state", "esm", "function_key", "qso_commit", "lane_context", "lane_select"}
+ENTRY_METHODS |= {"early_cw_start", "early_cw_append", "early_cw_finish"}
 CONTEXT_KEYS = ("draft", "run", "focus", "esmCallSent", "operatingMode")
 
 

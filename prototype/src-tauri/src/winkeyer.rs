@@ -1,7 +1,7 @@
 //! Independent WK2/WK3 host-mode connection. No raw commands, EEPROM writes,
 //! pin configuration, manual PTT, tune, automatic reconnect, or text retries.
 //! Protocol: K1EL WK3 Datasheet v1.3, WK1-compatible status (Host Open default).
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::VecDeque;
 use std::io::{self, Read, Write};
@@ -56,13 +56,55 @@ struct Snapshot {
     pending_characters: usize,
     last_intent: u64,
     error: Option<String>,
+    stream_id: Option<String>,
+    accepted_text: String,
+    restoration_requested: bool,
+}
+
+/// Provider-independent compiler output. Only these typed operations may become
+/// buffered protocol bytes; macro text never carries raw WinKeyer commands.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(tag = "kind", rename_all = "lowercase", deny_unknown_fields)]
+pub(crate) enum Segment {
+    Text { text: String },
+    Speed { wpm: u8 },
+    Restore,
+}
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Sequence { pub schema: u8, pub segments: Vec<Segment> }
+impl Sequence {
+    pub fn parse(value: &Value) -> Result<Self, String> {
+        let sequence: Self = serde_json::from_value(value.clone()).map_err(|_| "Invalid typed CW sequence")?;
+        sequence.bytes()?;
+        Ok(sequence)
+    }
+    pub fn text(&self) -> String { self.segments.iter().filter_map(|s| match s { Segment::Text { text } => Some(text.as_str()), _ => None }).collect() }
+    pub fn variable_speed(&self) -> bool { self.segments.iter().any(|s| !matches!(s, Segment::Text { .. })) }
+    fn bytes(&self) -> Result<VecDeque<Vec<u8>>, String> {
+        if self.schema != 1 || self.segments.is_empty() || self.segments.len() > 64 { return Err("Unsupported or oversized CW sequence".into()); }
+        let mut bytes = VecDeque::new(); let mut changed = false; let mut count = 0;
+        for segment in &self.segments {
+            match segment {
+                Segment::Text { text } => {
+                    if text.is_empty() || !text.bytes().all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b" /?=+.,-".contains(&b)) { return Err("CW sequence has unsupported text".into()); }
+                    count += text.len(); bytes.extend(text.bytes().map(|b| vec![b]));
+                }
+                Segment::Speed { wpm } => { if !(5..=99).contains(wpm) { return Err("CW speed must be 5–99 WPM".into()); } changed = true; bytes.push_back(vec![0x1c, *wpm]); }
+                Segment::Restore => { changed = false; bytes.push_back(vec![0x1e]); }
+            }
+        }
+        if changed { return Err("CW sequence must restore base speed".into()); }
+        if count == 0 || count > 128 || self.text().trim().is_empty() { return Err("CW must contain 1–128 supported characters".into()); }
+        Ok(bytes)
+    }
 }
 
 /// Deterministic state machine; the serial actor is its only caller. All times
 /// are monotonic milliseconds from that actor's start, never browser timestamps.
 struct Core {
     snapshot: Snapshot,
-    queue: VecDeque<u8>,
+    queue: VecDeque<Vec<u8>>,
     last_status: Option<u64>,
     arm_until: u64,
     last_write: u64,
@@ -71,6 +113,9 @@ struct Core {
     settling: bool,
     saw_busy: bool,
     transport_failed: bool,
+    stream_revision: u64,
+    speed_changed: bool,
+    finished_stream: Option<String>,
 }
 impl Core {
     fn new(generation: u64, port: String) -> Self {
@@ -87,6 +132,9 @@ impl Core {
                 pending_characters: 0,
                 last_intent: 0,
                 error: None,
+                stream_id: None,
+                accepted_text: String::new(),
+                restoration_requested: false,
             },
             queue: VecDeque::new(),
             last_status: None,
@@ -97,13 +145,16 @@ impl Core {
             settling: false,
             saw_busy: false,
             transport_failed: false,
+            stream_revision: 0,
+            speed_changed: false,
+            finished_stream: None,
         }
     }
     fn view(&self, now: u64) -> Snapshot {
         let mut value = self.snapshot.clone();
         value.status_age_ms = self.last_status.map(|then| now.saturating_sub(then));
         value.armed_remaining_ms = self.arm_until.saturating_sub(now);
-        value.pending_characters = self.queue.len();
+        value.pending_characters = self.queue.iter().map(Vec::len).sum();
         value
     }
     fn fresh(&self, now: u64) -> bool {
@@ -121,6 +172,8 @@ impl Core {
             // The device has discarded its host FIFO. Do not resume our tail or
             // issue Clear Buffer against the operator's newly owned paddles.
             self.queue.clear();
+            self.snapshot.stream_id = None;
+            self.finished_stream = None;
             self.arm_until = 0;
             self.snapshot.owns_output = false;
             self.settling = false;
@@ -131,7 +184,7 @@ impl Core {
             if self.snapshot.owns_output && status.busy {
                 self.saw_busy = true;
             }
-            if self.queue.is_empty()
+            if self.queue.is_empty() && self.snapshot.stream_id.is_none()
                 && status.idle()
                 && (self.settling || self.saw_busy)
                 && now.saturating_sub(self.last_output) >= SETTLE_MS
@@ -139,14 +192,19 @@ impl Core {
                 self.snapshot.owns_output = false;
                 self.settling = false;
                 self.saw_busy = false;
+                self.speed_changed = false;
             }
         }
     }
     fn arm(&mut self, now: u64) -> Result<(), String> {
+        if self.speed_changed && !self.snapshot.owns_output {
+            return Err("Speed restoration is unknown after interruption. Set a base speed with fresh idle status before re-arming.".into());
+        }
         if self.snapshot.phase != "ready"
             || !self.fresh(now)
             || !self.snapshot.status.is_some_and(Status::idle)
             || self.snapshot.owns_output
+            || self.speed_changed
         {
             return Err("WinKeyer must have fresh idle status before arming".into());
         }
@@ -181,9 +239,57 @@ impl Core {
                     .into(),
             );
         }
-        self.queue.extend(text.bytes());
+        self.queue.extend(text.bytes().map(|b| vec![b]));
+        self.finished_stream = None;
         self.snapshot.owns_output = true; // before any serial write
         self.saw_busy = false;
+        Ok(())
+    }
+    fn sequence(&mut self, intent: u64, sequence: &Sequence, now: u64) -> Result<(), String> {
+        self.sequence_continuation(intent,sequence,None,now)
+    }
+    fn sequence_continuation(&mut self, intent: u64, sequence: &Sequence, stream: Option<&str>, now: u64) -> Result<(), String> {
+        let mut bytes = sequence.bytes()?;
+        if let Some(id)=stream {
+            if self.finished_stream.as_deref()!=Some(id) { return Err("The completed CW stream is no longer owned.".into()); }
+            // The preceding stream contains a bare callsign. Preserve its word
+            // boundary when the compiler's following message is normalized.
+            if !sequence.text().starts_with(' ') { bytes.push_front(vec![b' ']); }
+            if self.snapshot.owns_output {
+                if intent==0 || intent<=self.snapshot.last_intent {return Err("Stale or repeated CW continuation".into());}
+                self.snapshot.last_intent=intent;
+                if self.snapshot.phase!="ready" || self.arm_until<=now || !self.fresh(now) || self.snapshot.status.is_some_and(|s|s.break_in)
+                    || self.queue.iter().map(Vec::len).sum::<usize>()+bytes.iter().map(Vec::len).sum::<usize>()>256 {
+                    return Err("CW continuation is unavailable or full; Stop and inspect its outcome.".into());
+                }
+                self.queue.extend(bytes);self.finished_stream=None;
+            } else {self.send(intent,&sequence.text(),now)?;self.queue=bytes;}
+        } else {self.send(intent, &sequence.text(), now)?;self.queue = bytes;}
+        self.snapshot.restoration_requested = sequence.variable_speed();
+        Ok(())
+    }
+    fn stream(&mut self, intent: u64, id: &str, revision: u64, text: &str, finish: bool, now: u64) -> Result<(), String> {
+        if uuid::Uuid::parse_str(id).is_err() || revision == 0 || text.len() > 32 || text.is_empty()
+            || !text.bytes().all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'/') { return Err("Invalid CW stream identity or callsign".into()); }
+        if self.snapshot.stream_id.is_none() {
+            if finish { return Err("No owned CW stream to finish".into()); }
+            self.send(intent, text, now)?;
+            self.snapshot.stream_id = Some(id.into()); self.snapshot.accepted_text = text.into(); self.stream_revision = revision;
+            return Ok(());
+        }
+        if intent == 0 || intent <= self.snapshot.last_intent { return Err("Stale or repeated CW intent".into()); }
+        self.snapshot.last_intent = intent;
+        if self.snapshot.stream_id.as_deref() != Some(id) || revision <= self.stream_revision || !text.starts_with(&self.snapshot.accepted_text)
+            || text.len() > 32 || !text.bytes().all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'/') {
+            return Err("CW stream changed or edited submitted text; Stop and use explicit correction".into());
+        }
+        if self.snapshot.phase != "ready" || self.arm_until <= now || !self.fresh(now) || self.snapshot.status.is_some_and(|s| s.break_in)
+            || !self.snapshot.owns_output || self.queue.len() + text.len() - self.snapshot.accepted_text.len() > 128 {
+            return Err("CW stream is unavailable or full; Stop and inspect its outcome".into());
+        }
+        self.queue.extend(text[self.snapshot.accepted_text.len()..].bytes().map(|b| vec![b]));
+        self.snapshot.accepted_text = text.into(); self.stream_revision = revision;
+        if finish { self.snapshot.stream_id = None; self.finished_stream=Some(id.into()); }
         Ok(())
     }
     fn write<P: Write + ?Sized>(
@@ -201,7 +307,7 @@ impl Core {
         match port.write(bytes) {
             Ok(n) if n == bytes.len() => {
                 self.last_write = now;
-                if bytes == CLEAR || bytes.len() == 1 && bytes[0] >= 0x20 {
+                if bytes == CLEAR || bytes[0] == 0x1c || bytes[0] == 0x1e || bytes.len() == 1 && bytes[0] >= 0x20 {
                     self.last_output = now;
                 }
                 Ok(())
@@ -214,6 +320,8 @@ impl Core {
     }
     fn fail(&mut self, message: &str) {
         self.queue.clear();
+        self.snapshot.stream_id = None;
+        self.finished_stream = None;
         self.arm_until = 0;
         self.snapshot.phase = "uncertain";
         self.snapshot.error = Some(message.into());
@@ -221,9 +329,17 @@ impl Core {
     }
     fn stop<P: Write + ?Sized>(&mut self, port: &mut P, now: u64) -> Result<(), String> {
         self.queue.clear();
+        self.snapshot.stream_id = None;
+        self.finished_stream = None;
         self.arm_until = 0;
         if self.snapshot.owns_output {
             self.write(port, CLEAR, now)?;
+            if self.speed_changed {
+                // Clear discards buffered changes, but not a change already in
+                // force. Queue the documented restore against this connection.
+                self.write(port, &[0x1e], now)?;
+                self.snapshot.restoration_requested = true;
+            }
             self.settling = true;
             self.write(port, STATUS, now)?;
         }
@@ -250,8 +366,11 @@ impl Core {
                 .is_some_and(|s| s.xoff || s.break_in || s.waiting || s.key_down)
             && now.saturating_sub(self.last_write) >= WRITE_GAP_MS
         {
-            let byte = self.queue.pop_front().unwrap();
-            self.write(port, &[byte], now)?;
+            let bytes = self.queue.pop_front().unwrap();
+            self.write(port, &bytes, now)?;
+            if bytes[0] == 0x1c { self.speed_changed = true; }
+            // Writing a buffered restore does not prove it executed. Keep the
+            // obligation until device idle; Stop may clear that queued restore.
         }
         if now.saturating_sub(self.last_poll) >= 500 {
             self.write(port, STATUS, now)?;
@@ -331,6 +450,8 @@ fn handshake(port: &mut dyn Port, cancelled: &AtomicBool) -> Result<(u8, u8), St
 enum Command {
     Arm,
     Send { intent: u64, text: String },
+    Sequence { intent: u64, sequence: Sequence, stream: Option<String> },
+    Stream { intent: u64, id: String, revision: u64, text: String, finish: bool },
     Speed(u8),
 }
 struct Pending {
@@ -482,6 +603,8 @@ fn run_actor_with_open(
                     match pending.command {
                         Command::Arm => core.arm(now()),
                         Command::Send { intent, text } => core.send(intent, &text, now()),
+                        Command::Sequence { intent, sequence, stream } => core.sequence_continuation(intent, &sequence, stream.as_deref(), now()),
+                        Command::Stream { intent, id, revision, text, finish } => core.stream(intent, &id, revision, &text, finish, now()),
                         Command::Speed(wpm) => {
                             if core.snapshot.owns_output
                                 || !core.fresh(now())
@@ -489,7 +612,9 @@ fn run_actor_with_open(
                             {
                                 Err("Change speed only while WinKeyer has fresh idle status".into())
                             } else {
-                                core.write(port.as_mut(), &[2, wpm], now())
+                                core.write(port.as_mut(), &[2, wpm], now()).map(|()| {
+                                    core.speed_changed=false;core.snapshot.restoration_requested=false;
+                                })
                             }
                         }
                     }
@@ -637,6 +762,18 @@ fn dispatch(method: &str, params: &Value) -> Result<Value, String> {
                 .ok_or("CW text is required")?
                 .to_owned(),
         },
+        "winkeyer_sequence" => Command::Sequence {
+            intent: params["intent"].as_u64().ok_or("CW intent is required")?,
+            sequence: Sequence::parse(&params["sequence"])? ,
+            stream:params["continuationStreamID"].as_str().map(str::to_owned),
+        },
+        "winkeyer_stream" => Command::Stream {
+            intent: params["intent"].as_u64().ok_or("CW intent is required")?,
+            id: params["streamID"].as_str().ok_or("CW stream identity is required")?.into(),
+            revision: params["revision"].as_u64().ok_or("CW stream revision is required")?,
+            text: params["text"].as_str().ok_or("CW stream callsign is required")?.into(),
+            finish: params["finish"].as_bool().unwrap_or(false),
+        },
         "winkeyer_speed" => Command::Speed(
             params["wpm"]
                 .as_u64()
@@ -763,6 +900,66 @@ mod tests {
         let all = Status::parse(0xdf).unwrap();
         assert!(all.busy && all.break_in && all.xoff && all.waiting && all.key_down);
         assert!(Status::parse(0xc0).unwrap().idle());
+    }
+    #[test]
+    fn typed_speed_sequence_uses_fifo_commands_and_requires_explicit_restore() {
+        let sequence = Sequence::parse(&json!({"schema":1,"segments":[{"kind":"text","text":"CQ "},{"kind":"speed","wpm":18},
+            {"kind":"text","text":"OM0RX"},{"kind":"restore"},{"kind":"text","text":" TEST"}]})).unwrap();
+        let mut c = ready(); let mut p = Fake::default(); c.arm(2).unwrap(); c.sequence(1, &sequence, 3).unwrap();
+        for now in (40..=600).step_by(40) { c.receive(0xc4, now); c.tick(&mut p, now).unwrap(); }
+        assert_eq!(p.bytes.iter().copied().filter(|b| *b != 0x15).collect::<Vec<_>>(), b"CQ \x1c\x12OM0RX\x1e TEST");
+        assert_eq!(sequence.text(), "CQ OM0RX TEST");
+        assert!(Sequence::parse(&json!({"schema":1,"segments":[{"kind":"speed","wpm":18},{"kind":"text","text":"CQ"}]})).is_err());
+        assert!(Sequence::parse(&json!({"schema":1,"segments":[{"kind":"text","text":"CQ\n"}]})).is_err());
+        assert!(Sequence::parse(&json!({"schema":2,"segments":[{"kind":"text","text":"CQ"}]})).is_err());
+    }
+    #[test]
+    fn buffered_speed_is_atomic_under_xoff_and_partial_write_retains_uncertainty() {
+        let sequence = Sequence::parse(&json!({"schema":1,"segments":[{"kind":"speed","wpm":18},{"kind":"text","text":"CQ"},{"kind":"restore"}]})).unwrap();
+        let mut c = ready(); let mut p = Fake::default(); c.arm(2).unwrap(); c.sequence(1, &sequence, 3).unwrap();
+        c.receive(0xc5, 30); c.tick(&mut p, 40).unwrap(); assert!(p.bytes.is_empty());
+        c.receive(0xc4, 60); c.tick(&mut p, 80).unwrap(); assert_eq!(p.bytes, [0x1c,18]);
+        c.stop(&mut p, 90).unwrap(); assert_eq!(p.bytes, [0x1c,18,0x0a,0x1e,0x15]); assert!(c.queue.is_empty());
+        let mut c = ready(); let mut p = Fake { partial:true, ..Fake::default() }; c.arm(2).unwrap(); c.sequence(1,&sequence,3).unwrap();
+        assert!(c.tick(&mut p,40).is_err()); let length = p.bytes.len(); assert!(c.stop(&mut p,80).is_err());
+        assert_eq!(p.bytes.len(),length); assert_eq!(c.snapshot.phase,"uncertain"); assert!(c.snapshot.owns_output);
+    }
+    #[test]
+    fn stop_restores_even_after_a_buffered_restore_was_written_but_may_be_cleared() {
+        let sequence=Sequence::parse(&json!({"schema":1,"segments":[{"kind":"speed","wpm":18},{"kind":"text","text":"CQ"},{"kind":"restore"}]})).unwrap();
+        let mut c=ready();let mut p=Fake::default();c.arm(2).unwrap();c.sequence(1,&sequence,3).unwrap();
+        for now in [40,80,120,160] {c.tick(&mut p,now).unwrap();}
+        assert_eq!(p.bytes,b"\x1c\x12CQ\x1e");assert!(c.speed_changed);
+        c.stop(&mut p,180).unwrap();assert!(p.bytes.ends_with(&[0x0a,0x1e,0x15]));
+        let before=p.bytes.len();c.stop(&mut p,190).unwrap();assert_eq!(&p.bytes[before..],&[0x0a,0x1e,0x15]);
+    }
+    #[test]
+    fn callsign_stream_owns_idle_gaps_and_admits_each_suffix_once() {
+        let mut c = ready(); let mut p = Fake::default(); c.arm(2).unwrap(); let id = uuid::Uuid::new_v4().to_string();
+        c.stream(1,&id,3,"OM0",false,3).unwrap();
+        for now in [40,80,120] { c.tick(&mut p,now).unwrap(); }
+        c.receive(0xc4,140); c.receive(0xc0,500); assert!(c.snapshot.owns_output);
+        c.stream(2,&id,4,"OM0R",false,510).unwrap(); c.tick(&mut p,540).unwrap();
+        assert!(c.stream(2,&id,4,"OM0R",false,550).is_err());
+        assert!(c.stream(3,&id,3,"OM0R",false,550).is_err());
+        assert!(c.stream(4,&id,5,"OM1R",false,550).is_err());
+        c.stream(5,&id,6,"OM0RX",true,550).unwrap(); c.tick(&mut p,580).unwrap();
+        assert_eq!(p.bytes.iter().copied().filter(|b| *b != 0x15).collect::<Vec<_>>(), b"OM0RX");
+        c.receive(0xc0,1_000); assert!(!c.snapshot.owns_output); assert!(c.snapshot.stream_id.is_none());
+        assert!(c.stream(6,&id,7,"OM0RX",true,1_010).is_err());
+    }
+    #[test]
+    fn completed_stream_continues_into_one_exchange_without_waiting_or_repeating_call() {
+        let mut c=ready();let mut p=Fake::default();c.arm(2).unwrap();let id=uuid::Uuid::new_v4().to_string();
+        c.stream(1,&id,3,"OM0",false,3).unwrap();c.tick(&mut p,40).unwrap();
+        c.stream(2,&id,4,"OM0RX",true,50).unwrap();
+        let exchange=Sequence::parse(&json!({"schema":1,"segments":[{"kind":"text","text":"5NN T19"}]})).unwrap();
+        assert!(c.sequence(3,&exchange,60).is_err());
+        c.sequence_continuation(4,&exchange,Some(&id),70).unwrap();
+        assert!(c.sequence_continuation(5,&exchange,Some(&id),75).is_err());
+        for now in (80..=520).step_by(40){c.receive(0xc4,now);c.tick(&mut p,now).unwrap();}
+        assert_eq!(p.bytes.iter().copied().filter(|b|*b!=0x15).collect::<Vec<_>>(),b"OM0RX 5NN T19");
+        c.stop(&mut p,540).unwrap();assert!(c.sequence_continuation(6,&exchange,Some(&id),550).is_err());
     }
     #[test]
     fn handshake_has_no_keying_configuration_or_reset() {

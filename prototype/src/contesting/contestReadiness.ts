@@ -14,6 +14,12 @@ const status = (value?: string): ReadinessStatus => value === "PASS" ? "ACCEPTED
 const present = (value: unknown) => String(value ?? "").trim();
 
 export function contestCapabilities(pluginID: string, settings?: ContestSetupDocument["settings"]): ReadinessItem[] {
+  if (pluginID === "okom_dx_cw") return [
+    { label: "Definition evidence", status: "ACCEPTED", detail: "Official OK-OM DX CW 2026 rules and all 165 district codes are pinned; definition 1.0.0. Domestic and DX operating-location branches use the existing Python contest authority." },
+    { label: "Current sponsor rules", status: "ACCEPTED", detail: "2026 CW edition, retrieved 4 November 2026. District and DXCC/WAE multipliers are per band. The sponsor calculates the final score." },
+    { label: "Installed workflow", status: "UNVERIFIED", detail: "Source and software checks are separate from installed and physical output qualification." },
+    { label: "Selected category coverage", status: "UNVERIFIED", detail: "Review the selected category against the 2026 organizer rules. This definition does not certify physical signal or band-change compliance." },
+  ];
   const row = rows.find(item => item.id === pluginID);
   if (!row) return [{ label: "Definition evidence", status: "UNVERIFIED", detail: "No entry in the accepted readiness matrix." }];
   return [
@@ -34,7 +40,8 @@ export function contestPreflight(document: ContestSetupDocument, context: Contes
   const exchange = ["cq_ww_cw", "cq_ww_ssb"].includes(document.pluginID) ? present(document.station.CQZone) : present(settings.SentExchange);
   const tokens = macros.flatMap((macro: ContestSetupMacro) => [...macro.template.matchAll(/\{([^{}]+)\}/g)].map(match => match[1]));
   // This checklist does not expand or execute macros; the host remains the token authority.
-  const unknown = tokens.filter(token => !new Set(["MYCALL", "CALL", "RST", "EXCHANGE", "SENTNR", "PREVNR", "OTHER1", "OTHER2", "HISCALL", "SNT", "EXCH", "LOGIT", "RUN", "SANDP", "WIPE", ...Array.from({ length: 10 }, (_, index) => `VOICE${index + 1}`)]).has(token));
+  const unknown = tokens.filter(token => !new Set(["MYCALL", "CALL", "RST", "EXCHANGE", "SENTNR", "PREVNR", "OTHER1", "OTHER2", "HISCALL", "SNT", "EXCH", "LOGIT", "RUN", "SANDP", "WIPE", ...Array.from({ length: 10 }, (_, index) => `VOICE${index + 1}`)]).has(token)
+    && !(document.settings.ModeCategory === "CW" && /^(?:WPM:BASE|WPM:(?:[5-9]|[1-9][0-9]))$/.test(token)));
   const output = document.preferences.rtcEnabled === true || Object.entries(document.network).some(([key, value]) => /Enabled$|^n1mm(Radio|Contact|Lookup|Score)$/.test(key) && value === true);
   return [
     { label: "UTC / event period", status: period ? now < start! || now >= end! ? "LIMITED" : "ACCEPTED" : "UNVERIFIED", detail: period ? `${new Date(start!).toISOString()} to ${new Date(end!).toISOString()}${now < start! || now >= end! ? " · outside configured event period" : ""}` : "Configure the full event period in UTC; no system-clock accuracy is inferred." },

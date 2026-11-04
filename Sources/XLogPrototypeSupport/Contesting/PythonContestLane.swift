@@ -159,7 +159,7 @@ actor PythonContestLane {
                     throw ContestLaneError.confirmed("practice_output_disabled", "Score reporting requires the active non-Practice contest.")
                 }
             }
-            if ["contest_cw_context", "contest_output_claim"].contains(method),
+            if ["contest_cw_context", "contest_output_claim", "contest_early_cw_start", "contest_early_cw_append", "contest_early_cw_finish", "contest_cw_outcome"].contains(method),
                activeProjection?["practice"] is [String: Any] {
                 throw ContestLaneError.confirmed("practice_output_disabled", "Practice sessions have native output disabled.")
             }
@@ -169,7 +169,7 @@ actor PythonContestLane {
                 }
                 effectiveParams["sessionID"] = activeSessionID
             }
-            if method == "contest_output_claim" {
+            if ["contest_output_claim", "contest_early_cw_start", "contest_early_cw_append", "contest_early_cw_finish", "contest_cw_outcome"].contains(method) {
                 guard let activeSessionID, params["sessionID"] as? String == activeSessionID else {
                     throw ContestLaneError.confirmed("contest_session_inactive", "The output action belongs to an inactive contest.")
                 }

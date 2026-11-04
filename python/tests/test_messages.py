@@ -64,7 +64,7 @@ class MessageTests(unittest.TestCase):
         before = deepcopy(current)
         with patch("contest_host.host.Desk.process_function_key", side_effect=AssertionError("output invoked")):
             result = preview_message(current, {"template": "{CALL} {MYCALL} #", "serial": 42})
-        self.assertEqual(result["text"], hostile + " OM0RX 42")
+        self.assertEqual(result["text"], hostile.upper() + " OM0RX T42")
         self.assertEqual(result["actions"], [])
         self.assertEqual(current, before)
         self.assertTrue(result["noOutput"])
@@ -79,16 +79,16 @@ class MessageTests(unittest.TestCase):
         self.assertTrue(preview_message(current, {"template": "{RUN}{SANDP}"})["rejections"])
 
     def test_preview_uses_existing_plugin_alias_and_configured_serial_semantics(self):
-        self.assertEqual(preview_message(state(), {"template": "{HISCALL} {SNT} {SENTNR}", "serial": 99})["text"], "K1ABC 599 15")
+        self.assertEqual(preview_message(state(), {"template": "{HISCALL} {SNT} {SENTNR}", "serial": 99})["text"], "K1ABC 5NN 15")
         current = state()
         current["pluginID"] = "cq_wpx_cw"
         result = preview_message(current, {"template": "{EXCH} {SENTNR} #", "sentExchange": "NAME #", "serial": 99})
-        self.assertEqual(result["text"], "NAME 99 99 99")
+        self.assertEqual(result["text"], "NAME T99 T99 T99")
 
     def test_next_call_and_serial_binding_with_actual_current_esm_projection(self):
         projection = {"draftID": "draft-current", "functionKeys": [{"id": "F12", "highlighted": True}]}
         result = preview_message(state(), {"template": "{CALL} #", "draft": {"id": "draft-next", "fields": {"callsign": "W1NEXT"}}, "serial": 43}, projection)
-        self.assertEqual(result["text"], "W1NEXT 43")
+        self.assertEqual(result["text"], "W1NEXT T43")
         self.assertEqual(result["binding"]["draftID"], "draft-next")
         self.assertEqual(result["nextESM"]["keys"], ["F12"])
         self.assertEqual(result["nextESM"]["draftID"], "draft-current")
@@ -151,7 +151,7 @@ class MessageTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 preview_message(state(), {"template": "#", "serial": value})
         result = preview_message(state(), {"template": "#"})
-        self.assertEqual(result["text"], "[serial unavailable]")
+        self.assertEqual(result["text"], "[SERIAL UNAVAILABLE]")
         self.assertTrue(result["warnings"])
 
 

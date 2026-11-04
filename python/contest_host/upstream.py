@@ -85,7 +85,15 @@ def adapt_cw_template(plugin_id, template):
         ownership = ({"MARK": "band-map marking", "SPOT": "cluster spotting"}.get(
             external, "radio PTT"))
         raise RuntimeError(f"Not1MM macro action {{{external}}} requires the unavailable {ownership} owner")
-    if any(token not in MACRO_TEXT_TOKENS | set(MACRO_ACTION_TOKENS) for token in tokens):
+    def supported_token(token):
+        if token in MACRO_TEXT_TOKENS | set(MACRO_ACTION_TOKENS):
+            return True
+        if token.startswith("WPM:"):
+            if PLUGIN_REGISTRY[plugin_id].modes != ("CW",):
+                raise RuntimeError("WPM directives require a CW-only message bank")
+            return token == "WPM:BASE" or bool(re.fullmatch(r"WPM:(?:[5-9]|[1-9][0-9])", token))
+        return False
+    if any(not supported_token(token) for token in tokens):
         raise RuntimeError("Not1MM macro uses an unsupported token")
     if "RI:" in template:
         raise RuntimeError("Not1MM RI: radio command macros are unavailable because xLog owns radio control")
