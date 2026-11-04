@@ -174,3 +174,18 @@ Publication now checks the complete incoming key set, replay state and journal
 capacity before inserting any member. Failure preserves the prior journal;
 Stop remains the explicit way to retire preparations. The full voice filter
 passes **39 native tests** (`/tmp/xlog-cqrlog-review-voice-batch-after.log`).
+
+## Voice snapshot backpressure and retirement
+
+The 250 ms voice poll started another native snapshot even when the previous
+settings/device read was still pending. A delayed old transport response could
+also overwrite a replacement desk. Two deterministic tests reproduced six
+requests in 1.25 seconds and replacement settings overwritten by an old result
+(`/tmp/xlog-cqrlog-review-voice-poll-before.log`).
+
+One promise per active transport now coalesces snapshot reads; late success and
+error results from retired transports are ignored, and an old completion cannot
+clear a newer flight. The same slow-backend test now observes two calls (initial
+load plus one in flight), with the 250 ms interval unchanged. All **10 VoiceDesk
+tests** and TypeScript pass (`/tmp/xlog-cqrlog-review-voice-poll-after.log`,
+`/tmp/xlog-cqrlog-review-voice-ui-tsc.log`). No output is started by polling.

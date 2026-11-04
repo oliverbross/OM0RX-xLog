@@ -17,10 +17,19 @@ const same=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b);
 
 export default function VoiceDesk({request=native}:{request?:Request}){
   const root=useRef<HTMLDivElement>(null),mounted=useRef(true),running=useRef(false),dirty=useRef(false),snapshotRef=useRef<Snapshot|null>(null),editBase=useRef<{revision:number;generation:string}|null>(null);
+  const activeRequest=useRef(request),refreshFlight=useRef<{request:Request;promise:Promise<void>}|null>(null);activeRequest.current=request;
   const [snapshot,setSnapshot]=useState<Snapshot|null>(null),[profile,setProfile]=useState<Profile>(defaultProfile),[selected,setSelected]=useState(1),[busy,setBusy]=useState(false),[message,setMessage]=useState("Load a shared WAV folder and review native audio routes before sending."),[error,setError]=useState(""),[analysis,setAnalysis]=useState<Analysis|null>(null),[replace,setReplace]=useState(false);
-  const refresh=useCallback(async()=>{const value=await request({action:"snapshot"}) as Snapshot;if(!mounted.current)return;
-    if(!value?.profile||!Array.isArray(value.profile.labels)||value.profile.labels.length!==10||!Array.isArray(value.profile.edits)||value.profile.edits.length!==10||!value.profile.routes||typeof value.profile.profilePath!=="string"||!Array.isArray(value.devices)||typeof value.nativeAvailable!=="boolean")throw Error("Native voice state is unavailable. Reload the desk before preparing audio.");
-    snapshotRef.current=value;setSnapshot(value);if(!dirty.current)setProfile(value.profile);
+  const refresh=useCallback(()=>{
+    if(activeRequest.current!==request)return Promise.resolve();
+    if(refreshFlight.current?.request===request)return refreshFlight.current.promise;
+    const promise:Promise<void>=(async()=>{
+      const value=await request({action:"snapshot"}) as Snapshot;
+      if(!mounted.current||activeRequest.current!==request)return;
+      if(!value?.profile||!Array.isArray(value.profile.labels)||value.profile.labels.length!==10||!Array.isArray(value.profile.edits)||value.profile.edits.length!==10||!value.profile.routes||typeof value.profile.profilePath!=="string"||!Array.isArray(value.devices)||typeof value.nativeAvailable!=="boolean")throw Error("Native voice state is unavailable. Reload the desk before preparing audio.");
+      snapshotRef.current=value;setSnapshot(value);if(!dirty.current)setProfile(value.profile);
+    })().catch(cause=>{if(mounted.current&&activeRequest.current===request)throw cause;})
+      .finally(()=>{if(refreshFlight.current?.promise===promise)refreshFlight.current=null;});
+    refreshFlight.current={request,promise};return promise;
   },[request]);
   useEffect(()=>{mounted.current=true;void refresh().catch(cause=>setError(String(cause)));const timer=window.setInterval(()=>{if(running.current||snapshotRef.current?.job)void refresh().catch(cause=>setError(String(cause)));},250);
     return()=>{mounted.current=false;window.clearInterval(timer);};},[refresh]);

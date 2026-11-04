@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import VoiceDesk from "./VoiceDesk";
-afterEach(cleanup);
+afterEach(()=>{cleanup();vi.useRealTimers();});
 function fixture(){
   const profile={version:1,profilePath:"/operator/voice",labels:Array.from({length:10},(_,i)=>`Voice ${i+1}`),routes:{input:{deviceId:"native-mic",channels:[0],sampleRate:48000},monitor:{deviceId:"native-monitor",channels:[0,1],sampleRate:48000},transmit:{deviceId:"native-tx",channels:[0],sampleRate:48000}},edits:Array.from({length:10},()=>({trimStartMs:0,trimEndMs:null,gainDb:0}))};
   let revision=4;const calls:Record<string,unknown>[]=[];let complete:(()=>void)|undefined;
@@ -17,6 +17,33 @@ function fixture(){
   });return{request,calls,advance:()=>{revision++;},complete:()=>complete?.()};
 }
 describe("normal voice controls retain native admission",()=>{
+  it("coalesces slow native snapshots while a voice operation is pending",async()=>{
+    vi.useFakeTimers();const f=fixture();let hold=false;
+    const pending:((value:unknown)=>void)[]=[];
+    const request=vi.fn(async(params:Record<string,unknown>)=>params.action==="snapshot"&&hold
+      ?new Promise(resolve=>pending.push(resolve)):f.request(params));
+    const view=render(<VoiceDesk request={request}/>);await act(async()=>{});
+    fireEvent.click(screen.getByText("Voice memories · normal SSB"));fireEvent.click(screen.getByRole("button",{name:"Send memory"}));
+    await act(async()=>{});hold=true;
+    try{
+      await act(async()=>{await vi.advanceTimersByTimeAsync(1250);});
+      expect(request.mock.calls.filter(([params])=>params.action==="snapshot")).toHaveLength(2);
+    }finally{
+      view.unmount();hold=false;
+      await act(async()=>{const value=await f.request({action:"snapshot"});for(const resolve of pending)resolve(value);f.complete();});
+    }
+  });
+  it("ignores an old transport snapshot after a replacement desk has loaded",async()=>{
+    const f=fixture();let finish!:(value:unknown)=>void;
+    const old=vi.fn(async(params:Record<string,unknown>)=>params.action==="snapshot"?new Promise(resolve=>{finish=resolve;}):f.request(params));
+    const view=render(<VoiceDesk request={old}/>);
+    const next=vi.fn(async(params:Record<string,unknown>)=>{const value=await f.request(params);if(params.action==="snapshot")value.profile.labels[0]="Replacement";return value;});
+    view.rerender(<VoiceDesk request={next}/>);await screen.findByText(/0.20 s/);
+    fireEvent.click(screen.getByText("Voice memories · normal SSB"));fireEvent.click(screen.getByText("Library, recording and audio routes"));
+    const stale=await f.request({action:"snapshot"});stale.profile.labels[0]="Retired";
+    await act(async()=>finish(stale));
+    expect((screen.getByLabelText("Memory label") as HTMLInputElement).value).toBe("Replacement");
+  });
   it("finishes only the exact recording shown by the native snapshot",async()=>{
     const f=fixture(),actionID="22222222-2222-4222-8222-222222222222";
     const request=vi.fn(async(params:Record<string,unknown>)=>{
