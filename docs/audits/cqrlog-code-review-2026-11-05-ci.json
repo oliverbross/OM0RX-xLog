@@ -1,0 +1,173 @@
+{
+  "schema": 1,
+  "observedAtUTC": "2026-11-04T20:15:49Z",
+  "applicationSource": "9db3d3c089b1b0e5c046fee06f53d4fe108bb779",
+  "regularCI": {
+    "run": 41902985364,
+    "source": "9db3d3c089b1b0e5c046fee06f53d4fe108bb779",
+    "conclusion": "success"
+  },
+  "allPlatform": {
+    "run": 41901606176,
+    "source": "982b289a34a0b639570afd7b63bb4b01bb3e2a72",
+    "jobs": [
+      {
+        "id": 126825205344,
+        "name": "prototype (macos-15)",
+        "status": "in_progress",
+        "conclusion": null,
+        "activeSteps": [
+          "Test complete portable Swift core (Unix)"
+        ]
+      },
+      {
+        "id": 126825205773,
+        "name": "prototype (windows-2022)",
+        "status": "in_progress",
+        "conclusion": null,
+        "activeSteps": [
+          "Frontend tests and build"
+        ]
+      },
+      {
+        "id": 126825205842,
+        "name": "prototype (ubuntu-24.04)",
+        "status": "in_progress",
+        "conclusion": null,
+        "activeSteps": [
+          "Test complete portable Swift core (Unix)"
+        ]
+      }
+    ],
+    "qualification": "In progress at observation. Final Save UI delta does not change Sources, Tests, Package.swift, prototype/src-tauri, python, tools or .github; git diff --exit-code confirms unchanged native inputs."
+  },
+  "latestMac": {
+    "run": 41902985196,
+    "source": "9db3d3c089b1b0e5c046fee06f53d4fe108bb779",
+    "jobs": [
+      {
+        "id": 126830053856,
+        "name": "prototype (macos-15)",
+        "status": "in_progress",
+        "conclusion": null,
+        "activeSteps": [
+          "Frontend tests and build"
+        ]
+      }
+    ]
+  },
+  "contest": {
+    "run": 41901614866,
+    "source": "982b289a34a0b639570afd7b63bb4b01bb3e2a72",
+    "originalJobs": [
+      {
+        "id": 126825228746,
+        "name": "Contest tests (windows-2022)",
+        "status": "completed",
+        "conclusion": "success",
+        "activeSteps": []
+      },
+      {
+        "id": 126825229337,
+        "name": "Contest tests (ubuntu-24.04)",
+        "status": "completed",
+        "conclusion": "success",
+        "activeSteps": []
+      },
+      {
+        "id": 126825229344,
+        "name": "Contest native tests (windows-2022)",
+        "status": "completed",
+        "conclusion": "success",
+        "activeSteps": []
+      },
+      {
+        "id": 126825229366,
+        "name": "Contest tests (macos-15)",
+        "status": "completed",
+        "conclusion": "cancelled",
+        "activeSteps": []
+      },
+      {
+        "id": 126825229382,
+        "name": "Contest native tests (macos-15)",
+        "status": "completed",
+        "conclusion": "cancelled",
+        "activeSteps": []
+      },
+      {
+        "id": 126825229778,
+        "name": "Contest native tests (ubuntu-24.04)",
+        "status": "completed",
+        "conclusion": "success",
+        "activeSteps": []
+      },
+      {
+        "id": 126825229848,
+        "name": "Contest definition generator",
+        "status": "completed",
+        "conclusion": "success",
+        "activeSteps": []
+      }
+    ],
+    "retryJobs": [
+      {
+        "id": 126836372426,
+        "name": "Contest tests (macos-15)",
+        "status": "in_progress",
+        "conclusion": null,
+        "activeSteps": [
+          "Verify non-macOS pure IQ source slice on macOS"
+        ]
+      },
+      {
+        "id": 126836374807,
+        "name": "Contest tests (windows-2022)",
+        "status": "completed",
+        "conclusion": "success",
+        "activeSteps": []
+      },
+      {
+        "id": 126836375209,
+        "name": "Contest tests (ubuntu-24.04)",
+        "status": "completed",
+        "conclusion": "success",
+        "activeSteps": []
+      },
+      {
+        "id": 126836424081,
+        "name": "Contest native tests (ubuntu-24.04)",
+        "status": "completed",
+        "conclusion": "success",
+        "activeSteps": []
+      },
+      {
+        "id": 126836430811,
+        "name": "Contest native tests (windows-2022)",
+        "status": "completed",
+        "conclusion": "success",
+        "activeSteps": []
+      },
+      {
+        "id": 126836452791,
+        "name": "Contest definition generator",
+        "status": "completed",
+        "conclusion": "success",
+        "activeSteps": []
+      },
+      {
+        "id": 126836456896,
+        "name": "Contest native tests (macos-15)",
+        "status": "completed",
+        "conclusion": "cancelled",
+        "activeSteps": []
+      }
+    ],
+    "runnerAnnotations": [
+      "The job was not acquired by Runner of type hosted even after multiple attempts",
+      "Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times."
+    ],
+    "retry": "macOS Swift contest retry accepted. Native sibling cannot be rerun while this run is active (GitHub API 403: The workflow run containing this job is already running). Cancellations are not passes."
+  },
+  "qualification": "Source review and local gates complete. These remote snapshots are not a full green all-platform acceptance claim. No application packages requested in the matrix."
+}

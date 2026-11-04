@@ -269,10 +269,11 @@ logical commits, each tested and immediately pushed:
 | `de8775d7` | Voice snapshot backpressure/retirement |
 | `078a80c7` | Pinned Git object normalization |
 | `982b289a` | Reference UI transport retirement |
-| This change (`fix: retain newer voice edits after Save acknowledgement`) | Voice Save edit-sequence ownership |
+| `9db3d3c0` | Voice Save edit-sequence ownership |
 
 The remote all-platform dispatch uses `982b289a34a0b639570afd7b63bb4b01bb3e2a72`;
-the final Save UI fix above follows that dispatch.
+the final Save UI fix above follows that dispatch. Final application source is
+`9db3d3c089b1b0e5c046fee06f53d4fe108bb779`.
 Full Rust/normal Swift/portable Swift gates ran with inputs through `de8775d7`;
 their application inputs are unchanged by the final two Python/UI fixes.
 Python's final tool/test inputs match `078a80c7`; final frontend/build inputs
@@ -287,7 +288,7 @@ same committed bytes, rather than implying that every command began at that HEAD
 | Python 3.12 | 620 passed |
 | Normal Swift | All suites passed: XCTest executables report 26 / 83 / 227; Swift Testing reports 392 / 8, retaining conditional skips |
 | Portable Swift | All suites passed: XCTest executables report 24 / 664 / 83 / 227 / 79 / 217 / 66; Swift Testing reports 619 / 8, retaining conditional skips |
-| Final frontend | Final full repeat in progress; prior full run passed 5,207 tests in 378 files plus Node 6; final correction/reference filter passed 19 |
+| Final frontend | 5,209 passed in 378 files, plus Node 6; final correction/reference filter 19 and VoiceDesk filter 11 also pass |
 | Production frontend build | Passed TypeScript, Vite and existing payload/chunk budgets |
 | Pinned data reproduction | Byte-identical pack; 21,335-facts optimization oracle agrees |
 
@@ -297,10 +298,43 @@ Commands use Python `/opt/homebrew/bin/python3.12`, Swift `--jobs 2 --no-paralle
 portable `XLOG_PORTABLE_ONLY=1 --scratch-path .build/cqrlog-portable-final`,
 `cargo test --locked --bin xlog-prototype`, `npm test`, and `npm run build`.
 Full logs have the prefix `/tmp/xlog-cqrlog-review-full-`, with the final frontend
-repeat at `/tmp/xlog-cqrlog-review-final-frontend.log` and build at
-`/tmp/xlog-cqrlog-review-build.log`. The normalizer/reproduction and before/after
+repeat at `/tmp/xlog-cqrlog-review-frozen-frontend.log` and final build at
+`/tmp/xlog-cqrlog-review-final-build.log`. The normalizer/reproduction and before/after
 regressions are named in the findings above. No timeouts, safety admission,
 payload budgets or substantive existing tests were relaxed to get a pass.
+
+The final frozen frontend repeat and final build both exit zero. An intermediate
+repeat discovered the new Save regression before its fix; it is preserved as
+`/tmp/xlog-cqrlog-review-mixed-frontend.log`, not counted as a passing gate.
+The [machine gate receipt](cqrlog-code-review-2026-11-05-gates.json) records hashes;
+40 logs, the baseline oracle, capture helper and receipt are retained locally in
+`.build/cqrlog-code-review-20261105/`. No mixed-source repeat is substituted for
+the successful final frozen run.
+
+## Remote validation status
+
+[Regular CI at final application source](https://github.com/oliverbross/OM0RX-xLog/actions/runs/41902985364)
+passed. The [all-platform matrix](https://github.com/oliverbross/OM0RX-xLog/actions/runs/41901606176)
+and [latest-source macOS matrix](https://github.com/oliverbross/OM0RX-xLog/actions/runs/41902985196)
+are still running at the recorded observation. They request validation only,
+without application packages. The all-platform run's native inputs are identical
+to final source; `git diff --exit-code 982b289a 9db3d3c0 -- Sources Tests
+Package.swift prototype/src-tauri python tools .github` exits zero. Only the Save
+UI/test and audit changed after dispatch; final local frontend/build gates include
+that fix. This is explicit input-equivalence evidence, not a false exact-HEAD claim.
+
+The [contest portability run](https://github.com/oliverbross/OM0RX-xLog/actions/runs/41901614866)
+passed Windows and Linux Swift/contest/native jobs and the definition generator.
+Both queued macOS jobs were cancelled without a runner. GitHub annotations state
+that no hosted runner acquired them after multiple attempts and report macOS
+arm64 capacity constraints. A macOS Swift retry was accepted and is running;
+GitHub refuses a sibling native-job retry while the workflow is active. Native
+macOS remains locally tested, but these remote cancellations are not passes.
+
+The [remote snapshot](cqrlog-code-review-2026-11-05-ci.json) records job identities,
+results and limits. Source review, all confirmed repairs and local gates are
+complete. Full remote platform qualification is pending; no full green remote
+matrix, new signed candidate or physical acceptance is claimed.
 
 ## Release boundary
 

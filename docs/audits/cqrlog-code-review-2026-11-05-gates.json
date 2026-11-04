@@ -1,0 +1,250 @@
+{
+  "schema": 1,
+  "source": "9db3d3c089b1b0e5c046fee06f53d4fe108bb779",
+  "reviewBaseline": "68d7b02846c94d904cdf3c9452f4c931e7167b48",
+  "cqrlogDeltaBaseline": "db4a9ce2739fc8b96371cd432d3b8787e950a45e",
+  "gates": {
+    "rust": {
+      "log": "xlog-cqrlog-review-full-rust.log",
+      "sha256": "2b98de2c828cd3a619465a823e6bbc16517ceccad72aa8e1f1833b3a1265f1c0",
+      "verifiedInputsAtSource": "de8775d7e8a187292e59e0d8e5ba374ae301488f",
+      "qualification": "Passed output. Revision identifies matching committed inputs, including tests run immediately before committing those same bytes; not a claim that each command started at that exact HEAD. Existing Swift conditional skips retained."
+    },
+    "normalSwift": {
+      "log": "xlog-cqrlog-review-full-normal.log",
+      "sha256": "3d3a3e93409a20507915392f8574928e2e5b42a81e86ce091ae886d17075c16d",
+      "verifiedInputsAtSource": "de8775d7e8a187292e59e0d8e5ba374ae301488f",
+      "qualification": "Passed output. Revision identifies matching committed inputs, including tests run immediately before committing those same bytes; not a claim that each command started at that exact HEAD. Existing Swift conditional skips retained."
+    },
+    "portableSwift": {
+      "log": "xlog-cqrlog-review-full-portable.log",
+      "sha256": "c51e512440e16a863394dac60f6da63587afbac46fcb45a081afeecc88911207",
+      "verifiedInputsAtSource": "de8775d7e8a187292e59e0d8e5ba374ae301488f",
+      "qualification": "Passed output. Revision identifies matching committed inputs, including tests run immediately before committing those same bytes; not a claim that each command started at that exact HEAD. Existing Swift conditional skips retained."
+    },
+    "python": {
+      "log": "xlog-cqrlog-review-full-python.log",
+      "sha256": "7d76d43196e8ee62f0a3276cce5870089179c8aab2b34dbc91f734cabf003b3e",
+      "verifiedInputsAtSource": "078a80c7a5855343e35a962321cc13264cb7c387",
+      "qualification": "Passed output. Revision identifies matching committed inputs, including tests run immediately before committing those same bytes; not a claim that each command started at that exact HEAD. Existing Swift conditional skips retained."
+    },
+    "frontend": {
+      "log": "xlog-cqrlog-review-frozen-frontend.log",
+      "sha256": "872aa5ad8fe735741bab213cd5db84acd93cf2fb8d285cc9b092b5af7b627610",
+      "verifiedInputsAtSource": "9db3d3c089b1b0e5c046fee06f53d4fe108bb779",
+      "qualification": "Passed output. Revision identifies matching committed inputs, including tests run immediately before committing those same bytes; not a claim that each command started at that exact HEAD. Existing Swift conditional skips retained."
+    },
+    "build": {
+      "log": "xlog-cqrlog-review-final-build.log",
+      "sha256": "289b025da0b48c6909988d1e3012e14f831fd5230ccf069360e75b98462949e0",
+      "verifiedInputsAtSource": "9db3d3c089b1b0e5c046fee06f53d4fe108bb779",
+      "qualification": "Passed output. Revision identifies matching committed inputs, including tests run immediately before committing those same bytes; not a claim that each command started at that exact HEAD. Existing Swift conditional skips retained."
+    },
+    "voiceSave": {
+      "log": "xlog-cqrlog-review-voice-save-after.log",
+      "sha256": "e7dfd693b02b3af86e64864e3f7140a9e0021368753b8cddd41d030faeaa4be9",
+      "verifiedInputsAtSource": "9db3d3c089b1b0e5c046fee06f53d4fe108bb779",
+      "qualification": "Passed output. Revision identifies matching committed inputs, including tests run immediately before committing those same bytes; not a claim that each command started at that exact HEAD. Existing Swift conditional skips retained."
+    },
+    "referenceScope": {
+      "log": "xlog-cqrlog-review-reference-scope-after.log",
+      "sha256": "5a21e48d937083520f1ae91e28a53d94dc193792cb8a29c62e843aa61e9f3496",
+      "verifiedInputsAtSource": "9db3d3c089b1b0e5c046fee06f53d4fe108bb779",
+      "qualification": "Passed output. Revision identifies matching committed inputs, including tests run immediately before committing those same bytes; not a claim that each command started at that exact HEAD. Existing Swift conditional skips retained."
+    },
+    "countryOracle": {
+      "log": "xlog-cqrlog-review-country-index-final.log",
+      "sha256": "193582c87d6bd9bcee34b5ddbabc909c4e7db65ac399b69a40df81350918a030",
+      "verifiedInputsAtSource": "de8775d7e8a187292e59e0d8e5ba374ae301488f",
+      "qualification": "Passed output. Revision identifies matching committed inputs, including tests run immediately before committing those same bytes; not a claim that each command started at that exact HEAD. Existing Swift conditional skips retained."
+    },
+    "normalizer": {
+      "log": "xlog-cqrlog-review-normalizer-after.log",
+      "sha256": "6716538095e8cd7e26d0c89b942aec3aa053dec2b1f63c7f5d0ca482a19025ea",
+      "verifiedInputsAtSource": "078a80c7a5855343e35a962321cc13264cb7c387",
+      "qualification": "Passed output. Revision identifies matching committed inputs, including tests run immediately before committing those same bytes; not a claim that each command started at that exact HEAD. Existing Swift conditional skips retained."
+    }
+  },
+  "evidenceLogs": [
+    {
+      "file": "xlog-cqrlog-review-build.log",
+      "sha256": "eb3553cc6e4ebd4f313b59bf5ff598337376d650b18e5fa7a5ef28f314ef7745"
+    },
+    {
+      "file": "xlog-cqrlog-review-contest-voice-after.log",
+      "sha256": "9abbe216bffe51e8aecc9d88cfd674f4b2d42c16ab8d74cbd3910874c49abcec"
+    },
+    {
+      "file": "xlog-cqrlog-review-contest-voice-before.log",
+      "sha256": "a6007912026fb8fc05fa2195f1fa21fbcc565e48231dab906c83d34033fd490d"
+    },
+    {
+      "file": "xlog-cqrlog-review-contest-voice-tsc.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "xlog-cqrlog-review-country-after.log",
+      "sha256": "d566b00231dc1c459d1f0f65ae9b4621b55c25157a02e901ff6b9201e6628de3"
+    },
+    {
+      "file": "xlog-cqrlog-review-country-before.log",
+      "sha256": "c83e914304859af02374e8fbe986854997ad668855feca6c66a2c0c6ebb63a4a"
+    },
+    {
+      "file": "xlog-cqrlog-review-country-index-after.log",
+      "sha256": "ae42f4eb05036c5078e9947174318eff2ae4df3ac3e1c09667c4a2d72022cdb1"
+    },
+    {
+      "file": "xlog-cqrlog-review-country-index-before.log",
+      "sha256": "945e40efba2fb77d50861fd1d566aa49e10334c75383963e3222f422016e5423"
+    },
+    {
+      "file": "xlog-cqrlog-review-country-index-final.log",
+      "sha256": "193582c87d6bd9bcee34b5ddbabc909c4e7db65ac399b69a40df81350918a030"
+    },
+    {
+      "file": "xlog-cqrlog-review-country-index-integration.log",
+      "sha256": "d224fa78d7516a88da6c7298a8e420c4abfa0ae1a669b7b2ff5d568c27b50cfb"
+    },
+    {
+      "file": "xlog-cqrlog-review-country-integration.log",
+      "sha256": "31959c0d5cecce03cde00fdad2d773b6c95be1c6d4f97320c0a144b8be2a7cb3"
+    },
+    {
+      "file": "xlog-cqrlog-review-final-build.log",
+      "sha256": "289b025da0b48c6909988d1e3012e14f831fd5230ccf069360e75b98462949e0"
+    },
+    {
+      "file": "xlog-cqrlog-review-frozen-frontend.log",
+      "sha256": "872aa5ad8fe735741bab213cd5db84acd93cf2fb8d285cc9b092b5af7b627610"
+    },
+    {
+      "file": "xlog-cqrlog-review-full-frontend.log",
+      "sha256": "36b028c6fe492c8de93c9df181417c2ac554d08cd69e143abea32555f770562d"
+    },
+    {
+      "file": "xlog-cqrlog-review-full-normal.log",
+      "sha256": "3d3a3e93409a20507915392f8574928e2e5b42a81e86ce091ae886d17075c16d"
+    },
+    {
+      "file": "xlog-cqrlog-review-full-portable.log",
+      "sha256": "c51e512440e16a863394dac60f6da63587afbac46fcb45a081afeecc88911207"
+    },
+    {
+      "file": "xlog-cqrlog-review-full-python.log",
+      "sha256": "7d76d43196e8ee62f0a3276cce5870089179c8aab2b34dbc91f734cabf003b3e"
+    },
+    {
+      "file": "xlog-cqrlog-review-full-rust.log",
+      "sha256": "2b98de2c828cd3a619465a823e6bbc16517ceccad72aa8e1f1833b3a1265f1c0"
+    },
+    {
+      "file": "xlog-cqrlog-review-mixed-frontend.log",
+      "sha256": "f23643eef8ce65fa6266f766f1beece8ed15fbf41489901808d9b986d249fa42"
+    },
+    {
+      "file": "xlog-cqrlog-review-normalizer-after.log",
+      "sha256": "6716538095e8cd7e26d0c89b942aec3aa053dec2b1f63c7f5d0ca482a19025ea"
+    },
+    {
+      "file": "xlog-cqrlog-review-normalizer-before.log",
+      "sha256": "c143980de63205b313d6b748b0928cc61b9bd05c8d0ee0378a32b7eb8ccdfd26"
+    },
+    {
+      "file": "xlog-cqrlog-review-normalizer-reproduction.log",
+      "sha256": "afe3072476d490cac92b4e2e8ab026e53ecacc724fa560998598b6faf0223a62"
+    },
+    {
+      "file": "xlog-cqrlog-review-reference-scope-after.log",
+      "sha256": "5a21e48d937083520f1ae91e28a53d94dc193792cb8a29c62e843aa61e9f3496"
+    },
+    {
+      "file": "xlog-cqrlog-review-reference-scope-before.log",
+      "sha256": "a8f57a763b14623c2ea5354f4fba5ff2563a57687c2062213a97bfc2e71adad1"
+    },
+    {
+      "file": "xlog-cqrlog-review-ui-after.log",
+      "sha256": "da15dccae9a3f0fdaec2c7d51f395b1f27c539b4ccf3c405d5a3cbe057e41046"
+    },
+    {
+      "file": "xlog-cqrlog-review-ui-before-corrected.log",
+      "sha256": "0b17c0df167ee5cec85ee4c2c893ac241c20daf6cb0d09d0cc644f5e94f0fa64"
+    },
+    {
+      "file": "xlog-cqrlog-review-ui-before.log",
+      "sha256": "6754e9b1e14cff7a4960183a53e203c4ff28e9e28e035b441d1ffaca6fd7fdef"
+    },
+    {
+      "file": "xlog-cqrlog-review-ui-tsc.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "xlog-cqrlog-review-voice-batch-after.log",
+      "sha256": "46d130d7e1228d1091467c619d17bd7d44482027d43839e5299d12c743962559"
+    },
+    {
+      "file": "xlog-cqrlog-review-voice-batch-before.log",
+      "sha256": "da5e26fbb507304dee507e12e34f5000b44ba185e3460305c773a0d2b163b300"
+    },
+    {
+      "file": "xlog-cqrlog-review-voice-finalization.log",
+      "sha256": "2ec5a603bdc3f4ccc15d51c498960f505f650fa90c05a15a73c4f426f71a9d25"
+    },
+    {
+      "file": "xlog-cqrlog-review-voice-poll-after.log",
+      "sha256": "6c15c56efce5fc5cac4dff5ffad6fe6a44821c3bc55967ffdbc67fd229469164"
+    },
+    {
+      "file": "xlog-cqrlog-review-voice-poll-before.log",
+      "sha256": "7b7c825dd9f001de097e6cb214f05ea295c59b6e146e123141392b8d157a11da"
+    },
+    {
+      "file": "xlog-cqrlog-review-voice-prepare.log",
+      "sha256": "9fb3aa2e7a5d94e35f216becfc0a3a52db850790a0a64d57e410090f7d288ab0"
+    },
+    {
+      "file": "xlog-cqrlog-review-voice-save-after.log",
+      "sha256": "e7dfd693b02b3af86e64864e3f7140a9e0021368753b8cddd41d030faeaa4be9"
+    },
+    {
+      "file": "xlog-cqrlog-review-voice-save-before.log",
+      "sha256": "ef37cd948590ccd52c5d063b02c0f5afa1cb613fc049af0b7a5df7fc1fada78f"
+    },
+    {
+      "file": "xlog-cqrlog-review-voice-save-tsc.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "xlog-cqrlog-review-voice-ui-finalization.log",
+      "sha256": "3ce1ba2ac47290e4457f7561c0815c1493d2ae9eecbdf14f62e6175572c856e3"
+    },
+    {
+      "file": "xlog-cqrlog-review-voice-ui-prepare.log",
+      "sha256": "b878e1a81600335d126ae859256e6483557b4e685bddf25328fe603afe5c1beb"
+    },
+    {
+      "file": "xlog-cqrlog-review-voice-ui-tsc.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "oracleSHA256": "bd73cdc3a373a33c1cb17a0527ce69c787ebfa466cf2f45cbc326267e912fac0",
+  "countryPackSHA256": "c04689ac8cf530672a98df3d1ecd132a150d13e7583f88037928b75a09ff1731",
+  "countryPerformance": {
+    "corpus": "10000 warm debug lookups",
+    "oracleEntries": 21335,
+    "beforeMs": 12501.937458,
+    "afterMs": 5391.716042,
+    "checksum": 2322232
+  },
+  "retainedCandidate": {
+    "version": "1.5.13",
+    "containsReviewFixes": false,
+    "sha256": "b21af154b96632159236dda7d4249ff0cc95f377ad9e549f364ac7b2c3867929"
+  },
+  "installedVersionReadOnly": "1.5.9",
+  "limits": [
+    "No packaging, installation, GUI, physical radio/audio/keyer or production-data acceptance in this review.",
+    "Suite totals overlap between profiles and are not unique-test totals.",
+    "Country benchmark is the recorded 10k warm debug lookup corpus, not signed-package or cold-start acceptance."
+  ]
+}
