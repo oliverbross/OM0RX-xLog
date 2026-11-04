@@ -1,0 +1,18 @@
+{
+  "strictPreservationPassed": false,
+  "changedFields": [
+    "qso.frequencyHz",
+    "journal.base.frequencyHz",
+    "journal.draft.frequencyHz"
+  ],
+  "emptyDraftCallBeforeAndAfter": true,
+  "sameDraftID": true,
+  "oldFrequencyHz": 14127100,
+  "newFrequencyHz": 14112400,
+  "oldRevision": 3948,
+  "newRevision": 3949,
+  "observedConnectedRadioHz": 14112400,
+  "sourceComparison": "LiveLogbookMethods.swift, OperatorDraftRadioFollow.swift and useNormalCommands.ts unchanged between installed 1.5.6 source 58a1ca9a and 1.5.9 source dc087a51",
+  "interpretation": "Consistent with existing automatic radio follow; individual RPC not captured. Strict failure retained, no repair writes or blanket pass replacement.",
+  "allPhysicalContactsSettingsOriginalJournalsRetainedSpotsPreserved": true
+}

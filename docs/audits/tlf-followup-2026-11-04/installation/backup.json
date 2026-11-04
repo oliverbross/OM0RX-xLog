@@ -1,0 +1,14 @@
+{
+  "backupRoot": "/Users/oliver/Documents/Backups/OM0RX-xLog/before-1.5.9-20261104T215100+0930",
+  "databaseSHA256": "617683eb1ad7d15add4e97200b6f66efebf60e02d6c27a57941d0b4393987055",
+  "liveQSOs": 69676,
+  "allQSORecordsAndDeletionStateSHA256": "570c924cdac93ac063d6f9e67cda3609e31a6fb3b27d76a43d02e7f41fc255af",
+  "benchmarkTestCallCount": 0,
+  "originalVersion": "1.5.6",
+  "originalAppExecutableSHA256": "61d9fd33fc3ea89618883db54a40fac531686a33b0256b01a333006f43e52f8f",
+  "spotInventoryLegacyPendingCount": 0,
+  "spotInventoryQuarantinedBeforeCount": 259,
+  "spotInventoryRetainedBeforeCount": 259,
+  "spotInventoryLegacyPendingDigest": "2a5ed6c242fffdf7085bff492a9677ca21c0aee544f3ab2b31ca42ffabec111d",
+  "spotInventoryBackup": "/Users/oliver/Documents/Backups/OM0RX-xLog/before-1.5.9-20261104T215100+0930/integration-services/forwarded-radio-spots.json.sqlite"
+}

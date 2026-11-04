@@ -26,6 +26,20 @@ RF transmission, physical CAT action or submission was performed.
 
 ### Correction evidence (this register remains authoritative)
 
+**Later operator-authorized installation — 4 November 2026:** signed 1.5.9/source
+`dc087a513c68f6fd0458c0cfdad6569fee4d8abf` replaced stopped 1.5.6 through the
+existing installer after protected backup. Exact installed hashes/signature/source,
+ordinary host/worker launch and rendered 69,676-contact Desk were verified. Before
+first launch, data was byte-identical and logical preservation passed. After startup,
+all contacts/settings/journals/retained spots survived; strict draft comparison
+retains the empty-draft frequency-follow delta, with no blanket pass or repair.
+At the operator's further request, all 11 previous app bundles were moved intact
+to Trash; only the newest app remains in Applications. The data backup stays
+protected outside Applications. Detailed evidence is in the appended
+[installation record](../releases/v1.5.9-tlf-follow-up-candidate.md#authorized-installation-and-applications-cleanup--4-november-2026).
+Prior no-installation statements below describe their original software-only scopes;
+this later authorization does not close R03 or any physical qualification.
+
 **Focused 1.5.8 follow-up — 4 November 2026:** clean canonical `main` starts at
 `120c31b01445d128e77ff5680b68bb6f3d4f82a5`, unchanged after fast-forward-only
 update. The retained [follow-up review](../reviews/OM0RX-xLog_TLF_1.5.8_Follow_Up_2026-11-04.txt)

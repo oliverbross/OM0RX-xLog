@@ -1,0 +1,12 @@
+{
+  "backup.json": "33367d12f024606dd85b46620aa87e32241c4ba7784434f4ce7dd58e72cf2f6f",
+  "candidate-provenance.json": "696922139c38753ba2d91cf030a09a4fc1c64ebef68219f68cefb1c6813e8056",
+  "installation-receipt.json": "4b21993223980cf111b154f6ffb3a01779bec49fe53a5a9a5d03a2e8370a2bb8",
+  "installed-native-acceptance.json": "2e76f44e0647166b48767db570fd4a4baa62c9991fda8c8c63c88dd84d1c08f9",
+  "installed-process-verification.json": "4f99b67aab9a8cbd9c5d2e62f1b16ef300c81707181106651c84142c1c072cab",
+  "preservation-after-install.json": "1b9c7198a355779b9cbe7fe11715439824ada4f5614cb4f302c0c3cd9e14fd10",
+  "preservation-after-startup.json": "b97c1d0885305a7437e791279123f7305c119ecebc4a4011316dc7389c7c8b9c",
+  "preservation-before-install.json": "a1f83a0c4b187ee04046f7b22b012a3f2dfdf2df43f9af441ba197a93419d28e",
+  "previous-app-cleanup.json": "af941a4c2aec33ba1af12f36be88242a94d1158a20c12e0495de46f0878cfa8f",
+  "startup-preservation-adjudication.json": "af010a1319e538ac525ade3c33e8c3e356f119a8e808459247b32889a60e5d51"
+}

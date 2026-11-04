@@ -1,0 +1,11 @@
+{
+  "version": "1.5.9",
+  "sourceCommit": "dc087a513c68f6fd0458c0cfdad6569fee4d8abf",
+  "app": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/install-1.5.9-20261104/candidate/OM0RX-xLog.app",
+  "archive": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.9/OM0RX-xLog-1.5.9-macOS-arm64.zip",
+  "archiveSHA256": "d089b249f738f3791c56de1aee27abfdf4434dbab77b26216f1b9a8f13fc680b",
+  "SHA256": {
+    "xlog-prototype": "cc284ee09156c04fd641d330ec0412effcf2eccacb81f117a15bc99657413900",
+    "xlog-prototype-worker": "3fb9c2d5ac96c04ead4d937e784117d8aee7b954a50dc223aba4e16102c89f08"
+  }
+}

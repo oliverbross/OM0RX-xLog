@@ -1,0 +1,16 @@
+{
+  "version": "1.5.9",
+  "sourceCommit": "dc087a513c68f6fd0458c0cfdad6569fee4d8abf",
+  "observedAt": 1793795187.535954,
+  "ordinaryInstalledLaunch": true,
+  "processVerifiedBeforeUI": true,
+  "hostPID": 60289,
+  "workerPID": 60371,
+  "mainWindowRendered": true,
+  "visibleLogbook": "1\u201315 of 69,676",
+  "UIEditsOrOperatorCommandsIssued": false,
+  "observedR1": "Connected",
+  "observedR2": "Not configured / Offline",
+  "RFOrTuneOrRecordingCommandIssued": false,
+  "leftRunning": true
+}

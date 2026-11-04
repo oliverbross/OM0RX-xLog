@@ -1,0 +1,68 @@
+{
+  "installedVersion": "1.5.9",
+  "installedApp": "/Applications/OM0RX-xLog.app",
+  "started": 1793795105.804171,
+  "method": "recoverable rename to user Trash",
+  "moved": [
+    {
+      "original": "/Applications/OM0RX-xLog-previous-20261031T110511Z-73592.app",
+      "trash": "/Users/oliver/.Trash/OM0RX-xLog-previous-20261031T110511Z-73592.app",
+      "version": "1.3.63"
+    },
+    {
+      "original": "/Applications/OM0RX-xLog-previous-20261031T141246Z-43662.app",
+      "trash": "/Users/oliver/.Trash/OM0RX-xLog-previous-20261031T141246Z-43662.app",
+      "version": "1.3.64"
+    },
+    {
+      "original": "/Applications/OM0RX-xLog-previous-20261031T153604Z-63545.app",
+      "trash": "/Users/oliver/.Trash/OM0RX-xLog-previous-20261031T153604Z-63545.app",
+      "version": "1.3.67"
+    },
+    {
+      "original": "/Applications/OM0RX-xLog-previous-20261031T172445Z-91369.app",
+      "trash": "/Users/oliver/.Trash/OM0RX-xLog-previous-20261031T172445Z-91369.app",
+      "version": "1.3.68"
+    },
+    {
+      "original": "/Applications/OM0RX-xLog-previous-20261031T181653Z-4663.app",
+      "trash": "/Users/oliver/.Trash/OM0RX-xLog-previous-20261031T181653Z-4663.app",
+      "version": "1.3.70"
+    },
+    {
+      "original": "/Applications/OM0RX-xLog-previous-20261101T153645Z-8205.app",
+      "trash": "/Users/oliver/.Trash/OM0RX-xLog-previous-20261101T153645Z-8205.app",
+      "version": "1.3.71"
+    },
+    {
+      "original": "/Applications/OM0RX-xLog-previous-20261102T032522Z-71893.app",
+      "trash": "/Users/oliver/.Trash/OM0RX-xLog-previous-20261102T032522Z-71893.app",
+      "version": "1.4.5"
+    },
+    {
+      "original": "/Applications/OM0RX-xLog-previous-20261102T050056Z-90599.app",
+      "trash": "/Users/oliver/.Trash/OM0RX-xLog-previous-20261102T050056Z-90599.app",
+      "version": "1.4.6"
+    },
+    {
+      "original": "/Applications/OM0RX-xLog-previous-20261102T082433Z-16596.app",
+      "trash": "/Users/oliver/.Trash/OM0RX-xLog-previous-20261102T082433Z-16596.app",
+      "version": "1.4.7"
+    },
+    {
+      "original": "/Applications/OM0RX-xLog-previous-20261103T233350Z-77800.app",
+      "trash": "/Users/oliver/.Trash/OM0RX-xLog-previous-20261103T233350Z-77800.app",
+      "version": "1.4.8"
+    },
+    {
+      "original": "/Applications/OM0RX-xLog-previous-20261104T122212Z-60155.app",
+      "trash": "/Users/oliver/.Trash/OM0RX-xLog-previous-20261104T122212Z-60155.app",
+      "version": "1.5.6"
+    }
+  ],
+  "completed": 1793795105.8161469,
+  "count": 11,
+  "remainingApplications": [
+    "/Applications/OM0RX-xLog.app"
+  ]
+}

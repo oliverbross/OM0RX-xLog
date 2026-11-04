@@ -1,0 +1,18 @@
+{
+  "pid": 60289,
+  "version": "1.5.9",
+  "sourceCommit": "dc087a513c68f6fd0458c0cfdad6569fee4d8abf",
+  "launchUTC": "2026-11-04T12:23:04.861310+00:00",
+  "state": "process_verified_before_ui",
+  "app": [
+    "60289",
+    "1",
+    "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype"
+  ],
+  "worker": [
+    "60371",
+    "60289",
+    "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker"
+  ],
+  "verifiedUTC": "2026-11-04T12:24:43.709143+00:00"
+}

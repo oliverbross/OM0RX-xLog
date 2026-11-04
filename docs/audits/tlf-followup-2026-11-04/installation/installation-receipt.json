@@ -1,0 +1,11 @@
+{
+  "version": "1.5.9",
+  "sourceCommit": "dc087a513c68f6fd0458c0cfdad6569fee4d8abf",
+  "startedUnix": 1793794930.3428092,
+  "installerExit": 0,
+  "installedApp": "/Applications/OM0RX-xLog.app",
+  "databaseByteIdenticalBeforeFirstLaunch": true,
+  "completedUnix": 1793794934.08749,
+  "installerOutput": "Installed and verified: /Applications/OM0RX-xLog.app\nRecoverable previous application: /Applications/OM0RX-xLog-previous-20261104T122212Z-60155.app\n",
+  "backup": "/Users/oliver/Documents/Backups/OM0RX-xLog/before-1.5.9-20261104T215100+0930"
+}
