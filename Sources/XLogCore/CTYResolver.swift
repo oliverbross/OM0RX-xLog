@@ -1,9 +1,37 @@
 import Foundation
+#if canImport(CryptoKit)
+import CryptoKit
+#else
+import Crypto
+#endif
 #if canImport(FoundationXML)
 import FoundationXML
 #endif
 
 public final class CTYResolver: @unchecked Sendable {
+    /// Neutral inference, deliberately separate from retained QSO fields and
+    /// programme-specific award/contest eligibility. Coordinates are entity
+    /// approximations, never a portable station's operating position.
+    public struct Facts: Codable, Equatable, Sendable {
+        public enum Status: String, Codable, Sendable { case resolved, knownNoEntity, ambiguous, unknown, invalid, missingDate }
+        public let literalCall: String
+        public let normalizedCall: String
+        public let operatorCall: String?
+        public let qualifier: String?
+        public let observedAt: Date?
+        public let status: Status
+        public let country: CountryInfo?
+        public let operatingPrefix: String?
+        public let matchedRule: String?
+        public let validFrom: Date?
+        public let validUntil: Date?
+        public let referenceRevision: String
+        public let policy: String
+        public let locationPrecision: String
+    }
+    public static let factsPolicy = "xlog-country-facts-v1"
+    public let contentDigest: String
+    public var snapshotIdentity: String { "\(Self.factsPolicy):\(contentDigest)" }
     fileprivate struct Rule {
         var token: String
         var endpointToken: String
@@ -17,9 +45,15 @@ public final class CTYResolver: @unchecked Sendable {
 
     private let rules: [Rule]
     private let endpointRules: [Rule]
-    private let ignoredSuffixes: Set<String> = ["P", "M", "MM", "AM", "QRP", "QRPP", "A", "B", "QTH"]
+    private let ignoredSuffixes: Set<String> = ["P", "M", "MM", "AM", "QRP", "QRPP", "A", "B", "QTH", "LH"]
+    private let endpointIndex: [Character: [Rule]]
+    public let countryPack: CountryReferencePack?
+    private let packedRules: [CountryReferencePack.CompiledRule]
+    private let packedIndex: [Character: [CountryReferencePack.CompiledRule]]
+    private let packedWildcards: [CountryReferencePack.CompiledRule]
 
     public init(csvURL: URL) throws {
+        countryPack = nil; packedRules = []; packedIndex = [:]; packedWildcards = []
         let text = try String(contentsOf: csvURL, encoding: .utf8)
         var parsed: [Rule] = []
         for line in text.split(whereSeparator: \ .isNewline) {
@@ -44,6 +78,8 @@ public final class CTYResolver: @unchecked Sendable {
         }
         rules = Self.sortedRules(parsed, by: \.token)
         endpointRules = Self.sortedRules(parsed, by: \.endpointToken)
+        endpointIndex = Dictionary(grouping: endpointRules, by: { $0.endpointToken.first! })
+        contentDigest = Self.digest(Data(text.utf8))
     }
 
     public static func bundled() throws -> CTYResolver {
@@ -64,7 +100,11 @@ public final class CTYResolver: @unchecked Sendable {
     /// CQ-zone, ITU-zone, and continent overrides from the pinned CTY data. This deliberately does
     /// not collapse by ADIF identity.
     public func reachableCountryEndpoints(at date: Date) -> [CountryInfo] {
-        Array(Set(endpointRules.compactMap { rule in
+        if countryPack != nil {
+            return Array(Set(packedRules.filter { ($0.start == nil || date >= $0.start!) && ($0.end == nil || date <= $0.end!) }
+                .map { $0.record.country })).sorted { ($0.adif, $0.name) < ($1.adif, $1.name) }
+        }
+        return Array(Set(endpointRules.compactMap { rule in
             if let start = rule.start, date < start { return nil }
             if let end = rule.end, date > end { return nil }
             return rule.endpointCountry
@@ -77,22 +117,107 @@ public final class CTYResolver: @unchecked Sendable {
     public convenience init(xmlURL: URL) throws {
         let parser = ClubLogXMLParser()
         try parser.parse(url: xmlURL)
-        self.init(rules: parser.rules)
+        self.init(rules: parser.rules, content: try Data(contentsOf: xmlURL))
     }
 
-    private init(rules: [Rule]) {
+    private init(rules: [Rule], content: Data) {
+        countryPack = nil; packedRules = []; packedIndex = [:]; packedWildcards = []
         self.rules = Self.sortedRules(rules, by: \.token)
         endpointRules = Self.sortedRules(rules, by: \.endpointToken)
+        endpointIndex = Dictionary(grouping: endpointRules, by: { $0.endpointToken.first! })
+        contentDigest = Self.digest(content)
+    }
+
+    /// Bundle, imported bytes and downloaded bytes use this exact validator.
+    public init(countryPack data: Data) throws {
+        let pack = try CountryReferencePack.decode(data)
+        let compiled = try pack.records.map(CountryReferencePack.CompiledRule.init)
+        countryPack = pack; packedRules = compiled
+        packedIndex = Dictionary(grouping: compiled.filter { $0.firstLiteral != nil }, by: { $0.firstLiteral! })
+        packedWildcards = compiled.filter { $0.firstLiteral == nil }
+        rules = []; endpointRules = []; endpointIndex = [:]
+        contentDigest = Self.digest(data)
+    }
+
+    public static func bundledCountryPack() throws -> CTYResolver {
+        try CTYResolver(countryPack: bundledCountryPackBytes())
+    }
+
+    public static func bundledCountryPackBytes() throws -> Data {
+        guard let url = Bundle.module.url(forResource: "country-reference-pack", withExtension: "json") else { throw CocoaError(.fileNoSuchFile) }
+        return try Data(contentsOf: url)
+    }
+
+    private static func digest(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Missing dates and malformed slash forms fail explicitly. This endpoint
+    /// never substitutes today's date or strips invalid input into another call.
+    /// The legacy resolve APIs retain their historical home-entity semantics.
+    public func facts(_ literal: String, at date: Date?) -> Facts {
+        let call = literal.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let parts = call.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
+        let qualifier = parts.count > 1 ? parts.last.flatMap { ignoredSuffixes.contains($0) ? $0 : nil } : nil
+        let operatorCall = parts.filter { $0.count >= 3 && $0.contains(where: \.isLetter) && $0.contains(where: \.isNumber) }
+            .max { $0.count < $1.count }
+        func result(_ status: Facts.Status, _ rule: Rule? = nil) -> Facts {
+            Facts(literalCall: literal, normalizedCall: call, operatorCall: operatorCall, qualifier: qualifier,
+                observedAt: date.flatMap { $0.timeIntervalSince1970.isFinite ? $0 : nil }, status: status, country: status == .resolved ? rule?.endpointCountry : nil,
+                operatingPrefix: rule?.primaryPrefix, matchedRule: rule?.endpointToken,
+                validFrom: rule?.start, validUntil: rule?.end, referenceRevision: snapshotIdentity,
+                policy: Self.factsPolicy, locationPrecision: status == .resolved ? "entityApproximation" : "unavailable")
+        }
+        guard (3...32).contains(call.utf8.count), (1...4).contains(parts.count),
+              parts.allSatisfy({ !$0.isEmpty }), operatorCall != nil,
+              call.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "/") }) else { return result(.invalid) }
+        guard let date, date.timeIntervalSince1970.isFinite else { return result(.missingDate) }
+        if countryPack != nil { return packedFacts(literal, call: call, parts: parts, operatorCall: operatorCall, qualifier: qualifier, at: date) }
+        func matches(_ candidate: String, exactOnly: Bool = false) -> [Rule] {
+            guard let first = candidate.first else { return [] }
+            return (endpointIndex[first] ?? []).filter { rule in
+                guard Self.isActive(rule, at: date), !exactOnly || rule.exact,
+                      rule.exact ? candidate == rule.endpointToken : candidate.hasPrefix(rule.endpointToken) else { return false }
+                return !(rule.endpointToken == "KG4" && candidate.range(of: #"^KG4[A-Z]{3}$"#, options: .regularExpression) != nil
+                    && rule.country.name.contains("GUANTANAMO"))
+            }
+        }
+        func select(_ candidates: [Rule]) -> Facts? {
+            guard let first = candidates.first else { return nil }
+            let peers = candidates.filter { $0.endpointToken.count == first.endpointToken.count && $0.exact == first.exact
+                && ($0.endpointCountry != $0.country) == (first.endpointCountry != first.country) }
+            guard Set(peers.map(\.endpointCountry)).count == 1 else { return result(.ambiguous) }
+            return result(first.endpointCountry.adif == 0 ? .knownNoEntity : .resolved, first)
+        }
+        // Date-valid complete-call exceptions precede all generic modifiers.
+        if let exact = select(matches(call, exactOnly: true)) { return exact }
+        if qualifier == "MM" || qualifier == "AM" { return result(.knownNoEntity) }
+        // A numeric area suffix is not an arbitrary geographic prefix. Until
+        // a supplied dataset defines that area's semantics, retain uncertainty.
+        if parts.count > 1, parts.last?.allSatisfy(\.isNumber) == true { return result(.unknown) }
+        let candidates = parts.enumerated().compactMap { index, part -> String? in
+            (index == 0 || !ignoredSuffixes.contains(part)) && part.contains(where: \.isLetter) ? part : nil
+        }.sorted { $0.count == $1.count ? $0 < $1 : $0.count < $1.count }
+        for candidate in candidates { if let value = select(matches(candidate)) { return value } }
+        return result(.unknown)
     }
 
     public func resolve(_ rawCallsign: String, at date: Date = Date()) -> CountryInfo? {
-        matchingRule(rawCallsign, at: date, rules: rules, token: \.token)?.country
+        if countryPack != nil {
+            // Deliberate compatibility adapter for pre-C01 callers that used the
+            // home entity for /MM and /AM. New consumers must use neutral facts.
+            let parts = rawCallsign.uppercased().split(separator: "/").map(String.init)
+            let call = ["MM", "AM"].contains(parts.last ?? "") ? parts.dropLast().joined(separator: "/") : rawCallsign
+            return facts(call, at: date).country
+        }
+        return matchingRule(rawCallsign, at: date, rules: rules, token: \.token)?.country
     }
 
     /// Opt-in resolver endpoint including CTY token-level CQ-zone, ITU-zone, and continent
     /// overrides. The legacy `resolve` result remains unchanged for persisted callers.
     public func resolveCountryEndpoint(_ rawCallsign: String, at date: Date = Date()) -> CountryInfo? {
-        matchingRule(rawCallsign, at: date, rules: endpointRules, token: \.endpointToken)?.endpointCountry
+        if countryPack != nil { return facts(rawCallsign, at: date).country }
+        return matchingRule(rawCallsign, at: date, rules: endpointRules, token: \.endpointToken)?.endpointCountry
     }
 
     /// Resolves the country endpoint together with the primary prefix from the
@@ -101,6 +226,11 @@ public final class CTYResolver: @unchecked Sendable {
     public func resolveCountryEndpointWithPrimaryPrefix(
         _ rawCallsign: String, at date: Date = Date()
     ) -> (country: CountryInfo, primaryPrefix: String)? {
+        if countryPack != nil {
+            let value = facts(rawCallsign, at: date)
+            guard let country = value.country, let prefix = value.operatingPrefix else { return nil }
+            return (country, prefix)
+        }
         guard let rule = matchingRule(rawCallsign, at: date, rules: endpointRules,
                                       token: \.endpointToken) else { return nil }
         return (rule.endpointCountry, rule.primaryPrefix)
@@ -155,11 +285,66 @@ public final class CTYResolver: @unchecked Sendable {
     }
 
     public var entities: [CountryInfo] {
+        if let countryPack { return Array(Set(countryPack.records.map(\.country))).sorted { $0.name < $1.name } }
         var unique: [Int: CountryInfo] = [:]
         for rule in rules where rule.country.latitude != nil && rule.country.longitude != nil {
             unique[rule.country.adif] = unique[rule.country.adif] ?? rule.country
         }
         return unique.values.sorted { lhs, rhs in lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending }
+    }
+
+    private func packedFacts(_ literal: String, call: String, parts: [String], operatorCall: String?,
+                             qualifier: String?, at date: Date) -> Facts {
+        guard let pack = countryPack else { preconditionFailure() }
+        func output(_ status: Facts.Status, _ match: CountryReferencePack.CompiledRule? = nil) -> Facts {
+            Facts(literalCall: literal, normalizedCall: call, operatorCall: operatorCall, qualifier: qualifier,
+                observedAt: date, status: status, country: status == .resolved ? match?.record.country : nil,
+                operatingPrefix: match?.record.pattern, matchedRule: match.map { "\($0.record.component):\($0.record.line):\($0.record.pattern)" },
+                validFrom: match?.start, validUntil: match?.end, referenceRevision: snapshotIdentity,
+                policy: Self.factsPolicy, locationPrecision: status == .resolved ? "entityApproximation" : "unavailable")
+        }
+        func choose(_ key: String, exact: Bool = false) -> Facts? {
+            guard let first = key.first else { return nil }
+            let candidates = ((packedIndex[first] ?? []) + packedWildcards).filter { rule in
+                (!exact || rule.record.exact) && (rule.start == nil || date >= rule.start!)
+                    && (rule.end == nil || date <= rule.end!) && rule.matches(key)
+            }.sorted(by: CountryReferencePack.CompiledRule.precedes)
+            guard let best = candidates.first else {
+                return pack.ambiguousPrefixes.contains(where: { key.hasPrefix($0) }) ? output(.ambiguous) : nil
+            }
+            let peers = candidates.prefix { $0.rank == best.rank }
+            guard Set(peers.map { $0.record.country }).count == 1 else { return output(.ambiguous) }
+            if best.record.country.adif == 0 { return output(.knownNoEntity, best) }
+            // An explicitly ambiguous prefix needs a finer rule. Exact dated
+            // exceptions remain usable without guessing from the broad prefix.
+            if !best.record.exact, pack.ambiguousPrefixes.contains(where: {
+                key.hasPrefix($0) && best.positions <= $0.count
+            }) { return output(.ambiguous, best) }
+            return output(.resolved, best)
+        }
+        if let exact = choose(call, exact: true) { return exact }
+        if qualifier == "MM" || qualifier == "AM" { return output(.knownNoEntity) }
+        // Dataset-supported country-specific interpretation precedes generic
+        // suffix handling. These describe rule semantics, not a live location.
+        if parts.count == 2, let suffix = parts.last, suffix.count == 1 {
+            let base = parts[0]
+            if suffix.allSatisfy(\.isNumber),
+               base.range(of: #"^(A[A-L]|K|N|W)[A-Z0-9]*[0-9][A-Z]+$"#, options: .regularExpression) != nil {
+                return choose("W" + suffix) ?? output(.unknown)
+            }
+            if suffix.allSatisfy(\.isLetter),
+               base.range(of: #"^(L[O-W]|AY|AZ)[0-9][A-Z]{2,}$"#, options: .regularExpression) != nil {
+                var characters = Array(base); characters[3] = suffix.first!
+                return choose(String(characters)) ?? output(.unknown)
+            }
+            if suffix.allSatisfy(\.isNumber) { return output(.unknown) }
+        }
+        let modifiers = ignoredSuffixes.union(pack.ignoredModifiers)
+        let candidates = parts.enumerated().compactMap { index, part -> String? in
+            (index == 0 || !modifiers.contains(part)) && part.contains(where: \.isLetter) ? part : nil
+        }.sorted { $0.count == $1.count ? $0 < $1 : $0.count < $1.count }
+        for candidate in candidates { if let value = choose(candidate) { return value } }
+        return output(.unknown)
     }
 
     private static func cleanLegacyToken(_ raw: String) -> String {
@@ -225,6 +410,156 @@ public final class CTYResolver: @unchecked Sendable {
     }
 }
 
+/// A deliberately scoped, reproducible derivative of the six OK1RR country
+/// components. Unsupported upstream rows are enumerated in `excluded`; this
+/// format does not claim CQRLOG's historical collation/truncation quirks.
+public struct CountryReferencePack: Codable, Sendable {
+    private static let publicationLock = NSRecursiveLock()
+    /// Serialize only publication and reviewed correction admission. This lock
+    /// is never used by radio, CW or ordinary immutable lookups.
+    public static func withPublicationLock<T>(_ operation: () throws -> T) rethrows -> T {
+        publicationLock.lock(); defer { publicationLock.unlock() }
+        return try operation()
+    }
+    public struct Record: Codable, Sendable {
+        public let pattern: String
+        public let exact: Bool
+        public let deleted: Bool
+        public let country: CountryInfo
+        public let start: String?
+        public let end: String?
+        public let component: String
+        public let line: Int
+    }
+    public struct Exclusion: Codable, Sendable {
+        public let component: String
+        public let line: Int
+        public let pattern: String?
+        public let reason: String
+    }
+    public let schemaVersion: Int
+    public let provider: String
+    public let sourceURL: String
+    public let sourceRevision: String
+    public let sourceVersion: String?
+    public let normalizerVersion: String
+    public let attribution: String
+    public let conflictPolicy: String
+    public let components: [String: String]
+    public let coverage: [String]
+    public let excluded: [Exclusion]
+    public let records: [Record]
+    public let ignoredModifiers: [String]
+    public let ambiguousPrefixes: [String]
+
+    public enum ValidationError: Error, LocalizedError {
+        case invalid(String)
+        public var errorDescription: String? { if case .invalid(let reason) = self { return "Country pack rejected: \(reason)" }; return nil }
+    }
+    private static let requiredComponents: Set<String> = ["Country.tab", "CallResolution.tbl", "AreaOK1RR.tbl", "CountryDel.tab", "Exceptions.tab", "Ambiguous.tbl"]
+    static func date(_ raw: String?) throws -> Date? {
+        guard let raw else { return nil }
+        let bytes = Array(raw.utf8)
+        guard bytes.count == 20, bytes[4] == 45, bytes[7] == 45, bytes[10] == 84,
+              bytes[13] == 58, bytes[16] == 58, bytes[19] == 90 else { throw ValidationError.invalid("invalid UTC date") }
+        func number(_ range: Range<Int>) throws -> Int {
+            guard bytes[range].allSatisfy({ (48...57).contains($0) }) else { throw ValidationError.invalid("invalid UTC date") }
+            return bytes[range].reduce(0) { $0 * 10 + Int($1 - 48) }
+        }
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let components = try DateComponents(year: number(0..<4), month: number(5..<7), day: number(8..<10),
+            hour: number(11..<13), minute: number(14..<16), second: number(17..<19))
+        guard let value = calendar.date(from: components),
+              calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: value) == components else {
+            throw ValidationError.invalid("invalid UTC date")
+        }
+        return value
+    }
+    public static func decode(_ data: Data) throws -> CountryReferencePack {
+        guard (100...32_000_000).contains(data.count) else { throw ValidationError.invalid("size outside bounds") }
+        let value = try JSONDecoder().decode(Self.self, from: data)
+        guard value.schemaVersion == 1, value.normalizerVersion == "xlog-ok1rr-1", value.conflictPolicy == "reportAmbiguous",
+              value.provider.utf8.count <= 256, !value.provider.isEmpty, value.attribution.utf8.count <= 4096,
+              value.sourceRevision.range(of: #"^[a-f0-9]{40}$"#, options: .regularExpression) != nil,
+              let url = URLComponents(string: value.sourceURL), url.scheme == "https", url.host != nil,
+              url.user == nil, url.password == nil, url.query == nil, url.fragment == nil,
+              Set(value.components.keys) == requiredComponents,
+              value.components.values.allSatisfy({ $0.range(of: #"^[a-f0-9]{64}$"#, options: .regularExpression) != nil }),
+              (100...100_000).contains(value.records.count), value.excluded.count <= 10_000,
+              value.ignoredModifiers.count <= 1024, value.ambiguousPrefixes.count <= 2048,
+              value.coverage.count <= 32 else { throw ValidationError.invalid("manifest, components or counts") }
+        let tokens = value.ignoredModifiers + value.ambiguousPrefixes
+        guard tokens.allSatisfy({ (1...32).contains($0.utf8.count) && $0.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "/") }) }) else {
+            throw ValidationError.invalid("invalid modifier or ambiguity token")
+        }
+        for item in value.excluded {
+            guard requiredComponents.contains(item.component), item.line > 0, item.reason.utf8.count <= 512,
+                  (item.pattern?.utf8.count ?? 0) <= 256 else { throw ValidationError.invalid("invalid exclusion") }
+        }
+        for item in value.records {
+            let country = item.country
+            guard requiredComponents.contains(item.component), item.line > 0,
+                  (0...1000).contains(country.adif), (0...40).contains(country.cqZone), (0...90).contains(country.ituZone),
+                  ["AF", "AN", "AS", "EU", "NA", "OC", "SA"].contains(country.continent),
+                  !country.name.isEmpty, country.name.utf8.count <= 512,
+                  country.latitude.map({ $0.isFinite && (-90...90).contains($0) }) ?? true,
+                  country.longitude.map({ $0.isFinite && (-180...180).contains($0) }) ?? true else { throw ValidationError.invalid("invalid country values") }
+            let start = try date(item.start), end = try date(item.end)
+            guard start == nil || end == nil || start! <= end! else { throw ValidationError.invalid("inverted date window") }
+            _ = try CompiledRule(item)
+        }
+        return value
+    }
+
+    fileprivate struct CompiledRule: @unchecked Sendable {
+        let record: Record
+        let expression: NSRegularExpression
+        let start: Date?
+        let end: Date?
+        let positions: Int
+        let specificity: [Int]
+        let firstLiteral: Character?
+        private var authority: Int { record.component == "CallResolution.tbl" ? 2 : record.component == "AreaOK1RR.tbl" ? 1 : 0 }
+        struct Rank: Equatable { let deleted: Bool; let exact: Bool; let positions: Int; let specificity: [Int]; let authority: Int }
+        var rank: Rank { Rank(deleted: record.deleted, exact: record.exact, positions: positions, specificity: specificity, authority: authority) }
+        init(_ record: Record) throws {
+            self.record = record; start = try CountryReferencePack.date(record.start); end = try CountryReferencePack.date(record.end)
+            let chars = Array(record.pattern)
+            guard (1...128).contains(chars.count) else { throw ValidationError.invalid("pattern size") }
+            var expression = "^", cursor = 0, scores: [Int] = []
+            while cursor < chars.count {
+                let ch = chars[cursor]
+                if ch.isASCII && (ch.isUppercase || ch.isNumber || ch == "/") {
+                    expression += NSRegularExpression.escapedPattern(for: String(ch)); scores.append(3)
+                } else if ch == "#" { expression += "[0-9]"; scores.append(2) }
+                else if ch == "?" { expression += "[A-Z]"; scores.append(1) }
+                else if ch == "%" { expression += "[A-Z0-9]"; scores.append(0) }
+                else if ch == "[" {
+                    guard let closing = chars[(cursor + 1)...].firstIndex(of: "]"), closing > cursor + 1 else { throw ValidationError.invalid("unterminated class") }
+                    let body = chars[(cursor + 1)..<closing]
+                    guard body.allSatisfy({ $0.isASCII && ($0.isUppercase || $0.isNumber || $0 == "-") }),
+                          body.first != "-", body.last != "-" else { throw ValidationError.invalid("invalid class") }
+                    expression += "[" + String(body) + "]"; scores.append(2); cursor = closing
+                } else { throw ValidationError.invalid("unsupported pattern syntax") }
+                cursor += 1
+            }
+            if record.exact { expression += "$" }
+            self.expression = try NSRegularExpression(pattern: expression)
+            positions = scores.count; specificity = scores
+            firstLiteral = chars.first.flatMap { ($0.isASCII && ($0.isUppercase || $0.isNumber)) ? $0 : nil }
+        }
+        func matches(_ key: String) -> Bool { expression.firstMatch(in: key, range: NSRange(key.startIndex..., in: key)) != nil }
+        static func precedes(_ lhs: Self, _ rhs: Self) -> Bool {
+            if lhs.record.deleted != rhs.record.deleted { return lhs.record.deleted }
+            if lhs.record.exact != rhs.record.exact { return lhs.record.exact }
+            if lhs.positions != rhs.positions { return lhs.positions > rhs.positions }
+            if lhs.specificity != rhs.specificity { return rhs.specificity.lexicographicallyPrecedes(lhs.specificity) }
+            if lhs.authority != rhs.authority { return lhs.authority > rhs.authority }
+            return (lhs.record.component, lhs.record.line) < (rhs.record.component, rhs.record.line)
+        }
+    }
+}
+
 public struct CTYCorrectionPreview: Codable, Sendable {
     public struct Row: Codable, Sendable {
         public let id: UUID
@@ -248,11 +583,12 @@ private final class ClubLogXMLParser: NSObject, XMLParserDelegate {
     private var currentElement = ""
     private var buffer = ""
     private var values: [String: String] = [:]
+    private var invalidRecord = false
 
     func parse(url: URL) throws {
         guard let parser = XMLParser(contentsOf: url) else { throw CocoaError(.fileReadCorruptFile) }
         parser.delegate = self
-        guard parser.parse() else { throw parser.parserError ?? CocoaError(.fileReadCorruptFile) }
+        guard parser.parse(), !invalidRecord, !rules.isEmpty else { throw parser.parserError ?? CocoaError(.fileReadCorruptFile) }
     }
 
     func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
@@ -274,15 +610,23 @@ private final class ClubLogXMLParser: NSObject, XMLParserDelegate {
         defer { kind = ""; values = [:]; currentElement = ""; buffer = "" }
         guard let rawCall = values["call"] ?? values["prefix"],
               let adif = Int(values["adif"] ?? ""),
-              let cq = Int(values["cqz"] ?? "0") else { return }
+              let cq = Int(values["cqz"] ?? "0"), (0...1000).contains(adif), (0...40).contains(cq),
+              let itu = Int(values["ituz"] ?? "0"), (0...90).contains(itu) else { invalidRecord = true; parser.abortParsing(); return }
         let token = rawCall.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !token.isEmpty else { return }
+        let start = Self.date(values["start"]), end = Self.date(values["end"], endOfDay: true)
+        guard !token.isEmpty, token.utf8.count <= 128,
+              (values["start"]?.isEmpty != false || start != nil), (values["end"]?.isEmpty != false || end != nil),
+              start == nil || end == nil || start! <= end!,
+              values["lat"].flatMap(Double.init).map({ $0.isFinite && (-90...90).contains($0) }) ?? (values["lat"] == nil),
+              values["long"].flatMap(Double.init).map({ $0.isFinite && (-180...180).contains($0) }) ?? (values["long"] == nil) else {
+            invalidRecord = true; parser.abortParsing(); return
+        }
         let info = CountryInfo(
             name: (values["entity"] ?? values["name"] ?? "Unknown").uppercased(),
             adif: adif,
             continent: (values["cont"] ?? "").uppercased(),
             cqZone: cq,
-            ituZone: Int(values["ituz"] ?? "0") ?? 0,
+            ituZone: itu,
             latitude: Double(values["lat"] ?? ""),
             longitude: Double(values["long"] ?? "")
         )
@@ -293,12 +637,12 @@ private final class ClubLogXMLParser: NSObject, XMLParserDelegate {
             exact: name == "exception",
             country: info,
             endpointCountry: info,
-            start: Self.date(values["start"]),
-            end: Self.date(values["end"])
+            start: start,
+            end: end
         ))
     }
 
-    private static func date(_ value: String?) -> Date? {
+    private static func date(_ value: String?, endOfDay: Bool = false) -> Date? {
         guard let value, !value.isEmpty else { return nil }
         let formats = ["yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd", "yyyyMMdd"]
         for format in formats {
@@ -306,7 +650,9 @@ private final class ClubLogXMLParser: NSObject, XMLParserDelegate {
             formatter.locale = Locale(identifier: "en_US_POSIX")
             formatter.timeZone = TimeZone(secondsFromGMT: 0)
             formatter.dateFormat = format
-            if let result = formatter.date(from: value) { return result }
+            if let result = formatter.date(from: value), formatter.string(from: result) == value {
+                return endOfDay && format != "yyyy-MM-dd HH:mm:ss" ? result.addingTimeInterval(86_399) : result
+            }
         }
         return nil
     }
