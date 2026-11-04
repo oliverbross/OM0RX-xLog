@@ -138,7 +138,8 @@ def score(desk):
             "zones": 0, "multipliers": len(keys), "total": points * len(keys),
             "ruleEdition": RULE_EDITION, "scoringComplete": complete,
             "scoringLimitation": "" if complete else "A retained contact lacks pinned operating-location or country evidence; review before a submission claim",
-            "multiplierSummaryLabels": {"countries": "DXCC / WAE countries", "districts": "OK / OM districts"}}
+            "scoringLimitations": [] if complete else ["A retained contact lacks pinned operating-location or country evidence; review before a submission claim"],
+            "multiplierSummaryLabels": [f"{countries} DXCC / WAE countries", f"{districts} OK / OM districts"]}
 
 
 def is_valid_dupe(desk, call, band):

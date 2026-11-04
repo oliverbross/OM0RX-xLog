@@ -67,6 +67,13 @@ class OKOMHostTests(unittest.TestCase):
         self.assertEqual(json.loads((root / "docs/contesting/OKOM_CW_2026_RULE_REFERENCE.json").read_text()), okom.REFERENCE)
         self.assertNotEqual(PLUGIN_REGISTRY[okom.PLUGIN_ID].name, PLUGIN_REGISTRY["ok1wc"].name)
 
+    def test_score_labels_follow_the_existing_renderer_list_contract(self):
+        self.create()
+        self.log("OM1ABC", "BAA", 0)
+        score = self.read("score")["score"]
+        self.assertEqual(score["multiplierSummaryLabels"], ["1 DXCC / WAE countries", "1 OK / OM districts"])
+        self.assertEqual(score["scoringLimitations"], [])
+
     def test_domestic_arithmetic_duplicates_multiband_correction_restart_and_exports(self):
         self.create()
         rows = [self.log("OM1ABC", " baa ", 0), self.log("OK1ABC", "APA", 1),
