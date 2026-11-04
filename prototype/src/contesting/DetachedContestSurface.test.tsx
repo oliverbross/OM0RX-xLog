@@ -745,6 +745,9 @@ it.each(["applied","queued"] as const)("opens native Edit Contact from Edit last
 });
 
 it.each(["owner rejection","native window failure"] as const)("reports Edit last %s without clearing the occupied entry",async failure=>{
+  const expectedMessage=failure==="owner rejection"?"The last contact is unavailable.":"The Edit Contact window could not be opened.";
+  let diagnosticReported!:(args:Record<string,any>)=>void;
+  const diagnosticCompletion=new Promise<Record<string,any>>(resolve=>{diagnosticReported=resolve;});
   const view={...projection,schemaVersion:2,draft:{...projection.draft,callsign:"K1KEEP",frequencyHz:14_025_000,frequencyText:"14025000",frequencyError:""},
     descriptor:{bands:["20m"],modes:["CW"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator:null};
   let current:any={...snapshot,projection:view};
@@ -758,12 +761,20 @@ it.each(["owner rejection","native window failure"] as const)("reports Edit last
       return {requestID:args.requestID,status:"applied"};
     }
     if(command==="contest_contact_editor_open")throw new Error("The Edit Contact window could not be opened.");
-    if(command==="contest_surface_diagnostic_report")return;
+    if(command==="contest_surface_diagnostic_report"){diagnosticReported(args);return;}
     throw new Error(command);
   });
-  render(<DetachedContestSurface/>);fireEvent.click(await screen.findByRole("button",{name:"Edit last"}));
-  expect((await screen.findByRole("alert")).textContent).toBe(failure==="owner rejection"
-    ?"The last contact is unavailable.":"The Edit Contact window could not be opened.");
+  render(<DetachedContestSurface/>);
+  const editLast=await screen.findByRole("button",{name:"Edit last"});
+  // Wait for the actual immediate rejection/error path to report, then let
+  // React commit its feedback. Neither branch depends on a receipt poll.
+  await act(async()=>{fireEvent.click(editLast);await diagnosticCompletion;});
+  expect(await diagnosticCompletion).toEqual({sessionID,workspaceGeneration,kind:"error",message:expectedMessage});
+  expect(screen.getByRole("alert").textContent).toBe(expectedMessage);
+  const actions=native.invoke.mock.calls.filter(([command])=>command==="contest_surface_action");
+  expect(actions).toHaveLength(1);
+  expect(actions[0][1]).toMatchObject({operatingContext,scope:"contesting",sessionID,workspaceGeneration,
+    panelID:"active-qso",action:"entry_edit_last",projectionRevision:6,params:{draftID:"draft-1",expectedDraftRevision:5}});
   expect(screen.getByLabelText("Callsign")).toHaveProperty("value","K1KEEP");
   expect(native.invoke.mock.calls.filter(([command])=>command==="contest_contact_editor_open")).toHaveLength(failure==="owner rejection"?0:1);
 });
@@ -1871,13 +1882,20 @@ it("shows saved only after a confirmed commit advances to a new draft",async()=>
 });
 
 it("clears saved feedback when a selected spot fills the next callsign",async()=>{
+  const commits:Record<string,any>[]=[];
+  let commitReadBack!:()=>void;
+  const commitCompletion=new Promise<void>(resolve=>{commitReadBack=resolve;});
   const operator={output:"xlog-native",outputAvailable:false,outputUnavailableReason:"Optional voice is not configured.",armed:false,style:"run",status:"disarmed",pending:null,focusedField:"callsign",...tabMaps,
     functionKeys:[],readiness:{canSendCQ:false,canSendCall:false,canSendDuplicate:false,canReserveCall:false,canReserveCommit:false,canCommit:true},trace:[]};
   let current:any={...snapshot,projection:{...projection,schemaVersion:2,draft:{...projection.draft,frequencyHz:14_250_000,frequencyText:"14250000",frequencyError:"",mode:"SSB",sentReport:"59",receivedReport:"59"},
     descriptor:{enterPolicy:"manual",bands:["20m"],modes:["SSB"],sentFields:[],serial:{requirement:"none",allocatedFieldID:null,reservedSerial:null}},operator}};
   native.invoke.mockImplementation(async(command:string,args:Record<string,any>)=>{
-    if(command==="contest_surface_snapshot")return structuredClone(current);
+    if(command==="contest_surface_snapshot"){
+      if(commits.length===1&&current.projectionRevision===7&&current.projection.draft.draftID==="draft-2")commitReadBack();
+      return structuredClone(current);
+    }
     if(command==="contest_surface_action"){
+      commits.push(args);
       current={...current,projectionRevision:7,projection:{...current.projection,
         draft:{...current.projection.draft,draftID:"draft-2",revision:6,callsign:"",dupe:{state:"unchecked",reason:""}}}};
       return{requestID:args.requestID,status:"applied"};
@@ -1885,13 +1903,21 @@ it("clears saved feedback when a selected spot fills the next callsign",async()=
     throw new Error(command);
   });
   render(<DetachedContestSurface/>);
-  fireEvent.click(await screen.findByRole("button",{name:/^Log It/}));
-  await screen.findByText("QSO saved");
+  const log=await screen.findByRole("button",{name:/^Log It/});
+  // The applied acknowledgement must be reconciled to its next-draft snapshot
+  // before asserting saved feedback or publishing the subsequent spot.
+  await act(async()=>{fireEvent.click(log);await commitCompletion;});
+  expect(commits).toHaveLength(1);
+  expect(commits[0]).toMatchObject({operatingContext,scope:"contesting",sessionID,workspaceGeneration,
+    panelID:"active-qso",action:"entry_commit",projectionRevision:6,params:{draftID:"draft-1",expectedDraftRevision:5}});
+  expect(screen.getByText("QSO saved").getAttribute("role")).toBe("status");
+  expect(screen.getByLabelText("Callsign")).toHaveProperty("value","");
   current={...current,projectionRevision:8,projection:{...current.projection,
     draft:{...current.projection.draft,revision:7,callsign:"PJ4G",dupe:{state:"clear",reason:""}}}};
   await act(async()=>{native.wake!();});
   await waitFor(()=>expect(screen.queryByText("QSO saved")).toBeNull());
   expect(screen.getByLabelText("Callsign")).toHaveProperty("value","PJ4G");
+  expect(commits).toHaveLength(1);
 });
 
 it.each([{available:false},{available:true}])("keeps original RTTY macros visible with truthful fldigi availability ($available)",async({available})=>{

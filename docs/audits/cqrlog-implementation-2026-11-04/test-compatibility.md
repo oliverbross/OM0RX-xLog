@@ -54,3 +54,41 @@ The repeated full local gates passed before committing the repair:
 
 The source/build/workflow comparison and ZIP checksum were independently reviewed
 without changing HEAD or artifacts. No product code or output guard changed.
+
+## Subsequent platform feedback fixtures
+
+Validation at `768c0bb7` passed normal Mac CI and all seven Contest portability
+jobs. In the full all-platform workflow, Linux completed its frontend, portable,
+worker/framing, shell/dummy and desktop build steps without failure. Mac and
+Windows each passed 5,187 frontend tests and failed a different asynchronous
+feedback case in the same existing DetachedContestSurface test file:
+
+* Windows: original line 765, owner rejection after Edit last, alert not observed
+  before Testing Library's default deadline (full Vitest duration 1,028.72 s).
+* Mac: original line 1889, QSO saved feedback after Log It not observed before that
+  deadline (667.56 s). Linux's full frontend passed.
+
+The Windows branch is an immediate rejection plus receipt refresh, **not** a
+500 ms polling branch. Its test now awaits the real diagnostic IPC completion
+inside asynchronous React `act` before checking the exact alert. Both original
+owner/window error cases retain K1KEEP and editor 0/1 assertions, and additionally
+require one correctly bound `entry_edit_last` envelope and exact diagnostic.
+The saved-feedback test waits for the actual post-applied next-draft readback
+inside `act`, then requires one correctly bound `entry_commit`, QSO-saved status
+and empty next draft. Its original selected-spot wake still clears the feedback
+and retains PJ4G. No timer, sleep, extra wake, response-status branch, product
+code, guard or timeout was changed.
+
+Focused three concrete cases passed; the complete affected file passed **198/198**
+in **13.31 s**, TypeScript and whitespace checks passed. Structured receipt:
+`.build/detached-feedback-gates.json`, with inline-only raw-log limits stated.
+The full original platform logs remain `.build/country-ci-watch-768-{mac,windows,linux}-job.log`.
+Linux had 31 successful/20 skipped steps and no failed step, including Complete
+job; GitHub still reported its final job conclusion pending at the preservation
+checkpoint, so step success was not falsely reported as a finalized matrix pass.
+All package/upload steps skipped and no packaged-app artifacts were produced.
+That failed/stuck matrix is superseded by validation of the test-only repair.
+
+The exact signed 1.5.13 artifact remains retained. Application/build/workflow
+equivalence is regenerated for the additional test-only file, with the validation
+commit and final remote results separately pinned in the candidate receipt.
