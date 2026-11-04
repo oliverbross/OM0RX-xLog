@@ -8,7 +8,7 @@ from unittest.mock import patch
 from contest_host.host import Host, HostError
 from contest_host.plugins import PLUGIN_REGISTRY, PLUGINS, RTTY_MODES, SERIAL_PLUGINS
 from contest_host import upstream
-from contest_host.wae import PLUGINS as FIRST_PARTY_PLUGINS
+from contest_host.plugins import FIRST_PARTY_PLUGINS
 
 
 class PluginRegistryTests(unittest.TestCase):
@@ -38,7 +38,7 @@ class PluginRegistryTests(unittest.TestCase):
             host = Host(Path(root).resolve())
             try:
                 catalog = host.dispatch({"id": "catalog", "method": "catalog", "params": {}})
-                self.assertEqual(len(catalog["plugins"]), 97)
+                self.assertEqual(len(catalog["plugins"]), 98)
                 self.assertEqual([(item["id"], item["name"]) for item in catalog["plugins"]], list(PLUGINS.items()))
                 sweepstakes = next(item for item in catalog["plugins"] if item["id"] == "arrl_ss_cw")
                 self.assertEqual(sweepstakes["modes"], ["CW"])
@@ -147,7 +147,8 @@ class PluginRegistryTests(unittest.TestCase):
                 host.close()
         for plugin_id in PLUGIN_REGISTRY:
             if plugin_id in FIRST_PARTY_PLUGINS:
-                self.assertEqual(upstream.load_plugin(plugin_id).cabrillo_name, "WAE-DX-" + plugin_id[4:].upper())
+                self.assertEqual(upstream.load_plugin(plugin_id).cabrillo_name,
+                                 "OK-OM-DX" if plugin_id == "okom_dx_cw" else "WAE-DX-" + plugin_id[4:].upper())
                 continue
             self.assertEqual(upstream.load_plugin(plugin_id).__file__,
                              str(upstream.VENDOR / f"not1mm/plugins/{plugin_id}.py"))

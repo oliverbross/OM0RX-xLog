@@ -181,6 +181,11 @@ def _own(state):
 
 def dimensions(state):
     plugin = state["pluginID"]
+    if plugin == "okom_dx_cw":
+        from .okom import DISTRICTS
+        return (Dimension("district", "OK / OM districts", "@okom-district", "band", "districts",
+                          universe=tuple(sorted(DISTRICTS["OK"] | DISTRICTS["OM"]))),
+                Dimension("country", "DXCC / WAE countries", "@okom-country", "band", "countries"))
     if plugin in {"arrl_dx_cw", "arrl_dx_ssb"}:
         country = state["reference"]["countries"].get(state["station"]["Call"], {}).get("primary_pfx")
         return ((Dimension("country", "DX countries", "CountryPrefix", "band", "countries", "three-points"),)
@@ -236,6 +241,10 @@ def dimensions(state):
 
 
 def _value(row, state, definition):
+    if definition.field.startswith("@okom-"):
+        from .okom import credit_keys
+        family = definition.field.removeprefix("@okom-")
+        return next((value for kind, _, value in credit_keys(row) if kind == family), "")
     field, plugin = definition.field, state["pluginID"]
     if not field.startswith("@"):
         return row.get(field)
@@ -431,6 +440,12 @@ def needed_views(rows, state, views, band_labels):
             provenance = "NCJ 2026 paper-form location tokens; pinned raw Sect identities and aliases are retained without rescoring"
             source_coordinate = NAQP_DATA_REFERENCE
             universe_scope = "published-location-tokens-as-pinned-Sect-keys"
+        if state["pluginID"] == "okom_dx_cw" and definition.id == "district":
+            from .okom import RULE_SHA256, RULE_EDITION, REFERENCE
+            source_coordinate = {"id": REFERENCE["id"], "version": RULE_EDITION,
+                                 "source": REFERENCE["url"], "sourceSHA256": RULE_SHA256}
+            provenance = "165 country-validated district tokens embedded in the official 2026 CW rules"
+            universe_scope = "published-OK-and-OM-districts"
         if state['pluginID']=='k1usn_sst' and definition.id=='spc':
             valid=all(str(row.get('Sect',''))=='DX' and bool(row.get('CountryPrefix')) and str(row.get('CountryPrefix')) not in {'K','VE'} or
                       str(row.get('CountryPrefix',''))=='K' and str(row.get('Sect','')) in SST_US or

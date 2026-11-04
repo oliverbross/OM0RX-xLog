@@ -256,6 +256,15 @@ export function ContestSetupPanel({ value, sessions, activeSessionID, catalog, b
         document.station.CQZone = stationCQZone;
       }
       if (cqWWStationZonePlugins.has(document.pluginID)) document.settings.SentExchange = stationCQZone;
+      if (document.pluginID === "okom_dx_cw") {
+        const location = String(document.station.OperatingCountryPrefix ?? "").trim().toUpperCase();
+        if (!/^[A-Z0-9/]{1,16}$/.test(location)) throw new Error("Declare the OK/OM operating-country prefix from the station callsign lookup (for example OM, OK or DL).");
+        document.station.OperatingCountryPrefix = location;
+        const exchange = String(document.settings.SentExchange ?? "").trim().toUpperCase();
+        if (["OK", "OM"].includes(location) ? !/^[A-Z]{3}$/.test(exchange) : exchange !== "#")
+          throw new Error("OK/OM domestic entrants send their three-letter district; DX entrants use # for the reserved serial.");
+        document.settings.SentExchange = exchange;
+      }
       const autoCQDelay = Number(document.preferences.autoCQDelay ?? 15);
       if (!Number.isFinite(autoCQDelay) || autoCQDelay < 1 || autoCQDelay > 3600)
         throw new Error("Auto CQ Delay must be between 1 and 3600 seconds.");
@@ -324,6 +333,7 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
     {row(field("station", "Street2", "Address", "text"))}
     {row(field("station", "City", "City"), field("station", "State", "State"), field("station", "Zip", "Zip"))}
     {row(field("station", "Country", "Country"))}
+    {draft.pluginID === "okom_dx_cw" && row(field("station", "OperatingCountryPrefix", "Operating-country prefix (OK/OM)"))}
     {row(field("station", "GridSquare", "Grid Square"), field("station", "CQZone", "CQ Zone"), field("station", "IARUZone", "ITU Zone"))}
     {row(field("station", "LicenseClass", "License"), field("station", "Latitude", "Latitude"), field("station", "Longitude", "Longitude"))}
     {row(field("station", "STXeq", "Station TX/RX"), field("station", "SPowe", "Power"))}
@@ -357,6 +367,11 @@ const row = (...items: ReactNode[]) => <div className="contest-manual-row">{item
       ? "Default: CQ WW organizer calendar when the contest year is known. Enter End UTC to use your configured period."
       : "Set the full contest period in UTC. Remaining time appears in Rates."}</p>
     <hr/>
+    {draft.pluginID === "okom_dx_cw" && <div className="contest-manual-stack">
+      {field("station", "OperatingCountryPrefix", "Operating-country prefix (OK/OM)")}
+      <p>Declare the country of the station operating callsign, including its portable location. This must agree with the pinned country lookup. Your mailing address country is separate.</p>
+      <p>2026 CW rules: OK/OM entrants send their official three-letter district; other entrants select # for the reserved serial. All stations may work everyone. District and DXCC/WAE multipliers are per band; maritime mobile contacts have no multiplier.</p>
+    </div>}
     {choice("settings", "OperatorCategory", "Operator", ["SINGLE-OP", "MULTI-OP", "MULTI-TWO", "CHECKLOG"])}
     {choice("settings", "BandCategory", "Band", ["ALL", ...supportedBandChoices.map(band => band.toUpperCase())])}
     {choice("settings", "PowerCategory", "Power", ["HIGH", "LOW", "QRP"])}

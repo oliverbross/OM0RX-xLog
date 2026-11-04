@@ -23,6 +23,7 @@ from .analytics import AnalyticsCopies
 from .legacy_import import LegacyImportError, inspect_source, row_digest
 from .n1mm import N1MMOutput
 from .wae import DEFINITION_VERSION as WAE_DEFINITION_VERSION, LEGACY_DEFINITION_VERSION as WAE_LEGACY_DEFINITION_VERSION, RULE_EDITION as WAE_RULE_EDITION, PLUGINS as WAE_PLUGINS
+from . import okom
 from .plugins import (AADX_PLUGINS, ARRL_DX_PLUGINS, ARRL_VHF_PLUGINS, CENTRAL_EUROPEAN_PLUGINS,
                       CONDITIONAL_SERIAL_PLUGINS,
                       CONFIGURED_SENTNR_PLUGINS, CQ_160_PLUGINS,
@@ -1035,7 +1036,7 @@ class Desk:
                 "sourceRevision": SOURCE_REVISION,
                 "ruleIdentity": {"id": self.state["pluginID"].replace("_", "-"),
                                  "version": self.state.get("definitionVersion") or self.state.get("scoringRevision") or "26.10.11",
-                                 "edition": WAE_RULE_EDITION if self.state["pluginID"] in WAE_PLUGINS else "not1mm-python", "sourceRevision": SOURCE_REVISION},
+                         "edition": WAE_RULE_EDITION if self.state["pluginID"] in WAE_PLUGINS else okom.RULE_EDITION if self.state["pluginID"] == "okom_dx_cw" else "not1mm-python", "sourceRevision": SOURCE_REVISION},
                 "supportedBands": list(plugin.bands), "supportedModes": list(plugin.modes),
                 "allowDuplicateCommit": plugin.allow_duplicate_commit,
                 "digitalLoggingSupported": callable(getattr(self.contest, "ft8_handler", None)),
@@ -1116,6 +1117,8 @@ class Desk:
                 "leaveRunOnRetune": plugin.clear_on_vfo_change and clear != "off"}
 
     def score(self):
+        if self.state["pluginID"] == "okom_dx_cw":
+            return okom.score(self)
         if self.state["pluginID"].startswith("wae_"):
             from .wae import score
             return score(self)
@@ -2892,6 +2895,8 @@ class Host:
                 apply_canonical_cq_ww_station_zone(
                     state["pluginID"], setup["station"], setup["settings"])
                 zone = str(setup["settings"].get("SentExchange", ""))
+                if state["pluginID"] == "okom_dx_cw":
+                    okom.validate_setup(setup["station"], setup["settings"], state["reference"]["countries"], require)
                 if state["pluginID"] == "cq_ww_vhf":
                     zone = normalize_cq_vhf_grid(zone)
                     setup["settings"]["SentExchange"] = zone
@@ -3583,6 +3588,9 @@ class Host:
         if state["pluginID"] in WAE_PLUGINS:
             require(state.get("definitionVersion") in {WAE_DEFINITION_VERSION, WAE_LEGACY_DEFINITION_VERSION},
                     "This WAE definition version requires explicit compatibility review; retained contacts were not rescored", "engine_mismatch")
+        if state["pluginID"] == "okom_dx_cw":
+            require(state.get("definitionVersion") == okom.DEFINITION_VERSION and state.get("ruleSHA256") == okom.RULE_SHA256,
+                    "This OK/OM definition/rule version requires explicit compatibility review", "engine_mismatch")
         # Optional analytical reference coordinates never gate the core log.
         # Creation validates them strictly; an old/incompatible coordinate is
         # retained and makes finite Needed unavailable without a migration.
@@ -3727,6 +3735,8 @@ class Host:
         setup_state = {"pluginID": plugin_id, "station": station, "reference": {"countries": countries}}
         validate_batch2_setup(plugin_id, setup_state, settings["SentExchange"])
         validate_final_vhf_setup(plugin_id, setup_state, settings["SentExchange"])
+        if plugin_id == "okom_dx_cw":
+            okom.validate_setup(station, settings, countries, require)
         modes = PLUGIN_REGISTRY[plugin_id].modes
         mode = modes[0]
         settings.setdefault("ModeCategory", mode)
@@ -3754,6 +3764,7 @@ class Host:
                 # Setup edits/reopening never opt historical logs into new rules.
                 "scoringRevision": scoring_revision,
                 **({"definitionVersion":WAE_DEFINITION_VERSION} if plugin_id in WAE_PLUGINS else {}),
+                **({"definitionVersion": okom.DEFINITION_VERSION, "ruleSHA256": okom.RULE_SHA256} if plugin_id == "okom_dx_cw" else {}),
                 "operatingMode": live_mode,
                 "roverLocation": "",
                 "operator": text(params.get("operator", call), 32), "reference": {"id": text(reference["id"]), "countries": countries,
@@ -3920,7 +3931,9 @@ class Host:
 
     @staticmethod
     def validate_exchange(desk, fields):
-        if desk.state["pluginID"].startswith("wae_"):
+        if desk.state["pluginID"] == "okom_dx_cw":
+            okom.validate_received(desk.state, fields, require)
+        elif desk.state["pluginID"].startswith("wae_"):
             require(re.fullmatch(r"[0-9]{1,9}", fields["other_2"]) is not None, "WAE received serial must be numeric; use 000 only when no serial was sent")
         elif desk.state["pluginID"] == "cq_ww_rtty":
             require(fields["other_1"].isdigit() and 1 <= int(fields["other_1"]) <= 40,
@@ -4666,7 +4679,8 @@ class Host:
                 # path began with this row's raw fields, so unrelated corrections
                 # retain the exchange exactly as logged.
                 pass
-            elif (desk.state["pluginID"] in EA_MAJESTAD_PLUGINS
+            elif (desk.state["pluginID"] == "okom_dx_cw"
+                  or desk.state["pluginID"] in EA_MAJESTAD_PLUGINS
                   or desk.state["pluginID"] in REF_PLUGINS
                   or desk.state["pluginID"] in ESTONIAN_PLUGINS
                   or desk.state["pluginID"] in EUROPEAN_DX_PLUGINS

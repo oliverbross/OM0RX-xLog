@@ -261,7 +261,11 @@ PLUGIN_REGISTRY = MappingProxyType({
     "wae_cw": Plugin("WAE CW", serial=True, bands=("80m", "40m", "20m", "15m", "10m"), manual_enter=True),
     "wae_ssb": Plugin("WAE SSB", serial=True, modes=("SSB",), bands=("80m", "40m", "20m", "15m", "10m"), manual_enter=True),
     "wae_rtty": Plugin("WAE RTTY", serial=True, modes=("RTTY",), bands=("80m", "40m", "20m", "15m", "10m"), manual_enter=True),
+    "okom_dx_cw": Plugin("OK/OM DX CW", conditional_serial=True, allow_duplicate_commit=True,
+                          sent_exchange_hint="OK/OM district; DX # (reserved serial)", overlay_choices=("N/A",),
+                          duplicate_description="First valid contact with this callsign on this band scores; retain later duplicates in the log."),
 })
+FIRST_PARTY_PLUGINS = frozenset({"wae_cw", "wae_ssb", "wae_rtty", "okom_dx_cw"})
 PLUGINS = MappingProxyType({key: plugin.name for key, plugin in PLUGIN_REGISTRY.items()})
 CQ_WW_PLUGINS = frozenset({"cq_ww_cw", "cq_ww_ssb", "cq_ww_rtty"})
 SERIAL_PLUGINS = frozenset(key for key, plugin in PLUGIN_REGISTRY.items() if plugin.serial)

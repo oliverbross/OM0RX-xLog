@@ -19,7 +19,7 @@ icwc_mst cwt cwo k1usn_sst oceania_dx_cw oceania_dx_ssb sac_cw sac_ssb iaru_fiel
 jidx_cw jidx_ph aadx_cw aadx_ssb cq_160_cw cq_160_ssb euhfc iaru_hf arrl_10m arrl_160m arrl_field_day arrl_rtty_ru
 arrl_vhf_jan arrl_vhf_jun arrl_vhf_sep ea_majestad_cw ea_majestad_ssb ref_cw ref_ssb helvetia ari_dx darc_xmas
 eudx lz-dx wag ari_40_80 ea_rtty ok1wc ssa_mt_cw ssa_mt_ssb qso_party_rst qso_party_sn ca_qso_party agcw_qrp
-rda_contest rdxc ukeidx cq_ww_vhf john_moyle_field_day labre_rs_digi vhf_sprint""".split())
+rda_contest rdxc ukeidx cq_ww_vhf john_moyle_field_day labre_rs_digi vhf_sprint okom_dx_cw""".split())
 ADDITIVE_HISTORY = (NO_MULTIPLIER_PLUGINS - {"dxpedition", "general_logging", "randomgram", "raem"}) | TEN_TEN_PLUGINS | {"rsgb_80m_cc", "rsgb_commonwealth_beru", "nac_vhf"}
 
 

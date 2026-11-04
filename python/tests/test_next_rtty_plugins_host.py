@@ -293,9 +293,9 @@ class RTTYCatalogOrderTests(unittest.TestCase):
                     {"id": uid(), "method": "catalog", "params": {}})["plugins"]]
             finally:
                 host.close()
-            self.assertEqual(len(ids), 97)
-        self.assertEqual(ids[-3:], ["wae_cw", "wae_ssb", "wae_rtty"])
-        ids = ids[:-3]  # Existing 94-profile family order remains exact.
+            self.assertEqual(len(ids), 98)
+        self.assertEqual(ids[-4:], ["wae_cw", "wae_ssb", "wae_rtty", "okom_dx_cw"])
+        ids = ids[:-4]  # Existing 94-profile family order remains exact.
         self.assertEqual(ids[3:6], ["cq_wpx_cw", "cq_wpx_ssb", "cq_wpx_rtty"])
         self.assertEqual(ids[10:15], ["naqp_cw", "naqp_ssb", "naqp_rtty",
                                       "phone_weekly_test", "weekly_rtty"])

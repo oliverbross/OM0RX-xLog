@@ -11,7 +11,7 @@ from pathlib import Path
 import re
 import sys
 
-from .plugins import PLUGIN_REGISTRY, RTTY_PLUGINS
+from .plugins import PLUGIN_REGISTRY, RTTY_PLUGINS, FIRST_PARTY_PLUGINS
 
 VENDOR = Path(__file__).resolve().parents[1] / "vendor/not1mm/upstream"
 _verified = False
@@ -35,7 +35,6 @@ def verify_source():
     if _verified:
         return
     manifest = json.loads((VENDOR.parent / "source-manifest.json").read_text(encoding="utf-8"))
-    from .wae import PLUGINS as FIRST_PARTY_PLUGINS
     if manifest.get("registeredPlugins") != [key for key in PLUGIN_REGISTRY if key not in FIRST_PARTY_PLUGINS]:
         raise RuntimeError("Pinned Not1MM registered plugins differ from the supported registry")
     for plugin_id in PLUGIN_REGISTRY:
@@ -122,6 +121,9 @@ def load_cw_macros(plugin_id="cq_ww_cw"):
         # locator; its visible Nr field is the received serial.
         for mode in ("R", "S"):
             result[(mode, "F3")]["template"] = "{RST} {SENTNR} {EXCHANGE}"
+    elif plugin_id == "okom_dx_cw":
+        for mode in ("R", "S"):
+            result[(mode, "F3")]["template"] = "{RST} {SENTNR}"
     elif PLUGIN_REGISTRY[plugin_id].serial or PLUGIN_REGISTRY[plugin_id].conditional_serial:
         # Ordinary serial contests send the host-reserved draft serial,
         # independently of any configured exchange text.
@@ -158,6 +160,9 @@ def load_plugin(plugin_id="cq_ww_cw"):
     from .wae import PLUGINS as WAE_PLUGINS, plugin as wae_plugin
     if plugin_id in WAE_PLUGINS:
         return wae_plugin(plugin_id, load_plugin("cq_wpx_cw"))
+    if plugin_id == "okom_dx_cw":
+        from .okom import plugin as okom_plugin
+        return okom_plugin(load_plugin("cq_wpx_cw"))
     if str(VENDOR) not in sys.path:
         sys.path.insert(0, str(VENDOR))
     import_module("not1mm.lib")

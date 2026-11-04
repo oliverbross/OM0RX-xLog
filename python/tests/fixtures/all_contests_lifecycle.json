@@ -1,4 +1,19 @@
 {
+  "okom_dx_cw": {
+    "fixture": "test_okom_host.OKOMHostTests.test_multiplier_analytics_and_historical_duplicate_flags_share_host_credit",
+    "mode": "CW",
+    "fields": {"callsign": "OK1ABC", "sent": "599", "receive": "599", "other_1": "PRE", "other_2": "APA"},
+    "firstRow": {"Call": "OK1ABC"},
+    "state": {
+      "station": {"Call": "OM0RX", "GridSquare": "JN88", "OperatingCountryPrefix": "OM"},
+      "settings": {"BandCategory": "ALL", "ModeCategory": "CW", "OperatorCategory": "SINGLE-OP", "OverlayCategory": "N/A", "PowerCategory": "LOW", "SentExchange": "PRE"},
+      "reference": {"id": "test-cty-v1", "countries": {
+        "OM0RX": {"continent": "EU", "cq": 15, "entity": "Slovak Republic", "itu": 28, "primary_pfx": "OM"},
+        "OK1ABC": {"continent": "EU", "cq": 15, "entity": "Czech Republic", "itu": 28, "primary_pfx": "OK"}
+      }},
+      "draft": {"frequencyHz": 14025000}
+    }
+  },
   "aadx_cw": {
     "fixture": "test_aadx_plugins_host.AADXCWHostTests.test_original_source_projection_validation_and_esm",
     "mode": "CW",

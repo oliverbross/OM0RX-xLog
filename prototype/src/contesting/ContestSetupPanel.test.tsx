@@ -11,6 +11,27 @@ function props() {
     onSave: vi.fn(async (_value: ContestSetupDocument) => {}), onCreate: vi.fn(async (_value: ContestSetupDocument) => {}), onOpen: vi.fn(async (_session: ContestSetupSession) => {}), onOpenSettings: vi.fn() };
 }
 function open(name: string) { fireEvent.click(screen.getByRole("button", { name })); }
+it("requires the OK/OM operating location and preserves the domestic district or DX serial choice", async () => {
+  const p = props(); p.value.pluginID = "okom_dx_cw";
+  p.catalog.push({ id: "okom_dx_cw", name: "OK/OM DX CW", modes: ["CW"], sentExchangeHint: "OK/OM district; DX # (reserved serial)", overlayChoices: ["N/A"] });
+  render(<ContestSetupPanel {...p}/>); open("New Contest"); open("OK");
+  expect(await screen.findByText(/Declare the OK\/OM operating-country prefix/)).toBeTruthy();
+  expect(p.onCreate).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText("Operating-country prefix (OK/OM)"), { target: { value: "om" } });
+  fireEvent.change(screen.getByLabelText("OK/OM district; DX # (reserved serial)"), { target: { value: "pre" } });
+  open("OK");
+  await waitFor(() => expect(p.onCreate).toHaveBeenCalledOnce());
+  expect(p.onCreate.mock.calls[0][0]).toMatchObject({ station: { OperatingCountryPrefix: "OM" }, settings: { SentExchange: "PRE" } });
+});
+it("does not let a DX OK/OM setup substitute a district for an allocated serial", async () => {
+  const p = props(); p.value.pluginID = "okom_dx_cw"; p.value.station.OperatingCountryPrefix = "DL";
+  p.catalog.push({ id: "okom_dx_cw", name: "OK/OM DX CW", modes: ["CW"], sentExchangeHint: "OK/OM district; DX # (reserved serial)", overlayChoices: ["N/A"] });
+  render(<ContestSetupPanel {...p}/>); open("New Contest");
+  fireEvent.change(screen.getByLabelText("OK/OM district; DX # (reserved serial)"), { target: { value: "PRE" } }); open("OK");
+  expect(await screen.findByText(/DX entrants use #/)).toBeTruthy(); expect(p.onCreate).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText("OK/OM district; DX # (reserved serial)"), { target: { value: "#" } }); open("OK");
+  await waitFor(() => expect(p.onCreate).toHaveBeenCalledOnce());
+});
 it("saves and reloads the opt-in N1MM navigation profile inside the host preference limit",async()=>{
   const p=props(),mounted=render(<ContestSetupPanel {...p}/>);open("Edit Keys");
   expect(screen.getByLabelText("action 1")).toHaveProperty("value","TOGGLE_RUN");
