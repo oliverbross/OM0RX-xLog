@@ -32,12 +32,18 @@ struct OperatorActionsIntegrationTests {
     @Test("Nearby callsign-only apply retains split/manual fields, uses one durable receipt and protects later typing")
     func callsignAdmission()throws {
         let (root,service)=try fixture();defer{cleanup(root,service)}
+        let database = try service.openedDatabase()
         var settings=try #require(service.handle(method:"settings_load",params:[:])["settings"] as? [String:Any])
         settings["nearbySpottedCallsigns"]=true;_=try service.saveSettingsForTest(settings)
         let initial=try draft(service);var qso=try #require(initial["qso"] as? [String:Any])
         qso["call"]="";qso["frequencyHz"]=14030000;qso["receiveFrequencyHz"]=14025000;qso["band"]="20m";qso["mode"]="CW"
         qso["comment"]="Retain my typed note";qso["rstSent"]="579"
+        // This case preserves manually entered UTC, not the automatic blank
+        // clock which intentionally captures the first accepted callsign.
+        qso["start"]="2000-01-01T12:00:00Z";qso["end"]="2000-01-01T12:30:00Z"
         try replace(service,initial,qso)
+        let manual = try #require(try database.operatorDraft())
+        #expect(!manual.automaticStart)
         let before=try draft(service),beforeQSO=try #require(before["qso"] as? [String:Any])
         let params:[String:Any]=["operationID":UUID().uuidString,"draftID":beforeQSO["id"]!,
             "expectedRevision":before["revision"]!,"generation":before["generation"]!,"callsign":"ZL1ABC"]
@@ -47,7 +53,9 @@ struct OperatorActionsIntegrationTests {
         #expect(afterQSO["call"] as? String == "ZL1ABC")
         for key in ["frequencyHz","receiveFrequencyHz","start","end","rstSent","rstReceived","comment","extraFields"] {
             let first=beforeQSO[key] ?? NSNull(),second=afterQSO[key] ?? NSNull()
-            #expect(try JSONSerialization.data(withJSONObject:["v":first],options:[.sortedKeys]) == JSONSerialization.data(withJSONObject:["v":second],options:[.sortedKeys]))
+            let firstData = try JSONSerialization.data(withJSONObject:["v":first],options:[.sortedKeys])
+            let secondData = try JSONSerialization.data(withJSONObject:["v":second],options:[.sortedKeys])
+            #expect(firstData == secondData, "\(key): \(String(decoding:firstData,as:UTF8.self)) -> \(String(decoding:secondData,as:UTF8.self))")
         }
         let replay=try service.handle(method:"logbook_operator_draft_nearby_call",params:params)
         #expect(try JSONSerialization.data(withJSONObject:replay,options:[.sortedKeys]) == JSONSerialization.data(withJSONObject:applied,options:[.sortedKeys]))
@@ -58,6 +66,33 @@ struct OperatorActionsIntegrationTests {
         #expect(throws:WorkerFailure.self){try service.handle(method:"logbook_operator_draft_nearby_call",params:blocked)}
         #expect(try #require(draft(service)["qso"] as? [String:Any])["call"] as? String == "OM0RX")
     }
+    @Test("Nearby first callsign captures automatic UTC while replay retains that exact draft")
+    func automaticCallsignClock() throws {
+        let (root,service)=try fixture();defer{cleanup(root,service)}
+        let database = try service.openedDatabase()
+        let old = Date(timeIntervalSince1970: 946_728_000)
+        _ = try database.operatorDraft(initial: QSO(call: "", start: old, band: "20m", mode: "CW"))
+        var settings=try #require(service.handle(method:"settings_load",params:[:])["settings"] as? [String:Any])
+        settings["nearbySpottedCallsigns"]=true;_=try service.saveSettingsForTest(settings)
+        let before=try draft(service),qso=try #require(before["qso"] as? [String:Any])
+        let initial = try #require(try database.operatorDraft())
+        #expect(initial.automaticStart && initial.qso.start == old)
+        let params:[String:Any]=["operationID":UUID().uuidString,"draftID":qso["id"]!,
+            "expectedRevision":before["revision"]!,"generation":before["generation"]!,"callsign":"ZL1AUTO"]
+        let lower = Date()
+        let result = try service.handle(method:"logbook_operator_draft_nearby_call",params:params)
+        let upper = Date()
+        #expect(result["status"] as? String == "applied")
+        let captured = try #require(try database.operatorDraft())
+        #expect(captured.automaticStart && captured.qso.call == "ZL1AUTO")
+        #expect(captured.qso.start >= lower && captured.qso.start <= upper)
+        #expect(captured.qso.end == nil)
+        _ = try service.handle(method:"logbook_operator_draft_nearby_call",params:params)
+        let replayed = try database.operatorDraft()
+        #expect(replayed == captured)
+        #expect(try database.count() == 0)
+    }
+
     @Test("Shortcut patches are revision checked and survive actual existing backup/restore plus restart")
     func preferenceBackupAndRevision()throws {
         let (root,service)=try fixture();defer{cleanup(root,service)}
