@@ -307,7 +307,7 @@ public enum QSODataQuality {
         var referenceStatus: ReferenceStatus = .notProvided, comparison: Evidence?
         if let reference {
             if !qso.start.timeIntervalSince1970.isFinite { referenceStatus = .invalidContactDate }
-            else if let resolved = reference.resolver.resolve(qso.call, at: qso.start) {
+            else if let resolved = reference.resolver.facts(qso.call, at: qso.start).country {
                 referenceStatus = .resolved
                 comparison = evidence("dxcc", String(resolved.adif), source: .suppliedCTYReference,
                     date: reference.sourceDate, dateRole: .referenceSourceDate,

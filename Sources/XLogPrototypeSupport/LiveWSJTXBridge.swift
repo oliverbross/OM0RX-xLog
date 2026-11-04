@@ -499,8 +499,8 @@ public actor LiveWSJTXBridge {
                     activityClassificationRevision = min(activityClassificationRevision + 1, 9_007_199_254_740_991)
                 }
                 classifications = Dictionary(uniqueKeysWithValues: inputs.map { input in
-                    let adif = source.resolver.resolve(input.callsign,
-                        at: Date(timeIntervalSince1970: Double(input.receivedAt) / 1_000))?.adif
+                    let adif = source.resolver.facts(input.callsign,
+                        at: Date(timeIntervalSince1970: Double(input.receivedAt) / 1_000)).country?.adif
                     let value = source.index.classify(call: input.callsign, band: input.band, mode: input.mode, adif: adif)
                     return (input.id, WSJTXActivityClassification(callStatus: value.callStatus,
                                                                   dxccStatus: value.dxccStatus))

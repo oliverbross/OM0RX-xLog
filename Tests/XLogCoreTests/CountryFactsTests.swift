@@ -24,11 +24,13 @@ struct CountryFactsTests {
             #expect(resolver.facts(call, at: day).country == nil)
             #expect(resolver.resolve(call, at: day)?.adif == 504) // compatibility only
         }
-        for call in ["OM0RX/", "/OM0RX", "OM0RX//P", "OM0RX?", "OM0RX P"] {
+        for call in ["OM0RX/", "/OM0RX", "OM0RX//P", "OM0RX?", "OM0RX P", "ß1ABC"] {
             #expect(resolver.facts(call, at: day).status == .invalid)
         }
         #expect(resolver.facts("OM0RX", at: nil).status == .missingDate)
         #expect(resolver.facts("OM0RX/4", at: day).status == .unknown)
+        #expect(resolver.facts("OM0RX/K1ABC", at: day).status == .ambiguous)
+        #expect(resolver.facts("OM0RX/ZZ", at: day).status == .unknown)
     }
 
     @Test("Date boundaries and contradictory equal-authority rules are independent of file order")
@@ -57,8 +59,8 @@ struct CountryFactsTests {
         let resolver = Self.packed
         let pack = try #require(resolver.countryPack)
         #expect(pack.sourceRevision == "4adb0e70bf29faefc3b203bc355796cd0c6201fe")
-        #expect(pack.records.count == 21343)
-        #expect(pack.excluded.count == 294) // all exclusions are retained, not hidden
+        #expect(pack.records.count == 21335)
+        #expect(pack.excluded.count == 302) // includes eight collapsed identical aliases/windows
         #expect(pack.components.count == 6)
         #expect(resolver.facts("OK1AYY", at: ISO8601DateFormatter().date(from: "1992-12-12T12:00:00Z")).country?.adif == 218)
         #expect(resolver.facts("OK1AYY", at: day).country?.adif == 503)

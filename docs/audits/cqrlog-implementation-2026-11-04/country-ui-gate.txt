@@ -1,0 +1,16 @@
+Command: npm run test:vitest -- src/live/CountryCorrectionReview.test.tsx && npx tsc --noEmit
+Working directory: prototype
+Exit: 0 (TypeScript completed without diagnostics)
+> om0rx-xlog-p1-prototype@1.5.9 test:vitest
+> vitest run --maxWorkers=1 src/live/CountryCorrectionReview.test.tsx
+
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.3 [39m[90m/Users/oliver/Documents/Projects/OM0RX-xLog/prototype[39m
+
+ [32m✓[39m src/live/CountryCorrectionReview.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 665[2mms[22m[39m
+   [33m[2m✓[22m[39m reads only on demand and Keep cancels an unselected native review without contact/output calls[33m 303[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m5 passed[39m[22m[90m (5)[39m
+[2m   Start at [22m 23:24:54
+[2m   Duration [22m 1.42s[2m (tests 51%, environment 32%, import 11%, transform 6%)[22m

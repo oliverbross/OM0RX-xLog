@@ -152,7 +152,8 @@ public actor LiveClusterMethods {
     private var contactReadTask: Task<ClusterContactProjection, Error>?
     private var contactRefreshFlight: (id: UUID, task: Task<Void, Error>)?
     private var contactProjectionOwner: LiveLogbookAggregateOwner?
-    private static let contactResolver = try? CTYResolver.bundled()
+    private var countrySnapshotIdentity: String?
+    private static let bundledCountrySnapshot = try? CTYResolver.bundledCountryPack()
     private let beforeContactPublication: (@Sendable () async throws -> Void)?
     private let forwardClassifiedIngressSpots: Bool
     private let radioSideEffectsAllowed: Bool
@@ -379,6 +380,11 @@ public actor LiveClusterMethods {
         // Connect owns its contact refresh. Do not build the entire index once
         // in readyService and then immediately rebuild it again in connect.
         let service = try await readyService(refreshInitialContacts: method != "cluster_connect" && method != "cluster_resume")
+        let countryChanged = try await refreshCountrySnapshot(service)
+        if countryChanged, workspaceTransitionCount == 0,
+           (try logbook.handle(method: "workspace_status", params: [:]))["workspace_exists"] as? Bool == true {
+            try await refreshContacts()
+        }
         try requireRunning()
         let mutatesConfiguration = method == "cluster_configure" || method == "cluster_radio_spots_configure" || method == "cluster_filter"
         if mutatesConfiguration { await beginConfigurationMutation() }
@@ -668,6 +674,8 @@ public actor LiveClusterMethods {
         guard workspaceTransitionCount == 0 else {
             throw WorkerFailure("workspace_changed", "Wait for the workspace replacement to finish.")
         }
+        let service = try await readyService(refreshInitialContacts: false)
+        try await refreshCountrySnapshot(service)
         let owner: LiveLogbookAggregateOwner
         do { owner = try logbook.aggregateReadOwner() }
         catch {
@@ -683,13 +691,13 @@ public actor LiveClusterMethods {
         contactRefreshState = "refreshing"; contactRefreshError = nil
         do {
             try Task.checkCancellation()
-            let service = try await readyService(refreshInitialContacts: false)
             guard revision == contactRefreshRevision else { throw CancellationError() }
             let cancellation = LogbookAggregateCancellation()
             contactReadCancellation = cancellation
             let queue = contactReadQueue
+            let resolver = try logbook.currentCTYResolver()
             let task = Task.detached(priority: .utility) {
-                try await Self.readContactProjection(owner: owner, queue: queue, cancellation: cancellation)
+                try await Self.readContactProjection(owner: owner, resolver: resolver, queue: queue, cancellation: cancellation)
             }
             contactReadTask = task
             let projection = try await withTaskCancellationHandler(operation: { try await task.value },
@@ -702,6 +710,9 @@ public actor LiveClusterMethods {
                 throw WorkerFailure("workspace_changed", "The contact projection belongs to an earlier workspace.")
             }
             guard try owner.database.aggregateReadAuthority() == owner.authority else {
+                throw LogbookAggregateReadError.superseded
+            }
+            guard try logbook.currentCTYResolver().snapshotIdentity == resolver.snapshotIdentity else {
                 throw LogbookAggregateReadError.superseded
             }
             let published = await service.replaceContacts(projection: projection, publicationRevision: revision)
@@ -720,7 +731,7 @@ public actor LiveClusterMethods {
         }
     }
 
-    private static func readContactProjection(owner: LiveLogbookAggregateOwner, queue: DispatchQueue,
+    private static func readContactProjection(owner: LiveLogbookAggregateOwner, resolver: CTYResolver, queue: DispatchQueue,
         cancellation: LogbookAggregateCancellation) async throws -> ClusterContactProjection {
         try Task.checkCancellation()
         return try await withCheckedThrowingContinuation { continuation in
@@ -730,11 +741,10 @@ public actor LiveClusterMethods {
                         authority: owner.authority, cancellation: cancellation)
                     var records: [ClusterContact] = []
                     records.reserveCapacity(contacts.count)
-                    let resolver = Self.contactResolver
                     for qso in contacts {
                         try cancellation.check()
                         records.append(ClusterContact(callsign: qso.call, band: qso.band, mode: qso.mode,
-                            adif: qso.dxcc ?? resolver?.resolve(qso.call, at: qso.start)?.adif,
+                            adif: qso.dxcc ?? resolver.facts(qso.call, at: qso.start).country?.adif,
                             date: qso.start, paperQSL: qso.qslReceived, lotwQSL: qso.lotwReceived))
                     }
                     let projection = ClusterContactProjection(records: records)
@@ -799,11 +809,36 @@ public actor LiveClusterMethods {
         flexForwardStatus = config.forwardSpotsToFlex ? (forwardingAvailable ? "Enabled; connect a cluster and Remote Station Agent." : "Unavailable on this platform") : "Off"
         tciForwardStatus = config.forwardSpotsToTCI ? (forwardingAvailable ? "Enabled; connect a cluster and TCI." : "Unavailable on this platform") : "Off"
         service = created
-        if let csv = try? CTYResolver.bundledCSV() { await created.replaceCountryCSV(csv) }
+        try await refreshCountrySnapshot(created)
         if refreshInitialContacts, workspaceTransitionCount == 0, (try logbook.handle(method: "workspace_status", params: [:]))["workspace_exists"] as? Bool == true {
             try await refreshContacts()
         }
         return created
+    }
+
+    @discardableResult
+    private func refreshCountrySnapshot(_ service: ClusterSessionService) async throws -> Bool {
+        // A cluster can be configured before its logbook workspace exists.
+        let resolver: CTYResolver
+        if let selected = try? logbook.currentCTYResolver() { resolver = selected }
+        else if let bundled = Self.bundledCountrySnapshot { resolver = bundled }
+        else { throw WorkerFailure("country_reference_unavailable", "No usable country snapshot is available.") }
+        guard countrySnapshotIdentity != resolver.snapshotIdentity else { return false }
+        let directory = ClusterCountryDirectory(snapshotIdentity: resolver.snapshotIdentity) { call, date in
+            let facts = resolver.facts(call, at: date)
+            let country = facts.country.map { country in
+                ClusterCountry(name: country.name, adif: country.adif, continent: country.continent,
+                    cqZone: country.cqZone, ituZone: country.ituZone, latitude: country.latitude, longitude: country.longitude)
+            }
+            return ClusterCountryFacts(country: country, status: facts.status.rawValue,
+                referenceRevision: facts.referenceRevision, locationPrecision: facts.locationPrecision)
+        }
+        await service.replaceCountryDirectory(directory)
+        countrySnapshotIdentity = resolver.snapshotIdentity
+        // Rebuild only inferred contact geography against this same snapshot.
+        // Retained explicit DXCC and all observation timestamps stay unchanged.
+        contactProjectionOwner = nil
+        return true
     }
 
     /// Native CW acceptance enters the same classification/history owner;

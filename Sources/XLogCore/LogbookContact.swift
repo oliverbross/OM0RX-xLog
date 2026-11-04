@@ -26,6 +26,95 @@ public struct LogbookContactMutation: Codable, Equatable, Sendable {
 public struct LogbookContactReceipt: Codable, Equatable, Sendable {
     public let mutation: LogbookContactMutation
     public let contact: LogbookContactSnapshot
+    /// The retained before-value enables a revision-checked compensating edit.
+    /// Missing in legacy receipts; never infer its historical contents.
+    public let previousContact: LogbookContactSnapshot?
+    public init(mutation: LogbookContactMutation, contact: LogbookContactSnapshot, previousContact: LogbookContactSnapshot? = nil) {
+        self.mutation = mutation; self.contact = contact; self.previousContact = previousContact
+    }
+}
+
+public enum CountryCorrectionField: String, Codable, CaseIterable, Sendable {
+    case dxcc, country, continent, cqZone, ituZone, state, county
+    public func value(in qso: QSO) -> String? {
+        switch self {
+        case .dxcc: return qso.dxcc.map(String.init)
+        case .country: return qso.country
+        case .continent: return qso.continent
+        case .cqZone: return qso.cqZone
+        case .ituZone: return qso.ituZone
+        case .state: return qso.state
+        case .county: return qso.county
+        }
+    }
+    public func applying(_ value: String?, to qso: inout QSO) {
+        switch self {
+        case .dxcc: qso.dxcc = value.flatMap(Int.init)
+        case .country: qso.country = value ?? ""
+        case .continent: qso.continent = value ?? ""
+        case .cqZone: qso.cqZone = value ?? ""
+        case .ituZone: qso.ituZone = value ?? ""
+        case .state: qso.state = value ?? ""
+        case .county: qso.county = value ?? ""
+        }
+    }
+}
+
+public struct CountryCorrectionRow: Codable, Equatable, Sendable {
+    public struct Change: Codable, Equatable, Sendable {
+        public let field: CountryCorrectionField
+        public let retained: String?
+        public let proposed: String?
+        public let retainedOrigin: String
+        public let reason: String
+    }
+    public let contactID: UUID
+    public let revision: Int64
+    public let call: String
+    public let start: Date
+    public let facts: CTYResolver.Facts
+    public let changes: [Change]
+    public let dependentConflict: String?
+
+    public static func inspect(_ snapshot: LogbookContactSnapshot, resolver: CTYResolver) -> Self {
+        inspect(contactID: snapshot.qso.id, revision: snapshot.revision, call: snapshot.qso.call, start: snapshot.qso.start,
+            retained: Dictionary(uniqueKeysWithValues: CountryCorrectionField.allCases.map { ($0, $0.value(in: snapshot.qso)) }),
+            iota: snapshot.qso.iota, resolver: resolver)
+    }
+    static func inspect(contactID: UUID, revision: Int64, call: String, start: Date,
+                        retained: [CountryCorrectionField: String?], iota: String, resolver: CTYResolver) -> Self {
+        let facts = resolver.facts(call, at: start)
+        var changes: [Change] = []
+        if let country = facts.country {
+            let proposed: [CountryCorrectionField: String] = [.dxcc: String(country.adif), .country: country.name,
+                .continent: country.continent, .cqZone: String(country.cqZone), .ituZone: String(country.ituZone)]
+            for field in CountryCorrectionField.allCases {
+                guard let value = proposed[field], value != retained[field] ?? nil,
+                      !([CountryCorrectionField.cqZone, .ituZone].contains(field) && value == "0") else { continue }
+                changes.append(Change(field: field, retained: retained[field] ?? nil, proposed: value,
+                    retainedOrigin: "retainedOriginUnknownProtected", reason: "\(facts.matchedRule ?? "reference rule") at QSO UTC date; explicit operator selection required"))
+            }
+            if changes.contains(where: { $0.field == .dxcc }) {
+                for field in [CountryCorrectionField.state, .county] where !((retained[field] ?? nil) ?? "").isEmpty {
+                    changes.append(Change(field: field, retained: retained[field] ?? nil, proposed: "",
+                        retainedOrigin: "retainedOriginUnknownProtected", reason: "Entity change cannot justify retained subdivision; explicitly choose clearing or cancel the entity change"))
+                }
+            }
+        }
+        let conflict = changes.contains(where: { $0.field == .dxcc }) && !iota.isEmpty
+            ? "Retained IOTA requires a separate location review before changing DXCC; no IOTA patch is authorized here." : nil
+        return Self(contactID: contactID, revision: revision, call: call, start: start, facts: facts, changes: changes, dependentConflict: conflict)
+    }
+}
+
+public struct CountryCorrectionPage: Codable, Sendable {
+    public var rows: [CountryCorrectionRow]
+    public var comparedCount: Int
+    public var affectedCount: Int
+    public var unresolvedCount: Int
+    public let offset: Int
+    public let limit: Int
+    public let referenceRevision: String
 }
 
 public enum LogbookContactError: Error {

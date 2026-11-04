@@ -1332,14 +1332,25 @@ public final class LogbookDatabase: @unchecked Sendable {
     }
 
     public func applyContactMutation(_ mutation: LogbookContactMutation) throws -> LogbookContactReceipt {
+        try applyContactMutations([mutation])[0]
+    }
+
+    /// Bounded all-or-nothing canonical mutations, including durable per-row
+    /// receipts. No writer can slip a revision change between preflight and save.
+    public func applyContactMutations(_ mutations: [LogbookContactMutation],
+                                     beforeCommit: (() throws -> Void)? = nil) throws -> [LogbookContactReceipt] {
         try withDatabaseLock {
-            guard (0..<9_007_199_254_740_991).contains(mutation.expectedRevision) else { throw LogbookContactError.invalid }
+            guard (1...25).contains(mutations.count), Set(mutations.map(\.contactID)).count == mutations.count,
+                  Set(mutations.map(\.operationID)).count == mutations.count,
+                  mutations.allSatisfy({ (0..<9_007_199_254_740_991).contains($0.expectedRevision) }) else { throw LogbookContactError.invalid }
             try execute("BEGIN IMMEDIATE;")
             do {
+                var receipts: [LogbookContactReceipt] = []
+                for mutation in mutations {
                 if let receipt = try contactReceipt(operationID: mutation.operationID) {
                     guard receipt.mutation == mutation else { throw LogbookContactError.operationReused }
-                    try execute("COMMIT;")
-                    return receipt
+                    receipts.append(receipt)
+                    continue
                 }
                 let snapshot = try contactSnapshot(localID: mutation.contactID)
                 guard let current = snapshot, current.revision == mutation.expectedRevision else {
@@ -1362,15 +1373,18 @@ public final class LogbookDatabase: @unchecked Sendable {
                 guard let contact = try contactSnapshot(localID: mutation.contactID), contact.revision == current.revision + 1 else {
                     throw LogbookDatabaseError.corruptRecord
                 }
-                let receipt = LogbookContactReceipt(mutation: mutation, contact: contact)
+                let receipt = LogbookContactReceipt(mutation: mutation, contact: contact, previousContact: current)
                 let payload = try encoder.encode(receipt)
                 try withStatement("INSERT INTO xlog_contact_receipts(operation_id,payload) VALUES(?,?);") { statement in
                     bind(mutation.operationID.uuidString, to: 1, in: statement)
                     _ = payload.withUnsafeBytes { sqlite3_bind_blob(statement, 2, $0.baseAddress, Int32($0.count), Self.transient) }
                     try stepDone(statement)
                 }
+                receipts.append(receipt)
+                }
+                try beforeCommit?()
                 try execute("COMMIT;")
-                return receipt
+                return receipts
             } catch {
                 try? execute("ROLLBACK;")
                 throw error
@@ -2492,6 +2506,51 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    public func countryCorrectionPage(resolver: CTYResolver, limit: Int = 20, offset: Int = 0,
+                                      query: LogbookQuery = LogbookQuery(), search: String = "", at referenceTime: Date = Date()) throws -> CountryCorrectionPage {
+        struct Input: Decodable {
+            let id: UUID; let call: String; let start: Date; let revision: Int64
+            let dxcc: Int?; let country: String; let continent: String; let cqZone: String; let ituZone: String
+            let state: String; let county: String; let iota: String
+        }
+        return try withDatabaseLock {
+            var result = CountryCorrectionPage(rows: [], comparedCount: 0, affectedCount: 0, unresolvedCount: 0,
+                offset: max(0, offset), limit: min(25, max(1, limit)), referenceRevision: resolver.snapshotIdentity)
+            let predicate = try query.compile(search: search, at: referenceTime)
+            return try withStatement("""
+                SELECT json_object('id',json_extract(q.record_json,'$.id'), 'call',json_extract(q.record_json,'$.call'),
+                    'start',json_extract(q.record_json,'$.start'), 'revision',COALESCE(r.revision,0),
+                    'dxcc',json_extract(q.record_json,'$.dxcc'), 'country',COALESCE(json_extract(q.record_json,'$.country'),''),
+                    'continent',COALESCE(json_extract(q.record_json,'$.continent'),''),
+                    'cqZone',COALESCE(json_extract(q.record_json,'$.cqZone'),''), 'ituZone',COALESCE(json_extract(q.record_json,'$.ituZone'),''),
+                    'state',COALESCE(json_extract(q.record_json,'$.state'),''), 'county',COALESCE(json_extract(q.record_json,'$.county'),''),
+                    'iota',COALESCE(json_extract(q.record_json,'$.iota'),''))
+                FROM qsos q LEFT JOIN xlog_contact_revisions r ON r.local_id=q.local_id
+                WHERE q.deleted_at IS NULL AND (\(predicate.sql)) ORDER BY q.qso_start DESC,q.local_id ASC;
+                """) { statement in
+                bindQuery(predicate, in: statement)
+                var step = sqlite3_step(statement)
+                while step == SQLITE_ROW {
+                    try aggregateReadCancellation?.check()
+                    guard let text = sqlite3_column_text(statement, 0) else { throw LogbookDatabaseError.corruptRecord }
+                    let input = try decoder.decode(Input.self, from: Data(String(cString: text).utf8))
+                    let row = CountryCorrectionRow.inspect(contactID: input.id, revision: input.revision, call: input.call, start: input.start,
+                        retained: [.dxcc: input.dxcc.map(String.init), .country: input.country, .continent: input.continent,
+                            .cqZone: input.cqZone, .ituZone: input.ituZone, .state: input.state, .county: input.county], iota: input.iota, resolver: resolver)
+                    result.comparedCount += 1
+                    if row.facts.status != .resolved { result.unresolvedCount += 1 }
+                    if !row.changes.isEmpty || row.facts.status != .resolved {
+                        if result.affectedCount >= result.offset, result.rows.count < result.limit { result.rows.append(row) }
+                        result.affectedCount += 1
+                    }
+                    step = sqlite3_step(statement)
+                }
+                guard step == SQLITE_DONE else { throw error() }
+                return result
+            }
+        }
+    }
+
     /// A single consistent, nondeleted read for the cluster's contact index.
     /// Project from JSON so even an imported row with divergent scalar index
     /// columns has the same values as the former full-QSO decode.
@@ -3095,6 +3154,14 @@ public final class LogbookDatabase: @unchecked Sendable {
         cancellation: LogbookAggregateCancellation) throws -> [ClusterContactRow] {
         try withAggregateSnapshot(at: url, authority: authority, cancellation: cancellation) {
             try $0.clusterContactRows()
+        }
+    }
+
+    public static func readCountryCorrectionPage(at url: URL, authority: LogbookAggregateAuthority,
+        resolver: CTYResolver, limit: Int, offset: Int, query: LogbookQuery = LogbookQuery(), search: String = "", referenceTime: Date,
+        cancellation: LogbookAggregateCancellation) throws -> CountryCorrectionPage {
+        try withAggregateSnapshot(at: url, authority: authority, cancellation: cancellation) {
+            try $0.countryCorrectionPage(resolver: resolver, limit: limit, offset: offset, query: query, search: search, at: referenceTime)
         }
     }
 

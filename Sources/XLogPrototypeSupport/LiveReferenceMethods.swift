@@ -136,12 +136,44 @@ actor LiveReferenceMethods {
             throw WorkerFailure("reference_unavailable", "Reference services are stopping or changing workspace.")
         }
         #if !os(macOS)
-        guard ["reference_status", "reference_configure", "reference_refresh", "reference_schedule"].contains(method) else {
+        guard ["reference_status", "reference_configure", "reference_refresh", "reference_schedule", "reference_country_status",
+               "reference_country_import", "reference_country_download", "reference_country_rollback"].contains(method) else {
             throw WorkerFailure("platform_pending", "This reference service is not available on this platform.")
         }
         #endif
         let directory = try logbook.referenceDirectoryURL()
         switch method {
+        case "reference_country_status":
+            guard params.isEmpty else { throw invalid() }
+            return try await countryStatus(directory: directory)
+        case "reference_country_import", "reference_country_download", "reference_country_rollback":
+            guard refreshTask == nil, !planning else { throw WorkerFailure("reference_busy", "A reference update is already running.") }
+            let updater = try ReferenceDataUpdater(directory: directory, session: session)
+            let lease = try ReferenceRefreshLease(directory: directory)
+            let previousRevision = try logbook.currentCTYResolver().snapshotIdentity
+            planning = true
+            defer { planning = false; lease.release() }
+            switch method {
+            case "reference_country_import":
+                guard Set(params.keys) == ["path"], let path = params["path"] as? String,
+                      LocalFilePath.isAbsoluteWithoutTraversal(path), path.utf8.count <= 4096 else { throw invalid() }
+                let url = URL(fileURLWithPath: path)
+                let attributes = try FileManager.default.attributesOfItem(atPath: path)
+                guard attributes[.type] as? FileAttributeType == .typeRegular,
+                      ((attributes[.size] as? NSNumber)?.intValue ?? Int.max) <= 32_000_000 else { throw invalid() }
+                _ = try await updater.importCountryPack(Data(contentsOf: url))
+            case "reference_country_download":
+                guard Set(params.keys) == ["url"], let raw = params["url"] as? String, raw.utf8.count <= 2048,
+                      let url = URL(string: raw) else { throw invalid() }
+                _ = try await updater.refreshCountryPack(url)
+            default:
+                guard params.isEmpty else { throw invalid() }
+                _ = try await updater.rollbackCountryPack()
+            }
+            var result = try await countryStatus(directory: directory)
+            result["country_reference_changed"] = result["reference_revision"] as? String != previousRevision
+            lastResult = "Country snapshot activated; stored contacts unchanged"
+            return result
         #if os(macOS)
         case "reference_log_review":
             return try logReviewReferences.review(params: params, directory: directory)
@@ -349,6 +381,22 @@ actor LiveReferenceMethods {
                 "automatic_check": try logbook.automaticReferenceChecks() as Any? ?? NSNull(),
                 "cty_source": usingDownloadedCTY ? "workspace_download" : "bundled",
                 "state": stateJSON]
+    }
+
+    private func countryStatus(directory: URL) async throws -> [String: Any] {
+        let resolver = try logbook.currentCTYResolver()
+        let pack = resolver.countryPack
+        let updater = try ReferenceDataUpdater(directory: directory, session: session)
+        let state = await updater.currentState()
+        let version = pack?.sourceVersion ?? (pack == nil ? state.sourceMetadata["cty.xml"]?.sourceVersion : nil)
+        return ["reference_revision": resolver.snapshotIdentity, "content_digest": resolver.contentDigest,
+            "policy": CTYResolver.factsPolicy, "provider": pack?.provider ?? "Club Log XML",
+            "source_version": version as Any? ?? NSNull(), "source_revision": pack?.sourceRevision as Any? ?? NSNull(),
+            "source_url": pack?.sourceURL as Any? ?? NSNull(), "record_count": pack?.records.count as Any? ?? NSNull(),
+            "excluded_count": pack?.excluded.count as Any? ?? NSNull(), "coverage": pack?.coverage ?? ["configured Club Log XML"],
+            "rollback_available": FileManager.default.fileExists(atPath: directory.appendingPathComponent("country-reference-pack.previous.json").path)
+                || FileManager.default.fileExists(atPath: directory.appendingPathComponent("country-reference-pack.previous.xml").path),
+            "read_only": true, "contacts_changed": false]
     }
 
     private func finish(_ result: String) {

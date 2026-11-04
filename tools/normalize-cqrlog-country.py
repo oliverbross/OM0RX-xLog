@@ -87,6 +87,18 @@ def main():
                                         "component": component, "line": line_number})
             except (AssertionError, ValueError) as error:
                 excluded.append({"component": component, "line": line_number, "reason": str(error)})
+    # Identical repeated aliases/windows in one source row carry one identity.
+    # A contradictory record is not collapsed and the native validator rejects it.
+    distinct = {}
+    for record in records:
+        identity = (record["component"], record["line"], record["pattern"], record["exact"], record["start"], record["end"])
+        if identity in distinct:
+            assert distinct[identity] == record, "contradictory duplicate source identity"
+            excluded.append({"component": record["component"], "line": record["line"], "pattern": record["pattern"],
+                             "reason": "identical duplicate alias/window collapsed"})
+        else:
+            distinct[identity] = record
+    records = list(distinct.values())
     # Stable serialization; duplicates identical in meaning carry one source row.
     records.sort(key=lambda r: (r["pattern"], r["start"] or "", r["end"] or "", r["component"], r["line"]))
     pack = {"schemaVersion": 1, "provider": "Martin OK1RR / CQRLOG country data",

@@ -49,6 +49,20 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
     private var database: LogbookDatabase?
     private var workspace: IntegrationWorkspace?
     private var ctyResolverCache: (source: String, resolver: CTYResolver)?
+    private struct CountryCorrectionReview {
+        let generation: String
+        let referenceRevision: String
+        let created: Date
+        let rows: [UUID: CountryCorrectionRow]
+        let operations: [UUID: UUID]
+        var selection: Data?
+        var receipts: [LogbookContactReceipt]?
+    }
+    private var countryCorrections: [UUID: CountryCorrectionReview] = [:]
+    private var countryScans: [UUID: (generation: String, cancellation: LogbookAggregateCancellation, task: Task<CountryCorrectionPage, Error>)] = [:]
+    private var countryScansSuspended = 0
+    private var countryScansRetired = false
+    var beforeCountryScanReadForTesting: (@Sendable () async throws -> Void)?
     private var clusterClassificationCache: LiveClusterClassificationSnapshot?
     private var syncLease: LiveLogbookSyncLease?
     private var manualSyncActive: Bool { syncLease != nil }
@@ -739,6 +753,24 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
 
     private func currentCTYResolverSnapshot() throws -> (source: String, resolver: CTYResolver) {
         _ = try readyDatabase()
+        let referenceDirectory = workspaceURL.appendingPathComponent("Reference Data")
+        let preferXML = try CountryReferenceSelection.read(directory: referenceDirectory)?.source == .clubLogXML
+        let pack = referenceDirectory.appendingPathComponent("country-reference-pack.json")
+        if !preferXML, fileManager.fileExists(atPath: pack.path) {
+            let attributes = try fileManager.attributesOfItem(atPath: pack.path)
+            let source = "pack|\((attributes[.systemFileNumber] as? NSNumber)?.uint64Value ?? 0)|\((attributes[.size] as? NSNumber)?.uint64Value ?? 0)|\((attributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0)"
+            if let cached = ctyResolverCache, cached.source == source { return cached }
+            if let resolver = try? CTYResolver(countryPack: Data(contentsOf: pack)) {
+                ctyResolverCache = (source, resolver); return (source, resolver)
+            }
+            // An external corruption is not permission to replace the last
+            // usable universe. Publication itself validates before replacement.
+            if let cached = ctyResolverCache { return cached }
+            let previous = pack.deletingLastPathComponent().appendingPathComponent("country-reference-pack.previous.json")
+            if let bytes = try? Data(contentsOf: previous), let resolver = try? CTYResolver(countryPack: bytes) {
+                return ("previous|\(resolver.snapshotIdentity)", resolver)
+            }
+        }
         let downloaded = workspaceURL.appendingPathComponent("Reference Data/cty.xml")
         if fileManager.fileExists(atPath: downloaded.path) {
             let attributes = try fileManager.attributesOfItem(atPath: downloaded.path)
@@ -755,7 +787,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
             }
         }
         if let cached = ctyResolverCache, cached.source == "bundled" { return cached }
-        let resolver = try CTYResolver.bundled()
+        let resolver = try CTYResolver.bundledCountryPack()
         ctyResolverCache = ("bundled", resolver)
         return ("bundled", resolver)
     }
@@ -772,6 +804,185 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         return try? currentCTYResolverSnapshot().resolver
     }
 
+    /// The existing immutable aggregate reader keeps country scans off the
+    /// interactive connection and station-response path. Only a result page is
+    /// retained. EP-01 supplies the predicate; no new filter language is used.
+    func countryReview(params: [String: Any]) async throws -> [String: Any] {
+        let captured: (LiveLogbookAggregateOwner, CTYResolver, LogbookQuery, String, Date, Int, Int) = try lock.withLock {
+            guard countryScansSuspended == 0, !countryScansRetired else { throw WorkerFailure("country_review_unavailable", "Country reads are stopping or changing workspace.") }
+            try requireKeys(params, allowed: ["generation", "limit", "offset", "query", "search", "reference_time", "scanID"], required: ["generation"])
+            let generation = try editGeneration(createIfMissing: false)
+            guard try matchesEditGeneration(params, generation) else { throw WorkerFailure("workspace_changed", "Country review belongs to another workspace.") }
+            let query: LogbookQuery
+            if let raw = params["query"] {
+                guard let object = raw as? [String: Any] else { throw invalid() }
+                query = try decode(object)
+            } else { query = LogbookQuery() }
+            try query.validate()
+            let search = params["search"] as? String ?? ""
+            guard search.utf8.count <= 512, params["search"] == nil || params["search"] is String else { throw invalid() }
+            let referenceTime: Date
+            if let raw = params["reference_time"] {
+                guard let text = raw as? String, let value = LogbookQuery.absoluteUTCDate(text) else { throw invalid() }
+                referenceTime = value
+            } else { referenceTime = Date() }
+            return (try aggregateReadOwner(expectedGeneration: generation), try currentCTYResolverSnapshot().resolver, query, search, referenceTime,
+                try integer(params, "limit", default: 20, range: 1...25), try integer(params, "offset", default: 0, range: 0...Int(Int32.max)))
+        }
+        let (owner, resolver, query, search, referenceTime, limit, offset) = captured
+        let cancellation = LogbookAggregateCancellation()
+        let scanID: UUID
+        if let raw = params["scanID"] {
+            guard let text = raw as? String, let id = UUID(uuidString: text) else { throw invalid() }
+            scanID = id
+        } else { scanID = UUID() }
+        let task: Task<CountryCorrectionPage, Error> = try lock.withLock {
+            guard countryScansSuspended == 0, !countryScansRetired else { throw WorkerFailure("country_review_unavailable", "Country reads are stopping or changing workspace.") }
+            guard countryScans[scanID] == nil, countryScans.count < 4 else { throw WorkerFailure("country_review_busy", "Finish or cancel an existing country scan before starting another.") }
+            let current = try aggregateReadOwner(expectedGeneration: owner.generation)
+            guard owner.sharesWorkspace(with: current) else { throw WorkerFailure("workspace_changed", "The country scan workspace changed.") }
+            let beforeRead = beforeCountryScanReadForTesting
+            let task = Task.detached(priority: .utility) {
+                if let beforeRead { try await beforeRead() }
+                try Task.checkCancellation()
+                return try LogbookDatabase.readCountryCorrectionPage(at: owner.database.url, authority: owner.authority,
+                    resolver: resolver, limit: limit, offset: offset, query: query, search: search, referenceTime: referenceTime, cancellation: cancellation)
+            }
+            countryScans[scanID] = (owner.generation, cancellation, task)
+            return task
+        }
+        defer { lock.withLock { countryScans[scanID] = nil } }
+        let page = try await withTaskCancellationHandler(operation: { try await task.value },
+            onCancel: { cancellation.cancel(); task.cancel() })
+        return try lock.withLock {
+            let current = try aggregateReadOwner(expectedGeneration: owner.generation)
+            guard owner.sharesWorkspace(with: current), owner.authority == current.authority,
+                  try currentCTYResolverSnapshot().resolver.snapshotIdentity == resolver.snapshotIdentity else {
+                throw WorkerFailure("country_review_stale", "Contacts or reference data changed during review; refresh the review.")
+            }
+            return ["generation": owner.generation, "page": try json(page), "read_only": true]
+        }
+    }
+
+    /// Reuse the workspace replacement/shutdown boundary; all country readers
+    /// close before a database can be replaced (including Windows file locks).
+    func cancelCountryScans(suspend: Bool = false, retire: Bool = false) async {
+        let flights = lock.withLock {
+            if suspend { countryScansSuspended += 1 }
+            if retire { countryScansRetired = true }
+            return Array(countryScans.values)
+        }
+        for flight in flights { flight.cancellation.cancel(); flight.task.cancel() }
+        for flight in flights { _ = await flight.task.result }
+    }
+
+    func finishCountryScanWorkspaceChange() { lock.withLock { countryScansSuspended = max(0, countryScansSuspended - 1) } }
+
+    private func applyCountryCorrection(_ params: [String: Any]) throws -> [String: Any] {
+        try CountryReferencePack.withPublicationLock { try applyCountryCorrectionLocked(params) }
+    }
+
+    private func applyCountryCorrectionLocked(_ params: [String: Any]) throws -> [String: Any] {
+        try requireKeys(params, allowed: ["generation", "reviewID", "selection"], required: ["generation", "reviewID", "selection"])
+        let generation = try editGeneration(createIfMissing: false)
+        guard try matchesEditGeneration(params, generation) else { throw WorkerFailure("workspace_changed", "Country correction belongs to another workspace.") }
+        guard let raw = params["reviewID"] as? String, let token = UUID(uuidString: raw),
+              var review = countryCorrections[token], review.generation == generation,
+              let selection = params["selection"] as? [[String: Any]], (1...25).contains(selection.count),
+              Date().timeIntervalSince(review.created) < 900 else { throw WorkerFailure("country_review_stale", "The country review expired; review again. No contacts changed.") }
+        let encodedSelection = try JSONSerialization.data(withJSONObject: selection, options: [.sortedKeys])
+        guard encodedSelection.count <= 16_000 else { throw invalid() }
+        if let receipts = review.receipts {
+            guard review.selection == encodedSelection else { throw WorkerFailure("country_operation_reused", "This review already applied a different selection.") }
+            return ["status": "applied", "generation": generation, "receipts": try json(receipts), "replayed": true]
+        }
+        let resolver = try currentCTYResolverSnapshot().resolver, db = try readyDatabase()
+        guard resolver.snapshotIdentity == review.referenceRevision else { throw WorkerFailure("country_review_stale", "Country data changed; review again. No contacts changed.") }
+        var mutations: [LogbookContactMutation] = [], selectedIDs = Set<UUID>()
+        for item in selection {
+            try requireKeys(item, allowed: ["contactID", "fields"], required: ["contactID", "fields"])
+            guard let raw = item["contactID"] as? String, let id = UUID(uuidString: raw), selectedIDs.insert(id).inserted,
+                  let row = review.rows[id], let operationID = review.operations[id],
+                  let rawFields = item["fields"] as? [String], (1...7).contains(rawFields.count), Set(rawFields).count == rawFields.count else { throw invalid() }
+            let fields = try rawFields.map { raw -> CountryCorrectionField in
+                guard let field = CountryCorrectionField(rawValue: raw), row.changes.contains(where: { $0.field == field }) else { throw invalid() }
+                return field
+            }
+            if fields.contains(.dxcc) {
+                guard row.dependentConflict == nil else { throw WorkerFailure("country_dependent_conflict", row.dependentConflict!) }
+                guard row.changes.filter({ [.state, .county].contains($0.field) }).allSatisfy({ fields.contains($0.field) }) else {
+                    throw WorkerFailure("country_dependent_conflict", "The entity change requires an explicit decision on every retained subdivision.")
+                }
+            } else if fields.contains(.state) || fields.contains(.county) { throw invalid() }
+            else if row.changes.contains(where: { $0.field == .dxcc }),
+                    fields.contains(where: { [.country, .continent, .cqZone, .ituZone].contains($0) }) {
+                throw WorkerFailure("country_dependent_conflict", "These proposed facts belong to a different DXCC entity; select its entity change or keep the recorded values.")
+            }
+            guard let current = try db.contactSnapshot(localID: id), current.revision == row.revision,
+                  CountryCorrectionRow.inspect(current, resolver: resolver) == row else {
+                throw WorkerFailure("country_review_stale", "A selected contact or its evidence changed; review again. No contacts changed.")
+            }
+            var proposed = current.qso
+            for field in fields {
+                guard let change = row.changes.first(where: { $0.field == field }) else { throw invalid() }
+                field.applying(change.proposed, to: &proposed)
+                proposed.extraFields["APP_XLOG_COUNTRY_\(field.rawValue.uppercased())_SOURCE"] = resolver.snapshotIdentity
+            }
+            proposed.extraFields["APP_XLOG_COUNTRY_CORRECTION_OPERATION"] = operationID.uuidString
+            proposed.extraFields["APP_XLOG_COUNTRY_CORRECTION_FIELDS"] = fields.map(\.rawValue).sorted().joined(separator: ",")
+            proposed.extraFields["APP_XLOG_COUNTRY_CORRECTION_RULE"] = row.facts.matchedRule ?? "unknown"
+            proposed.extraFields["APP_XLOG_COUNTRY_CORRECTION_QSO_UTC"] = ISO8601DateFormatter().string(from: row.start)
+            mutations.append(LogbookContactMutation(operationID: operationID, contactID: id, expectedRevision: row.revision, action: .update, qso: proposed))
+        }
+        let receipts: [LogbookContactReceipt]
+        do {
+            receipts = try db.applyContactMutations(mutations, beforeCommit: {
+                guard try self.currentCTYResolverSnapshot().resolver.snapshotIdentity == review.referenceRevision else {
+                    throw WorkerFailure("country_review_stale", "Country data changed before commit; no contacts changed.")
+                }
+            })
+        } catch LogbookContactError.conflict { throw WorkerFailure("country_review_stale", "A selected contact changed; no contacts changed.") }
+        review.selection = encodedSelection; review.receipts = receipts; countryCorrections[token] = review
+        clusterClassificationCache = nil
+        return ["status": "applied", "generation": generation, "receipts": try json(receipts), "replayed": false]
+    }
+
+    private func undoCountryCorrection(_ params: [String: Any]) throws -> [String: Any] {
+        try requireKeys(params, allowed: ["generation", "operationID", "undoOperationID"], required: ["generation", "operationID", "undoOperationID"])
+        let generation = try editGeneration(createIfMissing: false)
+        guard try matchesEditGeneration(params, generation) else { throw WorkerFailure("workspace_changed", "Country recovery belongs to another workspace.") }
+        guard let raw = params["operationID"] as? String, let operationID = UUID(uuidString: raw),
+              let undoRaw = params["undoOperationID"] as? String, let undoID = UUID(uuidString: undoRaw), undoID != operationID else { throw invalid() }
+        let db = try readyDatabase()
+        if let replay = try db.contactReceipt(operationID: undoID) {
+            guard replay.mutation.qso?.extraFields["APP_XLOG_COUNTRY_UNDO_OF"] == operationID.uuidString else { throw LogbookContactError.operationReused }
+            return ["status": "applied", "generation": generation, "receipt": try json(replay), "replayed": true]
+        }
+        guard let receipt = try db.contactReceipt(operationID: operationID), let before = receipt.previousContact,
+              receipt.contact.qso.extraFields["APP_XLOG_COUNTRY_CORRECTION_OPERATION"] == operationID.uuidString,
+              let recorded = receipt.contact.qso.extraFields["APP_XLOG_COUNTRY_CORRECTION_FIELDS"] else {
+            throw WorkerFailure("country_recovery_unavailable", "This receipt has no complete country-correction before-values.")
+        }
+        guard let current = try db.contactSnapshot(localID: receipt.contact.qso.id), current.revision == receipt.contact.revision else {
+            throw WorkerFailure("country_recovery_conflict", "This contact changed after the correction; recovery will not overwrite a later edit.")
+        }
+        var proposed = current.qso
+        for rawField in recorded.split(separator: ",") {
+            guard let field = CountryCorrectionField(rawValue: String(rawField)) else { throw invalid() }
+            field.applying(field.value(in: before.qso), to: &proposed)
+            let key = "APP_XLOG_COUNTRY_\(field.rawValue.uppercased())_SOURCE"
+            proposed.extraFields[key] = before.qso.extraFields[key]
+        }
+        for key in ["APP_XLOG_COUNTRY_CORRECTION_OPERATION", "APP_XLOG_COUNTRY_CORRECTION_FIELDS", "APP_XLOG_COUNTRY_CORRECTION_RULE", "APP_XLOG_COUNTRY_CORRECTION_QSO_UTC"] {
+            proposed.extraFields[key] = before.qso.extraFields[key]
+        }
+        proposed.extraFields["APP_XLOG_COUNTRY_UNDO_OF"] = operationID.uuidString
+        let undo = try db.applyContactMutation(LogbookContactMutation(operationID: undoID, contactID: current.qso.id,
+            expectedRevision: current.revision, action: .update, qso: proposed))
+        clusterClassificationCache = nil
+        return ["status": "applied", "generation": generation, "receipt": try json(undo), "replayed": false]
+    }
+
     /// One immutable local classification view for passive cluster-like consumers.
     /// The key changes with workspace, QSO or CTY reference data without exposing
     /// paths or record content outside the worker.
@@ -785,7 +996,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
             if let cached = clusterClassificationCache, cached.key == key { return cached }
             let records = try database.clusterContactRows().map { qso in
                 ClusterContact(callsign: qso.call, band: qso.band, mode: qso.mode,
-                    adif: qso.dxcc ?? country.resolver.resolve(qso.call, at: qso.start)?.adif,
+                    adif: qso.dxcc ?? country.resolver.facts(qso.call, at: qso.start).country?.adif,
                     date: qso.start, paperQSL: qso.qslReceived, lotwQSL: qso.lotwReceived)
             }
             let snapshot = LiveClusterClassificationSnapshot(key: key,
@@ -883,6 +1094,58 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
             case "logbook_alert_entities":
                 try requireKeys(params,allowed:[])
                 return ["entities":try currentCTYResolver().reachableCountryEndpoints(at:Date()).map { ["adif":$0.adif,"name":$0.name] as [String:Any] }]
+            case "logbook_country_facts":
+                try requireKeys(params, allowed: ["call", "at"], required: ["call"])
+                guard let call = params["call"] as? String, call.utf8.count <= 128 else { throw invalid() }
+                let date: Date?
+                if let raw = params["at"] as? String { date = ISO8601DateFormatter().date(from: raw) }
+                else { date = nil }
+                return ["facts": try json(currentCTYResolver().facts(call, at: date)), "read_only": true]
+            case "logbook_country_correction_preview":
+                try requireKeys(params, allowed: ["generation", "contacts"], required: ["generation", "contacts"])
+                let generation = try editGeneration(createIfMissing: false)
+                guard try matchesEditGeneration(params, generation) else { throw WorkerFailure("workspace_changed", "Country correction belongs to another workspace.") }
+                guard let selected = params["contacts"] as? [[String: Any]], (1...25).contains(selected.count) else { throw invalid() }
+                let resolver = try currentCTYResolverSnapshot().resolver, db = try readyDatabase()
+                var rows: [UUID: CountryCorrectionRow] = [:], operations: [UUID: UUID] = [:]
+                for item in selected {
+                    try requireKeys(item, allowed: ["contactID", "expectedRevision"], required: ["contactID", "expectedRevision"])
+                    guard let raw = item["contactID"] as? String, let id = UUID(uuidString: raw), rows[id] == nil else { throw invalid() }
+                    let revision = try integer(item, "expectedRevision", default: -1, range: 0...9_007_199_254_740_990)
+                    guard let current = try db.contactSnapshot(localID: id), current.revision == Int64(revision), current.qso.deletedAt == nil else {
+                        throw WorkerFailure("country_review_stale", "A selected contact changed; refresh the review. No contacts changed.")
+                    }
+                    rows[id] = CountryCorrectionRow.inspect(current, resolver: resolver); operations[id] = UUID()
+                }
+                countryCorrections = countryCorrections.filter { $0.value.generation == generation && Date().timeIntervalSince($0.value.created) < 900 }
+                guard countryCorrections.count < 8 else { throw WorkerFailure("country_review_limit", "Close or finish existing country reviews before opening another.") }
+                let token = UUID()
+                countryCorrections[token] = CountryCorrectionReview(generation: generation, referenceRevision: resolver.snapshotIdentity,
+                    created: Date(), rows: rows, operations: operations)
+                return ["generation": generation, "reviewID": token.uuidString, "referenceRevision": resolver.snapshotIdentity,
+                    "rows": try json(rows.values.sorted { $0.contactID.uuidString < $1.contactID.uuidString }),
+                    "operationIDs": Dictionary(uniqueKeysWithValues: operations.map { ($0.key.uuidString, $0.value.uuidString) }), "read_only": true]
+            case "logbook_country_correction_apply":
+                return try applyCountryCorrection(params)
+            case "logbook_country_review_cancel":
+                try requireKeys(params, allowed: ["generation", "scanID"], required: ["generation", "scanID"])
+                let generation = try editGeneration(createIfMissing: false)
+                guard try matchesEditGeneration(params, generation), let raw = params["scanID"] as? String,
+                      let id = UUID(uuidString: raw) else { throw invalid() }
+                if let flight = countryScans[id], flight.generation == generation { flight.cancellation.cancel(); flight.task.cancel() }
+                return ["status": "cancelled", "generation": generation, "contacts_changed": false]
+            case "logbook_country_correction_cancel":
+                try requireKeys(params, allowed: ["generation", "reviewID"], required: ["generation", "reviewID"])
+                let generation = try editGeneration(createIfMissing: false)
+                guard try matchesEditGeneration(params, generation), let raw = params["reviewID"] as? String,
+                      let token = UUID(uuidString: raw) else { throw invalid() }
+                if let review = countryCorrections[token], let receipts = review.receipts {
+                    return ["status": "already_applied", "generation": generation, "receipts": try json(receipts), "contacts_changed": false]
+                }
+                countryCorrections[token] = nil
+                return ["status": "cancelled", "generation": generation, "contacts_changed": false]
+            case "logbook_country_correction_undo":
+                return try undoCountryCorrection(params)
             case "logbook_cty_preview":
                 try requireKeys(params, allowed: ["limit", "offset"])
                 let limit = try integer(params, "limit", default: 20, range: 1...25)

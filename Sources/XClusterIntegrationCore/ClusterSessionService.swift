@@ -288,6 +288,9 @@ public struct ClassifiedClusterSpot: Codable, Hashable, Identifiable, Sendable {
     public var bandHex: String
     public var modeHex: String
     public var localCW: CWConfirmedSpot? = nil
+    public var countryReferenceRevision: String? = nil
+    public var countryResolutionStatus: String? = nil
+    public var locationPrecision: String? = nil
 
     /// Refresh only the live derived mode. Historical observations retain the
     /// classification captured when they were received.
@@ -310,6 +313,7 @@ public struct ClusterSessionSnapshot: Codable, Sendable {
     public var contactRevision: Int
     public var logbookDataLoaded: Bool
     public var countryDataLoaded: Bool
+    public var countryReferenceRevision: String? = nil
     public var connections: [ClusterConnectionStatus]
     public var spots: [ClassifiedClusterSpot]
     public var console: [ClusterConsoleEntry]
@@ -603,6 +607,14 @@ public actor ClusterSessionService {
         reclassify()
     }
 
+    /// Replace one whole host-owned snapshot. Retained observation identity and
+    /// timestamps survive; reclassification does not emit another observation.
+    public func replaceCountryDirectory(_ directory: ClusterCountryDirectory) {
+        guard countries.snapshotIdentity != directory.snapshotIdentity || countries.isEmpty else { return }
+        countries = directory
+        reclassify()
+    }
+
     public func updateFilter(_ value: ClusterSpotFilter) {
         configuration.filter = value
         publish()
@@ -640,6 +652,7 @@ public actor ClusterSessionService {
                                       contactRevision: contactRevision,
                                       logbookDataLoaded: hasContactSnapshot,
                                       countryDataLoaded: !countries.isEmpty,
+                                      countryReferenceRevision: countries.snapshotIdentity,
                                       connections: statuses.values.sorted { $0.serverName < $1.serverName },
                                       spots: visible, console: console)
     }
@@ -772,8 +785,9 @@ public actor ClusterSessionService {
         guard raw.callsign.utf8.count <= 32, raw.spotter.utf8.count <= 64 else { return }
         guard !configuration.hideWSPRSpots
                 || !SpotLogic.isWSPR(clusterName: raw.clusterName, spotter: raw.spotter, comment: raw.comment) else { return }
-        let country = countries.resolve(raw.callsign)
-        let spotterCountry = countries.resolve(raw.spotter)
+        let facts = countries.facts(raw.callsign, at: raw.receivedAt)
+        let country = facts.country
+        let spotterCountry = countries.resolve(raw.spotter, at: raw.receivedAt)
         let band = SpotLogic.band(for: raw.frequencyKHz)
         let mode = localCW==nil ? SpotLogic.mode(comment: raw.comment, band: band, khz: raw.frequencyKHz):"CW"
         let classification = classify(call: raw.callsign, band: band, mode: mode, adif: country?.adif)
@@ -801,6 +815,9 @@ public actor ClusterSessionService {
             modeHex: configuration.palette.mode[mode] ?? "#B0B0B0"
         )
         spot.localCW=localCW
+        spot.countryReferenceRevision = facts.referenceRevision
+        spot.countryResolutionStatus = facts.status
+        spot.locationPrecision = facts.locationPrecision
         if onObservation != nil {
             if historySegments[origin.id] == nil {
                 openHistorySegment(origin:origin, generation: generation, at: arrivedAt,
@@ -864,7 +881,14 @@ public actor ClusterSessionService {
     }
 
     private func reclassifySpot(at index: Int) {
-        let country = countries.resolve(spots[index].callsign)
+        let facts = countries.facts(spots[index].callsign, at: spots[index].receivedAt)
+        let country = facts.country
+        spots[index].countryReferenceRevision = facts.referenceRevision
+        spots[index].countryResolutionStatus = facts.status
+        spots[index].locationPrecision = facts.locationPrecision
+        let spotterCountry = countries.resolve(spots[index].spotter, at: spots[index].receivedAt)
+        spots[index].spotterAdif = spotterCountry?.adif
+        spots[index].spotterContinent = spotterCountry?.continent
         let result = classify(call: spots[index].callsign, band: spots[index].band,
                               mode: spots[index].mode, adif: country?.adif)
         spots[index].country = country?.name ?? "Unknown"

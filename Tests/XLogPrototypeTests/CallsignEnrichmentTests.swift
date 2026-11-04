@@ -84,14 +84,16 @@ final class CallsignEnrichmentTests: XCTestCase {
                        "QRZ profile is for home callsign SP9WLG; operating-entity location retained.")
     }
 
-    func testPortableSuffixCanUseMatchingEntityCoordinates() async {
+    func testPortableSuffixRetainsHomeCoordinatesSeparatelyEvenWhenEntityMatches() async {
         let portable = base.merging(["call": "EA7EU/P"]) { _, new in new }
         let result = await CallsignEnrichment.resolve(base: portable) {
             ["call": "EA7EU/P", "country": "Spain", "dxcc": 281, "latitude": 37.5, "longitude": -4.5]
         }
-        XCTAssertEqual(result["latitude"] as? Double, 37.5)
-        XCTAssertEqual(result["longitude"] as? Double, -4.5)
-        XCTAssertEqual(result["location_source"] as? String, "QRZ coordinates")
+        XCTAssertEqual(result["latitude"] as? Double, 40)
+        XCTAssertEqual(result["longitude"] as? Double, -4)
+        XCTAssertEqual(result["location_source"] as? String, "CTY approximate")
+        XCTAssertEqual((result["home_profile_location"] as? [String: Any])?["latitude"] as? Double, 37.5)
+        XCTAssertEqual(result["home_profile_location_source"] as? String, "QRZ home profile; operating position unverified")
         XCTAssertNil(result["lookup_warning"])
     }
 }

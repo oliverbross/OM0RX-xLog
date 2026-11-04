@@ -21,6 +21,15 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     let label = crate::workspace_windows::surface_role(label);
     validate_request(request)?;
     if request["method"]=="station_transmit_permission" {return Err("Use the native TCI permission/Stop coordinator.".into());}
+    if request["method"].as_str().is_some_and(|m| m.starts_with("logbook_country_")) {
+        return if matches!(label,"main"|"logbook") || request["method"] == "logbook_country_facts" && matches!(label,"callsign-intelligence"|"log-qso") {
+            Ok(())
+        } else { Err("Country review belongs to the local Logbook; other surfaces can only inspect their admitted facts.".into()) };
+    }
+    if request["method"].as_str().is_some_and(|m| m.starts_with("reference_country_")) {
+        return if matches!(label,"main"|"settings") { Ok(()) }
+        else { Err("Country snapshots are managed through Reference data settings.".into()) };
+    }
     if label == "about" { return Err("About OM0RX-xLog has no worker access.".into()); }
     if label == "hm-control" { return Err("HM Control can only use its non-secret read-only display projection.".into()); }
     if request["method"].as_str().is_some_and(|method| method.starts_with("cw_decode_")) {
@@ -84,6 +93,7 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
             | "secret_status" | "secret_save" | "online_log_status" | "online_log_configure"
             | "sync_status" | "sync_summary" | "sync_mutation" | "sync_receipt"
             | "reference_status" | "reference_resolve" | "reference_refresh" | "reference_schedule" | "reference_configure"
+            | "reference_country_status" | "reference_country_import" | "reference_country_download" | "reference_country_rollback"
             | "backup_create" | "backup_list" | "backup_inspect" | "backup_import" | "backup_restore"
             | "remote_backup_request"
             | "wsjtx_snapshot" | "wsjtx_configure" | "wsjtx_start" | "wsjtx_stop"
@@ -382,6 +392,10 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "backup_restore",
         "remote_backup_request",
         "reference_status",
+        "reference_country_status",
+        "reference_country_import",
+        "reference_country_download",
+        "reference_country_rollback",
         "reference_resolve",
         "reference_log_review",
         "reference_refresh",
@@ -411,6 +425,13 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "logbook_alert_entities",
         "logbook_follow_up",
         "logbook_data_quality",
+        "logbook_country_facts",
+        "logbook_country_review",
+        "logbook_country_review_cancel",
+        "logbook_country_correction_preview",
+        "logbook_country_correction_cancel",
+        "logbook_country_correction_apply",
+        "logbook_country_correction_undo",
         "logbook_save",
         "logbook_delete",
         "logbook_undo",
@@ -2016,6 +2037,21 @@ mod tests {
         for label in ["main", "logbook"] { assert!(validate_surface(label, &request).is_ok(), "{label}"); }
         for label in ["monitor", "awards", "previous-qsos", "world-map", "band-maps", "settings", "operating-goals", "qso", "dx-cluster", "unknown"] {
             assert!(validate_surface(label, &request).is_err(), "{label}");
+        }
+    }
+    #[test]
+    fn country_review_and_reference_publication_have_explicit_surface_authority(){
+        for method in ["logbook_country_review","logbook_country_review_cancel","logbook_country_correction_preview","logbook_country_correction_cancel","logbook_country_correction_apply","logbook_country_correction_undo"] {
+            let request=json!({"id":"country","method":method,"params":{}});
+            for label in ["main","logbook"]{assert!(validate_surface(label,&request).is_ok(),"{method}/{label}");}
+            for label in ["settings","monitor","world-map","awards","callsign-intelligence","log-qso","contest-setup"]{assert!(validate_surface(label,&request).is_err(),"{method}/{label}");}
+        }
+        let facts=json!({"id":"facts","method":"logbook_country_facts","params":{}});
+        for label in ["main","logbook","callsign-intelligence","log-qso"]{assert!(validate_surface(label,&facts).is_ok());}
+        for method in ["reference_country_status","reference_country_import","reference_country_download","reference_country_rollback"] {
+            let request=json!({"id":"country","method":method,"params":{}});
+            for label in ["main","settings"]{assert!(validate_surface(label,&request).is_ok());}
+            for label in ["logbook","world-map","monitor","contest-setup"]{assert!(validate_surface(label,&request).is_err());}
         }
     }
     #[test]

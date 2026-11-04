@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { requestQSODataQuality, requestQSOCorrectionPreview, type QSODataQualityEvidence,
   type QSODataQualityReport, type QSOCorrectionPreview } from "../worker";
 import { sameGeneration, validGeneration, validScopedSnapshot, type DraftSnapshot } from "./operatorDraftSession";
+import { CountryCorrectionReview } from "./CountryCorrectionReview";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
 const sourceLabels: Record<string, string> = {
@@ -71,10 +72,11 @@ function Evidence({ value }: { value: QSODataQualityEvidence }) {
 }
 
 /** A single canonical Details read owns this review. Findings never upgrade its scope. */
-export function LogbookContactReview({ contactID, call, onRequest, pageContext, pageLoading = false, renderContact }: {
+export function LogbookContactReview({ contactID, call, onRequest, pageContext, pageLoading = false, renderContact, onCountryChanged }: {
   contactID: string; call: string; onRequest: Request; pageContext: unknown;
   pageLoading?: boolean;
   renderContact: (snapshot: DraftSnapshot) => ReactNode;
+  onCountryChanged?: () => void;
 }) {
   const [contact, setContact] = useState<DraftSnapshot | null>(null);
   const [report, setReport] = useState<QSODataQualityReport | null>(null);
@@ -180,5 +182,8 @@ export function LogbookContactReview({ contactID, call, onRequest, pageContext, 
           </li>)}</ol>}
       </> : !loading && !error && <p>Use Read findings for this exact retained contact. No provider or reference refresh is performed.</p>}
     </section>
+    <CountryCorrectionReview onRequest={onRequest} refreshKey={contact?.revision ?? 0}
+      queryContext={{ query: { version: 1, join: "all", clauses: [{ field: "id", op: "eq", values: [contactID] }] } }}
+      onChanged={() => { scope.current = null; setContact(null); setReport(null); setRetired(true); onCountryChanged?.(); }} />
   </section>;
 }

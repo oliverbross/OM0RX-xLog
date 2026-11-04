@@ -154,7 +154,7 @@ enum OperatingGoalEvaluator {
         switch goal {
         case let .callsign(call): return OperatingGoal.clean(contact.call) == call
         case let .entitySlot(dxcc, band, mode):
-            return (contact.dxcc ?? resolver?.resolve(contact.call, at: contact.start)?.adif) == dxcc
+            return (contact.dxcc ?? resolver?.facts(contact.call, at: contact.start).country?.adif) == dxcc
                 && contact.band.lowercased() == band
                 && SpotLogic.normalizedMode(contact.submode.isEmpty ? contact.mode : contact.submode) == mode
         case let .reference(kind, reference):
@@ -181,7 +181,7 @@ enum OperatingGoalEvaluator {
         case let .callsign(call): guard calls.contains(call) else { return nil }
         case let .entitySlot(dxcc, wantedBand, wantedMode):
             guard band == wantedBand, mode == wantedMode,
-                  resolver?.resolve(item.callsign, at: item.startsAt ?? item.observedAt)?.adif == dxcc else { return nil }
+                  resolver?.facts(item.callsign, at: item.startsAt ?? item.observedAt).country?.adif == dxcc else { return nil }
         case let .reference(kind, reference):
             let referenceKind = OpportunityFeedParser.iotaReference(in: item.reference) == OperatingGoal.clean(item.reference) ? "iota" : item.kind.lowercased()
             guard kind == referenceKind, OperatingGoal.clean(item.reference) == reference else { return nil }

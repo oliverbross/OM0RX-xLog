@@ -1,0 +1,192 @@
+Test Suite 'Selected tests' started at 2026-11-04 23:31:17.451.
+Test Suite 'XStationIntegrationTests.xctest' started at 2026-11-04 23:31:17.454.
+Test Suite 'XStationIntegrationTests.xctest' passed at 2026-11-04 23:31:17.454.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-04 23:31:17.454.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.003) seconds
+Test Suite 'Selected tests' started at 2026-11-04 23:31:17.542.
+Test Suite 'XLogPrototypeTests.xctest' started at 2026-11-04 23:31:17.544.
+Test Suite 'CallsignEnrichmentTests' started at 2026-11-04 23:31:17.544.
+Test Case '-[XLogPrototypeTests.CallsignEnrichmentTests testBlankOnlineFieldsCannotEraseCTYAndPartialCoordinateDoesNotMixSources]' started.
+Test Case '-[XLogPrototypeTests.CallsignEnrichmentTests testBlankOnlineFieldsCannotEraseCTYAndPartialCoordinateDoesNotMixSources]' passed (0.003 seconds).
+Test Case '-[XLogPrototypeTests.CallsignEnrichmentTests testCompleteCoordinatesAndGridFallbackAreQualified]' started.
+Test Case '-[XLogPrototypeTests.CallsignEnrichmentTests testCompleteCoordinatesAndGridFallbackAreQualified]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.CallsignEnrichmentTests testMismatchedCallCannotSupplyAnotherStationLocation]' started.
+Test Case '-[XLogPrototypeTests.CallsignEnrichmentTests testMismatchedCallCannotSupplyAnotherStationLocation]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.CallsignEnrichmentTests testPortableSuffixRetainsHomeCoordinatesSeparatelyEvenWhenEntityMatches]' started.
+Test Case '-[XLogPrototypeTests.CallsignEnrichmentTests testPortableSuffixRetainsHomeCoordinatesSeparatelyEvenWhenEntityMatches]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.CallsignEnrichmentTests testPrefixedPortableCallKeepsOperatingEntityLocation]' started.
+Test Case '-[XLogPrototypeTests.CallsignEnrichmentTests testPrefixedPortableCallKeepsOperatingEntityLocation]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.CallsignEnrichmentTests testProviderFailureKeepsOfflineCountryAndLocationWithoutLeakingError]' started.
+Test Case '-[XLogPrototypeTests.CallsignEnrichmentTests testProviderFailureKeepsOfflineCountryAndLocationWithoutLeakingError]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.CallsignEnrichmentTests testScottishPortableLookupRetainsOperatingEntityInsteadOfLithuanianHomeProfile]' started.
+Test Case '-[XLogPrototypeTests.CallsignEnrichmentTests testScottishPortableLookupRetainsOperatingEntityInsteadOfLithuanianHomeProfile]' passed (0.853 seconds).
+Test Suite 'CallsignEnrichmentTests' passed at 2026-11-04 23:31:18.402.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.857 (0.859) seconds
+Test Suite 'XLogPrototypeTests.xctest' passed at 2026-11-04 23:31:18.402.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.857 (0.859) seconds
+Test Suite 'Selected tests' passed at 2026-11-04 23:31:18.402.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.857 (0.860) seconds
+Test Suite 'Selected tests' started at 2026-11-04 23:31:18.510.
+Test Suite 'XContestStoreTests.xctest' started at 2026-11-04 23:31:18.512.
+Test Suite 'XContestStoreTests.xctest' passed at 2026-11-04 23:31:18.512.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-04 23:31:18.512.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.002) seconds
+Test Suite 'Selected tests' started at 2026-11-04 23:31:18.630.
+Test Suite 'XContestCoreTests.xctest' started at 2026-11-04 23:31:18.631.
+Test Suite 'XContestCoreTests.xctest' passed at 2026-11-04 23:31:18.631.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-04 23:31:18.631.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-11-04 23:31:18.745.
+Test Suite 'XClusterIntegrationTests.xctest' started at 2026-11-04 23:31:18.747.
+Test Suite 'XClusterIntegrationTests.xctest' passed at 2026-11-04 23:31:18.747.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-04 23:31:18.747.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.002) seconds
+Test Suite 'Selected tests' started at 2026-11-04 23:31:18.871.
+Test Suite 'XCatIntegrationTests.xctest' started at 2026-11-04 23:31:18.873.
+Test Suite 'XCatIntegrationTests.xctest' passed at 2026-11-04 23:31:18.873.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-04 23:31:18.873.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.002) seconds
+Test Suite 'Selected tests' started at 2026-11-04 23:31:18.985.
+Test Suite 'XCWCoreTests.xctest' started at 2026-11-04 23:31:18.987.
+Test Suite 'XCWCoreTests.xctest' passed at 2026-11-04 23:31:18.987.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-04 23:31:18.987.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 2403
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Portable live cluster worker bridge" started.
+◇ Suite "Operating goal worker projection" started.
+◇ Suite "Live logbook isolated workspace" started.
+◇ Suite "Integrated country reference and reviewed correction" started.
+◇ Suite "Passive operating goal context" started.
+◇ Test "Spotter continent is independent from the DX station continent" started.
+◇ Test "A retained evaluation does not create opportunity cache state" started.
+◇ Test "Malformed and post-shutdown requests fail without starting work" started.
+◇ Test "Worker reuses retained owners and keeps completion states distinct" started.
+◇ Test "Zone-only full-log review, explicit selected transaction, replay and revision-checked recovery" started.
+◇ Test "Same-country portable home profile cannot become the operating position" started.
+◇ Test "Cancel scan and workspace drain retire native reader authority without contact writes" started.
+◇ Test "Bundle/import/download share exact normalized identity and 304 preserves data revision and downloaded date" started.
+◇ Test "CTY resolver is reused until the disposable reference file changes" started.
+◇ Test "First richer-pack import preserves configured XML source and rollback restores that exact predecessor" started.
+◇ Test "Stale selection and injected commit failure produce zero partial writes or receipts" started.
+◇ Test "Expired and future-dated evidence cannot rank; scheduled calendar windows stay explicit" started.
+◇ Test "Actual cluster/logbook hosts share snapshot and retain observation identity on refresh" started.
+◇ Test "Station scope, deletion, exact slots and local confirmation remain separate from credit" started.
+◇ Test "Explicit IOTA and calendar aliases match; unknown entity metadata never becomes a slot" started.
+◇ Test "Permutations and duplicate goals/evidence give the same ranked projection" started.
+◇ Test "Whole-pack validation/rollback and combined backup retain contacts, reference bytes and recovery receipts" started.
+◇ Test "Retained cluster evidence expires from report time, not a later arrival" started.
+✔ Test "Expired and future-dated evidence cannot rank; scheduled calendar windows stay explicit" passed after 2.290 seconds.
+✔ Test "Station scope, deletion, exact slots and local confirmation remain separate from credit" passed after 2.290 seconds.
+✔ Test "Permutations and duplicate goals/evidence give the same ranked projection" passed after 2.298 seconds.
+✔ Test "CTY resolver is reused until the disposable reference file changes" passed after 2.298 seconds.
+✔ Test "Retained cluster evidence expires from report time, not a later arrival" passed after 2.298 seconds.
+✔ Suite "Live logbook isolated workspace" passed after 2.313 seconds.
+✔ Test "Malformed and post-shutdown requests fail without starting work" passed after 2.368 seconds.
+✔ Test "Same-country portable home profile cannot become the operating position" passed after 2.368 seconds.
+✔ Test "Worker reuses retained owners and keeps completion states distinct" passed after 2.369 seconds.
+✔ Test "A retained evaluation does not create opportunity cache state" passed after 2.423 seconds.
+✔ Suite "Operating goal worker projection" passed after 2.433 seconds.
+✔ Test "Cancel scan and workspace drain retire native reader authority without contact writes" passed after 2.434 seconds.
+✔ Test "Spotter continent is independent from the DX station continent" passed after 2.463 seconds.
+✔ Suite "Portable live cluster worker bridge" passed after 2.463 seconds.
+✔ Test "Actual cluster/logbook hosts share snapshot and retain observation identity on refresh" passed after 2.479 seconds.
+✔ Test "Explicit IOTA and calendar aliases match; unknown entity metadata never becomes a slot" passed after 2.494 seconds.
+✔ Suite "Passive operating goal context" passed after 2.494 seconds.
+✔ Test "Stale selection and injected commit failure produce zero partial writes or receipts" passed after 7.832 seconds.
+✔ Test "Zone-only full-log review, explicit selected transaction, replay and revision-checked recovery" passed after 7.832 seconds.
+✔ Test "Bundle/import/download share exact normalized identity and 304 preserves data revision and downloaded date" passed after 9.961 seconds.
+✔ Test "First richer-pack import preserves configured XML source and rollback restores that exact predecessor" passed after 9.966 seconds.
+✔ Test "Whole-pack validation/rollback and combined backup retain contacts, reference bytes and recovery receipts" passed after 16.372 seconds.
+✔ Suite "Integrated country reference and reviewed correction" passed after 16.373 seconds.
+✔ Test run with 18 tests in 5 suites passed after 16.373 seconds.
+
+Building for debugging...
+[Computing dependencies]
+[Pre-planning 1 / 797]
+[Planning deferred tasks]
+[1 / 12] xlog-cw-flex-inspect-product
+[3 / 60] OM0RXXLogPrototype_XContestCore
+[8 / 69] XStationIntegrationCore
+[17 / 113]
+[22 / 117]
+[25 / 117]
+[28 / 117]
+[33 / 117]
+[35 / 117]
+[36 / 117]
+[40 / 117]
+[42 / 117]
+[46 / 117]
+[50 / 117]
+[52 / 117]
+[53 / 117]
+[57 / 117]
+[60 / 117] XStationIntegrationCore
+[66 / 120] XCWCore
+[73 / 124] XCWCore-product
+[73 / 124] XStationIntegrationTests-product
+[79 / 158]
+[80 / 158]
+[83 / 158]
+[85 / 158]
+[87 / 159] XContestCore
+[96 / 159]
+[98 / 160]
+[102 / 160]
+[108 / 169]
+[109 / 169]
+[113 / 169]
+[121 / 176]
+[124 / 177] XCatIntegrationTests-product
+[127 / 178] XClusterIntegrationCore
+[131 / 180] xlog-cw-flex-inspect-product
+[132 / 181]
+[133 / 181] XContestCoreTests-product
+[141 / 186] XContestStore
+[145 / 187] XClusterIntegrationTests-product
+[148 / 191]
+[148 / 191] XCatIntegrationTests-product
+[148 / 191] XContestCoreTests-product
+[148 / 192] XClusterIntegrationTests-product
+[150 / 193]
+[151 / 193]
+[153 / 194]
+[154 / 194]
+[160 / 194] XLogCore
+[165 / 198] XLogCore
+[169 / 199] XClusterIntegrationTests-product
+[178 / 204] XCWCoreTests-product
+[184 / 207] XCatIntegrationTests-product
+[190 / 210] XCatIntegrationTests-product
+[195 / 212] XContestStoreTests-product
+[195 / 212] XContestCoreTests-product
+[200 / 214] XLogPrototypeSupport
+/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestSCPService.swift:43:70: warning: converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races
+ 41 |          validatePrivateRoot: @escaping @Sendable () throws -> Void,
+ 42 |          beforeReplacementPublish: @escaping @Sendable () async -> Void = {},
+ 43 |          providerFetch: @escaping ProviderFetch = ContestSCPProvider.fetchLatest,
+    |                                                                      `- warning: converting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races
+ 44 |          writeAtomically: @escaping AtomicWriter = { data, url in try data.write(to: url, options: [.atomic]) },
+ 45 |          validateScope: @escaping ScopeValidator) throws {
+[204 / 218] XLogPrototypeSupport
+[209 / 221] XLogPrototypeSupport
+[209 / 221] xlog-prototype-worker-product
+[211 / 223] XLogPrototypeSupport
+[215 / 227] XLogPrototypeSupport
+[217 / 227] XLogPrototypeSupport
+[220 / 226] xlog-prototype-worker-product
+[222 / 227] xlog-prototype-worker-product
+[222 / 227] XLogPrototypeTests-product
+[231 / 236] XLogPrototypeTests-product
+[235 / 238] XLogPrototypeTests-product
+[237 / 241] XLogPrototypeTests-product
+[239 / 241] XLogPrototypeTests-product
+Build complete! (35.18 sec.)

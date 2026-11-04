@@ -424,12 +424,15 @@ fn bounded_text(value: &Value, key: &str, maximum: usize) -> Option<String> {
 }
 
 fn spot(value: &Value) -> Option<Spot> {
+    let retained_id = bounded_text(value, "id", 128)?;
+    // Country/reference refresh can revoke an activation version without
+    // creating a new received report. Keep alert baselining on observation ID;
+    // the exact version below remains mandatory for Review/Tune & load.
     let source_key = value["activation"]["sourceEpoch"]
         .as_str()
-        .zip(value["activation"]["spotVersion"].as_str())
-        .filter(|(epoch, version)| valid_uuid(epoch) && !version.is_empty() && version.len() <= 128)
-        .map(|(epoch, version)| format!("{epoch}:{version}"))
-        .or_else(|| bounded_text(value, "id", 128))?;
+        .filter(|epoch| valid_uuid(epoch))
+        .map(|epoch| format!("{epoch}:{retained_id}"))
+        .unwrap_or(retained_id);
     let callsign = bounded_text(value, "callsign", 32)?.to_ascii_uppercase();
     let frequency_khz = value["frequencyKHz"].as_f64().filter(|frequency| {
         frequency.is_finite() && *frequency >= 0.0 && *frequency <= 10_000_000.0
@@ -1305,6 +1308,28 @@ mod tests {
         assert_eq!(value["configuration"]["enabled"], false);
         assert_eq!(value["source"]["baselined"], true);
         assert_eq!(value["entries"], json!([]));
+    }
+    #[test]
+    fn country_reclassification_keeps_alert_baseline_but_revokes_old_activation(){
+        let directory=tempfile::tempdir().unwrap();let owner=owner(directory.path());
+        let before=owner.snapshot().unwrap();let mut geographic=rule("entity","Canary Islands",&["ATNO"]);geographic.dx_entities=vec![29];
+        owner.save(before["configuration"]["generation"].as_str().unwrap(),0,editable(true,vec![geographic])).unwrap();
+        owner.observe(&projection(1,vec![])).unwrap();
+        let mut identities=crate::spot_identity::SpotIdentities::new(1);
+        let mut old=spot("retained-report","OM0RX/EA8","ATNO");old["adif"]=json!(504);old["country"]=json!("Slovakia");
+        let mut first=json!({"snapshot":{"spots":[old.clone()]}});identities.annotate(&mut first,1);
+        let token=first["snapshot"]["spots"][0]["activation"].clone();
+        owner.observe(&projection(2,first["snapshot"]["spots"].as_array().unwrap().clone())).unwrap();
+        assert_eq!(owner.snapshot().unwrap()["entries"],json!([]));
+        old["adif"]=json!(29);old["country"]=json!("Canary Islands");old["countryReferenceRevision"]=json!("new-snapshot");
+        let mut changed=json!({"snapshot":{"spots":[old.clone()]}});identities.annotate(&mut changed,1);
+        assert_ne!(changed["snapshot"]["spots"][0]["activation"],token);
+        assert!(identities.resolve(token["sourceEpoch"].as_str().unwrap(),"retained-report",token["spotVersion"].as_str().unwrap(),1).is_err());
+        owner.observe(&projection(3,changed["snapshot"]["spots"].as_array().unwrap().clone())).unwrap();
+        assert_eq!(owner.snapshot().unwrap()["entries"],json!([]),"Reference inference cannot replay an old report as a new alert");
+        old["id"]=json!("new-received-report");let mut fresh=json!({"snapshot":{"spots":[old]}});identities.annotate(&mut fresh,1);
+        owner.observe(&projection(4,fresh["snapshot"]["spots"].as_array().unwrap().clone())).unwrap();
+        assert_eq!(owner.snapshot().unwrap()["entries"].as_array().unwrap().len(),1);
     }
 
     fn activity(revision: u64, spots: Vec<Value>) -> Value {

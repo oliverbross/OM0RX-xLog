@@ -20,6 +20,7 @@ export const detachedSettingsMethods = [
   "workspace_rotor_configuration_load", "workspace_rotor_configuration_receipt", "workspace_rotor_configuration_save", "hamlib_models",
   "sync_status", "sync_summary", "sync_mutation", "sync_receipt",
   "reference_status", "reference_resolve", "reference_refresh", "reference_schedule", "reference_configure",
+  "reference_country_status", "reference_country_import", "reference_country_download", "reference_country_rollback",
   "backup_create", "backup_list", "backup_inspect", "backup_import", "backup_restore",
   "remote_backup_request",
   "wsjtx_snapshot", "wsjtx_configure", "wsjtx_start", "wsjtx_stop",

@@ -1,0 +1,25 @@
+.country-reference-control {
+  min-width: 0;
+}
+.live .country-reference-control > label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  width: 100%;
+  max-width: 760px;
+  margin-top: 14px;
+}
+.country-reference-control > label > input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+.country-reference-control > button {
+  max-width: 100%;
+  margin: 8px 8px 8px 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.country-reference-control details p {
+  overflow-wrap: anywhere;
+}

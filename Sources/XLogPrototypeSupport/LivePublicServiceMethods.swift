@@ -124,7 +124,7 @@ actor LivePublicServiceMethods {
 }
 
 enum LocalCallsignProfile {
-    private static let bundledResolver = try? CTYResolver.bundled()
+    private static let bundledResolver = try? CTYResolver.bundledCountryPack()
 
     static func validatedCall(_ params: [String: Any]) throws -> String {
         guard Set(params.keys) == ["call"], let raw = params["call"] as? String,
@@ -139,8 +139,12 @@ enum LocalCallsignProfile {
         // Callsign identity is useful before the workspace/database owner has
         // completed launch. Prefer its downloaded CTY snapshot, but never lose
         // bundled prefix resolution merely because that owner is unavailable.
-        let resolver = logbook.currentCTYResolverIfReady()
-        if let country = resolver?.resolve(call) ?? bundledResolver?.resolve(call) {
+        let resolver = logbook.currentCTYResolverIfReady() ?? bundledResolver
+        let facts = resolver?.facts(call, at: Date())
+        profile["country_resolution_status"] = facts?.status.rawValue ?? "unknown"
+        profile["country_reference_revision"] = facts?.referenceRevision
+        profile["location_precision"] = facts?.locationPrecision ?? "unavailable"
+        if let country = facts?.country {
             profile.merge(["country": country.name, "dxcc": country.adif,
                 "continent": country.continent, "cqZone": String(country.cqZone),
                 "ituZone": String(country.ituZone), "source": "CTY approximate",

@@ -158,9 +158,10 @@ public final class CTYResolver: @unchecked Sendable {
     public func facts(_ literal: String, at date: Date?) -> Facts {
         let call = literal.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         let parts = call.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
-        let qualifier = parts.count > 1 ? parts.last.flatMap { ignoredSuffixes.contains($0) ? $0 : nil } : nil
-        let operatorCall = parts.filter { $0.count >= 3 && $0.contains(where: \.isLetter) && $0.contains(where: \.isNumber) }
-            .max { $0.count < $1.count }
+        let modifiers = ignoredSuffixes.union(countryPack?.ignoredModifiers ?? [])
+        let qualifier = parts.count > 1 ? parts.last.flatMap { modifiers.contains($0) ? $0 : nil } : nil
+        let operatorCandidates = parts.filter { $0.range(of: #"^[A-Z0-9]*[0-9][A-Z][A-Z0-9]*$"#, options: .regularExpression) != nil }
+        let operatorCall = operatorCandidates.count == 1 ? operatorCandidates[0] : nil
         func result(_ status: Facts.Status, _ rule: Rule? = nil) -> Facts {
             Facts(literalCall: literal, normalizedCall: call, operatorCall: operatorCall, qualifier: qualifier,
                 observedAt: date.flatMap { $0.timeIntervalSince1970.isFinite ? $0 : nil }, status: status, country: status == .resolved ? rule?.endpointCountry : nil,
@@ -169,7 +170,8 @@ public final class CTYResolver: @unchecked Sendable {
                 policy: Self.factsPolicy, locationPrecision: status == .resolved ? "entityApproximation" : "unavailable")
         }
         guard (3...32).contains(call.utf8.count), (1...4).contains(parts.count),
-              parts.allSatisfy({ !$0.isEmpty }), operatorCall != nil,
+              parts.allSatisfy({ !$0.isEmpty }), !operatorCandidates.isEmpty,
+              literal.trimmingCharacters(in: .whitespacesAndNewlines).allSatisfy(\.isASCII),
               call.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "/") }) else { return result(.invalid) }
         guard let date, date.timeIntervalSince1970.isFinite else { return result(.missingDate) }
         if countryPack != nil { return packedFacts(literal, call: call, parts: parts, operatorCall: operatorCall, qualifier: qualifier, at: date) }
@@ -191,6 +193,8 @@ public final class CTYResolver: @unchecked Sendable {
         }
         // Date-valid complete-call exceptions precede all generic modifiers.
         if let exact = select(matches(call, exactOnly: true)) { return exact }
+        if operatorCall == nil { return result(.ambiguous) }
+        if parts.count == 1, call.last?.isNumber == true { return result(.unknown) }
         if qualifier == "MM" || qualifier == "AM" { return result(.knownNoEntity) }
         // A numeric area suffix is not an arbitrary geographic prefix. Until
         // a supplied dataset defines that area's semantics, retain uncertainty.
@@ -198,6 +202,9 @@ public final class CTYResolver: @unchecked Sendable {
         let candidates = parts.enumerated().compactMap { index, part -> String? in
             (index == 0 || !ignoredSuffixes.contains(part)) && part.contains(where: \.isLetter) ? part : nil
         }.sorted { $0.count == $1.count ? $0 < $1 : $0.count < $1.count }
+        let operating = candidates.filter { $0 != operatorCall }
+        if operating.count > 1 { return result(.ambiguous) }
+        if let prefix = operating.first { return select(matches(prefix)) ?? result(.unknown) }
         for candidate in candidates { if let value = select(matches(candidate)) { return value } }
         return result(.unknown)
     }
@@ -323,6 +330,8 @@ public final class CTYResolver: @unchecked Sendable {
             return output(.resolved, best)
         }
         if let exact = choose(call, exact: true) { return exact }
+        if operatorCall == nil { return output(.ambiguous) }
+        if parts.count == 1, call.last?.isNumber == true { return output(.unknown) }
         if qualifier == "MM" || qualifier == "AM" { return output(.knownNoEntity) }
         // Dataset-supported country-specific interpretation precedes generic
         // suffix handling. These describe rule semantics, not a live location.
@@ -343,6 +352,9 @@ public final class CTYResolver: @unchecked Sendable {
         let candidates = parts.enumerated().compactMap { index, part -> String? in
             (index == 0 || !modifiers.contains(part)) && part.contains(where: \.isLetter) ? part : nil
         }.sorted { $0.count == $1.count ? $0 < $1 : $0.count < $1.count }
+        let operating = candidates.filter { $0 != operatorCall }
+        if operating.count > 1 { return output(.ambiguous) }
+        if let prefix = operating.first { return choose(prefix) ?? output(.unknown) }
         for candidate in candidates { if let value = choose(candidate) { return value } }
         return output(.unknown)
     }
@@ -413,6 +425,29 @@ public final class CTYResolver: @unchecked Sendable {
 /// A deliberately scoped, reproducible derivative of the six OK1RR country
 /// components. Unsupported upstream rows are enumerated in `excluded`; this
 /// format does not claim CQRLOG's historical collation/truncation quirks.
+public struct CountryReferenceSelection: Codable, Sendable {
+    public enum Source: String, Codable, Sendable { case normalizedPack, clubLogXML }
+    public let version: Int
+    public let source: Source
+    public let sourceVersion: String?
+    public init(source: Source, sourceVersion: String? = nil) { version = 1; self.source = source; self.sourceVersion = sourceVersion }
+    public static let fileName = "country-reference-selection.json"
+    public static let previousFileName = "country-reference-previous-source.json"
+    public static func read(directory: URL, previous: Bool = false) throws -> Self? {
+        let url = directory.appendingPathComponent(previous ? previousFileName : fileName)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        guard attributes[.type] as? FileAttributeType == .typeRegular,
+              ((attributes[.size] as? NSNumber)?.intValue ?? Int.max) <= 4096 else { throw CocoaError(.fileReadCorruptFile) }
+        let value = try JSONDecoder().decode(Self.self, from: Data(contentsOf: url))
+        guard value.version == 1, (value.sourceVersion?.utf8.count ?? 0) <= 256 else { throw CocoaError(.fileReadCorruptFile) }
+        return value
+    }
+    public func save(directory: URL, previous: Bool = false) throws {
+        try JSONEncoder().encode(self).write(to: directory.appendingPathComponent(previous ? Self.previousFileName : Self.fileName), options: .atomic)
+    }
+}
+
 public struct CountryReferencePack: Codable, Sendable {
     private static let publicationLock = NSRecursiveLock()
     /// Serialize only publication and reviewed correction admission. This lock
@@ -480,6 +515,7 @@ public struct CountryReferencePack: Codable, Sendable {
         let value = try JSONDecoder().decode(Self.self, from: data)
         guard value.schemaVersion == 1, value.normalizerVersion == "xlog-ok1rr-1", value.conflictPolicy == "reportAmbiguous",
               value.provider.utf8.count <= 256, !value.provider.isEmpty, value.attribution.utf8.count <= 4096,
+              (value.sourceVersion?.utf8.count ?? 0) <= 256, value.sourceURL.utf8.count <= 2048,
               value.sourceRevision.range(of: #"^[a-f0-9]{40}$"#, options: .regularExpression) != nil,
               let url = URLComponents(string: value.sourceURL), url.scheme == "https", url.host != nil,
               url.user == nil, url.password == nil, url.query == nil, url.fragment == nil,
@@ -488,6 +524,11 @@ public struct CountryReferencePack: Codable, Sendable {
               (100...100_000).contains(value.records.count), value.excluded.count <= 10_000,
               value.ignoredModifiers.count <= 1024, value.ambiguousPrefixes.count <= 2048,
               value.coverage.count <= 32 else { throw ValidationError.invalid("manifest, components or counts") }
+        guard Set(value.records.map(\.component)) == ["Country.tab", "CallResolution.tbl", "AreaOK1RR.tbl", "CountryDel.tab"],
+              Set(value.coverage) == ["current-and-deleted", "date-valid-exact", "finite-wildcard-area-patterns", "ignored-modifiers",
+                "declared-ambiguous-prefixes", "us-digit-district", "argentine-letter-area"] else {
+            throw ValidationError.invalid("required normalized coverage or country component is missing")
+        }
         let tokens = value.ignoredModifiers + value.ambiguousPrefixes
         guard tokens.allSatisfy({ (1...32).contains($0.utf8.count) && $0.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "/") }) }) else {
             throw ValidationError.invalid("invalid modifier or ambiguity token")
@@ -496,7 +537,10 @@ public struct CountryReferencePack: Codable, Sendable {
             guard requiredComponents.contains(item.component), item.line > 0, item.reason.utf8.count <= 512,
                   (item.pattern?.utf8.count ?? 0) <= 256 else { throw ValidationError.invalid("invalid exclusion") }
         }
+        var identities = Set<String>()
         for item in value.records {
+            let identity = "\(item.component)|\(item.line)|\(item.pattern)|\(item.exact)|\(item.start ?? "")|\(item.end ?? "")"
+            guard identities.insert(identity).inserted else { throw ValidationError.invalid("duplicate rule identity") }
             let country = item.country
             guard requiredComponents.contains(item.component), item.line > 0,
                   (0...1000).contains(country.adif), (0...40).contains(country.cqZone), (0...90).contains(country.ituZone),

@@ -24,8 +24,8 @@ git -C .build/cqrlog-country-source checkout --detach 4adb0e70bf29faefc3b203bc35
 python3 tools/normalize-cqrlog-country.py .build/cqrlog-country-source Sources/XLogCore/Resources/country-reference-pack.json
 ```
 
-Observed normalized digest: `3ad5c0c89dcc4929020fcefe8d2d2f053d2e18a57993b9c6725fd3a18ea67603`.
-21,343 normalized rules, all six component digests, 294 explicitly enumerated
+Current normalized digest: `c04689ac8cf530672a98df3d1ecd132a150d13e7583f88037928b75a09ff1731`.
+21,335 normalized rules, all six component digests, 302 explicitly enumerated
 excluded source rows/patterns. Source-reported version is unknown; the source Git
 revision and local content digest are separate facts. The source checkout remains
 under `.build`; it is retained as a reproduction input, not packaged source code.
@@ -37,8 +37,9 @@ Literal length and class matching are represented directly; leading wildcard
 patterns use the same lookup path on bundle/import/download.
 
 Excluded coverage is machine-readable in the pack: 259 non-callsign designators or
-unsupported patterns; explicit source date/ADIF/coordinate/zone defects or unsupported
-range-valued zones account for the remainder. No truncation, arbitrary default-year
+unsupported patterns; explicit source date/ADIF/coordinate/zone defects, unsupported
+range-valued zones and eight collapsed identical repeated aliases/windows account
+for the remainder. No truncation, arbitrary default-year
 limit, legacy shortstring collation or file-order conflict resolution is copied.
 This derivative does **not** claim full CQRLOG parser parity. A future refreshed
 source must be normalized by the pinned normalizer contract or be rejected by the
@@ -90,15 +91,116 @@ authority explicit and retains declared ambiguity even without a broad prefix ru
 The assertions were retained. An initial per-record formatter implementation took
 32 s; bounded UTC date parsing reduced the complete focused suite to 1.226 s.
 
+The first core/data commit `d2f2758d` retained 21,343 records/digest
+`3ad5c0c89dcc4929020fcefe8d2d2f053d2e18a57993b9c6725fd3a18ea67603`.
+Subsequent strict duplicate-identity validation correctly rejected eight identical
+aliases/windows repeated in their original source rows (failure archive
+`47ceb33516b6a7d8`). The normalizer now explicitly collapses and enumerates those
+eight duplicates, retaining all unique meanings. The validator was preserved.
+
 ## Task state (live lane record)
 
 | IDs | State | Boundary |
 | --- | --- | --- |
-| C01-T01/02/03 | Implemented; focused core evidence above | Actual host integration and final source gate follow |
-| C01-T04/05/06/07 | In progress | Shared cluster/logbook wiring, retained source identity, portable enrichment, consumer regression and operator handoff |
+| C01-T01/02/03 | Implemented; initial core evidence above | Final integrated core gate is recorded by programme owner |
+| C01-T04/05/06 | Implemented; focused host/consumer evidence below | Packaged candidate and large-fixture acceptance remain separate |
+| C01-T07 | Implemented; source regression and operator handoff supplied | Final programme acceptance adds packaged evidence |
 | C02-T01/02 | Implemented; real derivative validated | Explicit excluded coverage retained |
-| C02-T03/04/05/06/07 | In progress | Publication/rollback, compact asynchronous review, explicit selected correction, receipts/recovery, UI and acceptance |
+| C02-T03/04/05/06 | Implemented; native lifecycle/correction and component evidence below | Packaged integration and large-fixture gate remain separate |
+| C02-T07 | Implemented; focused lifecycle/backup evidence below | Programme owner records final candidate acceptance |
 
-No C01/C02 integration, packaged UI, backup/restore or large-log performance row
-is claimed passed by the core-only evidence above. No hardware acceptance is
-needed for these two epics, but programme-wide physical boundaries remain separate.
+## Host implementation and source freeze
+
+Frozen for programme integration on 4 November 2026, after first core/data commit
+`d2f2758d`; the programme owner records the exact final integration commit. The
+normalizer/resource hardening following that commit is intentional and documented
+above. Operator instructions: `docs/help/country-reference-review.md`.
+
+Consumer inventory and dispositions:
+
+- Logbook lookup, live cluster DX/spotter facts and inferred contact projection
+  capture the same admitted immutable snapshot. Existing configured Club Log XML
+  remains selected until an explicit richer-pack activation. Current source bytes
+  are cached by source identity; spots do not reread/parse the pack.
+- Public callsign lookup, operating goals/opportunities, WSJT-X classification and
+  legacy data-quality evidence consume neutral `facts`. Explicit stored DXCC has
+  priority over inference. Slash-call home profile locations are separately
+  labelled and never promoted to an operating position.
+- Contest reference/scoring uses its existing independent pinned interpretation;
+  country reference activation does not replace that owner. The intentional
+  bundled/downloaded comparison in LogReviewReferences remains a comparison.
+- A reference change reclassifies retained spots with their original ID and time
+  and invalidates the existing contact projection. Both explicit new reference
+  routes and an ordinary Club Log snapshot change join the existing asynchronous
+  contact rebuild. Root owns the alert retained-ID deduplication and map labels.
+- New review/correction endpoints stay on the existing logbook, reference, query,
+  contact mutation, receipt, backup and native workspace guards. Whole-log review
+  streams compact SQL fields on a pinned cancellable reader. Cancellation and
+  workspace replacement drain that reader before database replacement.
+- Selected apply is bounded to 25 contacts in one canonical SQLite transaction;
+  each field requires an explicit choice. Contact revision, source snapshot,
+  workspace and evidence are fenced. Durable receipts retain before-images;
+  recovery is a compensating revision-checked edit. Keep/cancel does not enqueue
+  writes. Only existing sync/invalidation owners run after a successful mutation.
+- Reference import/download use the bundle validator and atomic single-file
+  publication under the same process publication lock as correction. A first
+  import over configured XML preserves that exact XML predecessor. Cross-source
+  rollback restores those bytes and source selection; inactive XML is archived.
+
+## Final focused verification
+
+`country-source-gate.txt` is the retained complete CLI output for:
+
+```sh
+XLOG_PORTABLE_ONLY=1 swift test --filter 'CountryIntegrationTests|LiveLogbookMethodsTests.ctyResolverSourceIdentity|CallsignEnrichmentTests|LiveClusterMethodsTests.spotterContinentFiltering|OperatingGoalTests|LiveOperatingGoalMethodsTests'
+```
+
+Exit 0: **18 Swift Testing tests in five suites** (16.373 s), plus **seven
+CallsignEnrichment XCTest tests**. This is actual host/test execution, not packaged
+UI or hardware evidence. It covers shared cluster/logbook facts and retained
+spot ID/time, source cache reuse, independent DX/spotter continent, source-aware
+goal projection, page-outside-first/zone-only corrections, replay/undo/later-edit
+refusal, stale-QSO/source failure, injected precommit atomic failure, cancellation
+and workspace drain, exact first-import XML rollback, real download/304 semantics
+and the real BackupManager restore.
+
+The combined backup test persists representative station equipment, portable
+preset/active context, nearby callsign setting, all 20 CW memories including speed
+and prosign directives/WinKeyer preferences/composition mode, ten voice labels and
+routes/edits, saved filter/shortcut/bandmap preferences, a held draft, current
+country pack and correction receipt. After actual restore it asserts equality of
+the retained settings/preferences/draft, country answer 999, durable original
+before-image and successful receipt recovery to the original zone. Voice profile
+metadata is covered; external voice recording bytes are not claimed copied.
+
+The preceding expanded-backup attempt failed at settings fixture ISO8601 decoding
+(`95e3f7a1df4f1b59`); the fixture now uses the owning API's ISO8601 encoding and the
+same equality assertions pass. The failed run is not acceptance evidence.
+
+`country-ui-gate.txt` retains the five new component tests and successful
+`npx tsc --noEmit` command (exit 0; archive `b1aca47eb260ec6f`). It verifies explicit
+read actions, no default field selection, Keep/cancel, selected apply/recovery,
+stale reference rejection, native scan cancellation/late-result suppression and
+reference actions. Earlier affected legacy component run passed 84 tests; root
+runs the final full frontend gate. Both Python tools pass `py_compile`; scoped
+`git diff --check` passes. Root's final full core gate must include the latest
+`CountryFactsTests|CTYResolverTests` because the portable manifest excludes that
+test target.
+
+## Candidate acceptance boundary
+
+No packaged native UI or changed-path 100k timing is claimed by the focused
+evidence. Root runs `prototype/scripts/benchmark-country-workflows.py` against the
+single signed canonical candidate and the retained existing synthetic fixture
+`.build/qlog-scale-20261103-1ny_kct7/synthetic-100k.sqlite`. C01-A10 and C02-A11 stay
+**Not run** until that evidence exists. The script retains version/hash,
+PID/executable/private-root proof and cold/warm/parallel health measurements.
+
+The earlier raw-debug-worker benchmark launch failed closed at runtime-profile
+validation: archive `450800fd332eaee5`,
+`.build/cqrlog-country-benchmark-source.json`, private root
+`/private/tmp/xlog-wave1-country-benchmark-k5jdswez`. That sequence stopped before
+any GUI/path binding. The corrected benchmark requires a signed integration app
+bundle and never falls back to production. No new shipped executable/target was
+introduced. Root owns final package/UI/large-log acceptance and the master tracker;
+the source lane does not equate these focused tests with every acceptance row.

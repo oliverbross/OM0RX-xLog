@@ -27,7 +27,7 @@ actor LiveOperatingGoalMethods {
             stationCall: input.stationCall, maximumSpotAge: input.maximumSpotAge)
         let evaluations = OperatingGoalEvaluator.evaluate(goals: input.goals, context: context,
             contacts: contacts, opportunities: retainedOpportunities,
-            resolver: try? CTYResolver.bundled())
+            resolver: try? logbook.currentCTYResolver())
         return [
             "evaluated_at": input.now.timeIntervalSince1970,
             "station_scope": [

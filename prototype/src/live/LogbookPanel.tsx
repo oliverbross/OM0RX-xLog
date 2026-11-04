@@ -508,7 +508,8 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
       </header>}
       {columnsOpen && <LogbookColumns id={columnsID} preferences={columnPreferences} onChange={setColumnPreferences} context={resolvedColumnContext}
         onDone={() => { setColumnsOpen(false); columnsButton.current?.focus(); }} />}
-      {ctyPreviewOpen && <Suspense fallback={<p role="status">Opening country preview…</p>}><CTYCorrectionPreview onRequest={onRequest} refreshKey={refreshKey} /></Suspense>}
+      {ctyPreviewOpen && <Suspense fallback={<p role="status">Opening country preview…</p>}><CTYCorrectionPreview onRequest={onRequest} refreshKey={refreshKey}
+        queryContext={{ search, ...queryParams }} onChanged={() => { setReadRetry(value => value + 1); onChanged?.(); }} /></Suspense>}
       {followUpOpen && selected && <Suspense fallback={<p role="status">Opening upload follow-up…</p>}><OnlineLogFollowUpPanel key={selected.id} contactID={selected.id} call={selected.call} onRequest={onRequest} refreshKey={refreshKey} onClose={() => setFollowUpOpen(false)} /></Suspense>}
       {filtersOpen && <Suspense fallback={<p role="status">Loading contact filter controls…</p>}>
         <LogbookFilterBuilder value={filterDraft} onChange={setFilterDraft} onApply={() => applyFilter()} disabled={busy} />
@@ -542,7 +543,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
           }} disabled={busy}>Cancel</button></div>
       </div>}
       {!compact && details && selected && <Suspense fallback={<p role="status">Opening contact details…</p>}><LogbookContactReview key={`${selected.id}:${refreshKey}:${search}:${offset}`} contactID={selected.id} call={selected.call}
-        pageContext={page} pageLoading={loading} onRequest={onRequest} renderContact={snapshot => {
+        pageContext={page} pageLoading={loading} onRequest={onRequest} onCountryChanged={() => { setReadRetry(value => value + 1); onChanged?.(); }} renderContact={snapshot => {
           const selected = snapshot.qso as QSO;
           return <dl className="live-logbook-details">
         <div><dt>Callsign</dt><dd>{selected.call}</dd></div>

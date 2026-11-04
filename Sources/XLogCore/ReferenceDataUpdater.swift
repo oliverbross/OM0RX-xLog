@@ -423,6 +423,96 @@ public actor ReferenceDataUpdater {
         return state
     }
 
+    /// One normalized whole-pack publication path for imports and downloads.
+    /// Previous and content-addressed snapshots are retained before activation;
+    /// a failed validation/write cannot replace the active pack or edit QSOs.
+    @discardableResult public func importCountryPack(_ data: Data) throws -> String {
+        try CountryReferencePack.withPublicationLock { try publishCountryPack(data) }
+    }
+
+    private func publishCountryPack(_ data: Data) throws -> String {
+        let resolver = try CTYResolver(countryPack: data)
+        let active = directory.appendingPathComponent("country-reference-pack.json")
+        let snapshots = directory.appendingPathComponent("Country Snapshots", isDirectory: true)
+        try FileManager.default.createDirectory(at: snapshots, withIntermediateDirectories: true)
+        func retain(_ bytes: Data, _ value: CTYResolver) throws {
+            let target = snapshots.appendingPathComponent(value.contentDigest + ".json")
+            if !FileManager.default.fileExists(atPath: target.path) { try bytes.write(to: target, options: .atomic) }
+        }
+        try retain(data, resolver)
+        let selection = try CountryReferenceSelection.read(directory: directory)
+        let xmlURL = directory.appendingPathComponent("cty.xml")
+        let xml = try? CTYResolver(xmlURL: xmlURL)
+        let existingPack = (try? Data(contentsOf: active)).flatMap { try? CTYResolver(countryPack: $0) }
+        if let xml, selection?.source == .clubLogXML || existingPack == nil {
+            let bytes = try Data(contentsOf: xmlURL)
+            try bytes.write(to: snapshots.appendingPathComponent(xml.contentDigest + ".xml"), options: .atomic)
+            try bytes.write(to: directory.appendingPathComponent("country-reference-pack.previous.xml"), options: .atomic)
+            try CountryReferenceSelection(source: .clubLogXML, sourceVersion: currentState().sourceMetadata["cty.xml"]?.sourceVersion)
+                .save(directory: directory, previous: true)
+        } else if let bytes = try? Data(contentsOf: active), let previous = try? CTYResolver(countryPack: bytes) {
+            try retain(bytes, previous)
+            if previous.contentDigest != resolver.contentDigest {
+                try bytes.write(to: directory.appendingPathComponent("country-reference-pack.previous.json"), options: .atomic)
+                try CountryReferenceSelection(source: .normalizedPack).save(directory: directory, previous: true)
+            }
+        } else if !FileManager.default.fileExists(atPath: active.path) {
+            let bytes = try CTYResolver.bundledCountryPackBytes(), previous = try CTYResolver(countryPack: bytes)
+            try retain(bytes, previous)
+            if previous.contentDigest != resolver.contentDigest {
+                try bytes.write(to: directory.appendingPathComponent("country-reference-pack.previous.json"), options: .atomic)
+                try CountryReferenceSelection(source: .normalizedPack).save(directory: directory, previous: true)
+            }
+        }
+        let desired = CountryReferenceSelection(source: .normalizedPack, sourceVersion: resolver.countryPack?.sourceVersion)
+        if selection?.source != .clubLogXML { try desired.save(directory: directory) }
+        try data.write(to: active, options: .atomic)
+        if selection?.source == .clubLogXML { try desired.save(directory: directory) }
+        return resolver.snapshotIdentity
+    }
+
+    @discardableResult public func rollbackCountryPack() throws -> String {
+        if let previous = try CountryReferenceSelection.read(directory: directory, previous: true), previous.source == .clubLogXML {
+            return try CountryReferencePack.withPublicationLock {
+                let priorURL = directory.appendingPathComponent("country-reference-pack.previous.xml")
+                let resolver = try CTYResolver(xmlURL: priorURL), bytes = try Data(contentsOf: priorURL)
+                let destination = directory.appendingPathComponent("cty.xml")
+                if let current = try? CTYResolver(xmlURL: destination), let currentBytes = try? Data(contentsOf: destination) {
+                    try currentBytes.write(to: directory.appendingPathComponent("Country Snapshots/\(current.contentDigest).xml"), options: .atomic)
+                }
+                // The restored bytes must not inherit validators/timestamps from
+                // a different download. Clear those before the source switches.
+                var state = currentState()
+                state.validators["cty.xml"] = nil
+                state.sourceMetadata["cty.xml"] = ReferenceSourceMetadata(sourceVersion: previous.sourceVersion, status: "restored")
+                try bytes.write(to: destination, options: .atomic)
+                try persist(state)
+                try previous.save(directory: directory)
+                return resolver.snapshotIdentity
+            }
+        }
+        let previous = directory.appendingPathComponent("country-reference-pack.previous.json")
+        return try importCountryPack(Data(contentsOf: previous))
+    }
+
+    public func refreshCountryPack(_ url: URL) async throws -> ReferenceDataState {
+        // No credential/query-bearing location can enter the manifest/status.
+        guard url.scheme == "https", url.host != nil, url.user == nil, url.password == nil,
+              url.query == nil, url.fragment == nil else { throw URLError(.unsupportedURL) }
+        let name = "country-reference-pack.json"
+        var state = currentState()
+        markAttempt(name, in: &state); try persist(state)
+        do {
+            let result = try await download(url, minimumBytes: 100, name: name,
+                validator: matchingValidator(state.validators[name], for: url), credentialBearing: true)
+            state = currentState(); state.validators[name] = identified(result.validator, for: url)
+            markSuccess(name, downloaded: result.downloaded, sourceVersion: result.sourceVersion, in: &state)
+            try persist(state); return state
+        } catch {
+            state = currentState(); markFailure(name, in: &state); try persist(state); throw error
+        }
+    }
+
     private func download(_ url: URL, minimumBytes: Int, name: String, decompressGzip: Bool = false,
                           validator: ReferenceDataValidator? = nil,
                           credentialBearing: Bool = false) async throws -> DownloadResult {
@@ -461,7 +551,15 @@ public actor ReferenceDataUpdater {
         defer { try? FileManager.default.removeItem(at: temporary) }
         try validateReference(payload, name: name, xmlURL: temporary)
         try Task.checkCancellation()
-        if FileManager.default.fileExists(atPath: destination.path) {
+        if name == "country-reference-pack.json" {
+            _ = try importCountryPack(payload)
+        } else if name == "cty.xml" {
+            try CountryReferencePack.withPublicationLock {
+                if FileManager.default.fileExists(atPath: destination.path) {
+                    _ = try FileManager.default.replaceItemAt(destination, withItemAt: temporary)
+                } else { try FileManager.default.moveItem(at: temporary, to: destination) }
+            }
+        } else if FileManager.default.fileExists(atPath: destination.path) {
             _ = try FileManager.default.replaceItemAt(destination, withItemAt: temporary)
         } else {
             try FileManager.default.moveItem(at: temporary, to: destination)
@@ -502,7 +600,9 @@ public actor ReferenceDataUpdater {
     }
 
     private func validateReference(_ data: Data, name: String, xmlURL: URL) throws {
-        if name == "cty.xml" {
+        if name == "country-reference-pack.json" {
+            _ = try CTYResolver(countryPack: data)
+        } else if name == "cty.xml" {
             // XML well-formedness alone is not enough: the resolver accepts an
             // empty document. Demand usable rules from three independent DXCC
             // regions so an error page or partial XML cannot replace the cache.

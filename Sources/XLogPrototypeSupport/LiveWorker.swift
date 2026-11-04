@@ -447,6 +447,7 @@ public actor LiveWorker {
 
     public func shutdownOutcome() async -> LiveWorkerShutdownOutcome {
         await beginTerminalShutdown()
+        await logbookMethods.cancelCountryScans(retire: true)
         let onlineLogsRetired = await onlineLogs.terminate()
         var contestSpotsRetired = true
         await remoteBackup.terminate()
@@ -697,6 +698,10 @@ public actor LiveWorker {
                 let reply = try await aggregateReads.handle(method: "logbook_stats", params: [:])
                 guard !terminalShutdown else { throw WorkerFailure("worker_stopping", "The worker is shutting down.") }
                 result = try logbookMethods.renderMapContext(reply)
+            } else if method == "logbook_country_review" {
+                guard !terminalShutdown else { throw WorkerFailure("worker_stopping", "The worker is shutting down.") }
+                result = try await logbookMethods.countryReview(params: params)
+                guard !terminalShutdown else { throw WorkerFailure("worker_stopping", "The worker is shutting down.") }
             } else if method == "logbook_stats" || method == "logbook_catalog" || method == "logbook_list" || method == "logbook_award_progress" || (method == "logbook_export_adif" && params["action"] as? String == "begin") {
                 guard !terminalShutdown else { throw WorkerFailure("worker_stopping", "The worker is shutting down.") }
                 let reply = try await aggregateReads.handle(method: method, params: params)
@@ -743,7 +748,10 @@ public actor LiveWorker {
                 // Readonly SQLite handles must be closed before replacement on
                 // every platform/profile, including isolated acceptance workers.
                 let changingAggregateWorkspace = ["workspace_create", "backup_restore"].contains(method)
-                if changingAggregateWorkspace { await aggregateReads.suspendForWorkspaceChange() }
+                if changingAggregateWorkspace {
+                    await logbookMethods.cancelCountryScans(suspend: true)
+                    await aggregateReads.suspendForWorkspaceChange()
+                }
                 do {
                     #if os(macOS)
                     if cwCallsign {result=try await logbookLane.applyCWCallsign(params:params,resolver:cwDecode)}
@@ -753,7 +761,10 @@ public actor LiveWorker {
                     #endif
                 }
                 catch {
-                    if changingAggregateWorkspace { await aggregateReads.finishWorkspaceChange() }
+                    if changingAggregateWorkspace {
+                        logbookMethods.finishCountryScanWorkspaceChange()
+                        await aggregateReads.finishWorkspaceChange()
+                    }
                     // A rejected restore still owns the original workspace;
                     // rebuild its invalidated projection without hiding error.
                     if changingWorkspace {
@@ -776,7 +787,10 @@ public actor LiveWorker {
                     }
                     throw error
                 }
-                if changingAggregateWorkspace { await aggregateReads.finishWorkspaceChange() }
+                if changingAggregateWorkspace {
+                    logbookMethods.finishCountryScanWorkspaceChange()
+                    await aggregateReads.finishWorkspaceChange()
+                }
                 if changingWorkspace {
                     await references.finishWorkspaceChange()
                     #if os(macOS)
@@ -796,7 +810,9 @@ public actor LiveWorker {
                 }
                 let draftLogged = method == "logbook_operator_draft_apply" && params["action"] as? String == "save"
                     && result["status"] as? String == "applied"
-                let contactChanged = method == "logbook_contact_apply" && result["status"] as? String == "applied"
+                let countryChanged = ["logbook_country_correction_apply", "logbook_country_correction_undo"].contains(method)
+                    && result["status"] as? String == "applied" && result["replayed"] as? Bool != true
+                let contactChanged = (method == "logbook_contact_apply" && result["status"] as? String == "applied") || countryChanged
                 if method == "settings_save" { await references.resetAutomaticDeadline() }
                 let imported = method == "logbook_import_adif" && params["action"] as? String != "preview"
                 if draftLogged || contactChanged || imported || ["logbook_save", "logbook_delete", "logbook_undo"].contains(method) {
@@ -850,6 +866,10 @@ public actor LiveWorker {
                 if method == "secret_save" { await references.resetAutomaticDeadline() }
             } else if method.hasPrefix("reference_") {
                 result = try await references.handle(method: method, params: params)
+                if result["country_reference_changed"] as? Bool == true {
+                    await aggregateReads.observeContactChange()
+                    if normalBackgroundEnabled { queueContactRefresh() }
+                }
             } else {
                 #if os(macOS)
                 if method.hasPrefix("cw_decode_") {

@@ -226,7 +226,7 @@ actor LiveOpportunitiesMethods {
             let frequency = latestSpot.flatMap { ($0["frequencyKHz"] as? Double).map { Int64(($0 * 1_000).rounded()) } } ?? item.frequencyHz
             let areaLocation = directoryLocation && kind == .iota
             let referenceStatus = kind.map { !directory.hasData(for: $0) ? "not_installed" : match == nil ? "not_found" : "verified" } ?? "not_applicable"
-            let resolvedCountry = classification?.resolver.resolve(callsign, at: item.startsAt ?? item.observedAt)
+            let resolvedCountry = classification?.resolver.facts(callsign, at: item.startsAt ?? item.observedAt).country
             let declaredName = item.name.components(separatedBy: ":").last ?? item.name
             let namedCountry = countries.first { normalizedEntity($0.name) == normalizedEntity(declaredName) }
             let country = dxpeditionOnly ? namedCountry ?? resolvedCountry : resolvedCountry

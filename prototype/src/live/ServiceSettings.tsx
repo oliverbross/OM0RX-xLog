@@ -6,6 +6,7 @@ import CWSettings from "./CWSettings";
 import { validateCWProfile, type CWContext } from "./cwMacros";
 import type { CWState } from "./cwController";
 import ReferenceScheduleControl from "./ReferenceScheduleControl";
+import CountryReferenceControl from "./CountryReferenceControl";
 import { useSettingsSaveToast } from "./SettingsSaveToast";
 import "./ServiceSettings.css";
 
@@ -241,6 +242,7 @@ export default function ServiceSettings({ values, savedValues, request, onChange
     </Suspense>}
     {tab === "Integrations" && <Suspense fallback={<p role="status">Loading WSJT-X settings…</p>}><WSJTXPanel request={request} onImported={onExternalContact} /></Suspense>}
     <ReferenceScheduleControl request={request} visible={tab === "Reference data"} />
+    <CountryReferenceControl request={request} visible={tab === "Reference data"} />
     {(sessionError || pending || conflict || workspaceChanged) && <div className="service-settings-recovery" role="status">
       {sessionError && <p>{sessionError}</p>}
       {pending && <><button type="button" disabled={saving} onClick={() => void onReconcile?.()}>Check saved Settings</button>

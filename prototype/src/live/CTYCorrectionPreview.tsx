@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import "./ctyCorrectionPreview.css";
+import { CountryCorrectionReview } from "./CountryCorrectionReview";
 
 type Row = {
   id: string; call: string; start: string;
@@ -15,9 +16,10 @@ function entity(name?: string, adif?: number) {
   return adif == null ? "Unresolved" : `${name ?? "Unknown entity"} (${adif})`;
 }
 
-export function CTYCorrectionPreview({ onRequest, refreshKey }: {
+export function CTYCorrectionPreview({ onRequest, refreshKey, queryContext, onChanged }: {
   onRequest: (method: string, params?: Record<string, unknown>) => Promise<any>;
   refreshKey: number;
+  queryContext?: Record<string, unknown>; onChanged?: () => void;
 }) {
   const [offset, setOffset] = useState(0);
   const [reload, setReload] = useState(0);
@@ -38,7 +40,7 @@ export function CTYCorrectionPreview({ onRequest, refreshKey }: {
     return () => { cancelled = true; };
   }, [onRequest, offset, refreshKey, reload]);
   const preview = snapshot?.preview;
-  return <section className="cty-correction-preview" aria-label="PJ country inference preview" aria-busy={loading} tabIndex={0}>
+  return <><section className="cty-correction-preview" aria-label="PJ country inference preview" aria-busy={loading} tabIndex={0}>
     <header><h3>PJ country inference preview</h3><button type="button" disabled={loading}
       onClick={() => { setOffset(0); setReload(value => value + 1); }}>Refresh preview</button></header>
     <p>Read-only comparison of the former PJ shortcut with current CTY rules at each QSO date. Stored DXCC values, including manual overrides, are excluded. No contacts are changed.</p>
@@ -63,5 +65,5 @@ export function CTYCorrectionPreview({ onRequest, refreshKey }: {
         </nav>
       </>}
     </>}
-  </section>;
+  </section><CountryCorrectionReview onRequest={onRequest} refreshKey={refreshKey} queryContext={queryContext} onChanged={onChanged} /></>;
 }
