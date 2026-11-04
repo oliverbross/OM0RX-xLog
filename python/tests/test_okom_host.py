@@ -4,6 +4,7 @@ import base64
 import gzip
 from hashlib import sha256
 import json
+import sqlite3
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -112,6 +113,73 @@ class OKOMHostTests(unittest.TestCase):
             self.assertEqual([rows[key]["TS"] for key in ids], times)
             self.assertEqual(self.read("score")["score"]["total"], 18)
         self.assertIn("CLAIMED-SCORE: 18", self.read("export")["content"])
+
+    def retained_pre_period(self):
+        folder = Path(__file__).parent / "fixtures/okom-pre-period"
+        manifest = json.loads((folder / "manifest.json").read_text())
+        compressed = (folder / "contest.sqlite.gz").read_bytes()
+        self.assertEqual(sha256(compressed).hexdigest(), manifest["gzipSHA256"])
+        raw = gzip.decompress(compressed)
+        self.assertEqual(sha256(raw).hexdigest(), manifest["rawSHA256"])
+        self.session, self.workspace, self.revision = manifest["sessionID"], manifest["workspaceGeneration"], manifest["revision"]
+        directory = self.root / self.session
+        directory.mkdir()
+        (directory / "contest.sqlite").write_bytes(raw)
+        return directory / "contest.sqlite"
+
+    @staticmethod
+    def retained_history(path):
+        with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True) as connection:
+            connection.row_factory = sqlite3.Row
+            return {table: [dict(row) for row in connection.execute(f"SELECT * FROM {table} ORDER BY rowid")]
+                    for table in ["DXLOG", "xlog_qso_identity", "xlog_qso_audit"]}
+
+    def test_retained_pre_period_credit_requires_explicit_recalculate_without_read_mutation(self):
+        path = self.retained_pre_period()
+        before = self.retained_history(path)
+        self.assertEqual([row["Points"] for row in before["DXLOG"]], [3, 0])
+        state = deepcopy(self.host.database(self.session).state(self.session))
+        self.read("session_open")
+        self.read("projection"); self.read("log")
+        score = self.read("score")["score"]
+        self.assertFalse(score["scoringComplete"])
+        self.assertIn("Recalculate", score["scoringLimitation"])
+        with self.assertRaisesRegex(HostError, "Recalculate"):
+            self.read("export")
+        self.assertEqual(self.retained_history(path), before)
+        self.mutate("recalculate")
+        after = self.retained_history(path)
+        self.assertEqual([row["Points"] for row in after["DXLOG"]], [0, 3])
+        derived = {"Points", "IsMultiplier1", "IsMultiplier2"}
+        for old, new in zip(before["DXLOG"], after["DXLOG"]):
+            self.assertEqual({k:v for k,v in old.items() if k not in derived}, {k:v for k,v in new.items() if k not in derived})
+        self.assertEqual(after["xlog_qso_identity"], before["xlog_qso_identity"])
+        self.assertEqual(after["xlog_qso_audit"], before["xlog_qso_audit"])
+        current = self.host.database(self.session).state(self.session)
+        for key in ["ruleSHA256", "definitionVersion", "reference", "draft"]:
+            self.assertEqual(current[key], state[key], key)
+        for restart in [False, True]:
+            if restart:
+                self.host.close(); self.host = Host(self.root); self.read("session_open")
+            score = self.read("score")["score"]
+            self.assertTrue(score["scoringComplete"])
+            self.assertEqual(score["total"], 6)
+            self.assertIn("CLAIMED-SCORE: 6", self.read("export")["content"])
+
+    def test_retained_credit_gate_survives_new_qso_setup_and_reopen(self):
+        self.retained_pre_period()
+        self.read("session_open")
+        self.log("DL1ABC", "001", 1)
+        setup = self.read("setup_get")["setup"]
+        setup["settings"]["BandCategory"] = "20M"
+        self.mutate("setup_save", setup=setup)
+        self.host.close(); self.host = Host(self.root); self.read("session_open")
+        self.assertFalse(self.read("score")["score"]["scoringComplete"])
+        with self.assertRaisesRegex(HostError, "Recalculate"):
+            self.read("export")
+        self.mutate("recalculate")
+        self.assertTrue(self.read("score")["score"]["scoringComplete"])
+        self.assertEqual(self.read("score")["score"]["total"], 18)
 
     def test_mo2t_is_explicitly_unavailable_without_fabricating_historical_attribution(self):
         self.create("DL1ABC", "DL", "#")

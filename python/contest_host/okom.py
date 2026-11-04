@@ -15,6 +15,8 @@ from types import SimpleNamespace
 
 PLUGIN_ID = "okom_dx_cw"
 DEFINITION_VERSION = "1.0.0"
+# Implementation credit revision, separate from the unchanged official edition.
+CREDIT_REVISION = 1
 RULE_EDITION = "OK-OM DX CW 2026"
 RULE_SHA256 = "948be7d0d680a96917856739e3585e12c341486bd3a8258b7d3712c52615d0bd"
 REFERENCE = json.loads((Path(__file__).parent / "resources/okom-cw-2026.json").read_text())
@@ -146,6 +148,8 @@ def score(desk):
             complete = False
         complete = complete and bool(row.get("CountryPrefix") and row.get("Continent") or row["Call"].endswith("/MM"))
     limitations = [] if complete else ["A retained contact lacks pinned operating-location or country evidence; review before a submission claim"]
+    if rows and desk.state.get("okomCreditRevision") != CREDIT_REVISION:
+        limitations.append("Retained OK/OM credit requires explicit per-contest Recalculate before a complete submission claim; contacts and sent exchanges are preserved")
     if desk.contest_settings.get("TransmitterCategory") == "TWO":
         limitations.append("OK/OM MO2T submission unavailable: actual per-QSO transmitter identity and permitted serial scope are missing; historical exchanges are preserved")
     return {"qsos": len(rows), "points": points, "countries": countries, "districts": districts,

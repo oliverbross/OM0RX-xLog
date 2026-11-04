@@ -3131,6 +3131,10 @@ class Host:
                     # silently rescore retained 1.0.0 sessions.
                     state["definitionVersion"] = WAE_DEFINITION_VERSION
                 self.rebuild(desk)
+                if state["pluginID"] == "okom_dx_cw":
+                    # Only successful deliberate full-log recalculation admits
+                    # retained derived credit. Reads/setup/new QSOs never adopt it.
+                    state["okomCreditRevision"] = okom.CREDIT_REVISION
                 for name, value in fields.items():
                     getattr(desk, name).setText(value)
             elif method == "country_reconcile":
@@ -3841,7 +3845,8 @@ class Host:
                 # Setup edits/reopening never opt historical logs into new rules.
                 "scoringRevision": scoring_revision,
                 **({"definitionVersion":WAE_DEFINITION_VERSION} if plugin_id in WAE_PLUGINS else {}),
-                **({"definitionVersion": okom.DEFINITION_VERSION, "ruleSHA256": okom.RULE_SHA256} if plugin_id == "okom_dx_cw" else {}),
+                **({"definitionVersion": okom.DEFINITION_VERSION, "ruleSHA256": okom.RULE_SHA256,
+                    "okomCreditRevision": okom.CREDIT_REVISION} if plugin_id == "okom_dx_cw" else {}),
                 "operatingMode": live_mode,
                 "roverLocation": "",
                 "operator": text(params.get("operator", call), 32), "reference": {"id": text(reference["id"]), "countries": countries,

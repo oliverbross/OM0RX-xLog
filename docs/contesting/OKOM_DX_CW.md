@@ -45,9 +45,14 @@ The selected 2026 credit period is 14 November 12:00 UTC through 15 November
 and receive zero credit; they cannot consume a later valid duplicate key. A
 single-band claim includes only that band's points/multipliers, while other-band
 rows remain in the log/export for checking (§3.2). Switching category changes the
-claim without deleting contacts. For a retained pre-correction contest, explicitly
-use its existing Recalculate action to refresh stored points/multiplier flags;
-there is no automatic database-wide rescore or change of edition/sent history.
+claim without deleting contacts. A retained contest without the current derived
+credit revision shows **Recalculate required** through scoring limitations and
+withholds a complete submission claim/Cabrillo. Use its existing per-contest
+Recalculate action to refresh stored points/multiplier flags. Browsing does not
+rescore; a new QSO or setup change does not clear this gate. Successful deliberate
+Recalculate records the calculation revision and survives reopen. This revision
+describes the implementation, separately from the unchanged official source and
+definition. There is no automatic database-wide rescore or change of sent history.
 
 Saved contacts retain their sent exchange and operating-location/definition
 snapshot. Changing setup does not rewrite those historical values. Cabrillo uses
