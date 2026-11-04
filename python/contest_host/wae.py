@@ -4,7 +4,7 @@ Manual QTC accounting never calls a station/output transport. A confirmation is
 an operator acknowledgement, not evidence of RF delivery or organizer acceptance.
 """
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, UTC
 from types import SimpleNamespace
 from importlib import import_module
 import re
@@ -178,14 +178,23 @@ def projection(desk, params):
         return {"available": False, "reason": "QTC accounting requires a WAE contest definition", "batches": []}
     counterpart = str(params.get("counterpart", "")).strip().upper()
     direction = params.get("direction", "receive")
+    from .qtc_operating import operating, opportunities
+    calls = params.get("counterparts", [counterpart] if counterpart else [])
+    if not isinstance(calls, list) or len(calls) > 200 or any(not isinstance(call, str) or len(call) > 32 for call in calls):
+        raise ValueError("Bounded QTC counterpart list required")
     return {"available": True, "ruleEdition": RULE_EDITION, "batches": batches(desk.state), "score": score(desk),
+            "operating": operating(desk.state), "opportunities": opportunities(desk, [call.strip().upper() for call in calls]),
             "eligibility": eligibility(desk.state, counterpart, direction), "eligibleSources": available(desk, counterpart),
-            "output": "Manual acknowledgement only; no output transport is armed"}
+            "output": "Explicit output attempts are separate from operator acknowledgment and accounting"}
 
 
 def mutate(desk, params, require):
     state = desk.state
     require(state["pluginID"] in PLUGINS, "Select a WAE definition before recording QTCs")
+    if params["action"] in {"qtc_workspace", "qtc_observe", "qtc_output", "qtc_output_result", "qtc_complete"}:
+        from .qtc_operating import mutate as operating_mutate
+        operating_mutate(desk, params, require)
+        return projection(desk, params)
     journal = batches(state)
     action = params["action"]
     if action == "qtc_create":
@@ -244,6 +253,10 @@ def mutate(desk, params, require):
             item = batch["items"][index]
             if action == "qtc_confirm":
                 require(batch["status"] == "open", "Reconcile the cancelled batch before acknowledging more items")
+                from .qtc_operating import operating
+                editing = operating(state)["workspace"].get("pendingEdit")
+                require(not editing or editing.get("batchID") != batch["id"] or editing.get("index") != index,
+                        "Save or explicitly discard this pending QTC correction before acknowledgement")
                 item["status"] = "confirmed"
             else:
                 require(len(item["repeats"]) < 100, "QTC repeat history is full")
@@ -276,6 +289,17 @@ def mutate(desk, params, require):
         else:
             require(False, "Unsupported QTC action")
     state["qtc"] = {"schema": 1, "batches": journal}
+    from .qtc_operating import operating
+    metadata = operating(state)
+    activities = metadata.setdefault("activities", [])
+    if len(activities) < 5000:
+        saved = next((row for row in journal if row["id"] == params.get("batchID")), None)
+        activities.append({"operationID": params["operationID"], "batchID": params.get("batchID"),
+            "action": action, "atUTC": datetime.now(UTC).isoformat(),
+            "frequencyHz": saved["frequencyHz"] if saved else state["draft"]["frequencyHz"], "basis": "operator declaration; RF unverified"})
+    else:
+        metadata["activityCoverageComplete"] = False
+    state["qtcOperating"] = metadata
     return projection(desk, params)
 
 

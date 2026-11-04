@@ -1,6 +1,23 @@
 import { describe, expect, it, vi } from "vitest";
-import { listenToAudio, recorderKeyAction, type RecorderRead } from "./contestRecorder";
+import { bookmarkQTC, reviewQTC, listenToAudio, recorderKeyAction, type RecorderRead } from "./contestRecorder";
 describe("listening-only recorder client",()=>{
+  it("anchors QTC only to an already running exact-log capture and never starts a device",async()=>{
+    const reference={schema:1 as const,sessionID:"log",seriesID:"series",itemIndex:0,operationID:"op",event:"item" as const};
+    const read=vi.fn().mockResolvedValueOnce({active:null});
+    await expect(bookmarkQTC(reference,"workspace",read)).rejects.toThrow("No advancing recording");
+    expect(read).toHaveBeenCalledExactlyOnceWith({action:"status"});
+    read.mockClear();read.mockResolvedValueOnce({active:{logId:"log",captureId:"capture",frames:100,finished:false}}).mockResolvedValueOnce({id:"marker"});
+    expect(await bookmarkQTC(reference,"workspace",read)).toEqual({id:"marker"});
+    expect(read.mock.calls.map(c=>c[0].action)).toEqual(["status","qtc_bookmark"]);
+    expect(read.mock.calls[1][0]).toMatchObject({logId:"log",workspaceGeneration:"workspace",captureId:"capture",qtc:reference});
+  });
+  it("opens a QTC sample selection only after coverage lookup and never plays automatically",async()=>{
+    const read=vi.fn().mockResolvedValue({available:true,rows:[{coverage:"pending"}]}),open=vi.fn().mockResolvedValue(undefined);
+    await reviewQTC({logId:"log",seriesID:"series",itemIndex:2},read,open);
+    expect(read).toHaveBeenCalledExactlyOnceWith({action:"qtc_review",logId:"log",seriesID:"series",itemIndex:2});expect(open).toHaveBeenCalledOnce();
+    read.mockResolvedValueOnce({available:false,reason:"Missing capture"});open.mockClear();
+    await expect(reviewQTC({logId:"log",seriesID:"series"},read,open)).rejects.toThrow("Missing capture");expect(open).not.toHaveBeenCalled();
+  });
   it("never sends a late replay after Stop while an admitted replay is pending",async()=>{
     let release!:()=>void;const pending=new Promise<void>(resolve=>{release=resolve;});
     const calls:string[]=[];const read:RecorderRead=async request=>{calls.push(String(request.action));if(request.action==="replay_recent")await pending;return {} as any;};

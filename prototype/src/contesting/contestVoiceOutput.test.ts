@@ -1,5 +1,5 @@
 import {describe,expect,it,vi} from "vitest";
-import {ContestVoiceOutput,type ContestVoiceAction,type ContestVoiceOrigin} from "./contestVoiceOutput";
+import {ContestVoiceOutput,type ContestVoiceAction,type ContestVoiceOrigin,type ContestVoiceTarget} from "./contestVoiceOutput";
 
 const origin:ContestVoiceOrigin={sessionID:"10000000-0000-4000-8000-000000000001",workspaceGeneration:"20000000-0000-4000-8000-000000000002",
   draftID:"30000000-0000-4000-8000-000000000003",sourceRevision:"source"};
@@ -17,7 +17,8 @@ async function prepared(params:any){
   const manifest=new Uint8Array(length);let offset=0;for(const part of parts){manifest.set(part,offset);offset+=part.length;}
   return{sessionID:params.sessionID,workspaceGeneration:params.workspaceGeneration,draftID:params.draftID,actionID:params.actionID,
     payloadSHA256:params.payloadSHA256,manifestSHA256:await sha(manifest),totalDurationMs:100,totalDecodedBytes:bytes.length,
-    segments:[{name:params.actionID,wavBase64:wav,durationMs:100,sha256:digest,decodedBytes:bytes.length}]};
+    segments:[{name:params.actionID,wavBase64:wav,durationMs:100,sha256:digest,decodedBytes:bytes.length}],
+    ...(params.boundTarget?{boundTarget:structuredClone(params.boundTarget) as ContestVoiceTarget}:{})};
 }
 class FakeAudio{
   src="";preload="";listeners=new Map<string,Set<()=>void>>();pause=vi.fn();setSinkId=vi.fn(async()=>{});
@@ -38,6 +39,32 @@ const harness=(production=true)=>{
 };
 
 describe("ContestVoiceOutput",()=>{
+  const target=():ContestVoiceTarget=>({schemaVersion:1,outputIntent:"60000000-0000-4000-8000-000000000006",target:{provider:"direct_agent",
+    selection_generation:1,selection_id:"70000000-0000-4000-8000-000000000007",worker_generation:2,connection_generation:3,
+    control_revision:4,observation_revision:5,received_at_ms:6}});
+  it("carries the original QTC target through delayed preparation and PTT admission without replacement",async()=>{
+    const h=harness(),captured=target(),original=structuredClone(captured);
+    let resolve!:()=>void;const reply=new Promise<void>(done=>{resolve=done;});
+    h.request.mockImplementationOnce(async params=>{await reply;return Promise.all(params.requests.map(prepared));});
+    const playing=h.output.play([action()],origin,"/profile","",undefined,captured);
+    captured.target.connection_generation=99;
+    resolve();await playing;
+    expect(h.request.mock.calls[0][0].requests[0].boundTarget).toEqual(original);
+    expect((h.ptt.acquire.mock.calls[0] as unknown[])[0]).toEqual([expect.objectContaining({boundTarget:original})]);
+  });
+  it("rejects a replacement target returned during audio preparation before PTT",async()=>{
+    const h=harness(),captured=target();
+    h.request.mockImplementationOnce(async params=>{const result=await Promise.all(params.requests.map(prepared));result[0].boundTarget!.target.selection_generation+=1;return result;});
+    await expect(h.output.play([action()],origin,"/profile","",undefined,captured)).rejects.toThrow(/captured radio target/);
+    expect(h.ptt.acquire).not.toHaveBeenCalled();expect(h.audios).toHaveLength(0);
+  });
+  it("a generation switch after preparation is rejected by bound native admission without any playback",async()=>{
+    const h=harness(),captured=target();
+    h.ptt.acquire.mockImplementationOnce(async()=>{throw Error("captured provider generation changed");});
+    await expect(h.output.play([action()],origin,"/profile","",undefined,captured)).rejects.toThrow(/generation changed/);
+    expect(h.audios[0].play).not.toHaveBeenCalled();
+    expect((h.ptt.acquire.mock.calls[0] as unknown[])[0]).toEqual([expect.objectContaining({boundTarget:captured})]);
+  });
   it("does no I/O in Contesting Test",async()=>{const h=harness(false);await expect(h.output.play([action()],origin,"/profile","radio")).rejects.toThrow("disabled");expect(h.request).not.toHaveBeenCalled();expect(h.ptt.acquire).not.toHaveBeenCalled();});
   it("prepares one bounded batch, routes every device before PTT, then plays in order and releases",async()=>{const h=harness();await h.output.play([action(0),action(1)],origin,"/profile","radio");expect(h.request).toHaveBeenCalledOnce();expect(h.audios.every(audio=>(audio.setSinkId.mock.calls as unknown[][])[0][0]==="radio")).toBe(true);expect(h.order).toEqual(["ptt-on","play-0","play-1","ptt-off"]);});
   it("Stop and playback errors release PTT",async()=>{const h=harness();let resolvePlay:()=>void=()=>{};const pending=new Promise<void>(resolve=>{resolvePlay=resolve;});h.audios.length=0;

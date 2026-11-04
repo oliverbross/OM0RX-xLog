@@ -60,6 +60,7 @@ CQWS_EXCHANGES = frozenset({
     "TO", "CL", "HQ", "RA", "DX", "PT", "BP", "RE", "GE", "DB", "FD", "YL", "QRP", "WS",
 })
 VOICE_INTENT_PLUGINS = {"arrl_ss_phone", "cq_wpx_ssb", "cq_ww_ssb", "ea_majestad_ssb", "ref_ssb",
+                        "wae_ssb",
                         "arrl_field_day", *ARRL_VHF_PLUGINS, *CENTRAL_EUROPEAN_PLUGINS,
                         *EUROPEAN_HF_PLUGINS, "ca_qso_party", "canada_day", "cqws",
                         "darc_schwaben", "winter_field_day", "rda_contest", "rdxc",
@@ -1959,6 +1960,12 @@ class Host:
                 require(not store.exec_sql("SELECT operation_id FROM xlog_output_claim WHERE operation_id=?", (operation,)),
                         "Output was already consumed; do not replay", "output_consumed")
                 store.conn.execute("INSERT INTO xlog_output_claim VALUES(?)", (operation,))
+                metadata = current.get("qtcOperating")
+                if isinstance(metadata, dict):
+                    for attempt in metadata.get("attempts", []):
+                        if attempt.get("operationID") == operation:
+                            attempt["state"] = "submitted"
+                    store.save_state(current)
                 store.finish(True)
                 return {"claimed": True, "operationID": operation, "actions": result["actions"]}
             except BaseException:

@@ -1,12 +1,31 @@
 import { invoke } from "@tauri-apps/api/core";
 export type ContestVoiceOrigin = { sessionID:string; workspaceGeneration:string; draftID:string; sourceRevision:string };
+export type ContestVoiceTarget={schemaVersion:1;outputIntent:string;target:{provider:"direct_agent"|"direct_flex_lan";
+  selection_generation:number;selection_id:string;worker_generation:number;connection_generation:number;
+  control_revision:number;observation_revision:number;received_at_ms:number}};
+const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function validContestVoiceTarget(value:unknown):value is ContestVoiceTarget{
+  if(!value||typeof value!=="object"||Array.isArray(value))return false;
+  const item=value as ContestVoiceTarget,target=item.target;
+  return Object.keys(item).length===3&&item.schemaVersion===1&&uuid.test(item.outputIntent)&&!!target&&typeof target==="object"&&
+    Object.keys(target).length===8&&["direct_agent","direct_flex_lan"].includes(target.provider)&&uuid.test(target.selection_id)&&
+    [target.selection_generation,target.worker_generation,target.connection_generation,target.control_revision,target.observation_revision,target.received_at_ms].every(value=>Number.isSafeInteger(value)&&value>=0)&&target.worker_generation>0;
+}
+export async function captureContestVoiceTarget(origin:Pick<ContestVoiceOrigin,"sessionID"|"workspaceGeneration">):Promise<ContestVoiceTarget>{
+  const value=await invoke<unknown>("contest_voice_target",{sessionID:origin.sessionID,workspaceGeneration:origin.workspaceGeneration});
+  if(!validContestVoiceTarget(value))throw Error("The native contest voice radio target could not be captured.");
+  return structuredClone(value);
+}
+const sameTarget=(left:ContestVoiceTarget|undefined,right:ContestVoiceTarget|undefined)=>left===undefined?right===undefined:
+  !!right&&validContestVoiceTarget(right)&&left.schemaVersion===right.schemaVersion&&left.outputIntent===right.outputIntent&&
+  Object.keys(left.target).every(key=>left.target[key as keyof ContestVoiceTarget["target"]]===right.target[key as keyof ContestVoiceTarget["target"]]);
 export type ContestVoiceAction = { actionID:string; sessionID:string; workspaceGeneration?:string; draftID:string; sourceRevision?:string;
   kind:string; signal:string; mode:string; payload:string; payloadSHA256:string };
 type PreparedSegment = { name:string; wavBase64:string; durationMs:number; sha256:string; decodedBytes:number };
 type PreparedVoice = { sessionID:string; workspaceGeneration:string; draftID:string; actionID:string; payloadSHA256:string;
-  manifestSHA256:string; segments:PreparedSegment[]; totalDurationMs:number; totalDecodedBytes:number };
+  manifestSHA256:string; segments:PreparedSegment[]; totalDurationMs:number; totalDecodedBytes:number;boundTarget?:ContestVoiceTarget };
 type VoiceNative = (params:{requests:Record<string,unknown>[]})=>Promise<PreparedVoice[]>;
-type VoiceAdmission = Pick<PreparedVoice,"sessionID"|"workspaceGeneration"|"draftID"|"actionID"|"payloadSHA256"|"manifestSHA256">;
+type VoiceAdmission = Pick<PreparedVoice,"sessionID"|"workspaceGeneration"|"draftID"|"actionID"|"payloadSHA256"|"manifestSHA256"|"boundTarget">;
 type VoicePTT = { acquire:(admissions:VoiceAdmission[])=>Promise<{accepted:boolean;confirmed:boolean}>;
   release:()=>Promise<{accepted:boolean;confirmed:boolean}> };
 type VoiceAudio = Pick<HTMLAudioElement,"addEventListener"|"removeEventListener"|"load"|"pause"|"play"> & {
@@ -76,9 +95,10 @@ export class ContestVoiceOutput {
     private readonly makeAudio:AudioFactory=audioFactory,private readonly createURL=(blob:Blob)=>URL.createObjectURL(blob),
     private readonly revokeURL=(url:string)=>URL.revokeObjectURL(url)){}
 
-  async play(actions:ContestVoiceAction[],origin:ContestVoiceOrigin,profilePath:string,deviceID:string,external?:AbortSignal):Promise<void>{
+  async play(actions:ContestVoiceAction[],origin:ContestVoiceOrigin,profilePath:string,deviceID:string,external?:AbortSignal,capturedTarget?:ContestVoiceTarget):Promise<void>{
     if(!this.production)throw new Error("Contest phone audio and PTT are disabled in the Contesting Test profile.");
     if(this.controller)throw new Error("Contest phone output is already active. Use Stop before sending another message.");
+    if(capturedTarget!==undefined){if(!validContestVoiceTarget(capturedTarget))throw Error("The captured contest voice target is invalid.");capturedTarget=structuredClone(capturedTarget);}
     const scope=`${origin.sessionID}/${origin.workspaceGeneration}`;
     if(this.scope!==scope){this.scope=scope;this.consumed.clear();}
     if(!profilePath.trim())throw new Error("Choose a voice WAV profile folder in Contest Sound settings before arming phone output.");
@@ -97,14 +117,15 @@ export class ContestVoiceOutput {
     try{
       const prepared=await this.request({requests:actions.map(action=>({schemaVersion:1,sessionID:origin.sessionID,
         workspaceGeneration:origin.workspaceGeneration,draftID:origin.draftID,actionID:action.actionID,payload:action.payload,
-        payloadSHA256:action.payloadSHA256,profilePath}))});
+        payloadSHA256:action.payloadSHA256,profilePath,...(capturedTarget?{boundTarget:capturedTarget}:{})}))});
       if(prepared.length!==actions.length)throw new Error("Native voice preparation batch identity was lost; no PTT action was taken.");
       let durationMs=0;
       for(let index=0;index<prepared.length;index+=1){
         const value=prepared[index],action=actions[index];
         if(value.sessionID!==origin.sessionID||value.workspaceGeneration!==origin.workspaceGeneration||value.draftID!==origin.draftID||
           value.actionID!==action.actionID||value.payloadSHA256!==action.payloadSHA256||!Array.isArray(value.segments)||!value.segments.length||
-          !Number.isSafeInteger(value.totalDurationMs)||value.totalDurationMs<1||!/^[0-9a-f]{64}$/.test(value.manifestSHA256))throw new Error("Native voice preparation identity was lost; no PTT action was taken.");
+          !Number.isSafeInteger(value.totalDurationMs)||value.totalDurationMs<1||!/^[0-9a-f]{64}$/.test(value.manifestSHA256)||
+          !sameTarget(capturedTarget,value.boundTarget))throw new Error("Native voice preparation identity or captured radio target was lost; no PTT action was taken.");
         await verifyManifest(value);
         durationMs+=value.totalDurationMs;
         for(const segment of value.segments){
@@ -115,8 +136,8 @@ export class ContestVoiceOutput {
       }
       for(const id of ids)this.consumed.add(id);
       if(controller.signal.aborted)throw new ContestVoiceStopped();
-      const admissions=prepared.map(({sessionID,workspaceGeneration,draftID,actionID,payloadSHA256,manifestSHA256})=>
-        ({sessionID,workspaceGeneration,draftID,actionID,payloadSHA256,manifestSHA256}));
+      const admissions=prepared.map(({sessionID,workspaceGeneration,draftID,actionID,payloadSHA256,manifestSHA256,boundTarget})=>
+        ({sessionID,workspaceGeneration,draftID,actionID,payloadSHA256,manifestSHA256,...(boundTarget?{boundTarget}:{})}));
       this.acquisition=(async()=>{const keyed=await this.ptt.acquire(admissions);
         if(!keyed.accepted||!keyed.confirmed)throw new Error("Native PTT did not prove fresh transmit readiness for contest phone output.");
         this.pttActive=true;})();

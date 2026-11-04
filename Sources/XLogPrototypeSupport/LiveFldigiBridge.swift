@@ -99,6 +99,9 @@ public actor LiveFldigiBridge {
     // Set before an admitted TX request can reach RPC. A lost reply retains
     // the duty; configuration alone never grants cleanup of another engine.
     private var transmitDuty: UUID?
+    // Admission is revoked at Stop, while this original owner must survive a
+    // failed RX attempt so a scoped retry can still release the same output.
+    private var transmitOwnerGeneration: UUID?
     private var sendInFlight = false
     private var releasesInFlight = 0
     private var releaseUncertain = false
@@ -205,7 +208,13 @@ public actor LiveFldigiBridge {
             contestDestination = destination; self.contestImporter = contestImporter
             try startReceiver()
         case "fldigi_stop":
-            try require(params, allowed: [])
+            try require(params, allowed: ["expectedGeneration"])
+            if let raw = params["expectedGeneration"] {
+                guard let token = raw as? String, let expected = UUID(uuidString: token),
+                      transmitOwnerGeneration == expected || transmitOwnerGeneration == nil && transmitGeneration == expected else {
+                    throw WorkerFailure("stale_context", "The original fldigi output owner is retired; this Stop did not control its replacement.")
+                }
+            }
             stopReceiver(); retireDestination(); transmitGeneration = UUID()
             // Revocation and the explicit receive attempt do not depend on a
             // readable/writable preferences file. Never reload old TX consent.
@@ -218,7 +227,7 @@ public actor LiveFldigiBridge {
             do { try save(configuration ?? FldigiConfiguration()) }
             catch { /* The separate snapshot error retains this failure. */ }
         case "fldigi_send":
-            try require(params, allowed: ["actions"], required: ["actions"])
+            try require(params, allowed: ["actions", "expectedGeneration"], required: ["actions"])
             guard externalIOAllowed(), !terminalShutdown else {
                 throw WorkerFailure("external_io_disabled", "External services are disabled in OM0RX-xLog Contesting Test.")
             }
@@ -227,6 +236,23 @@ public actor LiveFldigiBridge {
                 throw WorkerFailure("fldigi_transmit_disabled", "Enable fldigi macro transmit for this contest first.")
             }
             guard let actions = params["actions"] as? [[String: Any]], (1...Self.maximumActions).contains(actions.count) else { throw invalid() }
+            // QTC preparation may await durable host work before reaching this
+            // actor. Stop/re-enable must not let that old action acquire a new
+            // output lease merely because its session and payload still match.
+            let expectedGeneration = params["expectedGeneration"] as? String
+            if params["expectedGeneration"] != nil {
+                guard let expectedGeneration, UUID(uuidString: expectedGeneration) == transmitGeneration else {
+                    throw WorkerFailure("stale_context", "The captured fldigi output lease was retired. Review and explicitly prepare a new action.")
+                }
+            }
+            for action in actions where action["qtc"] != nil {
+                guard let qtc = action["qtc"] as? [String: Any], qtc["schema"] as? Int == 1,
+                      let captured = qtc["bridgeGeneration"] as? String,
+                      let expectedGeneration, UUID(uuidString: captured) == transmitGeneration,
+                      UUID(uuidString: expectedGeneration) == UUID(uuidString: captured) else {
+                    throw WorkerFailure("stale_context", "QTC output needs its original captured fldigi generation; it cannot resume after Stop.")
+                }
+            }
             let payloads = try actions.map { try validate(action: $0, destination: destination) }
             guard !sendInFlight, releasesInFlight == 0, !releaseUncertain else {
                 throw WorkerFailure("fldigi_release_required", "Wait for pending output and use Stop to confirm receive before transmitting again.")
@@ -234,7 +260,7 @@ public actor LiveFldigiBridge {
             let generation = transmitGeneration
             let duty = UUID()
             explicitStopRequested = false
-            transmitDuty = duty; sendInFlight = true
+            transmitDuty = duty; transmitOwnerGeneration = generation; sendInFlight = true
             defer { sendInFlight = false }
             do {
                 for payload in payloads {
@@ -333,7 +359,7 @@ public actor LiveFldigiBridge {
             // RX may overtake a pending TX/text RPC. That send must retire and
             // issue its own final release before this duty can be forgotten.
             if transmitDuty == expected, !sendInFlight || retiringSend {
-                transmitDuty = nil; releaseUncertain = false
+                transmitDuty = nil; transmitOwnerGeneration = nil; releaseUncertain = false
                 if explicitStopRequested { status = "fldigi receive command acknowledged." }
             } else if explicitStopRequested {
                 status = "fldigi Stop requested; pending output must retire before release is acknowledged."
@@ -367,6 +393,8 @@ public actor LiveFldigiBridge {
                 "receive_supported": receiveDestination != nil, "transmit_supported": transmitDestination != nil,
                 "receive_running": receiver != nil, "received_count": receivedCount, "imported_count": importedCount,
                 "transmit_release_required": transmitDuty != nil, "transmit_release_uncertain": releaseUncertain,
+                "transmit_generation": transmitGeneration.uuidString.lowercased(),
+                "transmit_owner_generation": transmitOwnerGeneration?.uuidString.lowercased() as Any? ?? NSNull(),
                 "configuration_error": configurationPersistenceError as Any? ?? NSNull(),
                 "duplicate_count": duplicateCount, "rejected_count": rejectedCount, "status": status,
                 "completed":completed.filter{$0.destination==receiveDestination}.map{["id":$0.id,"sender":$0.sender,"packet":$0.packet,"state":"externally_completed_pending_review","instanceEvidence":"UDP has no engine identity; verify the external app before accepting"] as [String:Any]},

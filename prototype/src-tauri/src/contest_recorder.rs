@@ -777,6 +777,8 @@ pub fn validate_request(label: &str, request: &Value) -> Result<&'static str> {
         "start" | "record_test" => &["action", "logId", "workspaceGeneration"],
         "stop" | "pause" => &["action", "captureId"],
         "bookmark" => &["action", "captureId", "note"],
+        "qtc_bookmark" => &["action", "logId", "workspaceGeneration", "captureId", "qtc", "note"],
+        "qtc_review" => &["action", "logId", "seriesID", "itemIndex"],
         "select" => &["action", "logId", "captureId", "qsoId"],
         "links" => &["action", "logId", "qsoIds"],
         "bookmarks" => &["action", "logId", "captureId", "offset", "limit", "query"],
@@ -853,6 +855,8 @@ pub fn validate_request(label: &str, request: &Value) -> Result<&'static str> {
         "stop" => "stop",
         "pause" => "pause",
         "bookmark" => "bookmark",
+        "qtc_bookmark" => "qtc_bookmark",
+        "qtc_review" => "qtc_review",
         "select" => "select",
         "links" => "links",
         "bookmarks" => "bookmarks",
@@ -886,6 +890,13 @@ pub async fn contest_recorder_request(
         return Err("Recorder is shutting down".into());
     }
     let isolated = crate::runtime_profile::isolated(state.path.is_some());
+    if action == "qtc_bookmark" {
+        let context = crate::contest_window_context::active()?;
+        if request["logId"] != context.session_id || request["workspaceGeneration"] != context.workspace_generation
+            || request["qtc"]["sessionID"] != context.session_id {
+            return Err("QTC bookmark belongs to a retired contest workspace.".into());
+        }
+    }
     if isolated
         && matches!(
             action,
@@ -1003,7 +1014,7 @@ impl Recorder {
                 #[allow(unreachable_code)]
                 Ok(json!({"started":true}))
             }
-            "stop" | "pause" | "bookmark" => {
+            "stop" | "pause" | "bookmark" | "qtc_bookmark" => {
                 let _life = self
                     .lifecycle
                     .lock()
@@ -1016,7 +1027,7 @@ impl Recorder {
                 if r["captureId"] != id {
                     return Err("Recorder changed; refresh before this action".into());
                 }
-                if action == "bookmark" {
+                if matches!(action,"bookmark"|"qtc_bookmark") {
                     if self
                         .state
                         .lock()
@@ -1027,10 +1038,10 @@ impl Recorder {
                     {
                         return Err("No advancing capture for Bookmark now".into());
                     }
-                    let link = a
-                        .lock()
-                        .map_err(|_| "Archive unavailable")?
-                        .manual(r["note"].as_str().unwrap_or(""))?;
+                    let mut archive=a.lock().map_err(|_| "Archive unavailable")?;
+                    if action == "qtc_bookmark" && r["logId"] != archive.manifest.log_id { return Err("QTC capture belongs to another contest.".into()); }
+                    let link = if action == "qtc_bookmark" {archive.qtc_marker(&r["qtc"],r["note"].as_str().unwrap_or(""))?}
+                        else {archive.manual(r["note"].as_str().unwrap_or(""))?};
                     Ok(json!(link))
                 } else {
                     self.stop(
@@ -1047,6 +1058,35 @@ impl Recorder {
                     )?;
                     Ok(json!({"stopped":true}))
                 }
+            }
+            "qtc_review" => {
+                let log=r["logId"].as_str().ok_or("Missing QTC contest identity")?; store::uuid(log)?;
+                let series=r["seriesID"].as_str().ok_or("Missing QTC series identity")?; store::uuid(series)?;
+                if !r["itemIndex"].is_null() && !r["itemIndex"].as_u64().is_some_and(|i|i<10) { return Err("Invalid QTC item index".into()); }
+                let keys={let s=self.state.lock().map_err(|_|"Recorder unavailable")?;
+                    s.saved.captures.iter().filter(|k|k.log_id==log && !k.controlled_test).cloned().collect::<Vec<_>>()};
+                let mut rows=Vec::new();
+                for key in keys {
+                    let archive=match self.archive(&key) {Ok(a)=>a,Err(_)=>continue};
+                    let a=archive.lock().map_err(|_|"Archive unavailable")?.snapshot();
+                    for link in a.links.values().filter(|l| l.qtc.as_ref().is_some_and(|q| q["schema"]==1 && q["sessionID"]==log && q["seriesID"]==series
+                        && (r["itemIndex"].is_null() || q["itemIndex"]==r["itemIndex"]))) {
+                        let start=link.frame.saturating_sub(a.manifest.config.pre_seconds as u64*a.manifest.config.rate as u64);
+                        let end=link.frame+a.manifest.config.post_seconds as u64*a.manifest.config.rate as u64;
+                        rows.push((key.clone(),json!({"bookmarkId":link.id,"qtc":link.qtc,"logId":log,"captureId":a.manifest.capture_id,
+                            "anchorUtcMs":link.anchor_utc_ms,"startFrame":start,"endFrame":end,"rate":a.manifest.config.rate,
+                            "basis":link.basis,"coverage":a.coverage(start,end)})));
+                    }
+                }
+                rows.sort_by_key(|(_,row)|std::cmp::Reverse(row["anchorUtcMs"].as_u64().unwrap_or(0)));
+                rows.truncate(100);
+                if let Some((key,row))=rows.first() {
+                    stop_replay(); let mut s=self.state.lock().map_err(|_|"Recorder unavailable")?;
+                    s.selected=Some(key.clone()); s.selection=json!({"logId":log,"captureId":key.capture_id,"startFrame":row["startFrame"],
+                        "endFrame":row["endFrame"],"basis":"QTC captured sample bookmark","label":{"Call":format!("QTC {series}")}});
+                }
+                Ok(json!({"available":!rows.is_empty(),"reason":if rows.is_empty(){"No captured QTC bookmark is available; no device was started."}else{""},
+                    "rows":rows.into_iter().map(|(_,row)|row).collect::<Vec<_>>()}))
             }
             "select" => {
                 let log = r["logId"].as_str().ok_or("Missing log ID")?;
@@ -1594,6 +1634,7 @@ mod tests {
                 current: json!({"Call":"K1ABC"}),
                 deleted: false,
                 note: String::new(),
+                qtc: None,
             })
             .unwrap();
             a.finish("stopped", None).unwrap();
@@ -1679,6 +1720,31 @@ mod tests {
             .unwrap()
             .stop
             .load(Ordering::Acquire));
+    }
+    #[test]
+    fn qtc_mark_and_review_require_real_captured_samples_without_starting_audio() {
+        let (_temp,recorder,config)=fixture(); let log=uuid::Uuid::new_v4().to_string(); let series=uuid::Uuid::new_v4().to_string();
+        assert!(recorder.dispatch("qtc_bookmark",json!({"captureId":"missing"})).is_err());
+        assert!(recorder.state.lock().unwrap().saved.captures.is_empty());
+        let root=recorder.state.lock().unwrap().saved.root.clone(); let mut archive=Archive::create(&root,&log,config).unwrap();
+        archive.append(&[1;100]).unwrap(); let capture=archive.manifest.capture_id.clone();
+        let key=Key {log_id:log.clone(),capture_id:capture.clone(),root,started_utc_ms:archive.manifest.start_utc_ms,controlled_test:false};
+        let shared=archive.into_shared(); let done=Arc::new(AtomicBool::new(false));
+        {let mut state=recorder.state.lock().unwrap();state.saved.captures.push(key.clone());state.cache.insert(capture.clone(),shared.clone());
+            state.active=Some(Active {key,archive:shared.clone(),stop:Arc::new(AtomicBool::new(false)),frames:Arc::new(AtomicU64::new(100)),done:done.clone(),
+                #[cfg(target_os="macos")]peak:Arc::new(std::sync::atomic::AtomicU32::new(0))});}
+        let request=json!({"captureId":capture,"logId":log,"qtc":{"schema":1,"sessionID":log,"seriesID":series,"itemIndex":0,
+            "operationID":uuid::Uuid::new_v4().to_string(),"event":"item"},"note":"QTC row"});
+        let mark=recorder.dispatch("qtc_bookmark",request.clone()).unwrap(); assert_eq!(mark["frame"],100);
+        assert_eq!(recorder.dispatch("qtc_bookmark",request.clone()).unwrap()["id"],mark["id"]);
+        let mut wrong=request.clone();wrong["logId"]=json!(uuid::Uuid::new_v4().to_string());assert!(recorder.dispatch("qtc_bookmark",wrong).is_err());
+        done.store(true,Ordering::Release);assert!(recorder.dispatch("qtc_bookmark",request).is_err());
+        shared.lock().unwrap().finish("stopped",None).unwrap();
+        let review=recorder.dispatch("qtc_review",json!({"logId":log,"seriesID":series,"itemIndex":0})).unwrap();
+        assert_eq!(review["available"],true);assert_eq!(review["rows"][0]["captureId"],capture);
+        assert_eq!(recorder.state.lock().unwrap().selection["captureId"],capture);
+        assert_eq!(recorder.dispatch("qtc_review",json!({"logId":uuid::Uuid::new_v4().to_string(),"seriesID":series})).unwrap()["available"],false);
+        assert!(done.load(Ordering::Acquire));assert_eq!(recorder.state.lock().unwrap().saved.captures.len(),1);
     }
     #[test]
     fn bookmark_paging_searches_the_full_durable_index() {

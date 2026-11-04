@@ -218,6 +218,10 @@ pub struct Link {
     pub current: Value,
     pub deleted: bool,
     pub note: String,
+    /// Additive schema-1 QTC reference. Preserve unknown future metadata when
+    /// reopening archives; only newly authored references require schema 1.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub qtc: Option<Value>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -759,9 +763,29 @@ impl Archive {
             current: Value::Null,
             deleted: false,
             note: note.into(),
+            qtc: None,
         };
         self.save_link(link.clone())?;
         Ok(link)
+    }
+    pub fn qtc_marker(&mut self, reference: &Value, note: &str) -> Result<Link> {
+        let allowed=["schema","sessionID","seriesID","itemIndex","operationID","event"];
+        if reference["schema"] != 1 || reference.to_string().len()>1024 || !reference.as_object().is_some_and(|o|o.keys().all(|k|allowed.contains(&k.as_str())))
+            || reference["sessionID"] != self.manifest.log_id || !matches!(reference["event"].as_str(),Some("series_start"|"item"|"series_end"|"interruption"))
+            || !reference["itemIndex"].is_null() && !reference["itemIndex"].as_u64().is_some_and(|i|i<10) {
+            return Err("Invalid or foreign QTC bookmark reference".into());
+        }
+        for key in ["sessionID","seriesID","operationID"] { uuid(reference[key].as_str().ok_or("QTC bookmark identity missing")?)?; }
+        let id=reference["operationID"].as_str().unwrap();
+        if let Some(previous)=self.links.get(id) {
+            return if previous.qtc.as_ref()==Some(reference) && previous.note==note {Ok(previous.clone())}
+                else {Err("QTC bookmark operation was already consumed with other content".into())};
+        }
+        if note.len()>1024 || self.manifest.frames==0 { return Err("QTC bookmark needs captured samples and a bounded note".into()); }
+        let link=Link {id:id.into(),qso_id:None,operation_id:Some(id.into()),sequence:0,revision:0,frame:self.manifest.frames,
+            anchor_utc_ms:self.manifest.start_utc_ms+self.manifest.frames*1000/self.manifest.config.rate as u64,
+            basis:"captured sample watermark".into(),original:Value::Null,current:Value::Null,deleted:false,note:note.into(),qtc:Some(reference.clone())};
+        self.save_link(link.clone())?; Ok(link)
     }
     pub fn save_link(&mut self, link: Link) -> Result<()> {
         if !self.links.contains_key(&link.id) && self.links.len() >= 50000 {
@@ -835,6 +859,7 @@ impl Archive {
                     current: event["after"].clone(),
                     deleted: false,
                     note: String::new(),
+                    qtc: None,
                 };
                 self.save_link(link)?;
             }
@@ -1710,6 +1735,27 @@ mod tests {
                 .windows(2)
                 .all(|s| s[0].first_frame + s[0].frames == s[1].first_frame));
         }
+    }
+    #[test]
+    fn qtc_sample_bookmarks_are_idempotent_and_survive_old_links_reopen_and_export() {
+        let (_temp,root)=root(); let mut a=archive(&root,1);
+        let log=a.manifest.log_id.clone(); let capture=a.manifest.capture_id.clone();
+        let reference=json!({"schema":1,"sessionID":log,"seriesID":uuid::Uuid::new_v4().to_string(),"itemIndex":0,
+            "operationID":uuid::Uuid::new_v4().to_string(),"event":"item"});
+        assert!(a.qtc_marker(&reference,"").is_err());
+        a.append(&signal(100,1)).unwrap(); let manual=a.manual("old bookmark").unwrap();
+        let old=serde_json::to_value(&manual).unwrap(); assert!(old.get("qtc").is_none());
+        let decoded:Link=serde_json::from_value(old).unwrap(); assert!(decoded.qtc.is_none());
+        let marker=a.qtc_marker(&reference,"row").unwrap(); a.append(&signal(40,1)).unwrap();
+        assert_eq!(a.qtc_marker(&reference,"row").unwrap().frame,marker.frame); assert_eq!(a.links.len(),2);
+        let mut changed=reference.clone(); changed["itemIndex"]=json!(1); assert!(a.qtc_marker(&changed,"row").is_err());
+        a.finish("stopped",None).unwrap(); let hashes=a.manifest.segments.iter().map(|s|s.hash.clone()).collect::<Vec<_>>();drop(a);
+        let a=Archive::load(&root,&log,&capture).unwrap(); assert_eq!(a.links[&marker.id].qtc,Some(reference.clone()));
+        assert!(a.links[&manual.id].qtc.is_none()); assert_eq!(a.manifest.segments.iter().map(|s|s.hash.clone()).collect::<Vec<_>>(),hashes);
+        let export=tempfile::tempdir().unwrap(); let target=a.snapshot().export(&export.path().canonicalize().unwrap(),false).unwrap();
+        let links:Vec<Link>=serde_json::from_slice(&fs::read(target.join("bookmarks.json")).unwrap()).unwrap();
+        assert_eq!(links.iter().find(|l|l.id==marker.id).unwrap().qtc,Some(reference));
+        assert!(links.iter().all(|l|l.note.is_empty()));
     }
     #[test]
     fn crash_partial_recovery_preserves_original_and_reports_torn_frame() {

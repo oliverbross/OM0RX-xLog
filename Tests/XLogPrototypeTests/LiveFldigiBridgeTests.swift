@@ -365,6 +365,74 @@ final class LiveFldigiBridgeTests: XCTestCase {
         XCTAssertEqual(calls.map(\.0), ["main.tx", "text.add_tx"])
         XCTAssertEqual(calls[1].1, "\nCQ\nTEST^r")
     }
+    func testQTCCapturedBeforeHostWaitCannotUseAReenabledFldigiLease() async throws {
+        let root=FileManager.default.temporaryDirectory.appendingPathComponent("fldigi-qtc-generation-\(UUID())")
+        defer {try? FileManager.default.removeItem(at:root)}
+        let rpc=FakeFldigiRPC(),lease=destination(),bridge=LiveFldigiBridge(configurationURL:root.appendingPathComponent("fldigi.json"),externalIOAllowed:{true},rpc:rpc)
+        let configure:[String:Any]=["configuration":["receive_enabled":false,"transmit_enabled":true]]
+        let original=try await bridge.handle(method:"fldigi_configure",params:configure,receiveDestination:nil,transmitDestination:lease,contestImporter:nil)
+        let generation=try XCTUnwrap(original["transmit_generation"] as? String)
+        var prepared=action(lease,payload:"1459 DL1ABC 019")
+        prepared["qtc"]=["schema":1,"batchID":UUID().uuidString.lowercased(),"index":0,"field":"all","bridgeGeneration":generation]
+        // Represents a prepared QTC held while its durable host operation waits.
+        _ = try await bridge.handle(method:"fldigi_stop",params:[:],receiveDestination:nil,transmitDestination:lease,contestImporter:nil)
+        let enabled=try await bridge.handle(method:"fldigi_configure",params:configure,receiveDestination:nil,transmitDestination:lease,contestImporter:nil)
+        let replacement=try XCTUnwrap(enabled["transmit_generation"] as? String)
+        XCTAssertNotEqual(generation,replacement)
+        let requests:[[String:Any]]=[["actions":[prepared],"expectedGeneration":generation],
+                                   ["actions":[prepared],"expectedGeneration":replacement], ["actions":[prepared]]]
+        for params in requests {
+            do {_ = try await bridge.handle(method:"fldigi_send",params:params,receiveDestination:nil,transmitDestination:lease,contestImporter:nil)
+                XCTFail("Old QTC preparation acquired a replacement output lease")}
+            catch let error as WorkerFailure {XCTAssertEqual(error.code,"stale_context")}
+        }
+        let before=await rpc.recorded();XCTAssertEqual(before.map(\.0),["main.rx"])
+        var fresh=action(lease,payload:"1459 DL1ABC 019")
+        fresh["qtc"]=["schema":1,"batchID":UUID().uuidString.lowercased(),"index":0,"field":"all","bridgeGeneration":replacement]
+        _ = try await bridge.handle(method:"fldigi_send",params:["actions":[fresh],"expectedGeneration":replacement],receiveDestination:nil,transmitDestination:lease,contestImporter:nil)
+        let after=await rpc.recorded();XCTAssertEqual(after.map(\.0),["main.rx","main.tx","text.add_tx"])
+    }
+    func testAnyStaleGenerationInTheBundleRejectsAllActionsBeforeRPC() async throws {
+        let root=FileManager.default.temporaryDirectory.appendingPathComponent("fldigi-qtc-bundle-\(UUID())")
+        defer {try? FileManager.default.removeItem(at:root)}
+        let rpc=FakeFldigiRPC(),lease=destination(),bridge=LiveFldigiBridge(configurationURL:root.appendingPathComponent("fldigi.json"),externalIOAllowed:{true},rpc:rpc)
+        let snapshot=try await bridge.handle(method:"fldigi_configure",params:["configuration":["receive_enabled":false,"transmit_enabled":true]],receiveDestination:nil,transmitDestination:lease,contestImporter:nil)
+        let generation=try XCTUnwrap(snapshot["transmit_generation"] as? String)
+        var stale=action(lease);stale["qtc"]=["schema":1,"bridgeGeneration":UUID().uuidString.lowercased()]
+        await XCTAssertThrowsErrorAsync(try await bridge.handle(method:"fldigi_send",params:["actions":[action(lease),stale],"expectedGeneration":generation],receiveDestination:nil,transmitDestination:lease,contestImporter:nil))
+        await XCTAssertThrowsErrorAsync(try await bridge.handle(method:"fldigi_send",params:["actions":[action(lease)],"expectedGeneration":UUID().uuidString.lowercased()],receiveDestination:nil,transmitDestination:lease,contestImporter:nil))
+        let calls=await rpc.recorded();XCTAssertTrue(calls.isEmpty)
+    }
+    func testScopedQTCStopRetriesOriginalFailedRXButCannotControlAReplacementLease() async throws {
+        let root=FileManager.default.temporaryDirectory.appendingPathComponent("fldigi-qtc-scoped-stop-\(UUID())")
+        defer {try? FileManager.default.removeItem(at:root)}
+        let rpc=FakeFldigiRPC(),lease=destination(),bridge=LiveFldigiBridge(configurationURL:root.appendingPathComponent("fldigi.json"),externalIOAllowed:{true},rpc:rpc)
+        let configure:[String:Any]=["configuration":["receive_enabled":false,"transmit_enabled":true]]
+        let first=try await bridge.handle(method:"fldigi_configure",params:configure,receiveDestination:nil,transmitDestination:lease,contestImporter:nil)
+        let original=try XCTUnwrap(first["transmit_generation"] as? String)
+        var outgoing=action(lease);outgoing["qtc"]=["schema":1,"bridgeGeneration":original]
+        _ = try await bridge.handle(method:"fldigi_send",params:["actions":[outgoing],"expectedGeneration":original],receiveDestination:nil,transmitDestination:lease,contestImporter:nil)
+        await rpc.setFailureMethodForTesting("main.rx")
+        let failed=try await bridge.handle(method:"fldigi_stop",params:["expectedGeneration":original],receiveDestination:nil,transmitDestination:lease,contestImporter:nil)
+        XCTAssertNotEqual(failed["transmit_generation"] as? String,original)
+        XCTAssertEqual(failed["transmit_owner_generation"] as? String,original)
+        XCTAssertEqual(failed["transmit_release_required"] as? Bool,true);XCTAssertEqual(failed["transmit_release_uncertain"] as? Bool,true)
+        await rpc.setFailureMethodForTesting(nil)
+        let released=try await bridge.handle(method:"fldigi_stop",params:["expectedGeneration":original],receiveDestination:nil,transmitDestination:lease,contestImporter:nil)
+        XCTAssertEqual(released["transmit_release_required"] as? Bool,false);XCTAssertEqual(released["transmit_release_uncertain"] as? Bool,false)
+        XCTAssertTrue(released["transmit_owner_generation"] is NSNull)
+        let enabled=try await bridge.handle(method:"fldigi_configure",params:configure,receiveDestination:nil,transmitDestination:lease,contestImporter:nil)
+        let replacement=try XCTUnwrap(enabled["transmit_generation"] as? String)
+        var fresh=action(lease);fresh["qtc"]=["schema":1,"bridgeGeneration":replacement]
+        _ = try await bridge.handle(method:"fldigi_send",params:["actions":[fresh],"expectedGeneration":replacement],receiveDestination:nil,transmitDestination:lease,contestImporter:nil)
+        let before=await rpc.recorded()
+        do {_ = try await bridge.handle(method:"fldigi_stop",params:["expectedGeneration":original],receiveDestination:nil,transmitDestination:lease,contestImporter:nil)
+            XCTFail("Old scoped Stop reached the replacement engine lease")}
+        catch let error as WorkerFailure {XCTAssertEqual(error.code,"stale_context")}
+        let unchanged=await rpc.recorded();XCTAssertEqual(unchanged.map(\.0),before.map(\.0))
+        _ = try await bridge.handle(method:"fldigi_stop",params:[:],receiveDestination:nil,transmitDestination:lease,contestImporter:nil)
+        let final=await rpc.recorded();XCTAssertEqual(final.map(\.0),["main.tx","text.add_tx","main.rx","main.rx","main.tx","text.add_tx","main.rx"])
+    }
 
     func testFailureAndStopPreventTextSendAndStaleContextIsRejected() async throws {
         let lease = destination(), rpc = FakeFldigiRPC(); await rpc.setFailureMethodForTesting("main.tx")

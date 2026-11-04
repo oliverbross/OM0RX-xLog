@@ -2,7 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 
 export type RecorderConfig={inputId:string;outputId:string;channels:number;rate:number;mapping:string;roles:string[];routeVerified:boolean;preSeconds:number;postSeconds:number;reserveBytes:number;warningBytes:number};
-export type RecorderLink={id:string;qsoId:string|null;frame:number;anchorUtcMs:number;basis:string;current:{Call?:string;TS?:string}|null;original:unknown;note:string;deleted:boolean;coverage:string};
+export type QTCRecorderReference={schema:1;sessionID:string;seriesID:string;itemIndex:number|null;operationID:string;event:"series_start"|"item"|"series_end"|"interruption"};
+export type RecorderLink={id:string;qsoId:string|null;frame:number;anchorUtcMs:number;basis:string;current:{Call?:string;TS?:string}|null;original:unknown;note:string;deleted:boolean;coverage:string;qtc?:QTCRecorderReference};
 export type RecorderManifest={logId:string;captureId:string;status:string;frames:number;cursor?:number;startUtcMs:number;config:RecorderConfig;gaps:{reason:string;utcMs:number;afterFrame:number}[];segments:{id:number;firstFrame:number;frames:number}[];timeBasis:string};
 export type RecorderSelection={logId:string;captureId:string;startFrame:number;endFrame:number;basis?:string;label?:{Call?:string}};
 export type RecorderStatus={context:{logId:string;workspaceGeneration:string}|null;config:RecorderConfig|null;root:string;freeBytes:number|null;permission:string;error:string;stationState:string;
@@ -12,6 +13,17 @@ export type RecorderStatus={context:{logId:string;workspaceGeneration:string}|nu
 export type RecorderRead=<T=any>(request:Record<string,unknown>)=>Promise<T>;
 export const recorderRequest:RecorderRead=request=>invoke("contest_recorder_request",{request});
 export const openRecorder=()=>invoke<void>("open_contest_recorder");
+export async function bookmarkQTC(reference:QTCRecorderReference,workspaceGeneration:string,read:RecorderRead=recorderRequest):Promise<RecorderLink>{
+  const status=await read<RecorderStatus>({action:"status"}),active=status.active;
+  if(!active||active.finished||active.logId!==reference.sessionID||active.frames<=0)throw new Error("No advancing recording covers this QTC. Open Contest → Recorder to start one explicitly.");
+  return read<RecorderLink>({action:"qtc_bookmark",logId:reference.sessionID,workspaceGeneration,captureId:active.captureId,qtc:reference,note:`QTC ${reference.event}`});
+}
+export async function reviewQTC(request:{logId:string;seriesID:string;itemIndex?:number},read:RecorderRead=recorderRequest,open:()=>Promise<void>=openRecorder){
+  const result=await read<{available:boolean;reason:string;rows:{captureId:string;coverage:string;startFrame:number;endFrame:number}[]}>({action:"qtc_review",...request});
+  if(!result.available)throw new Error(result.reason);
+  // Opening the review selection never starts capture or audio playback.
+  await open();return result;
+}
 export async function listenToAudio(request:{logId:string;qsoId?:string;fromUtcMs?:number;toUtcMs?:number},read:RecorderRead=recorderRequest,open:()=>Promise<void>=openRecorder){
   // Full dataset identity goes to native lookup; never substitutes the active log.
   await read({action:"prepare",...request});await open();

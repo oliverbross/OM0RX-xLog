@@ -3870,13 +3870,24 @@ async fn contest_group_replica_sync_page(app: tauri::AppHandle, window: tauri::W
 }
 
 #[tauri::command]
-fn contest_voice_prepare(window: tauri::WebviewWindow, state: tauri::State<'_, acceptance::Acceptance>,
+fn contest_voice_target(window: tauri::WebviewWindow, app: tauri::AppHandle, state: tauri::State<'_, acceptance::Acceptance>,
+    session_i_d:String,workspace_generation:String) -> Result<contest_voice::BoundVoiceTarget,String> {
+    runtime_profile::require_external_io_disabled()?;
+    contest_voice::validate_invoker(window.label(),runtime_profile::isolated(state.path.is_some()),
+        APP_EXITING.load(Ordering::Acquire),runtime_profile::CONTESTING_TEST)?;
+    let context=contest_window_context::active()?;
+    if context.session_id!=session_i_d||context.workspace_generation!=workspace_generation{return Err("The contest voice capture belongs to a stale workspace.".into());}
+    contest_voice::capture_target(&app)
+}
+
+#[tauri::command]
+fn contest_voice_prepare(window: tauri::WebviewWindow, app:tauri::AppHandle,state: tauri::State<'_, acceptance::Acceptance>,
     params: contest_voice::PrepareBatchRequest) -> Result<Vec<contest_voice::PreparedVoice>, String> {
     runtime_profile::require_external_io_disabled()?;
     contest_voice::validate_invoker(window.label(), runtime_profile::isolated(state.path.is_some()),
         APP_EXITING.load(Ordering::Acquire), runtime_profile::CONTESTING_TEST)?;
     let context = contest_window_context::active()?;
-    contest_voice::prepare_batch(params, &context.session_id, &context.workspace_generation)
+    contest_voice::prepare_batch_bound(&app,params, &context.session_id, &context.workspace_generation)
 }
 
 fn validate_contest_voice_profile_caller(label: &str, isolated: bool, exiting: bool) -> Result<(), String> {
@@ -4843,7 +4854,7 @@ fn main() {
             contest_group_chat_configure, contest_group_chat_snapshot, contest_group_chat_send,
             contest_group_network_snapshot, contest_group_network_publish, contest_group_network_acknowledgements,
             contest_group_authority_request, contest_group_replica_sync_page,
-            contest_voice_prepare, contest_voice_ptt, contest_voice_profile_manifest, contest_voice_profile_preview,
+            contest_voice_target, contest_voice_prepare, contest_voice_ptt, contest_voice_profile_manifest, contest_voice_profile_preview,
             contest_voice_profile_write, contest_voice_profile_pick,
             contest_surface_action, contest_surface_diagnostic_report, contest_surface_action_next, contest_surface_escape_next, contest_surface_action_complete, contest_surface_owner_claim, contest_surface_publish, contest_surface_snapshot, contest_rotor_target,
             workspace_mode_present, workspace_presentation_begin, workspace_canvas_close_ack, set_cw_decode_menu_visibility, close_about_window,
