@@ -116,17 +116,17 @@ public final class CTYResolver: @unchecked Sendable {
     }
 
     public static func bundled() throws -> CTYResolver {
-        guard let url = Bundle.module.url(forResource: "cty", withExtension: "csv") else {
+        guard let root = Bundle.module.resourceURL else {
             throw CocoaError(.fileNoSuchFile)
         }
-        return try CTYResolver(csvURL: url)
+        return try CTYResolver(csvURL: root.appendingPathComponent("cty.csv"))
     }
 
     public static func bundledCSV() throws -> String {
-        guard let url = Bundle.module.url(forResource: "cty", withExtension: "csv") else {
+        guard let root = Bundle.module.resourceURL else {
             throw CocoaError(.fileNoSuchFile)
         }
-        return try String(contentsOf: url, encoding: .utf8)
+        return try String(contentsOf: root.appendingPathComponent("cty.csv"), encoding: .utf8)
     }
 
     /// Every distinct country endpoint that the resolver can return at `date`, including token-level
@@ -186,7 +186,7 @@ public final class CTYResolver: @unchecked Sendable {
         constructionObserver?("packIndicesBuilt")
         rules = []; endpointRules = []; endpointIndex = [:]
         constructionObserver?("packDigestStarted")
-        contentDigest = Self.digest(data)
+        contentDigest = Self.digest(data, constructionObserver: constructionObserver)
         constructionObserver?("packDigestReturned")
     }
 
@@ -219,12 +219,22 @@ public final class CTYResolver: @unchecked Sendable {
     }
 
     public static func bundledCountryPackBytes() throws -> Data {
-        guard let url = Bundle.module.url(forResource: "country-reference-pack", withExtension: "json") else { throw CocoaError(.fileNoSuchFile) }
-        return try Data(contentsOf: url)
+        guard let root = Bundle.module.resourceURL else { throw CocoaError(.fileNoSuchFile) }
+        // These fixed, unlocalized resources do not need a bundle-wide lookup.
+        return try Data(contentsOf: root.appendingPathComponent("country-reference-pack.json"), options: .mappedIfSafe)
     }
 
-    private static func digest(_ data: Data) -> String {
-        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    private static func digest(_ data: Data, constructionObserver: (@Sendable (String) -> Void)? = nil) -> String {
+        let hash = SHA256.hash(data: data)
+        constructionObserver?("packHashReturned")
+        let digits = Array("0123456789abcdef".utf8)
+        var hex: [UInt8] = []
+        hex.reserveCapacity(64)
+        for byte in hash {
+            hex.append(digits[Int(byte >> 4)])
+            hex.append(digits[Int(byte & 15)])
+        }
+        return String(decoding: hex, as: UTF8.self)
     }
 
     /// Missing dates and malformed slash forms fail explicitly. This endpoint
