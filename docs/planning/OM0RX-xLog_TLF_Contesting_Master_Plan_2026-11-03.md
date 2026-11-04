@@ -24,6 +24,25 @@ physical CAT action or submission is authorised by this correction pass.
 
 ### Correction evidence (this register remains authoritative)
 
+**Integrated correction gate:** base `edc2decc`, with the later category-reference
+wording rechecked by `test_okom_host` and legacy-editor UI changes rechecked by
+the affected QTC suite/type checker. Full Python: 615 passed. Full Rust native:
+1,064 passed. Repository `swift test`: exit 0 (retain XCTest/Swift Testing suite
+totals separately). `npm --prefix prototype test`: Node gate passed; Vitest
+5,158 passed, one old park-owner mock failed with one associated unhandled
+rejection. `defa0007` corrects that mock; the entire affected workspace suite then
+passed 212 cases with no unhandled rejection (existing React act warnings remain).
+Final QTC UI suite passed 15 and TypeScript passed. These are broad-plus-focused
+results, not an all-green 5,159-test rerun or a sum of overlapping totals.
+Raw outputs/receipts: `.build/tlf-correction/{python,rust,swift,frontend}.{log,json}`;
+targeted workspace receipt archive `f150852ee9657f08`.
+
+**Candidate preparation:** next unused version 1.5.8, product source
+`defa0007d2257ba360232415e6837c80bf6aa062`. All five version records advance
+together. `docs/releases/build-1.5.8-macos-arm64.sh` requires the exact clean
+release-preparation commit, verifies its manifest in the extracted signed app,
+and runs the unchanged first signed-worker gate. Build/native evidence pending.
+
 **R05 native rehearsal prerequisite:** the prior offline park/load failure was
 the blanket external-I/O rejection of `cw_session_request` observations, which
 left the unchanged output guard seeing a service error. Validated offline private

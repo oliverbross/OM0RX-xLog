@@ -1,3 +1,32 @@
+# OM0RX-xLog 1.5.8 — TLF correction candidate
+
+Prepared from tested product source `defa0007d2257ba360232415e6837c80bf6aa062` on canonical `main`.
+The release-preparation commit is the exact argument to
+`docs/releases/build-1.5.8-macos-arm64.sh`; the recipe checks the extracted signed
+bundle's source/version, Developer ID signature and first signed-worker gate.
+
+- Correct OK/OM single-band claims and pinned 2026 period eligibility while
+  retaining cross-check and outside-period rows. MO2T submission remains
+  unavailable pending actual transmitter attribution and supported serial scope;
+  new TWO setup and historical TWO claims are explicitly gated. SO/MOST retained.
+- Preserve the original parked Host draft, sent report/exchange and unconsumed
+  serial; incoming callers get separate reservations. Resume/replay/restart use
+  the existing authority and cannot silently borrow or copy an old serial.
+- Exclude CQ WW duplicates from new-multiplier clock starts, retaining legitimate
+  zero-point multipliers. Use captured QTC attempt/action frequency and truthful
+  prepared/declared/provider evidence; legacy unknown bands remain unknown.
+- Show both RTTY QTC directions with one shared quota. Save corrections and
+  matching editor clearance atomically, including legacy/stale-autosave recovery.
+- Require live native continuation admission before early-CW call suppression;
+  old queue receipts and matching generations alone grant no restart authority.
+
+Full correction evidence, exact limits and the excluded simulator remain in the
+[master ledger](docs/planning/OM0RX-xLog_TLF_Contesting_Master_Plan_2026-11-03.md).
+The installed 1.5.6 app and production data are outside this correction package.
+Physical WinKeyer/voice/fldigi/recorder/Flex qualification, advanced Flex CW,
+advanced detached/exact-lane streams, exact-lane QTC output, WPX 2027,
+notarization, installation, RF and submission acceptance remain separate.
+
 # OM0RX-xLog 1.5.7 — TLF contest software candidate
 
 Prepared from tested product source `1cf9a145a9191be845c159a7ec8cde38169cf0a8` on canonical `main`.
