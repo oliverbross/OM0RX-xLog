@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import type { ContestMethod, ContestRequest } from "./types";
 import { durationText } from "./contestSchedule";
 
-export type OperatingPlan = { ruleProfileID: string; note: string };
+export type OperatingSignalRole = {kind:"qso";id:string;sourceDigest:string;role:"run"|"multiplier"|"main";declaredUTC:string};
+export type OperatingPlan = { ruleProfileID: string; note: string; schema?:2; signalRoles?:OperatingSignalRole[] };
 export type OperatingInfo = {
   evaluationUTC: string; selectedProfileID: string;
   profile: { label: string; edition: string; sourceURL: string; interpretationURL: string;
@@ -15,6 +16,12 @@ export type OperatingInfo = {
     gaps: { startUTC: string; endUTCExclusive: string; emptyMinutes: number; qualifiesLogCriterion: boolean }[] } | null;
   bandChanges: { limit: number; complete: boolean; unknownOrderOrBandQSOs: number;
     hours: { hourUTC: string; changes: number; status: string }[] } | null;
+  bandDwell?:{limitMinutes:number;complete:boolean;roleEvidence:string;unknownRoleOrBandIDs:string[];
+    clocks:{role:string;band:string|null;startedUTC:string|null;eligibleUTC:string|null;remainingSeconds:number|null;basis:string}[];
+    events:{id:string;role:string;atUTC:string;status:string}[]} | null;
+  roleCandidates?:{id:string;callsign:string;atUTC:string;band:string|null;sourceDigest:string;role:string|null}[];
+  qtcActivityCount?:number;invalidQTCActivity?:number;
+  publicationCandidates?:{id:string;status:string;checkedUTC:string;sourceURL:string;reason:string}[];
 };
 
 /** Detail inside existing Info/timer surfaces; never implies RF permission. */
@@ -78,20 +85,38 @@ export function ContestOperatingInfo({ request, scope, onPlanSave }: {
       <dl><dt>Inferred inactivity since QSO</dt><dd>{data.inferredInactivitySeconds === null ? "Unknown" : durationText(data.inferredInactivitySeconds)}</dd>
         <dt>Observed operating / style / operator / lane durations</dt><dd>Unavailable</dd>
         {data.offTime && <><dt>Log-qualifying off-time</dt><dd>{data.offTime.qualifyingLogOffMinutes} min · at least {data.offTime.minimumOffMinutes} consecutive empty UTC clock minutes</dd></>}
-        {data.allowance && <><dt>Reconstructed allowance use through last QSO minute</dt><dd>{data.allowance.reconstructedMinutes} / {data.allowance.limitMinutes} min · {data.allowance.remainingMinutes} min remaining in reconstruction · {data.allowance.status.replaceAll("-", " ")}</dd></>}
+        {data.allowance && <><dt>Reconstructed allowance use through last logged activity minute</dt><dd>{data.allowance.reconstructedMinutes} / {data.allowance.limitMinutes} min · {data.allowance.remainingMinutes} min remaining in reconstruction · {data.allowance.status.replaceAll("-", " ")}</dd></>}
       </dl>
       <p>{data.durationNote} Plans and rest notes are intentions, not observed intervals.</p>
       {(data.invalidTimestampQSOs > 0 || data.excludedPeriodOrFutureQSOs > 0) && <p role="status">Excluded: {data.invalidTimestampQSOs} invalid timestamps; {data.excludedPeriodOrFutureQSOs} outside the selected period or after evaluation UTC.</p>}
       {data.bandChanges && <><p>QSO-observed band changes · maximum {data.bandChanges.limit} per UTC clock hour · mode changes excluded. Transmission compliance unverified.</p>
         {!data.bandChanges.complete && <p role="status">Incomplete band/order evidence: {data.bandChanges.unknownOrderOrBandQSOs} QSO(s). Counts are lower bounds.</p>}
         {data.bandChanges.hours.length ? <ul>{data.bandChanges.hours.map(hour => <li key={hour.hourUTC}>{hour.hourUTC}: {hour.changes} / {data.bandChanges!.limit} · {hour.status.replaceAll("-", " ")}</li>)}</ul> : <p>No band changes observed in available QSO evidence.</p>}</>}
+      {data.bandDwell&&<section aria-label="Functional signal clocks"><h4>Functional signal clocks · {data.bandDwell.limitMinutes} minutes</h4>
+        <p>{data.bandDwell.roleEvidence}. Tuning/listening does not start these clocks. Unlogged transmission and CQ activity remain unknown.</p>
+        {!data.bandDwell.complete&&<p role="status">Unknown role or band for {data.bandDwell.unknownRoleOrBandIDs.length} activity record(s); available clocks are incomplete.</p>}
+        <dl>{data.bandDwell.clocks.map(clock=><div key={clock.role}><dt>{clock.role} · {clock.band??"Unknown band"}</dt>
+          <dd>{clock.eligibleUTC?`Next band eligibility ${clock.eligibleUTC} · ${durationText(clock.remainingSeconds??0)} remaining` : "No attributed start event"} · {clock.basis.replaceAll("-"," ")}</dd></div>)}</dl>
+        {data.bandDwell.events.some(event=>event.status!=="clock-start")&&<ul>{data.bandDwell.events.filter(event=>event.status!=="clock-start").map((event,index)=><li key={`${event.id}/${index}`}>{event.atUTC} · {event.role}: {event.status.replaceAll("-"," ")} · record retained</li>)}</ul>}
+      </section>}
+      {!!data.qtcActivityCount&&<p>WAE timeline includes {data.qtcActivityCount} declared QTC transfer(s), including pending/cancelled series. QTC item times describe historical QSOs.</p>}
+      {!!data.invalidQTCActivity&&<p role="status">{data.invalidQTCActivity} QTC transfer timestamp(s) are unknown; off-time evidence is incomplete.</p>}
       {data.offTime && data.offTime.gaps.length > 0 && <details><summary>Contributing QSO gaps</summary><ul>{data.offTime.gaps.map(gap => <li key={gap.startUTC}>{gap.startUTC} – {gap.endUTCExclusive}: {gap.emptyMinutes} empty minutes · {gap.qualifiesLogCriterion ? "qualifies log criterion" : "below minimum"}</li>)}</ul></details>}
       {onPlanSave && <fieldset disabled={saving}><legend>Operator plan</legend>
         <label>Rule edition/category<select aria-label="Operating rule profile" value={plan.ruleProfileID} onChange={event => updatePlan({ ruleProfileID: event.target.value })}>
           <option value="">Unverified / no profile</option>{data.availableProfiles.map(profile => <option key={profile.id} value={profile.id}>{profile.label}</option>)}</select></label>
         <label>Rest, targets and notes<textarea aria-label="Operating plan note" maxLength={4000} value={plan.note} onChange={event => updatePlan({ note: event.target.value })}/></label>
+        {data.bandDwell&&!!data.roleCandidates?.length&&<details><summary>Declare functional signal roles for logged contacts</summary><p>Declarations are operator evidence. Radio/lane labels do not assign Run or Multiplier. Editing a contact invalidates its earlier declaration.</p>
+          {data.roleCandidates.map(item=>{const declared=plan.signalRoles?.find(role=>role.id===item.id&&role.sourceDigest===item.sourceDigest);
+            return <label key={item.id}>{item.atUTC} {item.callsign} {item.band??"Unknown band"}<select aria-label={`Signal role ${item.id}`} value={declared?.role??item.role??""} onChange={event=>{
+              const roles=(plan.signalRoles??[]).filter(role=>role.id!==item.id);
+              if(event.target.value)roles.push({kind:"qso",id:item.id,sourceDigest:item.sourceDigest,role:event.target.value as OperatingSignalRole["role"],declaredUTC:new Date().toISOString()});
+              updatePlan({schema:2,signalRoles:roles});
+            }}><option value="">Unknown</option>{plan.ruleProfileID.startsWith("cqww-")?<option value="run">Run</option>:<option value="main">Main</option>}<option value="multiplier">Multiplier</option></select></label>;
+          })}</details>}
         <button type="button" onClick={() => { void save(); }}>Save operating plan</button>
       </fieldset>}
+      {data.publicationCandidates?.map(item=><p key={item.id}>{item.id}: {item.reason} Checked {item.checkedUTC} · <a href={item.sourceURL} target="_blank" rel="noreferrer">Official publication</a></p>)}
     </>}
   </section>;
 }

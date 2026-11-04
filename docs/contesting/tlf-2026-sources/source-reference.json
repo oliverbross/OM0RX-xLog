@@ -1,0 +1,88 @@
+{
+  "schema": 1,
+  "checkedDate": "2026-11-04",
+  "timezone": "Australia/Darwin",
+  "sources": [
+    {
+      "family": "CQ WW 2026 CW/SSB Multi-Single",
+      "url": "https://cqww.com/rules/",
+      "file": "cqww-rules.html.gz",
+      "sha256": "4e2f3a2ce732c39ebe215ffa12805a5257e8e7268544b19e02a9d2e485dc8cb6",
+      "bytes": 33365,
+      "edition": "2026",
+      "clauses": [
+        "V.C.1 Multi-Single"
+      ],
+      "interpretation": "Two independent functional Run/Multiplier 10-minute clocks; only a new multiplier starts the Multiplier clock. Physical radio/lane labels are not signal roles.",
+      "encoding": "gzip",
+      "sha256AppliesTo": "decompressed original bytes"
+    },
+    {
+      "family": "CQ WW timing interpretation",
+      "url": "https://cqww.com/rules/faq.htm",
+      "file": "cqww-faq.html.gz",
+      "sha256": "b77b238ccebb2e9c7a077c7c3d0adac965b1c93e0fe74d0d63b1b6ebb230143f",
+      "bytes": 45156,
+      "edition": "Retrieved with 2026 rules; FAQ is an interpretation source",
+      "clauses": [
+        "Multi-Single Category FAQ: functional roles",
+        "When does the 10 minute clock start",
+        "Whole minutes, no seconds"
+      ],
+      "interpretation": "First logged Run QSO or first new-multiplier QSO starts the corresponding band clock. A 14:00 logged QSO has a 14:10 log-checking boundary regardless of retained seconds. Unlogged transmissions remain unknown.",
+      "encoding": "gzip",
+      "sha256AppliesTo": "decompressed original bytes"
+    },
+    {
+      "family": "WAE 2026 CW/SSB",
+      "url": "https://www.darc.de/der-club/referate/conteste/wae-dx-contest/en/wae-rules/",
+      "file": "darc-wae-rules.html.gz",
+      "sha256": "9693e5e843a6bfb054deafe2004d55384c0224a764816c66248f5f13e54c668c",
+      "bytes": 94008,
+      "retrievedDate": "2026-10-27",
+      "recoveredAndDigestVerifiedDate": "2026-11-04",
+      "edition": "Page heading 2025, displayed revision 2025-06-17, explicit 2026 event dates",
+      "originalPath": ".build/wave5/rules/darc-wae-rules.html",
+      "currentEndpointAttempt": "Web fetch on 2026-11-04 returned HTTP 403; exact previously pinned snapshot recovered locally",
+      "clauses": [
+        "1 Times",
+        "3 Categories",
+        "4 Off Times",
+        "7 QTC Traffic"
+      ],
+      "interpretation": "CW 2026-08-08 and SSB 2026-09-12 start at 00:00 UTC for 48h. Single-op LOW/HIGH all-band: 36h, off periods minimum60min with no QSO or QTC logged. Multi-op: main-station band changes every10min includes QSO/QTC/CQ, multiplier exception. QTC transfer time/band differs from historical item HHMM. Stored headers and output attempts conservatively interrupt alleged empty periods; unknown unlogged activity cannot be certified.",
+      "encoding": "gzip",
+      "sha256AppliesTo": "decompressed original bytes"
+    },
+    {
+      "family": "WPX 2026 reconciliation",
+      "url": "https://cqwpx.com/rules/2026_cqwpx_rules.pdf",
+      "file": "wpx-2026-rules.pdf",
+      "sha256": "38dead919408c47483dfdde6a9bd3a9a5e2ae4a54f24b6beba7b4aa2a7f1f624",
+      "bytes": 138885,
+      "edition": "2026",
+      "clauses": [
+        "II Period of Operation",
+        "VI.C.1 Multi-One"
+      ],
+      "interpretation": "Existing profiles retained: SO36/48h with60min empty logged periods; Multi-One10 band changes per UTC clock hour, including out-and-back. Official PDF confirms SSB2026-03-28, CW2026-05-30."
+    },
+    {
+      "family": "WPX 2027 publication candidate",
+      "url": "https://cqwpx.com/rules/",
+      "file": "wpx-current-rules.html.gz",
+      "sha256": "e546e25e5a81ed7f4e81d0d786d6ff600372d6c326a2d56df5752eb6e74da8b0",
+      "bytes": 31392,
+      "status": "NO_VERIFIED_PROFILE",
+      "evidence": "Current page is titled2026. The SSB date contains a page typo2025; matching2026 PDF resolves it. https://cqwpx.com/rules/2027_cqwpx_rules.pdf returned HTTP404; response retained as wpx-2027-http404.html.gz. No publication or source diff supports implementing a2027 edition.",
+      "encoding": "gzip",
+      "sha256AppliesTo": "decompressed original bytes"
+    }
+  ],
+  "limitations": [
+    "No RF, physical CAT response, or multi-station native rehearsal is established by source/protocol tests.",
+    "Observed transmission, off-air intervals and WAE unlogged CQ activity remain unknown.",
+    "Role declarations are operator evidence; contact edits invalidate source digests.",
+    "Unlisted categories, overlays, RTTY timing profiles and later editions are outside this finite profile set."
+  ]
+}

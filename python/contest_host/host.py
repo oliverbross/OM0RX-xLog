@@ -2881,11 +2881,9 @@ class Host:
                             wave_result = strategy_mutate(state, params, require, now_utc=params.get("nowUTC") or datetime.now(UTC).isoformat())
                     elif method == "operating_plan_save":
                         plan = params.get("plan")
-                        require(isinstance(plan, dict) and set(plan) == {"ruleProfileID", "note"}, "Invalid operating plan")
-                        require(plan["ruleProfileID"] in {"", "wpx-2026-single-op", "wpx-2026-multi-one"}, "Unsupported operating rule profile")
-                        text(plan["note"], 4096)
-                        state["operatingPlan"] = deepcopy(plan)
-                        wave_result = deepcopy(plan)
+                        from .operating_rules import validate_plan
+                        state["operatingPlan"] = validate_plan(plan)
+                        wave_result = deepcopy(state["operatingPlan"])
                     else:
                         from .messages import apply_message_mutation
                         message_setup = self.default_setup(state)

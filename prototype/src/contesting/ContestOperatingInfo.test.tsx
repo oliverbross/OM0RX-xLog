@@ -76,3 +76,22 @@ it("keeps a new session plan draft when an old session save finishes late", asyn
   await act(async () => { finish(); await pending; });
   expect((screen.getByRole("textbox", { name: "Operating plan note" }) as HTMLTextAreaElement).value).toBe("New session unsaved plan");
 });
+
+it("shows independent functional clocks and persists explicit digest-bound role declarations only on Save",async()=>{
+  const value:OperatingInfo={...info,selectedProfileID:"cqww-2026-multi-one",plan:{ruleProfileID:"cqww-2026-multi-one",note:""},
+    availableProfiles:[{id:"cqww-2026-multi-one",label:"CQ WW 2026 Multi-Single"}],
+    bandDwell:{limitMinutes:10,complete:false,roleEvidence:"operator-declared-per-source-digest",unknownRoleOrBandIDs:["qso-a"],clocks:[
+      {role:"run",band:"20M",startedUTC:"2026-11-28T14:00:00Z",eligibleUTC:"2026-11-28T14:10:00Z",remainingSeconds:60,basis:"logged-whole-UTC-minute"},
+      {role:"multiplier",band:null,startedUTC:null,eligibleUTC:null,remainingSeconds:null,basis:"logged-whole-UTC-minute"}],events:[]},
+    roleCandidates:[{id:"qso-a",callsign:"K1ABC",atUTC:"2026-11-28T14:00:58Z",band:"20M",sourceDigest:"a".repeat(64),role:null}]};
+  const request=vi.fn(async()=>reply(value)) as unknown as ContestRequest,save=vi.fn(async()=>{});
+  render(<ContestOperatingInfo request={request} scope={scope} onPlanSave={save}/>);
+  await screen.findByRole("region",{name:"Functional signal clocks"});
+  expect(screen.getByText(/No attributed start event/)).toBeTruthy();
+  expect(screen.getByText(/Unknown role or band for 1/)).toBeTruthy();
+  fireEvent.change(screen.getByRole("combobox",{name:"Signal role qso-a",hidden:true}),{target:{value:"run"}});
+  expect(save).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button",{name:"Save operating plan"}));
+  await act(async()=>{});
+  expect(save).toHaveBeenCalledWith({ruleProfileID:"cqww-2026-multi-one",note:"",schema:2,signalRoles:[{kind:"qso",id:"qso-a",sourceDigest:"a".repeat(64),role:"run",declaredUTC:expect.any(String)}]});
+});
