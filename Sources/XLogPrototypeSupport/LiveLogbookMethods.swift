@@ -781,7 +781,8 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                           String((attributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0)]
                 .joined(separator: "|")
             if let cached = ctyResolverCache, cached.source == source { return cached }
-            if let resolver = try? CTYResolver(xmlURL: downloaded) {
+            if let primary = try? CTYResolver(xmlURL: downloaded) {
+                let resolver = primary.fillingUnknownFacts(with: try CTYResolver.bundledCountryPack())
                 ctyResolverCache = (source, resolver)
                 return (source, resolver)
             }

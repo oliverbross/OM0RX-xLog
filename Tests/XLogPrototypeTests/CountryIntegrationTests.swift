@@ -98,28 +98,39 @@ struct CountryIntegrationTests {
         _ = try await cluster.handle(method: "cluster_connect", params: [:])
         transport.emit("DX de K1ABC: 14025.0 OM0RX/EA8 CW")
         transport.emit("DX de OM0RX: 14026.0 EA8/OM0RX/P CW")
+        // The partial XML has no Norway row. All neutral hosts must share
+        // the admitted XML→rich-bundle fallback, never invent separate answers.
+        transport.emit("DX de OM0RX: 14027.0 LN8W CW")
         var spots: [[String: Any]] = []
         for _ in 0..<100 {
             let response = try await cluster.handle(method: "cluster_snapshot", params: [:])
             spots = (response["snapshot"] as? [String: Any])?["spots"] as? [[String: Any]] ?? []
-            if spots.count == 2 { break }; try await Task.sleep(for: .milliseconds(10))
+            if spots.count == 3 { break }; try await Task.sleep(for: .milliseconds(10))
         }
-        #expect(spots.count == 2)
+        #expect(spots.count == 3)
         for spot in spots {
             let call = try #require(spot["callsign"] as? String), timestamp = try #require(spot["receivedAt"] as? Double)
             let at = ISO8601DateFormatter().string(from: Date(timeIntervalSinceReferenceDate: timestamp))
             let facts = try #require(try logbook.handle(method: "logbook_country_facts", params: ["call": call, "at": at])["facts"] as? [String: Any])
-            #expect((facts["country"] as? [String: Any])?["adif"] as? Int == 29)
-            #expect(spot["adif"] as? Int == 29)
+            let expectedADIF = call == "LN8W" ? 266 : 29
+            #expect((facts["country"] as? [String: Any])?["adif"] as? Int == expectedADIF)
+            #expect(spot["adif"] as? Int == expectedADIF)
             #expect(spot["countryReferenceRevision"] as? String == facts["referenceRevision"] as? String)
+            let profile = try LocalCallsignProfile.base(call, logbook: logbook)
+            #expect(profile["country_reference_revision"] as? String == facts["referenceRevision"] as? String)
+            #expect(profile["dxcc"] as? Int == expectedADIF)
+            if call == "LN8W" {
+                #expect(facts["matchedReferenceRevision"] as? String == (try CTYResolver.bundledCountryPack()).snapshotIdentity)
+            }
             #expect(spot["locationPrecision"] as? String == "entityApproximation")
         }
         let original = Dictionary(uniqueKeysWithValues: spots.map { ($0["id"] as! String, $0["receivedAt"] as! Double) })
         try Data(xml.replacingOccurrences(of: "<adif>29</adif>", with: "<adif>999</adif>").utf8).write(to: reference, options: .atomic)
         let refreshed = try await cluster.handle(method: "cluster_snapshot", params: [:])
         let after = try #require((refreshed["snapshot"] as? [String: Any])?["spots"] as? [[String: Any]])
-        #expect(after.count == 2)
-        #expect(after.allSatisfy { $0["adif"] as? Int == 999 && original[$0["id"] as? String ?? ""] == $0["receivedAt"] as? Double })
+        #expect(after.count == 3)
+        #expect(after.allSatisfy { $0["adif"] as? Int == ($0["callsign"] as? String == "LN8W" ? 266 : 999)
+            && original[$0["id"] as? String ?? ""] == $0["receivedAt"] as? Double })
         _ = await cluster.terminate()
     }
 
@@ -376,18 +387,29 @@ struct CountryIntegrationTests {
         let date = Date(timeIntervalSince1970: 1_577_880_000)
         #expect(try service.currentCTYResolver().facts("OM0RX", at: date).country?.adif == 990)
         let references = LiveReferenceMethods(logbook: service)
+        let originalResolver = try service.currentCTYResolver()
+        let inspected = try await references.handle(method: "reference_country_status", params: [:])
+        #expect(inspected["reference_revision"] as? String == originalResolver.snapshotIdentity)
+        #expect(inspected["primary_reference_revision"] as? String == originalResolver.primaryReferenceRevision)
+        #expect(inspected["fallback_reference_revision"] as? String == (try CTYResolver.bundledCountryPack()).snapshotIdentity)
+        #expect(inspected["policy"] as? String == "xlog-country-facts-v2")
         let file = root.appendingPathComponent("reviewed-country-pack.json")
         let bundled = try CTYResolver.bundledCountryPackBytes(); try bundled.write(to: file)
         let activated = try await references.handle(method: "reference_country_import", params: ["path": file.path])
         #expect(activated["country_reference_changed"] as? Bool == true)
         #expect(activated["rollback_available"] as? Bool == true)
+        #expect(activated["reference_revision"] as? String == (try service.currentCTYResolver()).snapshotIdentity)
+        #expect(activated["fallback_reference_revision"] is NSNull)
         #expect(try service.currentCTYResolver().facts("OM0RX", at: date).country?.adif == 504)
         // A later (currently inactive) XML download is also retained, not lost.
         let later = Data("<cty><prefix><call>OM</call><adif>991</adif><cqz>16</cqz><entity>Later inactive fixture</entity></prefix></cty>".utf8)
         try later.write(to: xmlURL, options: .atomic)
         let laterDigest = try CTYResolver(xmlURL: xmlURL).contentDigest
         let restored = try await references.handle(method: "reference_country_rollback", params: [:])
-        #expect(restored["provider"] as? String == "Club Log XML")
+        #expect(restored["provider"] as? String == "Club Log XML + bundled country fallback")
+        #expect(restored["reference_revision"] as? String == originalResolver.snapshotIdentity)
+        #expect(restored["primary_reference_revision"] as? String == originalResolver.primaryReferenceRevision)
+        #expect(restored["fallback_reference_revision"] as? String == originalResolver.fallbackReferenceRevision)
         #expect(try service.currentCTYResolver().facts("OM0RX", at: date).country?.adif == 990)
         #expect(try Data(contentsOf: xmlURL) == original)
         #expect(try Data(contentsOf: directory.appendingPathComponent("Country Snapshots/\(laterDigest).xml")) == later)

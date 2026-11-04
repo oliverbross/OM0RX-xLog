@@ -1,4 +1,9 @@
 import Foundation
+#if canImport(XLogCore)
+import XLogCore
+#else
+import XLogPortableCore
+#endif
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
@@ -102,6 +107,11 @@ struct LivePublicServiceMethodsTests {
         try Data("<cty><prefix><call>ZZ1</call><adif>990</adif><cqz>1</cqz><entity>Fixture only</entity></prefix></cty>".utf8)
             .write(to: reference)
         #expect(logbook.currentCTYResolverIfReady()?.resolve("LN8W") == nil)
+        let facts = try #require(logbook.currentCTYResolverIfReady()).facts("LN8W", at: Date())
+        let bundled = try CTYResolver.bundledCountryPack()
+        #expect(facts.country?.adif == 266)
+        #expect(facts.matchedReferenceRevision == bundled.snapshotIdentity)
+        #expect(facts.referenceRevision != bundled.snapshotIdentity)
         let service = LivePublicServiceMethods(logbook: logbook, download: { _, _, _ in
             Issue.record("Offline lookup attempted HTTP"); throw URLError(.unsupportedURL)
         })
@@ -112,6 +122,8 @@ struct LivePublicServiceMethodsTests {
         #expect(profile["ituZone"] as? String == "18")
         #expect(profile["latitude"] as? Double != nil)
         #expect(profile["longitude"] as? Double != nil)
+        #expect(profile["country_reference_revision"] as? String == facts.referenceRevision)
+        #expect(profile["country_matched_reference_revision"] as? String == bundled.snapshotIdentity)
         await service.terminate()
     }
 

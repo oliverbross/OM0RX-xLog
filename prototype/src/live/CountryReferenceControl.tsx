@@ -3,6 +3,7 @@ import "./countryReferenceControl.css";
 
 type Request = (method: string, params?: Record<string, unknown>) => Promise<any>;
 type Snapshot = { reference_revision: string; provider: string; source_revision: string | null; source_version: string | null;
+  primary_reference_revision?: string; fallback_reference_revision?: string | null;
   record_count: number | null; excluded_count: number | null; coverage: string[]; rollback_available: boolean };
 
 export default function CountryReferenceControl({ request, visible }: { request: Request; visible: boolean }) {
@@ -33,7 +34,9 @@ export default function CountryReferenceControl({ request, visible }: { request:
     {snapshot && <>
       <p>{snapshot.provider} · {snapshot.record_count?.toLocaleString() ?? "Unknown"} rules · {snapshot.excluded_count?.toLocaleString() ?? "Unknown"} explicitly excluded source entries.</p>
       <p>Source version: {snapshot.source_version ?? "Not supplied"}. Coverage: {snapshot.coverage.join(", ")}.</p>
-      <details><summary>Country source and revision</summary><p>Source revision: {snapshot.source_revision ?? "Not supplied"}</p><p>Active snapshot: {snapshot.reference_revision}</p></details>
+      <details><summary>Country source and revision</summary><p>Source revision: {snapshot.source_revision ?? "Not supplied"}</p><p>Active snapshot: {snapshot.reference_revision}</p>
+        {snapshot.fallback_reference_revision && <><p>Downloaded XML source revision: {snapshot.primary_reference_revision}</p><p>Bundled fallback revision: {snapshot.fallback_reference_revision}</p></>}
+      </details>
     </>}
     <label>Normalized country pack file (.json)<input aria-label="Country pack file" value={path} disabled={busy} maxLength={4096} placeholder="Absolute path to a reviewed country pack" onChange={event => setPath(event.target.value)} /></label>
     <button type="button" disabled={busy || !path.trim()} onClick={() => void run("reference_country_import", { path: path.trim() })}>Validate and import country pack</button>

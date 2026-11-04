@@ -57,8 +57,8 @@ Specificity: complete-call exact exceptions first; historical deleted records at
 their valid dates; longest matching pattern and literal/digit/letter specificity;
 then explicit source authority (exact-call component, area component, base table).
 Equally authoritative contradictory outcomes are ambiguous, independently of input
-order. Area rows can refine the base row's descriptive name without making all
-same-prefix calls ambiguous. Missing/invalid dates never mean today. The legacy
+order. Area rows refine the matched source description; the country name remains
+the canonical ADIF entity label from the bundled CTY entity catalogue. Missing/invalid dates never mean today. The legacy
 `resolve` API retains its home-entity `/MM`/`/AM` adapter; new consumers use neutral
 `facts`. Entity centroids remain labelled approximations.
 
@@ -212,3 +212,71 @@ any GUI/path binding. The corrected benchmark requires a signed integration app
 bundle and never falls back to production. No new shipped executable/target was
 introduced. Root owns final package/UI/large-log acceptance and the master tracker;
 the source lane does not equate these focused tests with every acceptance row.
+
+## Full-suite compatibility reconciliation, 5 November
+
+The first programme-wide portable run exposed real integration regressions rather
+than a reason to relax legacy fixture assertions:
+
+- The rich pack has no legacy `rules` array, so PJ impact preview lost its
+  historical Bangladesh-305 comparison and omitted unresolved `PJ9UNKNOWN`.
+  `pjCorrection` now obtains that comparison from the admitted pack records while
+  preserving the XML-only source's intentional missing-Bangladesh behavior. The
+  existing page/count/order expectations remain, with additional current ADIF 519
+  checks for PJ5/PJ6 (pinned Country.tab:219 and AreaOK1RR.tbl:4542).
+- AreaOK1RR labels such as “Slovakia, Presov, Bardejov” and Australian licence
+  classes describe the matched area/rule, not a country. Facts now use canonical
+  ADIF entity names and retain the original text in `matchedDescription`. The
+  existing Slovak/Australian QRZ assertions remain unchanged. The source-specific
+  Argentina/Santa Fe fixture now separately asserts entity 100/ARGENTINA and the
+  retained SANTA FE description, preserving its geographic matching check.
+- Canonical names on reachable endpoints also restore the existing declared-name
+  South Shetland DXpedition match. The original latitude-below-minus-60 assertion
+  remains unchanged; no Polish home position is substituted, and no additional
+  map fallback was introduced.
+- Partial Club Log XML keeps its legacy source-only `resolve` coverage. At the
+  existing shared snapshot owner, neutral `facts` adds the bundled richer pack
+  only when XML returns `unknown`. Ambiguous, invalid, missing-date and known-no-
+  entity results never fall through. All neutral cluster/logbook/profile consumers
+  share one immutable composite identity. Winning `matchedReferenceRevision` and
+  description identify the actual fallback source; legacy source-only API behavior
+  stays explicit. No implicit fallback is attached to normalized packs.
+
+The facts policy is now `xlog-country-facts-v2`. Rich identities include the CTY
+entity-catalogue digest; XML composite identities include both admitted source
+identities. Existing preview/correction fences use this complete identity.
+Reference status/import/download/rollback expose that same `reference_revision`
+as the active snapshot, with separate primary/fallback revisions and explicit
+provider/coverage labels. The settings detail view labels each revision.
+
+Focused execution before the final status-display assertions passed all 44 tests
+in the four affected suites plus CountryIntegrationTests (16.550 s). Original
+QRZ/map/PJ expectations were preserved. The expanded source/status and complete
+portable/core gates are recorded by the programme owner at integration.
+
+Final source verification after those assertions:
+
+```sh
+XLOG_PORTABLE_ONLY=1 XLOG_CONTEST_PYTHON=/opt/homebrew/bin/python3.12 swift test --scratch-path .build/cqrlog-portable-final --jobs 2 --no-parallel
+swift test --filter 'CountryFactsTests|CTYResolverTests'
+cd prototype
+npm run test:vitest -- src/live/CountryCorrectionReview.test.tsx && npx tsc --noEmit
+```
+
+All commands exit 0. Full portable: **617 Swift Testing tests in 85 suites**
+(89.926 s), another **eight tests in two suites**, and all XCTest targets pass.
+The unchanged held-feed/logbook-read concurrency test passes in 0.841 s; the real
+private Python-host concurrency XCTest passes in 4.031 s. Normal core: **13 tests
+in two suites** (1.538 s), including canonical entity labels versus retained area
+descriptions, composite/actual-winning source identities and refusal to fall back
+from non-unknown states. Frontend: **five tests** and TypeScript pass, including
+separate active/XML/fallback revision labels. Scoped diff checks pass.
+
+Complete retained evidence: `country-compatibility-portable-gate.txt` and
+`country-compatibility-core-gate.txt`. The preceding unqualified full run omitted
+the required Python environment and repository `--no-parallel` option; its Python
+precondition failure and scheduling timeouts are retained in
+`.build/country-portable-missing-env-parallel-failed.log`. The original 16-issue
+portable regression log is retained in `.build/country-portable-original16issues.log`.
+No timeout assertion was changed. The proper full CI run resolves both conditions;
+the isolated held-feed test also passed unchanged in 1.133 s.

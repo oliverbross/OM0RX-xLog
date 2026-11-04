@@ -82,7 +82,13 @@ struct CountryFactsTests {
         #expect(suffix.country?.adif == 29)
         #expect(resolver.facts("KL7AA/1", at: day).country?.adif == 291)
         // Source-defined area semantics on synthetic calls, not live-station claims.
-        #expect(resolver.facts("LU1ZZZ/F", at: day).country?.name.contains("SANTA FE") == true)
+        let argentineArea = resolver.facts("LU1ZZZ/F", at: day)
+        #expect(argentineArea.country?.adif == 100)
+        #expect(argentineArea.country?.name == "ARGENTINA")
+        #expect(argentineArea.matchedDescription?.contains("SANTA FE") == true)
+        let slovakArea = resolver.facts("OM0AAO", at: day)
+        #expect(slovakArea.country?.name == "SLOVAK REPUBLIC")
+        #expect(slovakArea.matchedDescription == "SLOVAKIA, PRESOV, BARDEJOV")
         #expect(resolver.facts("3Y0ZZZ", at: day).status == .ambiguous)
         #expect(resolver.facts("OM0RX/MM", at: day).status == .knownNoEntity)
         let expedition = resolver.facts("2O12L", at: ISO8601DateFormatter().date(from: "2012-07-20T00:00:00Z"))
@@ -100,5 +106,32 @@ struct CountryFactsTests {
         object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         object["components"] = [:]
         #expect(throws: (any Error).self) { try CTYResolver(countryPack: JSONSerialization.data(withJSONObject: object)) }
+    }
+
+    @Test("Neutral fallback fills only unknown facts and retains winning source under a composite identity")
+    func neutralFallback() throws {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".csv")
+        defer { try? FileManager.default.removeItem(at: file) }
+        try "OM,First,504,EU,15,28,48,-17,-1,OM;\nOM,Contradiction,503,EU,15,28,48,-17,-1,OM;\n"
+            .write(to: file, atomically: true, encoding: .utf8)
+        let primary = try CTYResolver(csvURL: file)
+        let combined = primary.fillingUnknownFacts(with: Self.packed)
+        #expect(combined.snapshotIdentity != primary.snapshotIdentity)
+        #expect(combined.snapshotIdentity != Self.packed.snapshotIdentity)
+        let norway = combined.facts("LN8W", at: day)
+        #expect(norway.status == .resolved)
+        #expect(norway.country?.adif == 266)
+        #expect(norway.referenceRevision == combined.snapshotIdentity)
+        #expect(norway.matchedReferenceRevision == Self.packed.snapshotIdentity)
+        #expect(primary.resolve("LN8W", at: day) == nil)
+        #expect(combined.resolve("LN8W", at: day) == nil) // deliberate source-only legacy adapter
+        for (call, at, expected) in [("OM0RX", day as Date?, CTYResolver.Facts.Status.ambiguous),
+                                     ("OM0RX/MM", day, .knownNoEntity), ("OM0RX?", day, .invalid),
+                                     ("OM0RX", nil, .missingDate)] {
+            let facts = combined.facts(call, at: at)
+            #expect(facts.status == expected)
+            #expect(facts.country == nil)
+            #expect(facts.referenceRevision == combined.snapshotIdentity)
+        }
     }
 }

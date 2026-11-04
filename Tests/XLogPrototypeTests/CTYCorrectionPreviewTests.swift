@@ -42,6 +42,9 @@ struct CTYCorrectionPreviewTests {
         let second = try #require(service.handle(method: "logbook_cty_preview", params: ["limit": 2, "offset": 2])["preview"] as? [String: Any])
         let rows = try #require(second["rows"] as? [[String: Any]])
         #expect(rows.map { $0["call"] as? String } == ["PJ6Y", "PJ5A"])
+        // Pinned Country.tab:219 and AreaOK1RR.tbl:4542 give both current
+        // Saba/Sint Eustatius calls ADIF 519; never retain historical 255.
+        #expect(rows.map { $0["currentADIF"] as? Int } == [519, 519])
         #expect(rows.allSatisfy { Set($0.keys).isSubset(of: ["id", "call", "start", "previousADIF", "previousCountry", "currentADIF", "currentCountry"]) })
         #expect(try db.fetchAll() == before)
         #expect(try db.currentRevision() == revision)

@@ -23,15 +23,38 @@ public final class CTYResolver: @unchecked Sendable {
         public let country: CountryInfo?
         public let operatingPrefix: String?
         public let matchedRule: String?
+        public let matchedDescription: String?
+        public let matchedReferenceRevision: String?
         public let validFrom: Date?
         public let validUntil: Date?
         public let referenceRevision: String
         public let policy: String
         public let locationPrecision: String
     }
-    public static let factsPolicy = "xlog-country-facts-v1"
+    public static let factsPolicy = "xlog-country-facts-v2"
     public let contentDigest: String
-    public var snapshotIdentity: String { "\(Self.factsPolicy):\(contentDigest)" }
+    private var primarySnapshotIdentity: String {
+        let catalogue = countryPack != nil ? ":entity-catalogue:\(Self.entityCatalogueDigest)" : ""
+        return "\(Self.factsPolicy):\(contentDigest)\(catalogue)"
+    }
+    public var snapshotIdentity: String {
+        guard let neutralFallback else { return primarySnapshotIdentity }
+        return "\(primarySnapshotIdentity):fallback:\(Self.digest(Data(neutralFallback.snapshotIdentity.utf8)))"
+    }
+    public var primaryReferenceRevision: String { primarySnapshotIdentity }
+    public var fallbackReferenceRevision: String? { neutralFallback?.snapshotIdentity }
+    // Country/area/exact source descriptions are not interchangeable with an
+    // entity name. Reuse the bundled CTY entity catalogue's established labels;
+    // retain the original matched description separately in source evidence.
+    private static let entityCatalogue: CTYResolver? = try? bundled()
+    private static var entityCatalogueDigest: String { entityCatalogue?.contentDigest ?? "unavailable" }
+    private static let entityNames: [Int: String] = Dictionary(
+        (entityCatalogue?.entities ?? []).map { ($0.adif, $0.name) }, uniquingKeysWith: { first, _ in first })
+    private static func entityNamedCountry(_ country: CountryInfo) -> CountryInfo {
+        CountryInfo(name: entityNames[country.adif] ?? country.name, adif: country.adif,
+            continent: country.continent, cqZone: country.cqZone, ituZone: country.ituZone,
+            latitude: country.latitude, longitude: country.longitude)
+    }
     fileprivate struct Rule {
         var token: String
         var endpointToken: String
@@ -51,8 +74,10 @@ public final class CTYResolver: @unchecked Sendable {
     private let packedRules: [CountryReferencePack.CompiledRule]
     private let packedIndex: [Character: [CountryReferencePack.CompiledRule]]
     private let packedWildcards: [CountryReferencePack.CompiledRule]
+    private let neutralFallback: CTYResolver?
 
     public init(csvURL: URL) throws {
+        neutralFallback = nil
         countryPack = nil; packedRules = []; packedIndex = [:]; packedWildcards = []
         let text = try String(contentsOf: csvURL, encoding: .utf8)
         var parsed: [Rule] = []
@@ -100,9 +125,13 @@ public final class CTYResolver: @unchecked Sendable {
     /// CQ-zone, ITU-zone, and continent overrides from the pinned CTY data. This deliberately does
     /// not collapse by ADIF identity.
     public func reachableCountryEndpoints(at date: Date) -> [CountryInfo] {
+        if let neutralFallback {
+            return Array(Set(primaryOnly().reachableCountryEndpoints(at: date) + neutralFallback.reachableCountryEndpoints(at: date)))
+                .sorted { ($0.adif, $0.name) < ($1.adif, $1.name) }
+        }
         if countryPack != nil {
             return Array(Set(packedRules.filter { ($0.start == nil || date >= $0.start!) && ($0.end == nil || date <= $0.end!) }
-                .map { $0.record.country })).sorted { ($0.adif, $0.name) < ($1.adif, $1.name) }
+                .map { Self.entityNamedCountry($0.record.country) })).sorted { ($0.adif, $0.name) < ($1.adif, $1.name) }
         }
         return Array(Set(endpointRules.compactMap { rule in
             if let start = rule.start, date < start { return nil }
@@ -121,6 +150,7 @@ public final class CTYResolver: @unchecked Sendable {
     }
 
     private init(rules: [Rule], content: Data) {
+        neutralFallback = nil
         countryPack = nil; packedRules = []; packedIndex = [:]; packedWildcards = []
         self.rules = Self.sortedRules(rules, by: \.token)
         endpointRules = Self.sortedRules(rules, by: \.endpointToken)
@@ -130,6 +160,7 @@ public final class CTYResolver: @unchecked Sendable {
 
     /// Bundle, imported bytes and downloaded bytes use this exact validator.
     public init(countryPack data: Data) throws {
+        neutralFallback = nil
         let pack = try CountryReferencePack.decode(data)
         let compiled = try pack.records.map(CountryReferencePack.CompiledRule.init)
         countryPack = pack; packedRules = compiled
@@ -138,6 +169,23 @@ public final class CTYResolver: @unchecked Sendable {
         rules = []; endpointRules = []; endpointIndex = [:]
         contentDigest = Self.digest(data)
     }
+
+    /// A downloaded XML source can intentionally cover only some prefixes.
+    /// Neutral consumers share this immutable primary/fallback snapshot; legacy
+    /// resolve APIs continue exposing the primary source's original coverage.
+    public func fillingUnknownFacts(with fallback: CTYResolver) -> CTYResolver {
+        precondition(countryPack == nil, "A complete normalized pack has no implicit fallback")
+        return CTYResolver(primary: self, fallback: fallback)
+    }
+
+    private init(primary: CTYResolver, fallback: CTYResolver?) {
+        rules = primary.rules; endpointRules = primary.endpointRules; endpointIndex = primary.endpointIndex
+        countryPack = primary.countryPack; packedRules = primary.packedRules
+        packedIndex = primary.packedIndex; packedWildcards = primary.packedWildcards
+        contentDigest = primary.contentDigest; neutralFallback = fallback
+    }
+
+    private func primaryOnly() -> CTYResolver { CTYResolver(primary: self, fallback: nil) }
 
     public static func bundledCountryPack() throws -> CTYResolver {
         try CTYResolver(countryPack: bundledCountryPackBytes())
@@ -156,6 +204,19 @@ public final class CTYResolver: @unchecked Sendable {
     /// never substitutes today's date or strips invalid input into another call.
     /// The legacy resolve APIs retain their historical home-entity semantics.
     public func facts(_ literal: String, at date: Date?) -> Facts {
+        let primary = primaryFacts(literal, at: date)
+        guard primary.status == .unknown, let neutralFallback else { return primary }
+        let fallback = neutralFallback.facts(literal, at: date)
+        return Facts(literalCall: fallback.literalCall, normalizedCall: fallback.normalizedCall,
+            operatorCall: fallback.operatorCall, qualifier: fallback.qualifier, observedAt: fallback.observedAt,
+            status: fallback.status, country: fallback.country, operatingPrefix: fallback.operatingPrefix,
+            matchedRule: fallback.matchedRule, matchedDescription: fallback.matchedDescription,
+            matchedReferenceRevision: fallback.matchedReferenceRevision,
+            validFrom: fallback.validFrom, validUntil: fallback.validUntil,
+            referenceRevision: snapshotIdentity, policy: Self.factsPolicy, locationPrecision: fallback.locationPrecision)
+    }
+
+    private func primaryFacts(_ literal: String, at date: Date?) -> Facts {
         let call = literal.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         let parts = call.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
         let modifiers = ignoredSuffixes.union(countryPack?.ignoredModifiers ?? [])
@@ -165,7 +226,8 @@ public final class CTYResolver: @unchecked Sendable {
         func result(_ status: Facts.Status, _ rule: Rule? = nil) -> Facts {
             Facts(literalCall: literal, normalizedCall: call, operatorCall: operatorCall, qualifier: qualifier,
                 observedAt: date.flatMap { $0.timeIntervalSince1970.isFinite ? $0 : nil }, status: status, country: status == .resolved ? rule?.endpointCountry : nil,
-                operatingPrefix: rule?.primaryPrefix, matchedRule: rule?.endpointToken,
+                operatingPrefix: rule?.primaryPrefix, matchedRule: rule?.endpointToken, matchedDescription: rule?.country.name,
+                matchedReferenceRevision: rule == nil ? nil : primarySnapshotIdentity,
                 validFrom: rule?.start, validUntil: rule?.end, referenceRevision: snapshotIdentity,
                 policy: Self.factsPolicy, locationPrecision: status == .resolved ? "entityApproximation" : "unavailable")
         }
@@ -288,11 +350,16 @@ public final class CTYResolver: @unchecked Sendable {
     public func pjCorrection(_ rawCallsign: String, at date: Date) -> (previous: CountryInfo?, current: CountryInfo?)? {
         let call = rawCallsign.uppercased().filter { $0.isLetter || $0.isNumber || $0 == "/" }
         guard call.hasPrefix("PJ") else { return nil }
-        return (rules.first(where: { $0.country.adif == 305 })?.country, resolve(rawCallsign, at: date))
+        let previous = countryPack?.records.first(where: { $0.country.adif == 305 })?.country
+            ?? rules.first(where: { $0.country.adif == 305 })?.country
+        return (previous, resolve(rawCallsign, at: date))
     }
 
     public var entities: [CountryInfo] {
-        if let countryPack { return Array(Set(countryPack.records.map(\.country))).sorted { $0.name < $1.name } }
+        if let neutralFallback {
+            return Array(Set(primaryOnly().entities + neutralFallback.entities)).sorted { $0.name < $1.name }
+        }
+        if let countryPack { return Array(Set(countryPack.records.map { Self.entityNamedCountry($0.country) })).sorted { $0.name < $1.name } }
         var unique: [Int: CountryInfo] = [:]
         for rule in rules where rule.country.latitude != nil && rule.country.longitude != nil {
             unique[rule.country.adif] = unique[rule.country.adif] ?? rule.country
@@ -305,8 +372,10 @@ public final class CTYResolver: @unchecked Sendable {
         guard let pack = countryPack else { preconditionFailure() }
         func output(_ status: Facts.Status, _ match: CountryReferencePack.CompiledRule? = nil) -> Facts {
             Facts(literalCall: literal, normalizedCall: call, operatorCall: operatorCall, qualifier: qualifier,
-                observedAt: date, status: status, country: status == .resolved ? match?.record.country : nil,
+                observedAt: date, status: status, country: status == .resolved ? match.map { Self.entityNamedCountry($0.record.country) } : nil,
                 operatingPrefix: match?.record.pattern, matchedRule: match.map { "\($0.record.component):\($0.record.line):\($0.record.pattern)" },
+                matchedDescription: match?.record.country.name,
+                matchedReferenceRevision: match == nil ? nil : primarySnapshotIdentity,
                 validFrom: match?.start, validUntil: match?.end, referenceRevision: snapshotIdentity,
                 policy: Self.factsPolicy, locationPrecision: status == .resolved ? "entityApproximation" : "unavailable")
         }

@@ -95,14 +95,19 @@ it("cancels a pending read by its captured native scan scope and ignores its lat
 });
 
 it("country reference controls issue only explicit reference actions and never a contact or station mutation", async () => {
-  const snapshot = { reference_revision: "fixture", provider: "OK1RR fixture", source_revision: "pinned", source_version: null,
-    record_count: 21343, excluded_count: 294, coverage: ["current-and-deleted"], rollback_available: true, country_reference_changed: true };
+  const snapshot = { reference_revision: "composite-fixture", primary_reference_revision: "primary-xml-fixture", fallback_reference_revision: "bundled-fallback-fixture",
+    provider: "Club Log XML + bundled country fallback", source_revision: "pinned", source_version: null,
+    record_count: null, excluded_count: null, coverage: ["configured Club Log XML", "bundled neutral fallback for unknown prefixes"], rollback_available: true, country_reference_changed: true };
   const request = vi.fn(async (_method: string, _params?: Record<string, unknown>) => snapshot);
   render(<CountryReferenceControl request={request} visible />);
   const user = userEvent.setup();
   expect(request).not.toHaveBeenCalled();
   await user.click(screen.getByRole("button", { name: "Read country snapshot" }));
   await waitFor(() => expect((screen.getByRole("button", { name: "Restore previous country snapshot" }) as HTMLButtonElement).disabled).toBe(false));
+  await user.click(screen.getByText("Country source and revision"));
+  expect(screen.getByText("Active snapshot: composite-fixture").textContent).toBe("Active snapshot: composite-fixture");
+  expect(screen.getByText("Downloaded XML source revision: primary-xml-fixture").textContent).toContain("primary-xml-fixture");
+  expect(screen.getByText("Bundled fallback revision: bundled-fallback-fixture").textContent).toContain("bundled-fallback-fixture");
   await user.type(screen.getByRole("textbox", { name: "Country pack file" }), "/private/tmp/reviewed-pack.json");
   await user.click(screen.getByRole("button", { name: "Validate and import country pack" }));
   await waitFor(() => expect(request).toHaveBeenLastCalledWith("reference_country_import", { path: "/private/tmp/reviewed-pack.json" }));

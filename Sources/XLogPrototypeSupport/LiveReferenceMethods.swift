@@ -390,10 +390,12 @@ actor LiveReferenceMethods {
         let state = await updater.currentState()
         let version = pack?.sourceVersion ?? (pack == nil ? state.sourceMetadata["cty.xml"]?.sourceVersion : nil)
         return ["reference_revision": resolver.snapshotIdentity, "content_digest": resolver.contentDigest,
-            "policy": CTYResolver.factsPolicy, "provider": pack?.provider ?? "Club Log XML",
+            "primary_reference_revision": resolver.primaryReferenceRevision,
+            "fallback_reference_revision": resolver.fallbackReferenceRevision as Any? ?? NSNull(),
+            "policy": CTYResolver.factsPolicy, "provider": pack?.provider ?? "Club Log XML + bundled country fallback",
             "source_version": version as Any? ?? NSNull(), "source_revision": pack?.sourceRevision as Any? ?? NSNull(),
             "source_url": pack?.sourceURL as Any? ?? NSNull(), "record_count": pack?.records.count as Any? ?? NSNull(),
-            "excluded_count": pack?.excluded.count as Any? ?? NSNull(), "coverage": pack?.coverage ?? ["configured Club Log XML"],
+            "excluded_count": pack?.excluded.count as Any? ?? NSNull(), "coverage": pack?.coverage ?? ["configured Club Log XML", "bundled neutral fallback for unknown prefixes"],
             "rollback_available": FileManager.default.fileExists(atPath: directory.appendingPathComponent("country-reference-pack.previous.json").path)
                 || FileManager.default.fileExists(atPath: directory.appendingPathComponent("country-reference-pack.previous.xml").path),
             "read_only": true, "contacts_changed": false]

@@ -143,6 +143,9 @@ enum LocalCallsignProfile {
         let facts = resolver?.facts(call, at: Date())
         profile["country_resolution_status"] = facts?.status.rawValue ?? "unknown"
         profile["country_reference_revision"] = facts?.referenceRevision
+        profile["country_matched_reference_revision"] = facts?.matchedReferenceRevision
+        profile["country_matched_rule"] = facts?.matchedRule
+        profile["country_matched_description"] = facts?.matchedDescription
         profile["location_precision"] = facts?.locationPrecision ?? "unavailable"
         if let country = facts?.country {
             profile.merge(["country": country.name, "dxcc": country.adif,

@@ -1,0 +1,104 @@
+◇ Test run started.
+↳ Testing Library Version: 2403
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "CTY source authority" started.
+◇ Suite "Shared country facts and real OK1RR snapshot" started.
+◇ Test "XML PJ rules honor validity dates and exact-call exceptions" started.
+◇ Test "Portable operating prefixes take precedence without losing exact or ordinary suffix rules" started.
+◇ Test "Bundled Slovak prefix resolves OM0AAO for offline callsign intelligence" started.
+◇ Test "Leading MM is Scotland while trailing MM remains a mobile suffix" started.
+◇ Test "Pinned bundled CTY currently has no continent annotations" started.
+◇ Test "Matched CTY rows retain distinct primary prefixes even when ADIF is shared" started.
+◇ Test "Neutral fallback fills only unknown facts and retains winning source under a composite identity" started.
+◇ Test "Pinned real derivative has historical, exact and country-area coverage" started.
+◇ Test "One validator rejects invalid packs and imported bytes preserve snapshot identity" started.
+◇ Test "Date boundaries and contradictory equal-authority rules are independent of file order" started.
+◇ Test "Bundled PJ prefixes retain their distinct modern entities" started.
+◇ Test "Independent corpus retains slash identity, modifiers and unavailable position" started.
+◇ Test "Continent annotations remain opt-in and do not change legacy token matching" started.
+✔ Test "Portable operating prefixes take precedence without losing exact or ordinary suffix rules" passed after 0.475 seconds.
+✔ Test "XML PJ rules honor validity dates and exact-call exceptions" passed after 0.475 seconds.
+✔ Test "Pinned bundled CTY currently has no continent annotations" passed after 0.475 seconds.
+✔ Test "Date boundaries and contradictory equal-authority rules are independent of file order" passed after 0.475 seconds.
+✔ Test "Matched CTY rows retain distinct primary prefixes even when ADIF is shared" passed after 0.475 seconds.
+✔ Test "Continent annotations remain opt-in and do not change legacy token matching" passed after 0.475 seconds.
+✔ Test "Bundled Slovak prefix resolves OM0AAO for offline callsign intelligence" passed after 0.559 seconds.
+✔ Test "Leading MM is Scotland while trailing MM remains a mobile suffix" passed after 0.605 seconds.
+✔ Test "Bundled PJ prefixes retain their distinct modern entities" passed after 0.614 seconds.
+✔ Suite "CTY source authority" passed after 0.615 seconds.
+✔ Test "Independent corpus retains slash identity, modifiers and unavailable position" passed after 1.212 seconds.
+✔ Test "Neutral fallback fills only unknown facts and retains winning source under a composite identity" passed after 1.221 seconds.
+✔ Test "Pinned real derivative has historical, exact and country-area coverage" passed after 1.230 seconds.
+✔ Test "One validator rejects invalid packs and imported bytes preserve snapshot identity" passed after 1.538 seconds.
+✔ Suite "Shared country facts and real OK1RR snapshot" passed after 1.538 seconds.
+✔ Test run with 13 tests in 2 suites passed after 1.538 seconds.
+
+Building for debugging...
+[Computing dependencies]
+[30 / 119] XContestCore
+[47 / 117] CCWProcess
+[49 / 117] XContestCore
+[57 / 126] CCurlBackup
+[59 / 136]
+[60 / 136] XContestCore
+[61 / 136] XLogCore
+[62 / 136] XLogCore
+[63 / 136] XContestCore
+[71 / 136] XLogCore
+[73 / 136] XLogCore
+[74 / 136] XLogCore
+[75 / 136] XLogCore
+[76 / 136] XLogCore
+[77 / 136] XLogCore
+[85 / 141] XContestStore
+[85 / 150] XContestStore
+[87 / 154] XContestStore
+[88 / 154] om0rx-xlog-product
+[89 / 154] om0rx-xlog-product
+[92 / 154] XContestStore
+[98 / 154] om0rx-xlog-product
+[99 / 154] om0rx-xlog-product
+[100 / 154] om0rx-xlog-product
+[102 / 154] om0rx-xlog-product
+[103 / 154] XContestStore
+[104 / 154] XContestStoreTests-product
+[106 / 154] XContestStoreTests-product
+[110 / 154] XContestStoreTests-product
+[112 / 155] om0rx-xlog-product
+[118 / 164] XContestCoreTests-product
+[119 / 164] XContestStore
+[121 / 164] XContestStore
+[122 / 164] XLogCore
+[123 / 164] XContestStore
+[124 / 164] XContestCoreTests-product
+[128 / 164] XContestCoreTests-product
+[132 / 164] XContestCoreTests-product
+[133 / 164] XContestCore-product
+[135 / 164] XContestStoreTests-product
+[140 / 165] om0rx-xlog-product
+[145 / 174] XContestStoreTests-product
+[146 / 174] XContestStoreTests-product
+[147 / 184]
+[149 / 184] XLogCoreTests-product
+[150 / 184] XContestStoreTests-product
+[152 / 184] XContestStoreTests-product
+[158 / 184] XLogCoreTests-product
+[160 / 184] XLogCoreTests-product
+[161 / 184] XLogCoreTests-product
+[162 / 184] XLogCoreTests-product
+[163 / 184] XLogCoreTests-product
+[166 / 189] XLogCoreTests-product
+[169 / 189] XLogCoreTests-product
+[171 / 189] XContestCoreTests-product
+[172 / 189] XLogCoreTests-product
+[173 / 189] om0rx-xlog-product
+[176 / 190] XContestCoreTests-product
+[176 / 188] XLogCoreTests-product
+[176 / 188] XContestStoreTests-product
+[176 / 188] XLogCoreTests-product
+[176 / 188] XContestStoreTests-product
+[178 / 188] XContestStoreTests-product
+[180 / 186] XLogCoreTests-product
+[182 / 186] XLogCoreTests-product
+[184 / 186] XLogCoreTests-product
+Build complete! (34.30 sec.)
