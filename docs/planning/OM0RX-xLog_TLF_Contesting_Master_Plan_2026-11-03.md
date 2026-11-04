@@ -102,6 +102,12 @@ testing uninterrupted continuation. Physical WinKeyer/RF qualification remains o
 
 R05 command: `XLOG_TEST_PYTHON=/opt/local/bin/python3.12 npm --prefix prototype run test:vitest -- src/contesting/contestCallStack.test.ts src/contesting/contestCallStack.host.test.ts` → PASS (24 tests); TypeScript `tsc --noEmit` passed. Initial fixture used a symlinked macOS temporary root and an incorrect expectation that the pinned plugin's numeric NR remained a string; corrected fixture uses canonical root and asserts raw draft `007` separately from logged numeric 7. No production fallback or GUI binding occurred.
 
+The broad frontend gate exposed one remaining old park mock returning the same
+draft ID. Its owner-integration fixture now returns a distinct authoritative
+draft and asserts the parking transition and original snapshot identity.
+The focused directed-pass cases pass (3; other cases skipped in that invocation).
+This fixture correction does not change product code or replace real-Host evidence.
+
 Command: `PYTHONPATH=python:python/tests /opt/local/bin/python3.12 -m unittest test_okom_host` → PASS (14 tests).
 Initial test attempts exposed unavailable system Python 3.9, a test transaction
 commit omission, a generic matrix query's single-band parameter mismatch and a

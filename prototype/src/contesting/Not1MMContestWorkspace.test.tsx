@@ -4950,10 +4950,13 @@ it("executes a directed pass tune through the current station owner without load
 
 it("loads a directed pass through the existing Call Stack owner and parks the occupied entry explicitly",async()=>{
   let current=projection(1,{callsign:"W1HOLD",other_2:"14"});
+  const originalDraftID=current.draftID;
   const base=operationalRequest(()=>current),request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
     if(method==="contest_draft_apply"){
       expect(params.manualStackLoad).toBe(true);
-      current={...current,revision:current.revision+1,fields:current.fields.map(field=>({...field,value:(params.fields as Record<string,string>)[String(field.id)]??field.value}))};
+      expect(params.stackTransition).toEqual({schema:1,parkCurrent:true});
+      expect(params.stackCurrentFields).toMatchObject({callsign:"W1HOLD",other_2:"14"});
+      current={...current,draftID:"incoming-authoritative-draft",revision:current.revision+1,fields:current.fields.map(field=>({...field,value:(params.fields as Record<string,string>)[String(field.id)]??field.value}))};
       return{id:crypto.randomUUID(),ok:true,result:{operationID:params.operationID,projection:current,actions:[],messages:[]}};
     }
     return base(method,params);
@@ -4969,6 +4972,7 @@ it("loads a directed pass through the existing Call Stack owner and parks the oc
   await act(async()=>{await pending;});
   const stored=Object.keys(localStorage).filter(key=>key.includes("call-stack")).map(key=>localStorage.getItem(key)).join(" ");
   expect(stored).toContain("W1HOLD");expect(stored).toContain("14");
+  expect(stored).toContain(originalDraftID);expect(current.draftID).not.toBe(originalDraftID);
   expect(workspaceProps.stationTune).not.toHaveBeenCalled();
   expect(request.mock.calls.some(([method])=>method==="contest_qso_commit")).toBe(false);
   expect(groupChat.authority.mock.calls.filter(call=>call[2].action==="recipient_action").map(call=>call[2].event)).toEqual(["load_requested","loaded"]);
