@@ -7,6 +7,11 @@
 .desk-intelligence { container: callsign-intelligence / inline-size; }
 .desk-panel form { display: flex; flex-direction: column; gap: 12px; flex: 1; }
 .desk-active form { gap: 7px; min-width: 0; max-width: 100%; overflow: hidden; }
+/* Expanded output controls scroll within the Traditional card instead of
+   shrinking away the QSO form or clipping the controls below it. */
+.operator-desk-top > .desk-active { overflow-x: hidden; overflow-y: auto; }
+.operator-desk-top > .desk-active > form { flex: 1 0 auto; overflow: visible; }
+.operator-desk-top > .desk-active > :is(.cw-desk, .voice-desk) { flex: 0 0 auto; }
 .live .desk-panel label:not(.desk-toggle) { display: flex; flex-direction: column; align-items: stretch; gap: 4px; min-width: 0; }
 .desk-panel label > span { color: var(--secondary); font-size: 10px; font-weight: 650; text-transform: uppercase; white-space: nowrap; }
 .desk-panel input:not([type="checkbox"]), .desk-panel select { width: 100%; min-width: 0; height: 31px; min-height: 31px; padding: 4px 8px; font-size: 12px; border: 1px solid #244358; border-radius: 6px; background: #102237; color: #e6edf6; }

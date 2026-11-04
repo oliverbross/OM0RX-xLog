@@ -58,3 +58,7 @@ evidence. The desk labels raw keyer reports as uncorrelated; they cannot complet
 a newer job. The native owner retains any uncertain output obligation even if a
 window closes. Physical keyer/radio qualification is recorded separately from
 software and packaged UI acceptance.
+
+In the Traditional desk, the Active QSO card scrolls when its CW workbench or
+voice library is expanded. Scroll inside that card to reach Send/Stop or the
+contact fields; closing a panel returns the compact view without clearing text.

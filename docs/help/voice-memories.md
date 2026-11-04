@@ -75,3 +75,7 @@ and physical/RF output are separate evidence. The software tests establish the
 documented PCM, admission and lifecycle contracts; the exact microphone, monitor,
 transmitter device/channel wiring, first/last audible audio and radio release
 still require qualification on the operator's identified setup.
+
+In the Traditional desk, scroll inside **Active QSO** to reach the expanded
+library, routes and editing controls. Scroll back up for the contact fields and
+Log QSO controls. Opening or closing the voice panel keeps the draft intact.
