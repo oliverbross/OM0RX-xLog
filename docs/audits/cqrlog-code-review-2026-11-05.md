@@ -189,3 +189,19 @@ clear a newer flight. The same slow-backend test now observes two calls (initial
 load plus one in flight), with the 250 ms interval unchanged. All **10 VoiceDesk
 tests** and TypeScript pass (`/tmp/xlog-cqrlog-review-voice-poll-after.log`,
 `/tmp/xlog-cqrlog-review-voice-ui-tsc.log`). No output is started by polling.
+
+## Pinned country generator provenance
+
+The generator checked HEAD but read editable working files, allowing an
+uncommitted source change to be labeled as the pinned upstream revision.
+Its assertions also disappeared under optimized Python, including the revision
+check. Two regressions reproduced both failures
+(`/tmp/xlog-cqrlog-review-normalizer-before.log`).
+
+The six components now come directly from the pinned Git objects with replacement
+objects disabled. Explicit validation survives `python -O`, and canonical UTF-8
+LF output is independent of platform text translation. Both regressions pass
+(`/tmp/xlog-cqrlog-review-normalizer-after.log`). Regeneration from the retained
+upstream checkout is byte-identical to the bundled resource: SHA-256
+`c04689ac8cf530672a98df3d1ecd132a150d13e7583f88037928b75a09ff1731`
+(`/tmp/xlog-cqrlog-review-normalizer-reproduction.log`). No pack bytes changed.
