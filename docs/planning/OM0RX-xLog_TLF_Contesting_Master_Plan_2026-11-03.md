@@ -24,6 +24,18 @@ physical CAT action or submission is authorised by this correction pass.
 
 ### Correction evidence (this register remains authoritative)
 
+**TLF-R09 / P1-05/06; CW-04/07/12/17, G-04 — VERIFIED_SOFTWARE:**
+the old persisted WinKeyer queue receipt omitted OM0RX after restart. Suppression
+now requires a live native-authored continuation bound to a unique native owner,
+lease epoch, provider identity/generation, draft, stream, finish operation and
+current Host process epoch. Restart with the same old admission/generation and
+missing/changed continuation recovers the full call; native refuses suppressed
+output with no continuation. Ordinary provider-accepted partial correction remains.
+`test_tlf_cw_host` passed (10); `cargo test --locked --manifest-path prototype/src-tauri/Cargo.toml --bin xlog-prototype cw_session::tests::`
+passed (35). The first native control fixture changed streaming capability after
+arming and correctly lost its lease; it was corrected to Stop/re-arm before
+testing uninterrupted continuation. Physical WinKeyer/RF qualification remains open.
+
 | Finding / acceptance | Failed reproduction → corrected result | Corrective evidence / remaining boundary |
 | --- | --- | --- |
 | TLF-R01; P1-09/10; OK-05/08/09 | Mixed 20M/40M gave 18 for 20M → 6; ALL remains 18, both export rows retained | `python/tests/test_okom_host.py`, `test_single_band_claim_switch_edit_rebuild_restart_and_cross_check_export`; category/edit/rebuild/restart/export passed. Native confirmation pending. |

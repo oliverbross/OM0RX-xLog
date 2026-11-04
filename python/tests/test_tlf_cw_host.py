@@ -1,7 +1,7 @@
 """TLF CW admission and compiler vectors at the real plugin/transaction boundary."""
 from copy import deepcopy
 import unittest
-from contest_host.host import HostError
+from contest_host.host import Host, HostError
 from contest_host.cw_sequence import compile_sequence, sequence_text
 from contest_host.cw_operations import corrected_component
 import test_wave2_messages_host as fixtures
@@ -32,7 +32,13 @@ class TLFCWHostTests(unittest.TestCase):
     def early(self, method, stream, call, **extra):
         draft = self.call("projection")["projection"]["draftID"]
         return self.mutate(method, streamID=stream, draftID=draft, fields={"callsign": call},
-                           earlyStartEnabled=True, inputOrigin="typing", threshold=3, **extra)
+                           earlyStartEnabled=True, inputOrigin="typing", threshold=3,
+                           cwOwnerContext={"ownerID": "f14b3a10-7d12-4c77-9c34-2fde329a6dc1", "epoch": 1}, **extra)
+
+    def continuation(self, finish, generation=1):
+        stream = finish["earlyCW"]
+        return {"streamID": stream["streamID"], "draftID": stream["draftID"], "operationID": stream["operationID"],
+                "nativeOwner": stream["nativeOwner"], "providerContext": {"providerID": "winkeyer", "generation": generation}}
 
     def test_real_host_revisions_stream_and_esm_send_call_exchange_once(self):
         self.mutate("run_state", run=True)
@@ -48,7 +54,8 @@ class TLFCWHostTests(unittest.TestCase):
         self.call("output_claim", {"operationID": finish["operationID"], "revision": finish["revision"]})
         self.call("cw_outcome", {"outputOperationID": finish["operationID"], "outcome": "accepted",
                                 "acceptanceLevel": "native_queue", "providerID": "winkeyer", "generation": 1})
-        result = self.mutate("esm", field="callsign")
+        result = self.mutate("esm", field="callsign", cwProviderContext={"providerID": "winkeyer", "generation": 1},
+                             cwContinuationAdmission=self.continuation(finish))
         text = " ".join(sequence_text(a["cwSequence"]) for a in result["actions"])
         self.assertNotIn("OM0RX", text)
         self.assertIn("5NN", text)
@@ -59,6 +66,35 @@ class TLFCWHostTests(unittest.TestCase):
         self.assertEqual(logged["total"], 1)
         self.assertEqual((logged["rows"][0]["Call"], logged["rows"][0]["SentNr"]), ("OM0RX", serial))
         self.assertEqual(self.call("projection")["projection"]["reservedSerial"], serial + 1)
+
+    def test_restart_retires_old_queue_receipt_even_with_same_generation_and_old_admission(self):
+        self.mutate("run_state", run=True)
+        stream = uid()
+        self.early("early_cw_start", stream, "OM0")
+        finish = self.early("early_cw_finish", stream, "OM0RX")
+        serial = finish["projection"]["reservedSerial"]
+        self.call("output_claim", {"operationID": finish["operationID"], "revision": finish["revision"]})
+        self.call("cw_outcome", {"outputOperationID": finish["operationID"], "outcome": "accepted",
+                                 "acceptanceLevel": "native_queue", "providerID": "winkeyer", "generation": 1})
+        self.host.close(); self.host = Host(self.root)
+        self.call("session_open")
+        self.assertFalse(self.call("cw_context")["earlyCW"]["admitted"])
+        result = self.mutate("esm", field="callsign", cwProviderContext={"providerID": "winkeyer", "generation": 1},
+                             cwContinuationAdmission=self.continuation(finish))
+        self.assertIn("OM0RX", " ".join(sequence_text(a["cwSequence"]) for a in result["actions"]))
+        self.assertEqual(result["projection"]["reservedSerial"], serial)
+        self.assertEqual(self.call("log")["total"], 0)
+
+    def test_lost_live_continuation_or_changed_generation_recovers_full_call(self):
+        self.mutate("run_state", run=True)
+        stream = uid()
+        self.early("early_cw_start", stream, "OM0")
+        finish = self.early("early_cw_finish", stream, "OM0RX")
+        self.call("output_claim", {"operationID": finish["operationID"], "revision": finish["revision"]})
+        self.call("cw_outcome", {"outputOperationID": finish["operationID"], "outcome": "accepted",
+                                 "acceptanceLevel": "native_queue", "providerID": "winkeyer", "generation": 1})
+        result = self.mutate("esm", field="callsign", cwProviderContext={"providerID": "winkeyer", "generation": 999})
+        self.assertIn("OM0RX", " ".join(sequence_text(a["cwSequence"]) for a in result["actions"]))
 
     def test_disabled_paste_edit_and_unrelated_revision_fail_closed(self):
         self.mutate("run_state", run=True)

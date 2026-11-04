@@ -104,6 +104,7 @@ impl Backend for Native {
             "manualStart":params["manualStart"], "inputOrigin":params["inputOrigin"],
             "earlyStartEnabled":params["earlyStartEnabled"], "threshold":params["threshold"].as_u64().unwrap_or(3),
             "cwProviderContext":params["cwProviderContext"],
+            "cwOwnerContext":params["cwOwnerContext"], "cwContinuationAdmission":params["cwContinuationAdmission"],
             "correctionPolicy":params["correctionPolicy"],
             "action":params["qtcAction"].as_str().unwrap_or("qtc_output"), "batchID":params["batchID"],
             "index":params["index"], "qtcField":params["qtcField"]

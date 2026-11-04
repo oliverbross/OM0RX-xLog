@@ -759,11 +759,13 @@ class Desk:
                   "label": macro["label"], "template": text_template, **context}
         values = action_values(action)
         if getattr(self, "cw_esm_operation", False) and button is self.esm_dict.get("HISCALL"):
+            from .cw_operations import live_continuation
             evidence = self.state.get("cwOutputEvidence", {})
             stream = self.state.get("earlyCW", {})
             if self.current_widget == "callsign" and stream and stream.get("admitted") and stream.get("complete") and not stream.get("esmConsumed") \
                     and stream.get("draftID") == context["draftID"] and stream.get("call") == values["CALL"] \
-                    and evidence.get("outcome") == "accepted" and evidence.get("outputOperationID") == stream.get("operationID"):
+                    and evidence.get("outcome") == "accepted" and evidence.get("outputOperationID") == stream.get("operationID") \
+                    and live_continuation(self, stream, evidence):
                 values["CALL"] = ""
                 stream["esmConsumed"] = True
                 action["earlyCallSuppressed"] = True
@@ -1258,6 +1260,7 @@ class Host:
         self.exports = {}
         self.analytics = AnalyticsCopies()
         self._operation = None
+        self._cw_host_epoch = str(uuid.uuid4())
         self._n1mm_events = None
         self._note_binding_allowed = False
         self._n1mm_delivery_store = None
@@ -1538,6 +1541,8 @@ class Host:
         state = store.state(session_id)
         require(state is not None, "Session does not exist", "not_found")
         self.verify_engine(state)
+        if isinstance(state.get("earlyCW"), dict) and state["earlyCW"].get("hostEpoch") != self._cw_host_epoch:
+            state["earlyCW"]["admitted"] = False
         from .lanes import select as select_lane
         if "laneID" in params or method in {"session_open", "projection", "cw_context"}:
             select_lane(state, params, require, mandatory=method == "cw_context")
@@ -2815,6 +2820,10 @@ class Host:
                     require(state["laneState"]["lanes"][action_lane]["binding"] is not None,
                             "Bind the lane to an explicit radio/receiver before output", "lane_unbound")
             desk = Desk(store, state, self.commit)
+            desk.cw_host_epoch = self._cw_host_epoch
+            stream = state.get("earlyCW")
+            if isinstance(stream, dict) and stream.get("hostEpoch") != self._cw_host_epoch:
+                stream["admitted"] = False
             if method not in {"early_cw_start", "early_cw_append", "early_cw_finish", "esm", "focus"} and isinstance(state.get("earlyCW"), dict):
                 state["earlyCW"]["admitted"] = False
             if method == "lanes_configure":
@@ -3193,6 +3202,7 @@ class Host:
                     desk.cw_esm_operation = True
                     desk.cw_partial_policy = params.get("correctionPolicy", "full")
                     desk.cw_provider_context = params.get("cwProviderContext")
+                    desk.cw_continuation_admission = params.get("cwContinuationAdmission")
                     desk.contest.process_esm(desk, getattr(desk, field), True)
                 else:
                     desk.save_contact()

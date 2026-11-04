@@ -32,14 +32,17 @@ def admit(desk, method, params, require):
         require(not previous or not previous.get("admitted"), "Stop the existing early CW stream before starting another")
     else:
         require(isinstance(previous, dict) and previous.get("admitted") is True and previous.get("complete") is False
-                and previous.get("streamID") == stream_id and previous.get("draftID") == state["draft"]["id"],
+                and previous.get("streamID") == stream_id and previous.get("draftID") == state["draft"]["id"]
+                and previous.get("hostEpoch") == desk.cw_host_epoch
+                and previous.get("nativeOwner") == params.get("cwOwnerContext"),
                 "Early CW stream is retired; explicitly start again")
         require(call.startswith(previous["call"]), "Submitted characters cannot be unsent. Stop and use corrected-call recovery")
     complete = method == "early_cw_finish"
     require(not complete or re.search(r"[0-9]", call) and re.search(r"[A-Z]", call), "Complete the callsign before the exchange")
     state["earlyCW"] = {"schema": 1, "streamID": stream_id, "draftID": state["draft"]["id"],
         "revision": state["revision"] + 1, "call": call, "complete": complete, "admitted": True,
-        "operationID": params["operationID"]}
+        "operationID": params["operationID"], "hostEpoch": desk.cw_host_epoch,
+        "nativeOwner": deepcopy(params.get("cwOwnerContext"))}
     # Cumulative content is intentional: native admits its monotonic suffix once.
     desk.actions.append({"kind": "function_key", "key": "EARLY", "label": "Early callsign",
         "template": call, "cwSequence": compile_sequence(call, {}),
@@ -58,6 +61,23 @@ def corrected_component(previous, current):
     if len(changed) != 1:
         return current
     return after[3] if changed[0] == 3 else after[1] + after[2]
+
+
+def live_continuation(desk, stream, evidence):
+    """A persisted queue receipt cannot grant a fresh native owner admission."""
+    admission = getattr(desk, "cw_continuation_admission", None)
+    owner = stream.get("nativeOwner")
+    provider = {"providerID": evidence.get("providerID"), "generation": evidence.get("generation")}
+    return (isinstance(admission, dict) and isinstance(owner, dict)
+            and bool(owner.get("ownerID")) and type(owner.get("epoch")) is int
+            and admission.get("nativeOwner") == owner
+            and stream.get("hostEpoch") == getattr(desk, "cw_host_epoch", None)
+            and bool(stream.get("hostEpoch"))
+            and admission.get("streamID") == stream.get("streamID")
+            and admission.get("draftID") == stream.get("draftID")
+            and admission.get("operationID") == stream.get("operationID")
+            and admission.get("providerContext") == provider
+            and getattr(desk, "cw_provider_context", None) == provider)
 
 
 def outcome(store, state, params, require):

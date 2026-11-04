@@ -38,6 +38,17 @@ deliberate repeat. Setup Entry/QTC arms explicitly select `controlSurface=setup`
 their polling retains that actual focus surface. Detached Entry keeps its
 existing focus scope, and an unrelated window cannot borrow either arm.
 
+Call suppression additionally requires native-authored live continuation
+admission matching the unique native owner, lease epoch, provider/generation,
+draft, stream and finish operation, plus the current Host process epoch. A
+persisted queue receipt or matching generation alone cannot suppress a call.
+Restart/Stop/lost continuation recovers with a deliberate full-call operation;
+the native boundary refuses exchange-only output without its live continuation.
+Drafts and historical receipts remain retained. Nothing automatically replays or
+arms on restart. Ordinary provider-accepted full-call receipts still support
+the conservative partial-correction policy; WinKeyer queue acceptance alone does
+not establish complete-call RF delivery.
+
 Source inspection: Flex documents appending text and indexed sent telemetry,
 but an immediate WPM command alone gives no buffered speed boundary. This
 change deliberately does not advertise that unimplemented telemetry/sequence
