@@ -12,8 +12,9 @@ export default function CWComposition({context, state, mode: initialMode = "word
   const [mode, setMode] = useState<CompositionMode>(initialMode), [enabled, setEnabled] = useState(false);
   const [text, setText] = useState(""), [pendingText, setPendingText] = useState(""), [error, setError] = useState("");
   const [busy, setBusy] = useState(false), [uncertain, setUncertain] = useState("");
+  const [composing,setComposing]=useState(false);
   const input = useRef<HTMLTextAreaElement>(null);
-  const control = useRef({text:"", enabled:false, staged:false, firstWord:true, sending:false, job:crypto.randomUUID(), append:0, epoch:0, alive:true});
+  const control = useRef({text:"", enabled:false, staged:false, composing:false, firstWord:true, sending:false, job:crypto.randomUUID(), append:0, epoch:0, alive:true});
   const current = useRef({state,disabled,mode,compose,context}); current.current={state,disabled,mode,compose,context};
   let preview = "";
   try { if (text.trim()) preview = describeCWPlan(compileCWMessage(text, context)); } catch (cause) { preview = cause instanceof Error ? cause.message : String(cause); }
@@ -32,7 +33,7 @@ export default function CWComposition({context, state, mode: initialMode = "word
   const resetJob = () => {control.current.job=crypto.randomUUID();control.current.append=0;control.current.firstWord=true;};
   async function drain(explicit:boolean) {
     const c=control.current, active=current.current;
-    if(c.sending || active.disabled || !active.state.armed || active.state.pending) return;
+    if(c.sending || c.composing || active.disabled || !active.state.armed || active.state.pending) return;
     if(!explicit && (!c.enabled || c.staged || active.state.capabilities?.composition!==true))return;
     const live=c.append>0 || !explicit;
     const boundary=explicit?c.text.length:compositionBoundary(c.text,active.mode,c.firstWord);
@@ -70,7 +71,8 @@ export default function CWComposition({context, state, mode: initialMode = "word
     </div>
     <label className="cw-compose-entry">Editable text<textarea ref={input} value={text} maxLength={512} rows={2} spellCheck={false} autoCapitalize="characters"
       onPaste={()=>{control.current.staged=true;control.current.enabled=false;setEnabled(false);}}
-      onCompositionStart={()=>{control.current.staged=true;control.current.enabled=false;setEnabled(false);}}
+      onCompositionStart={()=>{control.current.composing=true;setComposing(true);control.current.staged=true;control.current.enabled=false;setEnabled(false);}}
+      onCompositionEnd={()=>{control.current.composing=false;setComposing(false);control.current.staged=true;}}
       onChange={event=>{
         const native=event.nativeEvent as InputEvent;
         const value=event.target.value.replace(/\r\n?|\n/g," ");
@@ -80,7 +82,7 @@ export default function CWComposition({context, state, mode: initialMode = "word
         if(!direct){control.current.staged=true;return;}
         void drain(false);
       }}/></label>
-    <div className="cw-compose-actions"><button type="button" disabled={disabled || !state.armed || !!state.pending || busy || (!text.trim() && control.current.append===0)} onClick={()=>void drain(true)}>Send / finish</button>
+    <div className="cw-compose-actions"><button type="button" disabled={disabled || !state.armed || !!state.pending || busy || composing || (!text.trim() && control.current.append===0)} onClick={()=>void drain(true)}>Send / finish</button>
       <button type="button" className="cw-stop" onClick={()=>void halt()}>Stop CW</button>
       <button type="button" disabled={busy} onClick={()=>{update("");control.current.staged=false;setError("");}}>Clear compose</button></div>
     {text && <div className="cw-compose-preview"><span>Preview</span><output>{preview}</output></div>}

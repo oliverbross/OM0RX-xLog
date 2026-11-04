@@ -23,7 +23,12 @@ describe("deliberate CW workbench input",()=>{
     await waitFor(()=>expect((screen.getByLabelText("Editable text") as HTMLTextAreaElement).value).toBe(""));
     fireEvent.compositionStart(input);
     fireEvent.input(input,{target:{value:"TEST"},inputType:"insertCompositionText",isComposing:true});
+    fireEvent.click(screen.getByText("Send / finish"));
+    input.focus();fireEvent(window,new Event("xlog:cw-compose-send"));
     expect(compose).toHaveBeenCalledTimes(1);
+    fireEvent.compositionEnd(input);fireEvent.click(screen.getByText("Send / finish"));
+    await waitFor(()=>expect(compose).toHaveBeenCalledTimes(2));
+    expect(compose.mock.calls[1][0]).toMatchObject({template:"TEST",inputOrigin:"explicit-send",live:false});
   });
   it("appends only new immutable character deltas and finishes without replaying a growing string",async()=>{
     const compose=vi.fn<(request:CWComposeRequest)=>Promise<boolean>>(async()=>true);

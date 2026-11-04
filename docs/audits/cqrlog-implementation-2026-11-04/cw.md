@@ -64,3 +64,11 @@ exception. C06 restores the test-mode claim through the existing Host while
 production claims remain native. The unchanged five-second scenario then passed
 **1**, with **211 unrelated skipped** (`8b44b1d2e796e3da`). A final integrated
 full run remains a release gate; this focused recovery is not labelled 212/212.
+
+Independent C05 review found that active IME preedit could reach explicit Send
+even though automatic typing was blocked. The workbench now guards both native
+submission paths during composition and keeps committed IME text staged after
+compositionend. The unchanged input test now attempts both button and semantic
+Send during ASCII preedit (zero output) and deliberate Send after commit. All
+3 workbench tests pass (`d1209ed9da5ec371`). No output owner or device admission
+guard was weakened.
