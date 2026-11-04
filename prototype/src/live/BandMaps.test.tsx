@@ -12,6 +12,17 @@ const spot = (id: string, frequencyKHz: number, band = "20m", callStatus = "New 
 
 beforeEach(() => localStorage.clear());
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+it("shows a QSO dupe as a server-declared QTC opportunity and opens only QTC review",()=>{
+  const select=vi.fn(),review=vi.fn();const rows=[{...spot("K1ABC",14025),contestDupe:true},{...spot("DL1ABC",14030),contestDupe:false}];
+  const qtc={schema:1 as const,revision:5,opportunities:{K1ABC:{eligibility:"eligible" as const,reason:null,direction:"receive" as const,
+    remaining:7,confirmed:2,reserved:3,availableSources:null,observation:{status:"later" as const},opportunity:true}}};
+  render(<BandMaps compact contestPresentation spots={rows} onSelect={select} onQTCReview={review} qtcOpportunities={qtc} radioFrequencyHz={14025000}/>);
+  expect(screen.queryByRole("button",{name:/^K1ABC ·/})).toBeNull();
+  fireEvent.click(screen.getByRole("checkbox",{name:"QTC opportunities"}));
+  const marker=screen.getByRole("button",{name:/^K1ABC ·/});expect(marker.title).toContain("7 remaining");expect(marker.title).toContain("local later");
+  expect(screen.queryByRole("button",{name:/^DL1ABC ·/})).toBeNull();fireEvent.click(marker);
+  expect(review).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({callsign:"K1ABC",contestDupe:true}));expect(select).not.toHaveBeenCalled();
+});
 
 it.each([false, true])("uses contest-style callsign stacking and exact-frequency leaders in normal maps (compact=%s)", compact => {
   const rows = [spot("HB9BIN/P", 14044), spot("OK5WA/P", 14044), spot("OK5WA/P-QSY", 14050)];

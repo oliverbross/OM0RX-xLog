@@ -1,4 +1,5 @@
 import { contestKeyBindingActions, contestKeyBindingContexts, normalizeContestKey, type ContestKeyBinding } from "./contestKeyBindings";
+import { validQTCOpportunities, type QTCOpportunityProjection } from "./contestQTCOpportunities";
 
 export const contestSurfacePanelIDs = ["active-qso", "qrz-details", "band-maps", "world-map", "callsign-intelligence", "monitor", "propagation",
   "awards", "chaser-dx", "rotor", "station-control", "logbook", "dx-cluster", "score-reporting", "messages"] as const;
@@ -9,13 +10,16 @@ export type ContestInputFieldID = typeof contestInputFieldIDs[number];
 type Revision = number;
 type DraftRevision = { draftID: string; expectedDraftRevision: Revision };
 export type ContestSurfaceAction =
-  | { action: "spot_select"; params: DraftRevision & { spotID: string } }
+  | { action: "spot_select" | "spot_qtc_review"; params: DraftRevision & { spotID: string } }
   | { action: "spot_confirm" | "spot_delete"; params: DraftRevision & { spotID: string } }
   | { action: "spot_set_marked"; params: DraftRevision & { spotID: string; marked: boolean } }
   | { action: "spot_set_marked_only"; params: DraftRevision & { markedOnly: boolean } }
   | { action: "spot_set_show_worked"; params: DraftRevision & { showWorked: boolean } }
   | { action: "entry_set_text"; params: DraftRevision & { field: "callsign" | "sentReport" | "receivedReport"; value: string } }
   | { action: "entry_cw_callsign"; params: DraftRevision & { sourceEpoch: string; spotID: string; spotVersion: string; laneID?: "laneA" | "laneB"; bindingVersion?: number } }
+  | { action: "entry_group_pass"; params: DraftRevision & { messageID: string; messageVersion: number;
+      operation: "load" | "tune" | "park"; targetLaneID: "laneA" | "laneB"; bindingVersion: number | null;
+      connectionGeneration: string | number | null; reviewedUTC: string } }
   | { action: "entry_set_exchange"; params: DraftRevision & { fieldID: string; value: string } }
   | { action: "entry_set_frequency_text"; params: DraftRevision & { value: string; callsignCommand?: true } }
   | { action: "entry_set_band"; params: DraftRevision & { value: string } }
@@ -178,7 +182,7 @@ export type ContestSpotSurfaceProjection = { schemaVersion: 2; status: "ready"; 
   configuredClusters: { serverID: string; serverName: string; enabled: boolean }[];
   connections: { serverID: string; serverName: string; phase: string; error: string | null }[];
   contestSessionID?: string; supportedBands?: string[]; allowedModeGroups?: Array<"cw" | "data" | "phone">;
-  bandSegments?: string[]; markedOnly: boolean; showWorked?: boolean; spots: ContestSurfaceSpot[]; busy: boolean };
+  bandSegments?: string[]; markedOnly: boolean; showWorked?: boolean; qtcOpportunities?:QTCOpportunityProjection; spots: ContestSurfaceSpot[]; busy: boolean };
 export type ContestRemoteVFOSurfaceProjection = { schemaVersion: 1; status: "ready";
   radioFrequencyHz: number | null; contestFrequencyHz: number | null; band: string; mode: string; busy: boolean };
 export type ContestLogSurfaceProjection = { schemaVersion: 1; status: "ready"; sessionRevision: number;
@@ -560,11 +564,12 @@ function validMatrixProjection(value: Record<string, unknown>) {
 function validSpotProjection(value: Record<string, unknown>) {
   if (!optionalKeys(value, ["schemaVersion", "status", "draftID", "draftRevision", "radioFrequencyHz", "connectedClusters", "loadedSpots",
       "selectedSpotID", "configuredClusters", "connections", "markedOnly", "spots", "busy"],
-      ["contestSessionID", "supportedBands", "allowedModeGroups", "bandSegments", "showWorked"]) ||
+      ["contestSessionID", "supportedBands", "allowedModeGroups", "bandSegments", "showWorked", "qtcOpportunities"]) ||
       !text(value.draftID, 160) || !uint(value.draftRevision) || !optionalFrequency(value.radioFrequencyHz) ||
       !uint(value.connectedClusters) || !uint(value.loadedSpots) || !Array.isArray(value.spots) || value.spots.length > 2_000 ||
       value.selectedSpotID !== null && !text(value.selectedSpotID, 128) || typeof value.markedOnly !== "boolean" ||
       value.showWorked !== undefined && typeof value.showWorked !== "boolean" || typeof value.busy !== "boolean" ||
+      value.qtcOpportunities!==undefined&&!validQTCOpportunities(value.qtcOpportunities)||
       value.contestSessionID !== undefined && !text(value.contestSessionID, 160) ||
       value.supportedBands !== undefined && !uniqueArray(value.supportedBands,64,item=>text(item,16)) ||
       value.allowedModeGroups !== undefined && !uniqueArray(value.allowedModeGroups,3,item=>oneOf(item,["cw","data","phone"])) ||
@@ -652,7 +657,7 @@ export function validContestSurfaceProjection(panelID: ContestSurfacePanelID, va
 }
 
 function validParams(action: string, params: Record<string, unknown>) {
-  if (action === "spot_select" || action === "spot_confirm" || action === "spot_delete")
+  if (action === "spot_select" || action === "spot_qtc_review" || action === "spot_confirm" || action === "spot_delete")
     return draft(params, ["spotID"]) && text(params.spotID, 128);
   if (action === "spot_set_marked") return draft(params, ["spotID", "marked"]) && text(params.spotID, 128) && typeof params.marked === "boolean";
   if (action === "spot_set_marked_only") return draft(params, ["markedOnly"]) && typeof params.markedOnly === "boolean";
@@ -662,6 +667,10 @@ function validParams(action: string, params: Record<string, unknown>) {
   if (action === "entry_cw_callsign") return draft(params,["sourceEpoch","spotID","spotVersion"], ["laneID","bindingVersion"]) &&
     [params.sourceEpoch,params.spotID,params.spotVersion].every(validContestSurfaceUUID) &&
     (params.laneID === undefined ? params.bindingVersion === undefined : oneOf(params.laneID,["laneA","laneB"]) && uint(params.bindingVersion));
+  if (action === "entry_group_pass") return draft(params,["messageID","messageVersion","operation","targetLaneID","bindingVersion","connectionGeneration","reviewedUTC"]) &&
+    validContestSurfaceUUID(params.messageID) && params.messageVersion === 1 && oneOf(params.operation,["load","tune","park"]) &&
+    oneOf(params.targetLaneID,["laneA","laneB"]) && (params.bindingVersion === null || uint(params.bindingVersion)) &&
+    (params.connectionGeneration===null||uint(params.connectionGeneration)||text(params.connectionGeneration,256)) && canonicalISO(params.reviewedUTC);
   if (action === "entry_set_exchange") return draft(params, ["fieldID", "value"]) && text(params.fieldID, 64) && text(params.value, 1024, true);
   if (action === "entry_set_frequency_text") return draft(params, ["value"], ["callsignCommand"]) && text(params.value, 11, true) &&
     (params.callsignCommand === undefined || params.callsignCommand === true);

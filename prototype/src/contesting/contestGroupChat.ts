@@ -13,7 +13,10 @@ export type ContestGroupAuthoritySnapshot = {
 export type ContestGroupAuthorityOperation = "serialReserve" | "dupeInquiry" | "contactApply" | "changes" | "coordination";
 export type ContestGroupCoordination = ContestGroupAuthorityResult & { senderStation:string;observedUTC:string;
   peers:{station:string;operator:string;role:string;band:string;mode:string;laneID:string;cursor:number;queue:number;context:string;confirmedUTC:string}[];
-  directed:{id:string;sender:string;target:string;kind:string;body:string;call:string;frequencyHz:number;mode:string;laneID:string;createdUTC:string;acknowledgedUTC:string|null}[] };
+  directed:ContestDirectedProposal[] };
+export type ContestDirectedProposal = {id:string;sender:string;target:string;kind:string;body:string;call:string;frequencyHz:number;mode:string;laneID:string;createdUTC:string;acknowledgedUTC:string|null;
+  schema?:number;version?:number;sessionID?:string;workspaceGeneration?:string;frequencyMeaning?:string;observedUTC?:string;source?:string;supersedesID?:string|null;superseded?:boolean;
+  recipientActions?:{event:string;operationID:string;atUTC:string;context?:Record<string,unknown>;detail?:string}[]};
 export type ContestGroupAuthorityIdentity = { sessionID:string; workspaceGeneration:string; pluginID:string; sourceRevision:string; referenceID:string; coordinationDigest:string };
 export type ContestGroupReplicaCursor = { revision:number; sequence:number };
 export type ContestGroupAuthorityResult = Record<string, unknown> & { requestID:string; authority:ContestGroupAuthorityIdentity };
@@ -39,6 +42,24 @@ function validAuthority(value:unknown): value is ContestGroupAuthorityIdentity {
     [item.pluginID,item.sourceRevision,item.referenceID].every(part=>typeof part==="string"&&bytes(part)<=256) &&
     typeof item.coordinationDigest==="string" && /^[0-9a-f]{64}$/.test(item.coordinationDigest);
 }
+function validDirectedProposal(value:unknown): value is ContestDirectedProposal {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const message=value as Record<string,unknown>;
+  if (!uuid.test(String(message.id)) || !["sender","target","kind","body","call","mode","laneID","createdUTC"].every(key=>typeof message[key]==="string"&&bytes(String(message[key]))<=512) ||
+      !uint(message.frequencyHz) || !(message.acknowledgedUTC===null||typeof message.acknowledgedUTC==="string")) return false;
+  for (const key of ["schema","version"]) if(message[key]!==undefined&&!uint(message[key])) return false;
+  for (const key of ["sessionID","workspaceGeneration"]) if(message[key]!==undefined&&!uuid.test(String(message[key]))) return false;
+  for (const key of ["frequencyMeaning","observedUTC","source"]) if(message[key]!==undefined&&(typeof message[key]!=="string"||bytes(String(message[key]))>64)) return false;
+  if(message.supersedesID!==undefined&&message.supersedesID!==null&&!uuid.test(String(message.supersedesID))) return false;
+  if(message.superseded!==undefined&&typeof message.superseded!=="boolean") return false;
+  return message.recipientActions===undefined || Array.isArray(message.recipientActions)&&message.recipientActions.length<=100&&message.recipientActions.every(raw=>{
+    if(!raw||typeof raw!=="object"||Array.isArray(raw))return false;
+    const item=raw as Record<string,unknown>;
+    return typeof item.event==="string"&&bytes(item.event)<=32&&uuid.test(String(item.operationID))&&typeof item.atUTC==="string"&&bytes(item.atUTC)<=40&&
+      (item.detail===undefined||typeof item.detail==="string"&&bytes(item.detail)<=512)&&
+      (item.context===undefined||!!item.context&&typeof item.context==="object"&&!Array.isArray(item.context)&&bytes(JSON.stringify(item.context))<=4096);
+  });
+}
 function validAuthorityResult(operation:ContestGroupAuthorityOperation, value:unknown, requestID:string): value is ContestGroupAuthorityResult {
   if(!value||typeof value!=="object"||Array.isArray(value))return false;
   const item=value as Record<string,unknown>;
@@ -50,7 +71,7 @@ function validAuthorityResult(operation:ContestGroupAuthorityOperation, value:un
   if(operation==="contactApply")return uuid.test(String(item.qsoID))&&["commit","correct","delete"].includes(String(item.action))&&uint(item.changeRevision);
   if(operation==="coordination")return typeof item.senderStation==="string"&&typeof item.observedUTC==="string"&&item.draftMutation===false&&item.outputArmed===false&&item.offlineSerialGuarantee===false&&
     Array.isArray(item.peers)&&item.peers.length<=64&&item.peers.every(peer=>!!peer&&typeof peer==="object"&&["station","operator","role","band","mode","laneID","context","confirmedUTC"].every(key=>typeof peer[key]==="string"&&bytes(peer[key])<=128)&&uint(peer.cursor)&&uint(peer.queue))&&
-    Array.isArray(item.directed)&&item.directed.length<=100&&item.directed.every(message=>!!message&&typeof message==="object"&&uuid.test(message.id)&&["sender","target","kind","body","call","mode","laneID","createdUTC"].every(key=>typeof message[key]==="string"&&bytes(message[key])<=512)&&uint(message.frequencyHz)&&(message.acknowledgedUTC===null||typeof message.acknowledgedUTC==="string"));
+    Array.isArray(item.directed)&&item.directed.length<=100&&item.directed.every(validDirectedProposal);
   if(!uint(item.afterRevision)||!uint(item.afterSequence)||!uint(item.currentRevision)||!uint(item.nextRevision)||!uint(item.nextSequence)||
       typeof item.hasMore!=="boolean"||!Array.isArray(item.changes)||item.changes.length>100)return false;
   return item.changes.every(raw=>{if(!raw||typeof raw!=="object"||Array.isArray(raw))return false;const change=raw as Record<string,unknown>;

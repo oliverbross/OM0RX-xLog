@@ -54,6 +54,11 @@ class TLFCWHostTests(unittest.TestCase):
         self.assertIn("5NN", text)
         self.assertEqual(result["projection"]["reservedSerial"], serial)
         self.assertEqual(self.call("log")["total"], 0)
+        self.mutate("esm", field="other_2", fields={"callsign": "OM0RX", "other_2": "3"})
+        logged = self.call("log")
+        self.assertEqual(logged["total"], 1)
+        self.assertEqual((logged["rows"][0]["Call"], logged["rows"][0]["SentNr"]), ("OM0RX", serial))
+        self.assertEqual(self.call("projection")["projection"]["reservedSerial"], serial + 1)
 
     def test_disabled_paste_edit_and_unrelated_revision_fail_closed(self):
         self.mutate("run_state", run=True)

@@ -11,7 +11,8 @@ import { monitorRotorAction, validMonitorContext, type MonitorContext } from "..
 import { Not1MMContestWorkspace } from "./Not1MMContestWorkspace";
 import type { ContestTransitionController } from "./ContestWorkspace";
 import type { SetupView } from "./ContestSetupPanel";
-import { stepContestVFO, tuneContestSpot } from "./contestSpotTune";
+import { stepContestVFO, tuneContestSpot,captureContestPassTune,captureManualTuneBinding } from "./contestSpotTune";
+import type {ManualTuneBinding} from "../live/manualTune";
 import { postContestSpot } from "./contestSurfaceNative";
 import { TauriEvent } from "@tauri-apps/api/event";
 import { flushUnfinishedEditors } from "./unfinishedEditors";
@@ -82,13 +83,14 @@ export function isManagedContestSetupWindowSize(current: WindowSize, rememberedA
 
 /** Read the active radio through xLog's retained native station owner. Contest
  * Setup must not bypass that owner with an unscoped worker station_snapshot. */
-export async function loadContestStationSnapshot(load: LoadStationSession = loadStationSession): Promise<Data> {
+export async function loadContestStationSnapshot(load: LoadStationSession = loadStationSession,onSession?:(value:StationSession)=>void): Promise<Data> {
   const primary = await load("radio1");
   const radioId = primary.active_radio;
   const current = radioId === "radio1" ? primary : await load(radioId);
   if (current.active_radio !== radioId) {
     throw new Error("The active radio changed. Refresh Contest Setup before using station data.");
   }
+  onSession?.(current);
   return current.radio?.snapshot && typeof current.radio.snapshot === "object" ? current.radio.snapshot : {};
 }
 
@@ -104,6 +106,8 @@ export function DetachedContestSetupSurface() {
   const strictHostActive = useMemo(() => hostActiveContestStartup(new URLSearchParams(window.location.search)), []);
   const [context, setContext] = useState<{ operatingContext: string; workspaceGeneration: string; stationCall: string; contestingTest: boolean } | null>(null);
   const [station, setStation] = useState<Data | null>(null), [cluster, setCluster] = useState<Data | null>(null);
+  const passTuneBindingRef=useRef<ManualTuneBinding|null>(null);
+  const observePassTuneBinding=useCallback((value:StationSession)=>{try{passTuneBindingRef.current=captureManualTuneBinding(value);}catch{passTuneBindingRef.current=null;}},[]);
   const [error, setError] = useState("");
   const [closeError,setCloseError]=useState("");
   const menuHandler = useRef<MenuHandler | null>(null), readiness = useRef(new Set<() => void>());
@@ -163,7 +167,7 @@ export function DetachedContestSetupSurface() {
       isolated = health.mode === "contesting_test";
       const observations = isolated
         ? Promise.resolve([{}, { snapshot: { spots: [] } }] as [Data, Data])
-        : Promise.all([loadContestStationSnapshot(), request("cluster_snapshot")]);
+        : Promise.all([loadContestStationSnapshot(loadStationSession,observePassTuneBinding), request("cluster_snapshot")]);
       const workspace = strictHostActive ? Promise.resolve(null) : Promise.all([
         request("workspace_status"), request("settings_load"),
       ]);
@@ -187,7 +191,7 @@ export function DetachedContestSetupSurface() {
     const poll = async () => {
       const [nextStation, nextCluster] = isolated
         ? [{}, { snapshot: { spots: [] } }]
-        : await Promise.all([loadContestStationSnapshot(), request("cluster_snapshot")]);
+        : await Promise.all([loadContestStationSnapshot(loadStationSession,observePassTuneBinding), request("cluster_snapshot")]);
       if (active) { setStation(nextStation); setCluster(nextCluster); setError(""); }
     };
     const run = async () => {
@@ -231,7 +235,10 @@ export function DetachedContestSetupSurface() {
     {error ? <p className="contest-alert is-error" role="alert">{error}</p> : <p role="status">Loading contest setup…</p>}
   </main>;
   return <>{closeError&&<p role="alert" className="contest-alert is-error">Close cancelled; unfinished work remains open. {closeError}</p>}<Not1MMContestWorkspace setupOnly request={contestRequest}
-    serviceRequest={request} stationTune={tuneContestSpot} stationStep={stepContestVFO} rotorStop={context.contestingTest?undefined:stopObservedContestRotor} contestSpot={postContestSpot} operatingContext={context.operatingContext} workspaceGeneration={context.workspaceGeneration}
+    serviceRequest={request} stationTune={tuneContestSpot} captureStationTune={()=>{
+      const binding=passTuneBindingRef.current;if(!binding)throw Error("Refresh the observed radio before reviewing a directed pass tune.");
+      return captureContestPassTune(binding);
+    }} stationStep={stepContestVFO} rotorStop={context.contestingTest?undefined:stopObservedContestRotor} contestSpot={postContestSpot} operatingContext={context.operatingContext} workspaceGeneration={context.workspaceGeneration}
     stationCall={context.stationCall} contestingTest={context.contestingTest} radioFrequencyHz={station?.radio?.frequency_hz}
     spots={contestClusterSpots(cluster)} cluster={cluster}
     strictHostActive={strictHostActive} registerTransition={registerTransition}

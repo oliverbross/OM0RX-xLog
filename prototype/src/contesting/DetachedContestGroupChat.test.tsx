@@ -43,3 +43,40 @@ it("truthfully disables input when group networking is off", async () => {
   expect(await screen.findByText("Group networking is disabled in Contest Setup.")).toBeTruthy();
   expect((screen.getByRole("textbox", { name:"Message" }) as HTMLInputElement).disabled).toBe(true);
 });
+
+const authorityIdentity={sessionID:context.sessionID,workspaceGeneration:context.workspaceGeneration,pluginID:"cq_wpx_cw",sourceRevision:"source",referenceID:"cty",coordinationDigest:"a".repeat(64)};
+const connectedSnapshot={status:"connected",error:null,enabled:true,operator:"OM0RX",multicastGroup:"239.1.1.1",multicastPort:2239,messages:[],unverifiedTransportAcknowledgements:[],
+  capabilities:{chat:true,contactPublication:true,remotePersistenceVerified:false,sharedSerial:true,duplicateInquiry:true,authorityLimitation:""},authority};
+function coordinationReply(requestID:string,directed:unknown[]=[]){return{id:requestID,ok:true,result:{requestID,authority:authorityIdentity,revision:3,replayed:false,
+  senderStation:"B",observedUTC:"2026-11-04T00:00:00.000Z",draftMutation:false,outputArmed:false,offlineSerialGuarantee:false,
+  peers:[{station:"A",operator:"OM0RX",role:"helper",band:"20M",mode:"CW",laneID:"laneA",cursor:3,queue:0,context:"test",confirmedUTC:"2026-11-04T00:00:00Z"}],directed}};}
+
+it("sends reviewed receive frequency, mode and source time instead of zero placeholders",async()=>{
+  native.invoke.mockImplementation(async(command:string,args:{request?:{requestID:string}})=>command==="contest_group_chat_snapshot"?connectedSnapshot:
+    command==="contest_group_authority_request"?coordinationReply(args.request!.requestID):undefined);
+  render(<DetachedContestGroupChat/>);
+  await screen.findByRole("option",{name:"A"});
+  fireEvent.change(screen.getByRole("combobox",{name:"Message target"}),{target:{value:"A"}});
+  fireEvent.change(screen.getByRole("combobox",{name:"Kind"}),{target:{value:"pass"}});
+  fireEvent.change(screen.getByRole("textbox",{name:"Call"}),{target:{value:"K1ABC"}});
+  fireEvent.change(screen.getByRole("textbox",{name:"Pass receive frequency Hz"}),{target:{value:"14025000"}});
+  fireEvent.change(screen.getByRole("textbox",{name:"Pass observation UTC"}),{target:{value:"2026-11-03T14:00:00Z"}});
+  fireEvent.submit(screen.getByRole("textbox",{name:"Message"}).closest("form")!);
+  await waitFor(()=>expect(native.invoke).toHaveBeenCalledWith("contest_group_authority_request",expect.objectContaining({request:expect.objectContaining({params:{action:"send",message:expect.objectContaining({schema:2,version:1,frequencyHz:14025000,mode:"CW",frequencyMeaning:"rx",observedUTC:"2026-11-03T14:00:00Z",source:"operator",sessionID:context.sessionID,workspaceGeneration:context.workspaceGeneration})}})})));
+});
+
+it("arrival exposes explicit separate actions and leaves native Entry and radios untouched",async()=>{
+  const proposal={id:"dddddddd-dddd-4ddd-8ddd-dddddddddddd",sender:"A",target:"B",kind:"pass",body:"review",call:"K1ABC",frequencyHz:14025000,mode:"CW",laneID:"laneA",
+    createdUTC:"2026-11-04T00:00:00.000Z",acknowledgedUTC:null,schema:2,version:1,sessionID:context.sessionID,workspaceGeneration:context.workspaceGeneration,frequencyMeaning:"rx",observedUTC:"2026-11-03T14:00:00Z",source:"operator",supersedesID:null,superseded:false};
+  native.invoke.mockImplementation(async(command:string,args:{request?:{requestID:string}})=>command==="contest_group_chat_snapshot"?connectedSnapshot:
+    command==="contest_group_authority_request"?coordinationReply(args.request!.requestID,[proposal]):undefined);
+  render(<DetachedContestGroupChat/>);
+  await screen.findByRole("button",{name:"Load K1ABC into laneA"});
+  expect(screen.getByRole("button",{name:"Review and tune K1ABC"})).toBeTruthy();
+  expect(screen.getByRole("button",{name:"Park current entry and load K1ABC"})).toBeTruthy();
+  expect(screen.getByRole("button",{name:"Decline K1ABC"})).toBeTruthy();
+  expect(native.invoke.mock.calls.every(call=>["contest_group_chat_snapshot","contest_group_authority_request"].includes(call[0]))).toBe(true);
+  fireEvent.click(screen.getByRole("button",{name:"Acknowledge K1ABC"}));
+  await waitFor(()=>expect(native.invoke).toHaveBeenCalledWith("contest_group_authority_request",expect.objectContaining({request:expect.objectContaining({params:{action:"acknowledge",messageID:proposal.id}})})));
+  expect(native.invoke).not.toHaveBeenCalledWith("contest_surface_action",expect.anything());
+});

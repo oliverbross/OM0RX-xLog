@@ -302,6 +302,20 @@ it.each(["band-maps","dx-cluster"] as const)("offers accessible Not1MM spot life
       .toMatchObject({panelID,action:"spot_set_show_worked",params:{showWorked:true}}));
   }
 });
+it("routes a QTC-only dupe marker to silent fenced review instead of spot selection",async()=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=band-maps"));
+  const view={schemaVersion:2,status:"ready",draftID:"draft-1",draftRevision:5,radioFrequencyHz:14025000,connectedClusters:1,
+    loadedSpots:1,selectedSpotID:null,configuredClusters:[],connections:[],markedOnly:false,showWorked:false,
+    qtcOpportunities:{schema:1,revision:9,opportunities:{DL1ABC:{eligibility:"eligible",reason:null,direction:"send",remaining:7,
+      confirmed:2,reserved:3,availableSources:4,observation:{status:"available"},opportunity:true}}},spots:[{...sharedSpot,contestDupe:true}],busy:false};
+  native.invoke.mockImplementation(async(command,args)=>command==="contest_surface_snapshot"?{...snapshot,panelID:"band-maps",projection:view}:
+    command==="contest_surface_action"?{requestID:args.requestID,status:"applied",projectionRevision:7}:Promise.reject(new Error(`unexpected ${command}`)));
+  render(<DetachedContestSurface/>);fireEvent.click(await screen.findByRole("checkbox",{name:"QTC opportunities"}));
+  fireEvent.click(screen.getByRole("button",{name:/^DL1ABC ·/}));
+  await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="spot_qtc_review")?.[1])
+    .toMatchObject({panelID:"band-maps",action:"spot_qtc_review",params:{draftID:"draft-1",expectedDraftRevision:5,spotID:"spot-1"}}));
+  expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_action"&&args.action==="spot_select")).toBe(false);
+});
 
 it("keeps equal-time cluster rows and DOM nodes stable through classification refreshes",async()=>{
   window.history.replaceState({},"",search.replace("view=active-qso","view=dx-cluster"));

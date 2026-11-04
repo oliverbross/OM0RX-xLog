@@ -33,10 +33,10 @@ import { configureContestGroupChat, openContestGroupChatWindow, publishContestGr
   readContestGroupNetwork, takeContestGroupUnverifiedAcknowledgements,
   requestContestGroupAuthority, syncContestGroupReplicaPage,
   type ContestGroupChatSnapshot } from "./contestGroupChat";
-import { ContestVoiceOutput, type ContestVoiceAction } from "./contestVoiceOutput";
+import { ContestVoiceOutput, captureContestVoiceTarget, type ContestVoiceAction } from "./contestVoiceOutput";
 import "./ContestWorkspace.css";
 import { ContestCallStackOwner } from "./ContestCallStackOwner";
-import { callStackStorageKey, type CallStackDraft, type CallStackOperation, type CallStackResult } from "./contestCallStack";
+import { ContestCallStack, callStackStorageKey, type CallStackDraft, type ParkedCallStackDraft, type CallStackOperation, type CallStackResult } from "./contestCallStack";
 import { ContestReverseHistoryPanel } from "./ContestReverseHistoryPanel";
 import { ContestVisibleDupesheet } from "./ContestVisibleDupesheet";
 import { ContestNotesPanel, ContestSubmissionPanel, type NoteTarget } from "./ContestProductivityTools";
@@ -44,6 +44,9 @@ import { ContestHistoricalImport } from "./ContestHistoricalImport";
 import "./ContestProductivityTools.css";
 import { ContestReminders, type Sked, type PlannedMove } from "./ContestReminders";
 import { ContestQTC } from "./ContestQTC";
+import { bookmarkQTC, reviewQTC } from "./contestRecorder";
+import { useQTCOpportunities } from "./contestQTCOpportunities";
+import { readDirectedPass, executeDirectedPass } from "./contestDirectedPass";
 import { ContestVHFDesk } from "./ContestVHFDesk";
 import { ContestDeveloperKit } from "./ContestDeveloperKit";
 import { ContestOpportunities } from "./ContestOpportunities";
@@ -55,6 +58,7 @@ import { RatesClock } from "./ContestSecondaryPanels";
 import { planningMutation, planningRecoveryKey } from "./contestPlanningRecovery";
 import { occupiedStackDraft } from "./contestCallStack";
 import { tuneContestReminder } from "./contestSpotTune";
+import type {CapturedContestTune} from "./contestSpotTune";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { ContestOperatingLanes, type ContestLaneAction, type ContestOperatingLane } from "./ContestOperatingLanes";
@@ -219,6 +223,7 @@ type Props = {
   request: Request;
   serviceRequest: Request;
   stationTune: (frequencyHz: number, mode: string) => Promise<unknown>;
+  captureStationTune?:()=>Promise<CapturedContestTune>;
   stationStep?: (direction: "up" | "down") => Promise<unknown>;
   rotorStop?: () => Promise<unknown>;
   contestSpot: (callsign: string, frequencyHz: number) => Promise<unknown>;
@@ -266,7 +271,7 @@ const validBandDefinitions = (value: unknown): ContestBandDefinition[] => Array.
     Number(band.lowHz) >= 0 && Number(band.highHz) > Number(band.lowHz) && typeof band.value === "number" && Number.isFinite(band.value);
 }) : [];
 const defaultBandLabels: Record<string, string> = Object.fromEntries(fallbackBandDefinitions.map(band => [String(band.value), band.id]));
-const contestPhoneIntentPlugins = new Set(["arrl_ss_phone", "cq_wpx_ssb", "cq_ww_ssb", "euhfc", "iaru_hf", "arrl_10m"]);
+const contestPhoneIntentPlugins = new Set(["arrl_ss_phone", "cq_wpx_ssb", "cq_ww_ssb", "euhfc", "iaru_hf", "arrl_10m", "wae_ssb"]);
 const serialPrefixPlugins = new Set(["cq_wpx_cw", "cq_wpx_ssb", "trans_tasman", "oceania_dx_cw", "oceania_dx_ssb"]);
 const sweepstakesPlugins = new Set(["arrl_ss_cw", "arrl_ss_phone"]);
 const contestInputFieldID = (value: unknown): value is ContestInputFieldID =>
@@ -754,7 +759,7 @@ function boundedFldigiSnapshot(value: unknown): NonNullable<ContestDigitalSnapsh
     ...(source.configuration_error === null || typeof source.configuration_error === "string" ? {configuration_error:source.configuration_error} : {}) };
 }
 
-export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: stationTunePort, stationStep: stationStepPort, rotorStop, contestSpot: contestSpotPort, operatingContext, workspaceGeneration, stationCall, radioFrequencyHz, spots, cluster,
+export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: stationTunePort,captureStationTune, stationStep: stationStepPort, rotorStop, contestSpot: contestSpotPort, operatingContext, workspaceGeneration, stationCall, radioFrequencyHz, spots, cluster,
   selectedSpotId, onSelectedSpot, onSetupViewChange, registerTransition, registerMenuRoute, strictHostActive = null, setupOnly = false, contestingTest = false }: Props) {
   const [catalog, setCatalog] = useState<Data[]>([]), [sessions, setSessions] = useState<Session[]>([]);
   const groupPresenceRef=useRef({bootID:crypto.randomUUID(),sequence:0});
@@ -763,6 +768,18 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     bandDefinitions.map(band => [String(band.value), band.id])), [bandDefinitions]);
   const [projection, setProjection] = useState<Projection | null>(null), projectionRef = useRef<Projection | null>(null);
   const [productivityOpen,setProductivityOpen]=useState(false),[productivityTab,setProductivityTab]=useState("Entry & stack");
+  const [qtcOpportunityIntent,setQTCOpportunityIntent]=useState<{sessionID:string;callsign:string;requestID:string}|null>(null);
+  const passStackAdmissionRef=useRef<{sessionID:string;workspaceGeneration:string;draftID:string}|null>(null);
+  const passStationStateRef=useRef({retiring:false,configuredClient:false,authorityClientReady:false});
+  const stackControllerRef=useRef<ContestCallStack|null>(null);
+  const stackControllerWaitersRef=useRef(new Set<{key:string;resolve:(controller:ContestCallStack)=>void;reject:(cause:Error)=>void;timer:number}>());
+  const onStackController=useCallback((controller:ContestCallStack|null)=>{
+    stackControllerRef.current=controller;
+    if(controller){const key=callStackStorageKey(controller.snapshot());for(const waiter of stackControllerWaitersRef.current)
+      if(waiter.key===key){window.clearTimeout(waiter.timer);stackControllerWaitersRef.current.delete(waiter);waiter.resolve(controller);}}
+  },[]);
+  useEffect(()=>()=>{for(const waiter of stackControllerWaitersRef.current){window.clearTimeout(waiter.timer);waiter.reject(new Error("Contest workspace closed before Call Stack was available."));}
+    stackControllerWaitersRef.current.clear();stackControllerRef.current=null;},[]);
   const [reminderPrefill,setReminderPrefill]=useState<Partial<Sked>>({});
   const [,refreshPlanningRecovery]=useState(0);
   const practiceTransitionRef=useRef(false);
@@ -840,6 +857,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
   const [phoneReleaseUncertain, setPhoneReleaseUncertain] = useState("");
   const [phoneSimulationTrace, setPhoneSimulationTrace] = useState<PhoneSimulationTrace[]>([]);
   const phoneSimulationControllerRef = useRef<AbortController | null>(null);
+  const qtcOutputOwnerRef=useRef<{controller:AbortController;mode:string;bridgeGeneration?:string}|null>(null);
   const phoneSimulationRecoveryRef = useRef<Promise<boolean> | null>(null);
   const phoneReleaseGenerationRef = useRef(0);
   const voiceOutput = useMemo(() => new ContestVoiceOutput(!contestingTest), [contestingTest]);
@@ -875,6 +893,11 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
   const [contestRadioRetryTick,setContestRadioRetryTick]=useState(0);
   const [spotWorkflow,setSpotWorkflow]=useState<SpotWorkflow>(()=>emptySpotWorkflow());
   const editVersionRef = useRef(0);
+  const [earlyCWEnabled,setEarlyCWEnabled]=useState(false),[earlyCWThreshold,setEarlyCWThreshold]=useState(3);
+  const [cwCorrectionPolicy,setCWCorrectionPolicy]=useState<"full"|"partial">("full");
+  const earlyCWRef=useRef<{sessionID:string;workspaceGeneration:string;draftID:string;streamID:string;call:string;finished:boolean}|null>(null);
+  const earlyCWQueueRef=useRef<Promise<void>>(Promise.resolve()),earlyCWFaultRef=useRef("");
+  useEffect(()=>{setEarlyCWEnabled(false);setCWCorrectionPolicy("full");earlyCWRef.current=null;earlyCWFaultRef.current="";},[projection?.sessionID,projection?.workspaceGeneration,projection?.draftID]);
   const observedFrequencyRef = useRef<{ sessionID: string; frequencyHz: number | null }>({ sessionID: "", frequencyHz: null });
   const tuningAnchorRef=useRef<{identity:string;frequencyHz:number}>({identity:"",frequencyHz:0});
   const ssbTuningToleranceHz=Number.isFinite(Number(setup.preferences.ssbTuningToleranceHz))
@@ -979,6 +1002,14 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
       return mode!==null&&supported.has(mode)&&supportedBands.has(spot.band.trim().toLowerCase())&&
         (!projection.filterSpotRanges||contestSpotWithinModeRange(contestBandPlan.find(entry=>entry.band===spot.band),spot.frequencyKHz,contestBandMode(mode)));});
   },[classifiedSharedSpots,effectiveSpotWorkflow,projection?.pluginID,projection?.supportedModes,projection?.mode,projection?.sessionID,projection?.filterSpotRanges,projection?.spotModeCategory,configuredBands,contestBandPlan]);
+  const qtcOpportunities=useQTCOpportunities(projection,visibleWorkflowSpots,request as ContestRequest);
+  const openQTCOpportunity=(spot:{callsign?:unknown})=>{
+    const active=projectionRef.current,callsign=typeof spot.callsign==="string"?spot.callsign.trim().toUpperCase():"";
+    if(!active||!["wae_cw","wae_ssb","wae_rtty"].includes(active.pluginID)||!/^[A-Z0-9/]{3,32}$/.test(callsign))throw Error("That QTC counterpart is no longer available in this WAE session.");
+    flushUnfinishedEditors();
+    setQTCOpportunityIntent({sessionID:active.sessionID,callsign,requestID:crypto.randomUUID()});
+    setProductivityOpen(true);setProductivityTab("QTC");
+  };
   const currentEntryMapSpot=useMemo<ContestSurfaceSpot|null>(()=>{
     if(!projection||operationFrequencyHz===null)return null;
     const callsign=(fields.callsign??"").trim().toUpperCase();
@@ -1880,8 +1911,43 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     pending.sort((left,right)=>left.createdAt-right.createdAt);
     for(const item of pending)await sendPendingMutation(item);
   };
+  const queueEarlyCW = (values:Record<string,string>, manualStart=false, finish=false) => {
+    const captured=projectionRef.current,inputVersion=editVersionRef.current;
+    if(!captured||!earlyCWEnabled||dualContestLanes(captured)||captured.practice||configuredClient||!captured.run||captured.mode!=="CW")return earlyCWQueueRef.current;
+    const call=(values.callsign??"").trim().toUpperCase();
+    if(!earlyCWRef.current){
+      if(!manualStart&&call.length<earlyCWThreshold)return earlyCWQueueRef.current;
+      if(!cw.state.armed||!cw.state.capabilities?.streaming)return earlyCWQueueRef.current;
+      earlyCWRef.current={sessionID:captured.sessionID,workspaceGeneration:captured.workspaceGeneration,draftID:captured.draftID,streamID:crypto.randomUUID(),call:"",finished:false};
+    }
+    const stream=earlyCWRef.current;
+    earlyCWQueueRef.current=earlyCWQueueRef.current.then(async()=>{
+      if(earlyCWFaultRef.current)throw Error(earlyCWFaultRef.current);
+      const base=projectionRef.current;
+      if(!base||base.sessionID!==stream.sessionID||base.workspaceGeneration!==stream.workspaceGeneration||base.draftID!==stream.draftID||earlyCWRef.current!==stream)
+        throw Error("Early CW draft changed. Stop and explicitly start again.");
+      if(!/^[A-Z0-9]{1,32}$/.test(call)||!call.startsWith(stream.call))throw Error("Submitted CW cannot be unsent. Stop and use full-call correction.");
+      if(stream.finished)return;
+      const operationID=crypto.randomUUID(),operation=finish?"early_finish":stream.call?"early_append":"early_start";
+      const native=await cw.controller.executeContest({operation,operationID,sessionID:base.sessionID,workspaceGeneration:base.workspaceGeneration,
+        expectedContestRevision:base.revision,draftID:base.draftID,streamID:stream.streamID,earlyStartEnabled:true,
+        inputOrigin:"typing",manualStart,threshold:earlyCWThreshold,fields:values,frequencyHz:operationFrequencyHz??base.frequencyHz});
+      const changed=native?.contestResult as (MutationResult&{operationID?:string})|undefined;
+      if(!changed?.projection||changed.operationID!==operationID)throw Error(native?.error||"Early CW outcome is unknown. Stop before another action.");
+      acceptProjection(changed.projection,inputVersion);
+      if(native?.error)throw Error(native.error);
+      stream.call=call;stream.finished=finish;
+    }).catch(async cause=>{
+      earlyCWFaultRef.current=errorMessage(cause);setError(earlyCWFaultRef.current);setEarlyCWEnabled(false);
+      // Stop always reaches the native owner before any optional UI persistence.
+      await cw.controller.stop();
+    });
+    return earlyCWQueueRef.current;
+  };
   const flushDraft = async (supplied = projectionRef.current,
       frequencyHz = operationFrequencyHz): Promise<Projection | null> => {
+    await earlyCWQueueRef.current;
+    if(supplied&&projectionRef.current?.sessionID===supplied.sessionID&&projectionRef.current.draftID===supplied.draftID)supplied=projectionRef.current;
     if (!supplied) return null;
     if(dualContestLanes(supplied))return flushLane(captureContestLaneScope(supplied));
     if (frequencyHz === null) throw new Error("Connect the selected radio or enter a frequency on a band supported by this contest before continuing.");
@@ -2010,7 +2076,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     // every output intent unclaimed and undispatched when no voice path exists.
     return { ...changed, actions: [] };
   };
-  const consumeFldigiOutput = async (changed: MutationResult, origin: PhoneIntentOrigin): Promise<MutationResult> => {
+  const consumeFldigiOutput = async (changed: MutationResult, origin: PhoneIntentOrigin, expectedGeneration?:string): Promise<MutationResult> => {
     const operationID = changed.operationID, actions = changed.actions ?? [];
     if (!operationID || changed.replayed !== false || changed.revision !== changed.projection.revision ||
         !actions.length || actions.length > 12 || actions.some((action, index) => {
@@ -2024,11 +2090,21 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
       sessionID: changed.projection.sessionID, operationID, revision: changed.projection.revision });
     if (claimed.claimed !== true || claimed.operationID !== operationID || canonicalJSON(claimed.actions) !== canonicalJSON(actions))
       throw new Error("The contest fldigi output claim could not be verified; do not retry the key.");
-    await serviceRequest("fldigi_send", { actions });
+    await serviceRequest("fldigi_send", { actions,...(expectedGeneration?{expectedGeneration}:{}) });
     return { ...changed, actions: [] };
   };
   const hostAction = async (method: string, extra: Record<string, unknown> = {}, throwFailures = false,
       contestSurfaceRequestID?: string) => {
+    const invoked=projectionRef.current,invocation=invoked?{sessionID:invoked.sessionID,workspaceGeneration:invoked.workspaceGeneration,draftID:invoked.draftID}:null;
+    await earlyCWQueueRef.current;
+    const invocationCurrent=()=>{const latest=projectionRef.current;return !!invocation&&latest?.sessionID===invocation.sessionID&&
+      latest.workspaceGeneration===invocation.workspaceGeneration&&latest.draftID===invocation.draftID;};
+    if(!invocationCurrent()){const failure=Error("The original contest key action belongs to a retired draft or workspace.");setError(failure.message);if(throwFailures)throw failure;return null;}
+    if(method==="contest_esm"&&earlyCWRef.current&&!earlyCWRef.current.finished){
+      await queueEarlyCW({...fieldsRef.current},true,true);
+    }
+    if(!invocationCurrent()){const failure=Error("The original contest key action changed during early CW completion.");setError(failure.message);if(throwFailures)throw failure;return null;}
+    if(earlyCWFaultRef.current){setError(earlyCWFaultRef.current);if(throwFailures)throw Error(earlyCWFaultRef.current);return null;}
     if (fldigiReleaseBlocking || fldigiStopRef.current) {
       const failure = new Error("fldigi receive release is unconfirmed; use Stop to retry before transmitting.");
       setError(failure.message); if (throwFailures) throw failure; return null;
@@ -2092,7 +2168,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     const operationID = crypto.randomUUID();
     const native = await cw.controller.executeContest({ operation: method === "contest_esm" ? "esm" : "function_key",
       operationID, sessionID: base.sessionID, expectedContestRevision: base.revision, draftID: base.draftID,
-      fields: fieldsRef.current, frequencyHz: operationFrequencyHz, ...extra,
+      fields: fieldsRef.current, frequencyHz: operationFrequencyHz, correctionPolicy:cwCorrectionPolicy, ...extra,
       ...(contestSurfaceRequestID ? { contestSurfaceRequestID } : {}) });
     const changed = native?.contestResult as (MutationResult & { operationID?: string }) | undefined;
     if (!changed?.projection || changed.operationID !== operationID) throw new Error(native?.error || "Contest CW operation was not confirmed. Use Stop and reopen the session before deciding what to do next.");
@@ -2139,35 +2215,38 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     if (autoCQTimerRef.current !== null) window.clearTimeout(autoCQTimerRef.current);
     autoCQTimerRef.current = null; setAutoCQDeadlineMs(null);
   };
-  const stopFldigiOutput = () => {
+  const stopFldigiOutput = (expectedGeneration?:string) => {
     if (fldigiStopRef.current) return fldigiStopRef.current;
     ++digitalGenerationRef.current; setFldigiStopPending(true);
     let observed = false;
     const pending = (async () => {
-      const fldigi = boundedFldigiSnapshot(await serviceRequest("fldigi_stop"));
+      const fldigi = boundedFldigiSnapshot(await (expectedGeneration?serviceRequest("fldigi_stop",{expectedGeneration}):serviceRequest("fldigi_stop")));
       if (!fldigi) throw new Error("fldigi Stop confirmation is unavailable; use Stop to retry.");
       observed = true;
       setDigitalSnapshot(current => current,fldigi);
       if (fldigi.configuration_error) throw new Error(fldigi.configuration_error, {cause:"fldigi_configuration"});
     })().catch(cause => {
       const previous = fldigiSnapshotRef.current;
-      if (!observed && previous) setDigitalSnapshot(current => current,{...previous,
+      if (!observed && previous && !expectedGeneration) setDigitalSnapshot(current => current,{...previous,
         transmit_release_required:true,transmit_release_uncertain:true,status:"fldigi Stop confirmation is unavailable; use Stop to retry."});
       setError(errorMessage(cause)); throw cause;
     }).finally(() => { fldigiStopRef.current = null; setFldigiStopPending(false); });
     fldigiStopRef.current = pending; return pending;
   };
-  const stopAutoCQ = async (stopOutput = true, stopRotor = false) => {
+  const stopAutoCQ = async (stopOutput = true, stopRotor = false, scopedQTC = false) => {
+    earlyCWRef.current=null;earlyCWFaultRef.current="";setEarlyCWEnabled(false);
     clearAutoCQ();
     if (!stopOutput) return;
+    const qtcOwner=qtcOutputOwnerRef.current;qtcOwner?.controller.abort();
     const fldigi = fldigiSnapshotRef.current;
-    const stopped=await Promise.allSettled([fldigiStopRef.current || fldigi?.transmit_release_required || fldigi?.transmit_release_uncertain ||
+    const stopped=await Promise.allSettled([qtcOwner?.mode==="SSB"?stopPhoneOutput():qtcOwner?stopFldigiOutput(scopedQTC?qtcOwner.bridgeGeneration:undefined):fldigiStopRef.current || fldigi?.transmit_release_required || fldigi?.transmit_release_uncertain ||
       projectionRef.current?.fldigiTransmitAvailable && fldigi?.configuration.transmit_enabled ? stopFldigiOutput() : phoneOutputAvailable?stopPhoneOutput():cw.controller.stop(),
       ...(!contestingTest&&stopRotor&&rotorStop?[rotorStop()]:[])]);
     const failures=stopped.flatMap((result,index)=>result.status==="rejected"?
       [`${index===0?"contest output":"rotor"}: ${errorMessage(result.reason)}`]:[]);
     if(failures.length){const configurationOnly=stopped.every(result=>result.status==="fulfilled"||result.reason instanceof Error&&result.reason.cause==="fldigi_configuration");
       const failure=new Error(`${configurationOnly?"Stop settings could not be saved":"Escape stop remains uncertain"} — ${failures.join(" · ")}`);setError(failure.message);throw failure;}
+    if(qtcOwner&&qtcOutputOwnerRef.current===qtcOwner)qtcOutputOwnerRef.current=null;
   };
   const scheduleAutoCQ = () => {
     if (!autoCQActiveRef.current) return;
@@ -2411,6 +2490,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
 
   const keyDown = (event: KeyboardEvent<HTMLFormElement>) => {
     if (event.key === "Escape") { event.preventDefault(); void stopAutoCQ(true).catch(cause=>setError(errorMessage(cause))); return; }
+    if(event.target instanceof Element&&event.target.closest('[aria-label="WAE QTC desk"]'))return;
     if (!projection || busy || retiring) return;
     const target = event.target as HTMLInputElement;
     if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key === " " &&
@@ -2653,7 +2733,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
 
   const scoreView = scoreSummary(score, projection?.pluginID);
   const visibleFields = projection?.fields.filter(field => field.visible) ?? [];
-  const changeField = (field: string, value: string) => {
+  const changeField = (field: string, value: string, typed=false) => {
     const active=projectionRef.current;if(active&&dualContestLanes(active)){
       onOperatingLaneAction({...captureContestLaneScope(active),kind:"field-change",fieldID:field,value});return;
     }
@@ -2663,14 +2743,21 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     editVersionRef.current += 1;
     const next = { ...fieldsRef.current, [field]: value };
     fieldsRef.current = next; setFields(next);
+    if(field==="callsign"&&earlyCWEnabled){
+      if(typed)void queueEarlyCW(next);
+      else if(earlyCWRef.current){earlyCWFaultRef.current="Early CW interrupted by a pasted or selected callsign. Stop and explicitly start again.";setEarlyCWEnabled(false);void cw.controller.stop();setError(earlyCWFaultRef.current);}
+    }
   };
-  const stackDraft=(base=projectionRef.current,values?:Record<string,string>,laneID?:ContestLaneID):CallStackDraft=>{
+  const stackDraft=(base=projectionRef.current,values?:Record<string,string>,laneID?:ContestLaneID):ParkedCallStackDraft=>{
     if(!base)throw new Error("Open a contest before using Call Stack.");
     const laneScope=dualContestLanes(base)?captureContestLaneScope(base,laneID):null;
     if(laneScope){base=contestLaneProjection(base,laneScope.laneID);
       const buffer=laneBuffersRef.current[laneScope.laneID];values=values??(buffer?.scope.draftID===base.draftID?buffer.fields:projectionFields(base));
     }else values=values??fieldsRef.current;
+    const pass=passStackAdmissionRef.current;
     return {sessionID:base.sessionID,workspaceGeneration:base.workspaceGeneration,draftID:base.draftID,revision:base.revision,
+      ...(pass&&pass.sessionID===base.sessionID&&pass.workspaceGeneration===base.workspaceGeneration&&pass.draftID===base.draftID?
+        {captureParkedSnapshot:true as const,reservedSerial:base.reservedSerial??null,allocatedSerialFieldID:base.allocatedSerialFieldID??null}:{}),
       ...(laneScope?{laneID:laneScope.laneID,bindingVersion:laneScope.bindingVersion,bindingGeneration:laneScope.bindingGeneration}:{}),
       fields:{...values},defaults:clearedContestFields(base,base.mode),receivedFieldIDs:base.fields.filter(field=>field.id!=="callsign"&&field.id!=="sent"&&
         field.id!==base.allocatedSerialFieldID&&!field.readOnly&&field.visible&&field.enabled).map(field=>field.id),heardFieldIDs:base.fields.filter(field=>field.id!=="callsign"&&field.id!=="sent"&&
@@ -2687,13 +2774,13 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
       const view=contestLaneProjection(next,operation.draft.laneID);
       if(!preserveBuffered&&operation.kind==="load"){
         const buffer=laneBuffersRef.current[operation.draft.laneID];if(buffer?.scope.draftID===operation.draft.draftID)
-          laneBuffersRef.current[operation.draft.laneID]={...buffer,fields:projectionFields(view),baseline:projectionFields(view),heardFieldIDs:operation.draft.heardFieldIDs};}
+          laneBuffersRef.current[operation.draft.laneID]={...buffer,fields:projectionFields(view),baseline:projectionFields(view),heardFieldIDs:operation.loadedHeardFieldIDs??operation.draft.heardFieldIDs};}
       if(current.revision<=next.revision){acceptProjection(next);void refresh(next.sessionID,next);}
       return {operationID:operation.operationID,draft:stackDraft(next,projectionFields(view),operation.draft.laneID),...(operation.kind==="commit"?{qsoID:operation.operationID}:{})};
     }
     if(operation.kind==="load"&&!preserveBuffered&&(current.revision<=next.revision||
       current.draftID===next.draftID&&sameFields(fieldsRef.current,projectionFields(next))))
-      typedFieldsRef.current={draftID:next.draftID,fields:new Set((operation.draft.receivedFieldIDs??[]).filter(id=>operation.fields[id]!==operation.draft.defaults[id]))};
+      typedFieldsRef.current={draftID:next.draftID,fields:new Set(operation.loadedHeardFieldIDs??(operation.draft.receivedFieldIDs??[]).filter(id=>operation.fields[id]!==operation.draft.defaults[id]))};
     if(current.revision<=next.revision){acceptProjection(next,preserveBuffered?Number.MIN_SAFE_INTEGER:undefined);void refresh(next.sessionID,next);}
     return {operationID:operation.operationID,draft:stackDraft(next,projectionFields(next)),...(operation.kind==="commit"?{qsoID:operation.operationID}:{})};
   };
@@ -2710,7 +2797,12 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
         return stackResult(operation,changed,laneBuffersRef.current[scope.laneID]?.version!==version);
       },false);
     }
-    if(configuredClient)throw new Error("Call Stack logging requires the local authoritative desk; client routing is retained for a later wave.");
+    if(configuredClient){
+      const pass=passStackAdmissionRef.current;
+      if(operation.kind!=="load"||!authorityClientReady||!pass||pass.sessionID!==operation.draft.sessionID||
+          pass.workspaceGeneration!==operation.draft.workspaceGeneration||pass.draftID!==operation.draft.draftID)
+        throw new Error("Call Stack logging requires the local authoritative desk; only an admitted directed pass may load a client draft.");
+    }
     if(busyRef.current||retiring)throw new Error("The contest owner is busy.");
     const current=projectionRef.current;
     if(!current||current.sessionID!==operation.draft.sessionID||current.workspaceGeneration!==operation.draft.workspaceGeneration)throw new Error("The Call Stack session changed.");
@@ -2720,7 +2812,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
       const changed=await mutate(operation.kind==="commit"?"contest_qso_commit":"contest_draft_apply",current,{
         operationID:operation.operationID,expectedRevision:operation.draft.revision,draftID:operation.draft.draftID,fields:operation.fields,
         ...(operation.kind==="commit"?{qsoID:operation.operationID}:{manualStackLoad:true})});
-      if(operation.kind==="load")typedFieldsRef.current={draftID:changed.projection.draftID,fields:new Set((operation.draft.receivedFieldIDs??[])
+      if(operation.kind==="load")typedFieldsRef.current={draftID:changed.projection.draftID,fields:new Set(operation.loadedHeardFieldIDs??(operation.draft.receivedFieldIDs??[])
         .filter(id=>operation.fields[id]!==operation.draft.defaults[id]))};
       return await stackResult(operation,changed,editVersionRef.current!==version);
     }finally{busyRef.current=false;setBusy(false);}
@@ -2786,6 +2878,73 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     }
     return result<any>(method,{sessionID:base.sessionID,workspaceGeneration:base.workspaceGeneration,expectedRevision:base.revision,...laneParams,...params});
   },[request]);
+  const sendQTC=async(intent:{batchID:string;index:number;fields:string})=>{
+    const base=projectionRef.current;
+    if(!base||configuredClient||base.practice||dualContestLanes(base))throw Error("QTC output requires the authoritative single-lane desk. Exact multi-lane QTC output is unavailable; use explicit manual operation.");
+    if(base.mode==="CW"){
+      if(!cw.state.armed)throw Error("Arm the captured CW output before sending a QTC.");
+      let outputError="";
+      const applied=await runMutation(async current=>{
+        const operationID=crypto.randomUUID();
+        const native=await cw.controller.executeContest({operation:"qtc",operationID,sessionID:current.sessionID,
+          workspaceGeneration:current.workspaceGeneration,expectedContestRevision:current.revision,draftID:current.draftID,
+          batchID:intent.batchID,index:intent.index,qtcField:intent.fields});
+        const changed=native?.contestResult as (MutationResult&{operationID?:string})|undefined;
+        if(!changed?.projection||changed.operationID!==operationID)throw Error(native?.error||"QTC native receipt unavailable. Inspect the original attempt; do not retry it.");
+        outputError=String(native?.error??changed.outputError??"");
+        return {...changed,actions:[],outputError:outputError||undefined};
+      },false,false,true,true);
+      if(outputError)throw Error(outputError);
+      if(!applied)throw Error("QTC output returned without an applied native receipt. Inspect its original attempt.");
+      return applied;
+    }
+    if(base.mode==="SSB"&&(!phoneProductionConfigured||!phoneCanSend))throw Error("Arm recorded phone output with a saved WAV profile, or speak the QTC manually. Missing letter/digit/fragments never become generated speech.");
+    if(base.mode!=="SSB"&&!fldigiSnapshot?.configuration.transmit_enabled)throw Error("Enable the admitted fldigi transmit route or operate the QTC manually.");
+    const controller=new AbortController();
+    if(qtcOutputOwnerRef.current)throw Error("Stop and reconcile the original QTC output owner before starting another action.");
+    const owner:{controller:AbortController;mode:string;bridgeGeneration?:string}={controller,mode:base.mode};qtcOutputOwnerRef.current=owner;
+    if(base.mode==="SSB")phoneSimulationControllerRef.current=controller;
+    let completed=false;
+    try{
+      const voiceTarget=base.mode==="SSB"?await captureContestVoiceTarget(base):undefined;
+      const bridge=base.mode!=="SSB"?await serviceRequest("fldigi_snapshot"):null;
+      const bridgeGeneration=bridge?(bridge as Data).transmit_generation:undefined;
+      if(base.mode!=="SSB"&&(typeof bridgeGeneration!=="string"||!/^[0-9a-f-]{36}$/.test(bridgeGeneration)))throw Error("The fldigi transmit generation could not be captured before QTC preparation.");
+      if(bridgeGeneration)owner.bridgeGeneration=bridgeGeneration;
+      const scopeCurrent=()=>{const latest=projectionRef.current;return latest?.sessionID===base.sessionID&&latest.workspaceGeneration===base.workspaceGeneration&&latest.draftID===base.draftID;};
+      if(controller.signal.aborted||!scopeCurrent())throw Error("QTC output was stopped or its source context changed before preparation.");
+      const applied=await runMutation(current=>{
+        if(controller.signal.aborted||!scopeCurrent())throw Error("QTC output was stopped before host admission.");
+        return mutate("contest_strategy_apply",current,{workspaceGeneration:current.workspaceGeneration,
+        action:"qtc_output",batchID:intent.batchID,index:intent.index,qtcField:intent.fields,
+        ...(voiceTarget?{voiceTarget}:{bridgeGeneration})});},false,false,true,true,
+        async(changed,origin)=>{
+          const operationID=changed.operationID,actions=changed.actions??[];
+          if(!operationID||changed.replayed!==false||actions.length!==1||actions[0].qtc?.batchID!==intent.batchID||actions[0].qtc?.field!==intent.fields)
+            throw Error("The captured QTC output could not be verified; no output was replayed.");
+          if(controller.signal.aborted||!scopeCurrent())throw Error("QTC output was stopped or its captured context changed before dispatch.");
+          if(base.mode!=="SSB"){
+            if(actions[0].qtc.bridgeGeneration!==bridgeGeneration)throw Error("The QTC fldigi generation changed in its host receipt.");
+            await consumeFldigiOutput(changed,origin,bridgeGeneration);
+            const outcome=await mutate("contest_strategy_apply",changed.projection,{workspaceGeneration:origin.workspaceGeneration,
+              action:"qtc_output_result",outputOperationID:operationID,outcome:"owner_returned"});
+            return {...outcome,actions:[]};
+          }
+          if(canonicalJSON(actions[0].qtc.voiceTarget)!==canonicalJSON(voiceTarget))throw Error("The QTC voice target changed in its host receipt.");
+          const claimed=await result<Data>("contest_output_claim",{sessionID:origin.sessionID,operationID,revision:changed.revision});
+          if(claimed.claimed!==true||canonicalJSON(claimed.actions)!==canonicalJSON(actions))throw Error("QTC output claim is unconfirmed. Inspect its original attempt.");
+          if(controller.signal.aborted||!scopeCurrent())throw Error("QTC output was stopped before native voice preparation.");
+          await voiceOutput.play(actions as ContestVoiceAction[],origin,String(setup.preferences.voiceProfilePath??""),String(setup.preferences.soundDevice??""),controller.signal,voiceTarget);
+          const outcome=await mutate("contest_strategy_apply",changed.projection,{workspaceGeneration:origin.workspaceGeneration,
+            action:"qtc_output_result",outputOperationID:operationID,outcome:"owner_returned"});
+          return {...outcome,actions:[]};
+        },controller.signal);
+      if(!applied)throw Error("QTC output stopped or returned without a final owner receipt. Its original attempt remains available for review.");
+      completed=true;
+      return applied;
+    }finally{if(phoneSimulationControllerRef.current===controller)phoneSimulationControllerRef.current=null;
+      if(completed&&qtcOutputOwnerRef.current===owner)qtcOutputOwnerRef.current=null;}
+  };
   const savePlanning=async(method:string|null,extra:Record<string,unknown>={})=>{
     let base=projectionRef.current;if(!base||busyRef.current||retiring)throw Error("The contest owner is busy.");
     if(configuredClient)throw Error("Planning changes require the local authoritative desk.");
@@ -3089,7 +3248,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     const surfaceSpots=visibleWorkflowSpots.map(classifiedSurfaceSpot);
     for(const panelID of ["band-maps","world-map","dx-cluster"] as const){
       const entrySpot=panelID==="world-map"?currentEntryMapSpot:null,
-        filteredSpots=panelID!=="dx-cluster"&&!effectiveSpotWorkflow.showWorked
+        filteredSpots=panelID!=="dx-cluster"&&!(panelID==="band-maps"&&qtcOpportunities)&&!effectiveSpotWorkflow.showWorked
           ?surfaceSpots.filter(spot=>spot.contestDupe!==true):surfaceSpots,
         panelSpots=entrySpot&&!filteredSpots.some(spot=>spot.id===entrySpot.id)?[...filteredSpots,classifiedSurfaceSpot(entrySpot)]:filteredSpots;
       unavailable[panelID]={schemaVersion:2,status:"ready",draftID:projection.draftID,draftRevision:surfaceDraftRevision,
@@ -3098,6 +3257,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
         contestSessionID:projection.sessionID,supportedBands:configuredBands,allowedModeGroups,
         bandSegments:encodeContestBandPlan(contestBandPlan),markedOnly:effectiveSpotWorkflow.markedOnly,
         showWorked:effectiveSpotWorkflow.showWorked,
+        ...(qtcOpportunities?{qtcOpportunities}:{}),
         spots:panelSpots,busy:busy||retiring};
     }
     unavailable["station-control"] = { schemaVersion: 1, status: "ready",
@@ -3195,7 +3355,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     phoneSimulationPending, phoneReleaseUncertain, phoneSimulationTrace, rates, matrices, statistics, partial, partialQuery, historyCandidate, spots, cluster, configuredBands,
     bandDefinitions, bandLabels, digitalSnapshot,fldigiSnapshot,fldigiStopPending,fldigiReleaseBlocking,rtcStatus,rtcCredentialSaved,lookupPathContext,
     setup.settings.SentExchange, setup.settings.StartDate, setup.settings.EndDate, setup.pluginID, setup.preferences.keyBindings, autoCQDeadlineMs, autoCQNowMs, autoCQDelaySeconds, selectedRadioFrequencyHz,observedFrequencyHz,
-    sharedSpots,visibleWorkflowSpots,currentEntryMapSpot,entryPathMetrics,effectiveSpotWorkflow.markedOnly,effectiveSpotWorkflow.showWorked,
+    sharedSpots,visibleWorkflowSpots,qtcOpportunities,currentEntryMapSpot,entryPathMetrics,effectiveSpotWorkflow.markedOnly,effectiveSpotWorkflow.showWorked,
     spotPointPreview,spotPointIdentity,selectedSpotId,configuredClient,authorityClientReady,authorityDupe,
     auxiliaryReads.log,auxiliaryReads.score,auxiliaryReads.rates,error,catalogLoadError,notice,surfaceDraftRevision,laneCapabilities,laneNative,laneTransitionBusy]);
 
@@ -3215,6 +3375,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
   },[authorityClientReady,surfaceContext?.operatingContext,surfaceContext?.sessionID,surfaceContext?.workspaceGeneration,
     projection?.draftID,projection?.mode,fields.callsign,operationFrequencyHz]);
   const cwCallsignOutputBlockedRef=useRef(false);
+  passStationStateRef.current={retiring,configuredClient,authorityClientReady};
   cwCallsignOutputBlockedRef.current=Boolean(autoCQActiveRef.current || cw.state.armed || cw.state.pending || cw.state.error || phoneReleaseBlocking || phoneSimulationArmed || phoneSimulationPending);
   const handleSurfaceAction = async (action: ContestSurfaceActionEnvelope) => {
     const active = projectionRef.current;
@@ -3273,6 +3434,11 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
         if(!spot)throw new Error("That shared spot is no longer available.");
         await chooseSpot(spot, true); return;
       }
+      case "spot_qtc_review": {
+        const spot=visibleWorkflowSpots.find(candidate=>candidate.id===action.params.spotID);
+        if(!spot)throw Error("That shared QTC counterpart report is no longer available.");
+        openQTCOpportunity(spot);return;
+      }
       case "spot_confirm":
       case "spot_delete":
       case "spot_set_marked": {
@@ -3292,6 +3458,87 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
       case "entry_set_text": {
         const fieldID = { callsign: "callsign", sentReport: "sent", receivedReport: "receive" }[action.params.field];
         await persistFields(fieldID, action.params.field === "callsign" ? action.params.value.toUpperCase() : action.params.value); return;
+      }
+      case "entry_group_pass": {
+        const context={operatingContext,sessionID:active.sessionID,workspaceGeneration:active.workspaceGeneration};
+        const params=action.params,inputVersion=editVersionRef.current;
+        const scope=dualContestLanes(active)?captureContestLaneScope(active,params.targetLaneID):null;
+        const binding=scope?contestLaneSnapshot(active,scope.laneID).binding:null;
+        if(scope ? active.operatingLanes!.keyboardLaneID!==scope.laneID||params.bindingVersion!==scope.bindingVersion||
+            params.connectionGeneration!==scope.bindingGeneration||params.draftID!==scope.draftID :
+            params.targetLaneID!=="laneA"||params.bindingVersion!==null||params.connectionGeneration!==null)
+          throw Error("The directed pass addressed lane or receiver binding changed; review it again.");
+        const laneVersion=scope?laneBuffer(scope).version:null;
+        const current=()=>{
+          const latest=projectionRef.current;
+          if(!latest||latest.sessionID!==active.sessionID||latest.workspaceGeneration!==active.workspaceGeneration||passStationStateRef.current.retiring||
+             passStationStateRef.current.configuredClient&&!passStationStateRef.current.authorityClientReady||
+             latest.draftID!==params.draftID||surfaceDraftRevisionRef.current?.revision!==params.expectedDraftRevision||
+             editVersionRef.current!==inputVersion)return false;
+          if(scope){try{assertContestLaneScope(latest,scope);}catch{return false;}
+            if(latest.operatingLanes?.keyboardLaneID!==scope.laneID||laneBuffer(scope).version!==laneVersion)return false;}
+          return true;
+        };
+        if(!current())throw Error("Contest Entry changed before the pass could be reviewed.");
+        let singleTune:CapturedContestTune|null=null;
+        if(params.operation==="tune"&&!scope){
+          assertStationAction();if(contestingTest)throw Error("Directed pass tuning is disabled in Contesting Test.");
+          if(!captureStationTune)throw Error("An exact observed radio binding is unavailable for this directed pass; refresh the station owner.");
+          singleTune=await captureStationTune();
+          if(!current())throw Error("The directed pass draft changed during original radio capture.");
+        }
+        const proposal=await readDirectedPass(context,params.messageID,params.messageVersion);
+        if(proposal.laneID!==params.targetLaneID||!current())throw Error("The addressed pass lane or draft changed during authority readback.");
+        const frequencyHz=contestFrequency(proposal.frequencyHz,active.supportedBands??activeSupportedBands,bandDefinitions);
+        const admittedMode=(active.supportedModes??[active.mode]).find(mode=>canonicalContestSurfaceMode(mode)===canonicalContestSurfaceMode(proposal.mode));
+        if(frequencyHz===null||!admittedMode)throw Error("The pass frequency or mode is unavailable in this contest.");
+        if(params.operation!=="tune"&&cwCallsignOutputBlockedRef.current)throw Error("Disarm contest output and finish its pending operation before loading a directed pass.");
+        const captured={operatingContext,sessionID:active.sessionID,workspaceGeneration:active.workspaceGeneration,
+          draftID:params.draftID,draftRevision:params.expectedDraftRevision,laneID:params.targetLaneID,
+          bindingVersion:params.bindingVersion,connectionGeneration:params.connectionGeneration,binding,stationBinding:singleTune?.binding??null,
+          messageID:proposal.id,messageVersion:proposal.version,reviewedUTC:params.reviewedUTC,operation:params.operation};
+        const loadFromStack=async(park:boolean)=>{
+          if(!current())throw Error("The original pass draft changed before loading.");
+          assertNoPendingStack(scope??undefined);
+          const key=callStackStorageKey(stackDraft());
+          let controller=stackControllerRef.current;
+          if(!controller||callStackStorageKey(controller.snapshot())!==key){
+            flushUnfinishedEditors();setManager(false);setProductivityOpen(true);setProductivityTab("Entry & stack");
+            controller=await new Promise<ContestCallStack>((resolve,reject)=>{
+              const waiter={key,resolve,reject,timer:0};
+              waiter.timer=window.setTimeout(()=>{stackControllerWaitersRef.current.delete(waiter);reject(new Error("Call Stack did not become available; Entry and the pass were retained."));},5000);
+              stackControllerWaitersRef.current.add(waiter);
+            });
+          }
+          if(!current()||busyRef.current||cwCallsignOutputBlockedRef.current)throw Error("The original directed pass context changed while opening Call Stack.");
+          const itemID=controller.add(proposal.call);
+          passStackAdmissionRef.current={sessionID:active.sessionID,workspaceGeneration:active.workspaceGeneration,draftID:params.draftID};
+          try{await controller.load(itemID,park?"park":undefined);}
+          finally{passStackAdmissionRef.current=null;}
+        };
+        await executeDirectedPass(proposal,action.requestID,params.operation,captured,{
+          context,isCurrent:current,occupied:()=>occupiedStackDraft(stackDraft()),
+          load:()=>loadFromStack(false),parkAndLoad:()=>loadFromStack(true),
+          tune:async()=>{
+            assertStationAction();assertNoPendingStack(scope??undefined);
+            if(contestingTest)throw Error("Directed pass tuning is disabled in Contesting Test.");
+            if(scope){await enqueueLane(scope,async base=>{
+              if(!current())throw Error("The directed pass lane changed before native tune admission.");
+              const blocked=contestLaneTuningBlockReason(contestLaneSnapshot(base,scope.laneID),frequencyHz);if(blocked)throw Error(blocked);
+              const target=nativeLaneContext(scope);await bindNativeLane(target);
+              if(!current())throw Error("The directed pass lane changed before the tune request.");
+              acceptLaneNative(await requestContestLaneOutput(target,"tune",{frequencyHz,mode:admittedMode}));
+            },false);}
+            else{
+              if(busyRef.current||!current())throw Error("The directed pass station context changed before tuning.");
+              if(!singleTune)throw Error("The original directed pass radio binding is unavailable.");
+              await singleTune.tune(frequencyHz,admittedMode);
+            }
+          },
+        });
+        setNotice(params.operation==="tune"?"Directed pass tune accepted by the station owner; review observed frequency separately.":
+          params.operation==="park"?"Original entry parked and directed pass loaded. Tune remains a separate action.":"Directed pass loaded. Tune remains a separate action.");
+        return;
       }
       case "entry_cw_callsign": {
         const outputBlocked=()=>cwCallsignOutputBlockedRef.current;
@@ -3897,10 +4144,18 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
             : "Not1MM chooses the F-key action; xLog owns the armed CW output lease.";
     return <section className="contest-operator" aria-label={fldigiPanelOwned ? "fldigi controls" : phone ? "Phone controls" : "CW controls"}>
       <header><div><strong>{title}</strong><p>{description}</p></div><span>{fldigiStopPending ? "fldigi release pending" : fldigiPanelOwned ? fldigiSnapshot?.status : phoneReleaseUncertain ? "Phone PTT release uncertain" : phoneReleaseBlocking ? "Phone PTT release pending" : phone ? phoneSimulationPending ? "Phone output pending" : armed ? "Phone output armed" : "Phone output disarmed" : cw.state.message}</span></header>
-      <div className="contest-operator-controls">{!fldigiPanelOwned&&<button type="button" disabled={busy || phoneSimulationPending || !phone&&cw.state.pending} onClick={() => phoneReleaseBlocking ? void stopPhoneOutput() : phone ? armed ? void stopPhoneOutput() : setPhoneSimulationArmed(true) : void cw.controller.arm()}>{phoneReleaseUncertain ? "Retry phone disarm" : phoneReleaseBlocking ? "Phone disarm pending" : phone ? armed ? "Disarm phone" : phoneSimulationAvailable ? "Arm phone simulation" : "Arm recorded phone" : cw.state.canonical?.provider === "test-simulation" ? "Arm simulation" : "Arm CW"}</button>}
+      <div className="contest-operator-controls">{!fldigiPanelOwned&&<button type="button" disabled={busy || phoneSimulationPending || !phone&&cw.state.pending} onClick={() => phoneReleaseBlocking ? void stopPhoneOutput() : phone ? armed ? void stopPhoneOutput() : setPhoneSimulationArmed(true) : void cw.controller.arm(undefined,"setup")}>{phoneReleaseUncertain ? "Retry phone disarm" : phoneReleaseBlocking ? "Phone disarm pending" : phone ? armed ? "Disarm phone" : phoneSimulationAvailable ? "Arm phone simulation" : "Arm recorded phone" : cw.state.canonical?.provider === "test-simulation" ? "Arm simulation" : "Arm CW"}</button>}
         <button type="button" className="contest-danger-secondary" disabled={fldigiStopPending} onClick={() => void stopAutoCQ().catch(cause=>setError(errorMessage(cause)))}>{fldigiReleaseBlocking ? "Retry fldigi release" : "Stop"}</button>
         <span className={armed ? "is-armed" : ""}>{armed ? "Armed" : "Disarmed"}</span>{autoCQDeadlineMs !== null&&<span role="status">Auto CQ · {Math.max(0, Math.ceil((autoCQDeadlineMs-autoCQNowMs)/1000))}s</span>}
       </div>{fldigiSnapshot?.configuration_error && <p className="contest-alert is-error">{fldigiSnapshot.configuration_error}</p>}{!phone && cw.state.error && <p className="contest-alert is-error">{cw.state.error}</p>}
+      {projection.mode==="CW"&&!fldigiPanelOwned&&<fieldset><legend>CW call options</legend>
+        <label><input type="checkbox" checked={earlyCWEnabled} disabled={busy||!projection.run||!cw.state.capabilities?.streaming||dualContestLanes(projection)} onChange={event=>{if(!event.target.checked&&earlyCWRef.current)void stopAutoCQ();else{earlyCWFaultRef.current="";earlyCWRef.current=null;setEarlyCWEnabled(event.target.checked);}}}/> Early start from deliberate typing</label>
+        <label>Start after characters<input aria-label="Early CW threshold" type="number" min={2} max={8} value={earlyCWThreshold} disabled={!!earlyCWRef.current} onChange={event=>setEarlyCWThreshold(Math.max(2,Math.min(8,Number(event.target.value)||3)))}/></label>
+        <button type="button" disabled={!earlyCWEnabled||!cw.state.armed||busy} onClick={()=>void queueEarlyCW({...fieldsRef.current},true)}>Start current call explicitly</button>
+        <p>{cw.state.capabilities?.streaming?"WinKeyer queue admission is shown; RF characters remain unverified. Paste, history and restored text do not start CW. Stop keeps your draft.":"Arm a supported WinKeyer route to review advanced capability. Flex and direct TCI are not qualified for early start or queued speed sections."} {dualContestLanes(projection)&&"Advanced early start is unavailable for exact operating lanes; ordinary lane output is preserved."}</p>
+        <label>Automatic corrected call<select aria-label="Corrected call policy" value={cwCorrectionPolicy} onChange={event=>setCWCorrectionPolicy(event.target.value as "full"|"partial")}><option value="full">Full call (default)</option><option value="partial">Changed component with complete provider evidence</option></select></label>
+        <p>Partial correction falls back to the full call after missing, queued-only, stopped, uncertain, portable or ambiguous evidence.</p>
+      </fieldset>}
       <div className="contest-operator-keys">{projection.functionKeys.map(key => <button type="button" key={key.id} disabled={busy || retiring || fldigiReleaseBlocking || phoneReleaseBlocking || (phone ? !phoneCanSend : projection.mode !== "CW" && !fldigiPanelReady)} className={key.highlighted ? "contest-primary" : undefined} onClick={() => void hostAction("contest_function_key", { key: key.id })}>{key.id}</button>)}</div>
     </section>;
   };
@@ -3952,7 +4207,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
         const value:any=await requestContestLaneOutput(nativeLaneContext(captureContestLaneScope(projection,lane.laneID)),"stop");acceptLaneNative(value);return {confirmed:value?.receipt?.confirmed===true};}}/>:null}/></>
     :<form className="contest-entry" aria-label={`${projection.pluginName ?? projection.pluginID} entry`} onSubmit={event => { event.preventDefault(); void commitEntry().catch(cause=>setError(errorMessage(cause))); }} onKeyDown={keyDown}>
     <header><div><h2><Radio size={15}/> {projection.pluginName ?? projection.pluginID} · Not1MM</h2><p>Actual pinned Python plugin · {projection.run ? "Run" : "Search & Pounce"}</p></div><span>{busy ? "Working…" : "Ready"}</span></header>
-    <ContestEntryFields callsign={visibleFields.slice(0, 1).map(field => <ContestTextField key={field.id} label={field.label} aria-label={field.accessibleName} className="contest-call" autoComplete="off" data-contest-field={field.id} inputRef={node => { fieldRefs.current[field.id] = node; }} disabled={busy || retiring || !field.enabled} readOnly={field.readOnly} value={fields[field.id] ?? ""} onFocus={() => focusField(field.id)} onChange={event => changeField(field.id, event.target.value.toUpperCase())}/>) } reports={visibleFields.slice(1, 3).map(field => <ContestTextField key={field.id} label={field.label} aria-label={field.accessibleName} data-contest-field={field.id} inputRef={node => { fieldRefs.current[field.id] = node; }} disabled={busy || retiring || !field.enabled} readOnly={field.readOnly} value={fields[field.id] ?? ""} onFocus={() => focusField(field.id)} onChange={event => changeField(field.id, event.target.value)}/>) } exchange={visibleFields.slice(3).map(field => <ContestTextField key={field.id} label={field.label} aria-label={field.accessibleName} data-contest-field={field.id} inputRef={node => { fieldRefs.current[field.id] = node; }} disabled={busy || retiring || !field.enabled} readOnly={field.readOnly} value={fields[field.id] ?? ""} onFocus={() => focusField(field.id)} onChange={event => changeField(field.id, event.target.value.toUpperCase())}/>) } />
+    <ContestEntryFields callsign={visibleFields.slice(0, 1).map(field => <ContestTextField key={field.id} label={field.label} aria-label={field.accessibleName} className="contest-call" autoComplete="off" data-contest-field={field.id} inputRef={node => { fieldRefs.current[field.id] = node; }} disabled={busy || retiring || !field.enabled} readOnly={field.readOnly} value={fields[field.id] ?? ""} onFocus={() => focusField(field.id)} onChange={event => changeField(field.id, event.target.value.toUpperCase(), ["insertText","deleteContentBackward","deleteContentForward"].includes((event.nativeEvent as InputEvent).inputType))}/>) } reports={visibleFields.slice(1, 3).map(field => <ContestTextField key={field.id} label={field.label} aria-label={field.accessibleName} data-contest-field={field.id} inputRef={node => { fieldRefs.current[field.id] = node; }} disabled={busy || retiring || !field.enabled} readOnly={field.readOnly} value={fields[field.id] ?? ""} onFocus={() => focusField(field.id)} onChange={event => changeField(field.id, event.target.value)}/>) } exchange={visibleFields.slice(3).map(field => <ContestTextField key={field.id} label={field.label} aria-label={field.accessibleName} data-contest-field={field.id} inputRef={node => { fieldRefs.current[field.id] = node; }} disabled={busy || retiring || !field.enabled} readOnly={field.readOnly} value={fields[field.id] ?? ""} onFocus={() => focusField(field.id)} onChange={event => changeField(field.id, event.target.value.toUpperCase())}/>) } />
     <div className="contest-entry-context"><div><span>Frequency</span>{observedFrequencyHz !== null
       ? <strong>{(observedFrequencyHz / 1e6).toFixed(6)} MHz · radio observed</strong>
       : <ContestTextField label="Manual frequency MHz" inputMode="decimal" disabled={busy || retiring}
@@ -3973,6 +4228,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
   const renderedPluginMetadata = pluginContactMetadataColumns(projection?.fields ?? []);
   const logPanel = <section className="contest-log"><header><div><h2><BookOpen size={15}/> Contest log</h2><p>{logTotal} contacts in the Python-owned DXLOG store.</p></div><div className="contest-log-actions"><button type="button" disabled={busy} onClick={() => void exportLog("cabrillo")}><Download size={14}/>Cabrillo</button><button type="button" disabled={busy} onClick={() => void exportLog("adif")}><Download size={14}/>ADIF</button>{projection?.exportFormats?.includes("edi")&&<button type="button" disabled={busy} onClick={() => void exportLog("edi")}><Download size={14}/>EDI</button>}<button type="button" disabled={busy} onClick={() => void runMutation(base => mutate("contest_recalculate", base))}>Recalculate</button></div></header>{editing && <form className="contest-qso-editor" onSubmit={correct}><h2>Edit {editing.Call}</h2><div className="contest-qso-fields"><ContestTextField label="Callsign" value={editCall} onChange={event => setEditCall(event.target.value.toUpperCase())}/><ContestTextField label="UTC timestamp" value={editTimestamp} onChange={event => setEditTimestamp(event.target.value)}/><ContestTextField label="Frequency MHz" inputMode="decimal" value={editFrequencyMHz} onChange={event => setEditFrequencyMHz(event.target.value)}/><ContestTextField label="Operator" value={editOperator} onChange={event => setEditOperator(event.target.value.toUpperCase())}/><ContestTextField label="Sent report" value={editSent} onChange={event => setEditSent(event.target.value)}/><ContestTextField label="Received report" value={editReceived} onChange={event => setEditReceived(event.target.value)}/><ContestTextField label={projection?.fields.find(field => field.id === "other_1")?.label || "Sent exchange"} inputMode="numeric" value={editSentExchange} onChange={event => setEditSentExchange(event.target.value)}/><ContestTextField label={projection?.fields.find(field => field.id === "other_2")?.label || "Received exchange"} value={editZone} onChange={event => setEditZone(event.target.value)}/>{!renderedPluginMetadata.has("Name")&&<ContestTextField label="Name" value={editName} onChange={event => setEditName(event.target.value)}/>} {!renderedPluginMetadata.has("QTH")&&<ContestTextField label="QTH" value={editQTH} onChange={event => setEditQTH(event.target.value)}/>} {!renderedPluginMetadata.has("Comment")&&<ContestTextField label="Comment" value={editComment} onChange={event => setEditComment(event.target.value)}/>}</div><footer><button className="contest-danger" type="button" onClick={remove}>Delete</button><button type="button" onClick={() => setEditing(null)}>Cancel</button><button className="contest-primary" type="submit">Save correction</button></footer></form>}<ContestLogTable rows={logRows(rows, projection?.pluginID, bandLabels)} disabled={busy || retiring} onEdit={beginEdit}/><footer><button type="button" disabled={busy || logOffset === 0} onClick={() => void loadLogPage(Math.max(0, logOffset - logPageSize))}>Newer</button><span>{logTotal ? `${logOffset + 1}–${logOffset + rows.length} of ${logTotal}` : "No contacts"}</span><button type="button" disabled={busy || logOffset + rows.length >= logTotal} onClick={() => void loadLogPage(logOffset + logPageSize)}>Older</button></footer></section>;
   const bandMapPanel = <BandMaps spots={spots} radioFrequencyHz={dualContestLanes(projection)?projection?.frequencyHz:radioFrequencyHz} compact onSelect={spot => void chooseSpot(spot)}
+    qtcOpportunities={qtcOpportunities} onQTCReview={spot=>{try{openQTCOpportunity({callsign:spot.callsign});}catch(cause){setError(errorMessage(cause));}}}
     selectionHint={dualContestLanes(projection)?`Select a spot for ${projection!.operatingLanes!.keyboardLaneID==="laneA"?"Lane A":"Lane B"} and its exact bound receiver; no active-radio fallback.`:
       "Select a spot to load the active Not1MM draft and tune the selected xLog radio once."}/>;
   const clusterPanel = <ClusterPanel passive snapshot={cluster} selectedSpotId={selectedSpotId ?? undefined} onRequest={serviceRequest} onSelect={spot => void chooseSpot(spot as BandMapSpot)}/>;
@@ -4029,7 +4285,20 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
             await savePlanning("contest_strategy_apply",{action:"adif_import",record});progress(`Reconciled ${++completed}/${records.length} historical contacts; entry draft preserved.`);}
         }}/>}
       {productivityTab==="QTC"&&<ContestQTC scope={projection} request={request as ContestRequest} disabled={busy||retiring||configuredClient}
-        onMutate={(action,values)=>savePlanning("contest_strategy_apply",{action,...values})} onEntry={()=>{setProductivityTab("Entry & stack");
+        opportunityIntent={qtcOpportunityIntent?.sessionID===projection.sessionID?qtcOpportunityIntent:undefined}
+        onMutate={(action,values)=>{
+          if(projectionRef.current?.sessionID!==projection.sessionID||projectionRef.current?.workspaceGeneration!==projection.workspaceGeneration)
+            throw Error("The QTC source session changed before its update.");
+          return savePlanning("contest_strategy_apply",{action,...values});
+        }} onOutput={intent=>{
+          if(projectionRef.current?.sessionID!==projection.sessionID||projectionRef.current?.workspaceGeneration!==projection.workspaceGeneration)
+            throw Error("The QTC source session changed before output admission.");
+          return sendQTC(intent);
+        }} onStop={()=>stopAutoCQ(true,false,true)}
+        onBookmark={intent=>bookmarkQTC({schema:1,sessionID:projection.sessionID,seriesID:intent.batchID,itemIndex:intent.index??null,
+          operationID:crypto.randomUUID(),event:intent.event},projection.workspaceGeneration)}
+        onReview={intent=>reviewQTC({logId:projection.sessionID,seriesID:intent.batchID,...(intent.index===undefined?{}:{itemIndex:intent.index})})}
+        onEntry={()=>{setProductivityTab("Entry & stack");
           requestAnimationFrame(()=>{if(dualContestLanes(projection))document.querySelector<HTMLInputElement>(`[data-lane-id="${projection.operatingLanes!.keyboardLaneID}"] [data-contest-lane-field="callsign"]`)?.focus();
             else fieldRefs.current.callsign?.focus();});}}/>}
       {productivityTab==="VHF & sites"&&<ContestVHFDesk scope={{...projection,bandLabel:bandDefinitions.find(band=>band.value===projection.band)?.id}} request={request as ContestRequest} disabled={busy||retiring||configuredClient}
@@ -4080,6 +4349,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
       {productivityTab==="Entry & stack"&&<>{laneConfigurationPanel}{entryPanel}{projection.digitalLoggingSupported&&<ContestDigitalOperating scope={projection} serviceRequest={serviceRequest} disabled={busy||retiring||configuredClient}
         onApply={async values=>{const base=projectionRef.current;if(!base||!sameFields(fieldsRef.current,projectionFields(base)))throw Error("Preserve the current edited draft before loading digital evidence.");await runMutation(current=>mutate("contest_digital_select",current,{workspaceGeneration:base.workspaceGeneration,...values}),true,false,true,true);}}/>}
         <ContestCallStackOwner draft={stackDraft()} getDraft={()=>stackDraft(projectionRef.current,undefined,projection.operatingLanes?.keyboardLaneID)} disabled={busy||retiring||configuredClient}
+        onController={onStackController}
         mutate={mutateStack} receipt={recoverStack} onError={setError} rejected={cause=>cause instanceof ContestServerError&&cause.outcome!=="uncertain"}
         classify={async(items,draft,scope)=>{const active=projectionRef.current;if(!active||active.sessionID!==draft.sessionID)throw new Error("Stack scope changed.");
           const view=draft.laneID?contestLaneProjection(active,draft.laneID):active;

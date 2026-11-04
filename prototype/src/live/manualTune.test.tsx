@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { ManualTuneSession } from "./manualTune";
+import { ManualTuneSession,captureManualTuneBinding } from "./manualTune";
 import { ManualSimplexTune } from "./ManualSimplexTune";
 import type { StationReceipt, StationSession } from "./stationSession";
 afterEach(cleanup);
@@ -20,6 +20,33 @@ function fixture() {
 it("mounting a detached-ready manual tune control performs no action or poll", () => {
   const f=fixture(); render(<ManualSimplexTune radioId="radio1" provider="direct_flex_lan" session={f.session} />);
   expect(f.snapshot).not.toHaveBeenCalled(); expect(f.request).not.toHaveBeenCalled();
+});
+it("a directed pass rejects changed selection or worker identity after its fresh snapshot await without a tune",async()=>{
+  for(const change of ["active","selection","connection","worker","control","slot"]){
+    const f=fixture(),binding=captureManualTuneBinding(f.state);let release!:()=>void;
+    const gate=new Promise<void>(resolve=>{release=resolve;});f.snapshot.mockImplementationOnce(async()=>{await gate;return structuredClone(f.state);});
+    const pending=f.session.tune("direct_flex_lan",14026000,"CW",undefined,undefined,binding);
+    if(change==="active")f.state.active_radio="radio2";
+    if(change==="selection")f.state.selection.generation++;
+    if(change==="connection")f.state.radio!.snapshot.generation++;
+    if(change==="worker")f.state.worker_generation!++;
+    if(change==="control")f.state.selection.control_revision!++;
+    if(change==="slot")f.state.generation="replacement";
+    release();await expect(pending).rejects.toThrow(/radio binding|observed radio binding/);
+    expect(f.request).not.toHaveBeenCalled();expect(f.pending).toBeNull();
+  }
+});
+it("a bound pass dispatches the original identity once and retains unknown CAT outcomes",async()=>{
+  const f=fixture(),binding=captureManualTuneBinding(f.state);
+  await f.session.tune("direct_flex_lan",14026000,"CW",undefined,undefined,binding);
+  expect(f.request).toHaveBeenCalledOnce();expect(f.request.mock.calls[0][0]).toMatchObject({generation:binding.slotGeneration,revision:binding.slotRevision,
+    selection_id:binding.selectionID,selection_generation:binding.selectionGeneration,connection_generation:binding.connectionGeneration,worker_generation:binding.workerGeneration});
+  const uncertain=fixture(),unknown=captureManualTuneBinding(uncertain.state);
+  uncertain.request.mockImplementationOnce(async params=>({operation_id:String(params.operation_id),status:"unknown",request:{action:"manual_tune"}}));
+  await expect(uncertain.session.tune("direct_flex_lan",14026000,"CW",undefined,undefined,unknown)).rejects.toThrow(/unknown/);
+  expect(uncertain.pending).toBeTruthy();
+  await expect(uncertain.session.tune("direct_flex_lan",14026000,"CW",undefined,undefined,unknown)).rejects.toThrow(/existing manual tune/);
+  expect(uncertain.request).toHaveBeenCalledOnce();
 });
 it("binds one explicit tune to native epochs and journals before dispatch without changing a draft", async () => {
   const f=fixture(); f.request.mockImplementation(async params => {

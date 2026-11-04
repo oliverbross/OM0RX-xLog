@@ -3,16 +3,19 @@ export type CallStackScope = { sessionID: string; workspaceGeneration: string;
   laneID?: "laneA" | "laneB"; bindingVersion?: number; bindingGeneration?: string | number | null };
 export type CallStackFragment = { value: string; source: "heard" };
 export type CallStackItem = { id: string; revision: number; callsign: string;
-  fragments: Record<string, CallStackFragment> };
+  fragments: Record<string, CallStackFragment>;
+  /** Additive snapshot: restored/inferred fields retain their provenance instead of becoming heard. */
+  parkedDraft?: { schema: 1; draft: CallStackDraft } };
 export type CallStackDraft = CallStackScope & { draftID: string; revision: number;
   fields: Record<string, string>; defaults: Record<string, string>;
   /** Actual received field roles; excludes every station-sent/allocated field. */
   receivedFieldIDs?: string[];
   /** Current values explicitly typed/heard by the operator; excludes inferred/history values. */
   heardFieldIDs: string[] };
+export type ParkedCallStackDraft = CallStackDraft & { captureParkedSnapshot?: true; reservedSerial?:number|null;allocatedSerialFieldID?:string|null };
 export type CallStackDecision = "swap" | "park" | "discard";
 export type CallStackOperation = { kind: "commit" | "load"; operationID: string;
-  draft: CallStackDraft; fields: Record<string, string> };
+  draft: CallStackDraft; fields: Record<string, string>; loadedHeardFieldIDs?:string[] };
 export type CallStackResult = { operationID: string; draft: CallStackDraft; qsoID?: string };
 type Transition = { item: CallStackItem; outgoing?: CallStackItem; decision: CallStackDecision };
 type Pending = { phase: "commit"; operation: CallStackOperation; transition: Transition }
@@ -64,7 +67,19 @@ function validItem(value: unknown): value is CallStackItem {
   if (!record(value) || typeof value.id !== "string" || !value.id || !Number.isSafeInteger(value.revision) || Number(value.revision) < 0 ||
       typeof value.callsign !== "string" || !/^[A-Z0-9/?]{1,32}$/.test(value.callsign) || !record(value.fragments)) return false;
   return Object.entries(value.fragments).every(([key, fragment]) => !["callsign", "sent"].includes(key) &&
-    record(fragment) && fragment.source === "heard" && typeof fragment.value === "string" && fragment.value.length <= 128);
+    record(fragment) && fragment.source === "heard" && typeof fragment.value === "string" && fragment.value.length <= 128) &&
+    (value.parkedDraft===undefined||record(value.parkedDraft)&&value.parkedDraft.schema===1&&validParkedDraft(value.parkedDraft.draft)&&
+      (value.parkedDraft.draft.fields.callsign??"").trim().toUpperCase()===value.callsign);
+}
+function validParkedDraft(value:unknown):value is ParkedCallStackDraft {
+  if(!validDraft(value))return false;
+  const item=value as ParkedCallStackDraft,bytes=(text:string)=>new TextEncoder().encode(text).length;
+  return [item.sessionID,item.workspaceGeneration,item.draftID].every(text=>bytes(text)>0&&bytes(text)<=160)&&
+    [item.fields,item.defaults].every(fields=>Object.keys(fields).length<=64&&Object.entries(fields).every(([key,text])=>bytes(key)<=64&&bytes(text)<=4096))&&
+    [item.heardFieldIDs,item.receivedFieldIDs??[]].every(ids=>ids.length<=64&&ids.every(id=>bytes(id)<=64))&&
+    (item.captureParkedSnapshot===undefined||item.captureParkedSnapshot===true)&&
+    (item.reservedSerial===undefined||item.reservedSerial===null||Number.isSafeInteger(item.reservedSerial)&&item.reservedSerial>=0)&&
+    (item.allocatedSerialFieldID===undefined||item.allocatedSerialFieldID===null||typeof item.allocatedSerialFieldID==="string"&&bytes(item.allocatedSerialFieldID)<=64);
 }
 function validDraft(value: unknown): value is CallStackDraft {
   return record(value) && validLaneScope(value) && typeof value.sessionID === "string" && typeof value.workspaceGeneration === "string" &&
@@ -92,15 +107,25 @@ export function restoreCallStack(raw: string | null, scope: CallStackScope): Cal
     const operation = pending.operation;
     if (pending.phase === "committed") { if (!validDraft(pending.draft) || !sameScope(pending.draft, scope)) return fail(); }
     else if (!record(operation) || operation.kind !== pending.phase || typeof operation.operationID !== "string" ||
-      !operation.operationID || !validDraft(operation.draft) || !sameScope(operation.draft, scope) || !strings(operation.fields)) return fail();
+      !operation.operationID || !validDraft(operation.draft) || !sameScope(operation.draft, scope) || !strings(operation.fields) ||
+      operation.loadedHeardFieldIDs!==undefined&&(!Array.isArray(operation.loadedHeardFieldIDs)||operation.loadedHeardFieldIDs.length>64||
+        !operation.loadedHeardFieldIDs.every(id=>typeof id==="string"&&id.length<=64))) return fail();
   }
   return value as unknown as CallStackState;
 }
 /** Only explicitly heard receiver fields travel; sent values always come from the active host draft. */
 export function stackItemFields(item: CallStackItem, draft: CallStackDraft) {
   const fields: Record<string, string> = { ...draft.defaults, callsign: item.callsign };
+  if(item.parkedDraft){
+    const saved=item.parkedDraft.draft;
+    if(!sameScope(saved,draft))throw Error("The parked draft belongs to another session or lane.");
+    for(const id of saved.receivedFieldIDs??saved.heardFieldIDs)
+      if((draft.receivedFieldIDs??draft.heardFieldIDs).includes(id)&&!["sent","callsign"].includes(id)&&saved.fields[id]!==undefined)
+        fields[id]=saved.fields[id];
+  }
   for (const [id, fragment] of Object.entries(item.fragments))
-    if ((draft.receivedFieldIDs ?? draft.heardFieldIDs).includes(id) && !["sent", "callsign"].includes(id)) fields[id] = fragment.value;
+    if ((draft.receivedFieldIDs ?? draft.heardFieldIDs).includes(id) && !["sent", "callsign"].includes(id) &&
+        item.parkedDraft?.draft.fields[id]===undefined) fields[id] = fragment.value;
   return fields;
 }
 export function occupiedStackDraft(draft: CallStackDraft) {
@@ -158,8 +183,12 @@ export class ContestCallStack {
     if (occupied && choice !== "discard" && !normalizedCall(draft.fields.callsign ?? ""))
       throw new Error("Add a callsign to the current exchange before parking it, or explicitly discard it.");
     if (occupied && choice === "park" && this.state.items.length >= 128) throw new Error("Call Stack is full; use Swap or remove a caller first.");
-    return { item, decision: choice, ...(occupied && choice !== "discard"
-      ? { outgoing: this.makeItem(draft.fields.callsign, draft.fields, draft.heardFieldIDs) } : {}) };
+    const outgoing=occupied&&choice!=="discard"?this.makeItem(draft.fields.callsign,draft.fields,draft.heardFieldIDs):undefined;
+    if(outgoing&&(draft as ParkedCallStackDraft).captureParkedSnapshot){
+      if(!validParkedDraft(draft))throw Error("Parked draft exceeds the supported bounded snapshot contract; Entry was retained.");
+      outgoing.parkedDraft={schema:1,draft:structuredClone(draft)};
+    }
+    return { item, decision: choice, ...(outgoing?{outgoing}:{}) };
   }
   async load(id: string, decision?: CallStackDecision) {
     this.editable(); const draft = this.draft(), transition = this.transition(id, draft, decision);
@@ -175,7 +204,8 @@ export class ContestCallStack {
     await this.execute(operation);
   }
   private async performLoad(draft: CallStackDraft, transition: Transition, afterCommit = false) {
-    const operation: CallStackOperation = { kind: "load", operationID: this.id(), draft, fields: stackItemFields(transition.item, draft) };
+    const operation: CallStackOperation = { kind: "load", operationID: this.id(), draft, fields: stackItemFields(transition.item, draft),
+      ...(transition.item.parkedDraft?{loadedHeardFieldIDs:transition.item.parkedDraft.draft.heardFieldIDs}: {}) };
     this.save({ ...this.state, pending: { phase: "load", operation, transition, afterCommit } }); await this.execute(operation);
   }
   private async execute(operation: CallStackOperation) {

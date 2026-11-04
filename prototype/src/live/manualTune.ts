@@ -6,6 +6,25 @@ type TuneResult = { accepted: boolean; confirmed: boolean; superseded?: boolean 
 type State = { pending: string | null; busy: boolean; message: string; reviewable: boolean };
 type Transport = { snapshot: () => Promise<StationSession>; request: (params: Record<string, unknown>) => Promise<StationReceipt | null> };
 export type ManualTuneSource = { frequencyHz: number; mode: string };
+export type ManualTuneBinding={radioID:RadioID;activeRadio:RadioID;slotGeneration:string;slotRevision:number;provider:StationProvider;
+  selectionID:string;selectionGeneration:number;controlRevision:number;workerGeneration:number;connectionGeneration:number};
+/** Native identity only; no credentials or mutable station configuration enter the action journal. */
+export function captureManualTuneBinding(base:StationSession):ManualTuneBinding{
+  const selection=base.selection,radio=base.radio,provider=selection?.provider as StationProvider;
+  if(!["radio1","radio2"].includes(base.radio_id)||base.active_radio!==base.radio_id||!base.generation||!Number.isSafeInteger(base.revision)||
+    !["direct_agent","direct_flex_lan","direct_tci","hamlib"].includes(provider)||!selection.selection_id||radio?.provider!==provider||
+    radio.selection_id!==selection.selection_id||radio.selection_generation!==selection.generation||
+    ![selection.generation,selection.control_revision,radio.snapshot?.generation].every(value=>Number.isSafeInteger(value)&&Number(value)>=0)||
+    provider!=="hamlib"&&(!Number.isSafeInteger(base.worker_generation)||!base.worker_generation))throw Error("Refresh the exact observed radio binding before preparing a directed pass tune.");
+  return{radioID:base.radio_id,activeRadio:base.active_radio,slotGeneration:base.generation,slotRevision:base.revision,provider,
+    selectionID:selection.selection_id,selectionGeneration:selection.generation,controlRevision:selection.control_revision!,
+    workerGeneration:provider==="hamlib"?0:base.worker_generation!,connectionGeneration:radio.snapshot.generation};
+}
+export function assertManualTuneBinding(base:StationSession,expected:ManualTuneBinding){
+  const current=captureManualTuneBinding(base);
+  if(Object.keys(expected).some(key=>expected[key as keyof ManualTuneBinding]!==current[key as keyof ManualTuneBinding]))
+    throw Error("The original directed pass radio binding or generation changed; no replacement radio was tuned.");
+}
 const native = (radioId: RadioID): Transport => ({ snapshot: () => loadStationSession(radioId), request: params => stationSessionRequest(radioId, params) });
 const storage = (radioId: RadioID) => { const key = `xlog.station-session.${radioId}.manual-tune.pending`; return {
   read: () => { try { return sessionStorage.getItem(key); } catch { return "unverified"; } },
@@ -26,8 +45,9 @@ export class ManualTuneSession {
   getSnapshot = () => this.state;
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   private update(change: Partial<State>) { this.state = { ...this.state, ...change }; this.listeners.forEach(listener => listener()); }
-  async tune(provider: StationProvider, frequencyHz: number, mode: string, context?: MonitorContext | null, source?: ManualTuneSource): Promise<TuneResult> {
-    if (this.state.busy && this.activeTarget && !context && !source && provider === this.activeTarget.provider &&
+  async tune(provider: StationProvider, frequencyHz: number, mode: string, context?: MonitorContext | null, source?: ManualTuneSource, expectedBinding?:ManualTuneBinding): Promise<TuneResult> {
+    if(expectedBinding)expectedBinding=structuredClone(expectedBinding);
+    if (this.state.busy && this.activeTarget && !context && !source && !expectedBinding && provider === this.activeTarget.provider &&
         (this.queued !== null || frequencyHz !== this.activeTarget.frequencyHz || mode !== this.activeTarget.mode) &&
         Number.isSafeInteger(frequencyHz) && frequencyHz >= 100_000 && frequencyHz <= 1_000_000_000 && /^[A-Z0-9]{1,16}$/.test(mode)) {
       // Keep only the newest explicit absolute target. Relative steps retain
@@ -37,7 +57,7 @@ export class ManualTuneSession {
     }
     if (this.state.busy || this.state.pending) throw new Error("Check the existing manual tune receipt before another tune. No tune was repeated.");
     this.activeTarget = { provider, frequencyHz, mode };
-    try { return await this.execute(provider, frequencyHz, mode, context, source); }
+    try { return await this.execute(provider, frequencyHz, mode, context, source,expectedBinding); }
     finally {
       this.activeTarget = null;
       const queued = this.queued; this.queued = null;
@@ -47,7 +67,7 @@ export class ManualTuneSession {
       }
     }
   }
-  private async execute(provider: StationProvider, frequencyHz: number, mode: string, context?: MonitorContext | null, source?: ManualTuneSource): Promise<TuneResult> {
+  private async execute(provider: StationProvider, frequencyHz: number, mode: string, context?: MonitorContext | null, source?: ManualTuneSource,expectedBinding?:ManualTuneBinding): Promise<TuneResult> {
     if (this.state.busy || this.state.pending) throw new Error("Check the existing manual tune receipt before another tune. No tune was repeated.");
     if (!Number.isSafeInteger(frequencyHz) || frequencyHz < 100_000 || frequencyHz > 1_000_000_000 || !/^[A-Z0-9]{1,16}$/.test(mode) || source &&
         (!Number.isSafeInteger(source.frequencyHz) || source.frequencyHz < 100_000 || source.frequencyHz > 1_000_000_000 || !/^[A-Z0-9]{1,16}$/.test(source.mode)))
@@ -55,6 +75,7 @@ export class ManualTuneSession {
     this.update({ busy: true, message: "" });
     try {
       const base = await this.transport.snapshot();
+      if(expectedBinding){assertManualTuneBinding(base,expectedBinding);if(expectedBinding.provider!==provider)throw Error("The directed pass tune provider changed.");}
       const unresolved = base.manual_tune_receipt ?? (base.last_receipt?.request.action === "manual_tune" ? base.last_receipt : null);
       if (unresolved && ["pending", "unknown"].includes(unresolved.status)) {
         this.journal.write(unresolved.operation_id); this.update({ pending: unresolved.operation_id });
@@ -67,9 +88,9 @@ export class ManualTuneSession {
         throw new Error("Refresh the selected radio before manual tuning.");
       const operation = crypto.randomUUID();
       this.journal.write(operation); this.update({ pending: operation });
-      const receipt = await this.transport.request({ action: "manual_tune", operation_id: operation, generation: base.generation, revision: base.revision,
+      const receipt = await this.transport.request({ action: "manual_tune", operation_id: operation, generation: expectedBinding?.slotGeneration??base.generation, revision: expectedBinding?.slotRevision??base.revision,
         provider, selection_generation: selection.generation, selection_id: selection.selection_id, control_revision: selection.control_revision,
-        connection_generation: radio.snapshot.generation, worker_generation: provider === "hamlib" ? 0 : base.worker_generation, frequency_hz: frequencyHz, mode,
+        connection_generation: expectedBinding?.connectionGeneration??radio.snapshot.generation, worker_generation: expectedBinding?.workerGeneration??(provider === "hamlib" ? 0 : base.worker_generation), frequency_hz: frequencyHz, mode,
         ...(source ? { expected_source_frequency_hz: source.frequencyHz, expected_source_mode: source.mode } : {}) });
       if (!receipt || receipt.operation_id !== operation || receipt.request.action !== "manual_tune") throw new Error("Manual tune receipt could not be verified. Check its retained operation.");
       if (receipt.status !== "confirmed") { this.update({reviewable:receipt.status==="unknown"}); throw new Error("Manual tune outcome is unknown. Check its receipt; no tune will be replayed."); }

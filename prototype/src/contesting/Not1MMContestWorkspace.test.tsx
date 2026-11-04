@@ -10,6 +10,8 @@ import { ContestScoreSummary } from "./ContestPresentation";
 import { ContestMutationUncertain } from "./client";
 import { contestSurfacePanelIDs, validContestSurfaceProjection } from "./contestSurfaceProtocol";
 import { newContestSetup } from "./ContestSetupPanel";
+import {ManualTuneSession,captureManualTuneBinding} from "../live/manualTune";
+import {createContestPassTuneCapture} from "./contestSpotTune";
 const stationControl = vi.hoisted(() => ({ speed: vi.fn(async () => ({accepted:true})) }));
 const cwCallsignSource = vi.hoisted(() => ({resolve:vi.fn(async()=>"K1ABC")}));
 vi.mock("./cwCallsign",()=>({resolveContestCWCallsign:cwCallsignSource.resolve}));
@@ -22,7 +24,12 @@ const groupChat = vi.hoisted(() => ({ configure: vi.fn(async () => ({})), open: 
   read:vi.fn(async()=>({})),authority:vi.fn(),sync:vi.fn(),
   publish: vi.fn(async () => {}), acknowledgements: vi.fn(async () => [] as string[]) }));
 const setupDialogOwner = vi.hoisted(() => ({ current: null as any }));
-const nativeVoice = vi.hoisted(() => ({ play: vi.fn(async () => {}), stop: vi.fn(async () => {}) }));
+const nativeVoice = vi.hoisted(() => ({ play: vi.fn(async () => {}), stop: vi.fn(async () => {}),capture:vi.fn() }));
+const qtcDesk=vi.hoisted(()=>({props:null as any}));
+vi.mock("./ContestQTC",async importOriginal=>{
+  const original=await importOriginal<typeof import("./ContestQTC")>();
+  return{...original,ContestQTC:(props:any)=>{qtcDesk.props=props;return <original.ContestQTC {...props}/>;}};
+});
 const mapContext = vi.hoisted(() => ({ changed:null as ((value:any)=>void)|null, refresh:vi.fn(), dispose:vi.fn() }));
 
 vi.mock("./useContestSurfaceOwner", async importOriginal => ({ ...await importOriginal<typeof import("./useContestSurfaceOwner")>(), useContestSurfaceOwner: (owner: unknown) => {
@@ -84,19 +91,25 @@ vi.mock("../live/useSharedCW", () => ({ useSharedCW: () => ({
   profile: { macros: [{ id: 2, enabled: true, shortcut: "F2", text: "{CALL} {RST} {EXCHANGE}" }] },
 }) }));
 vi.mock("./contestExportSave", () => ({ nativeContestExportSave: nativeExport.save }));
-vi.mock("./contestVoiceOutput", () => ({ ContestVoiceOutput: class {
+vi.mock("./contestVoiceOutput", () => ({ captureContestVoiceTarget:nativeVoice.capture,ContestVoiceOutput: class {
   play = nativeVoice.play; stop = nativeVoice.stop;
 } }));
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks(); vi.restoreAllMocks();
   surfaceOwner.waitForPublication.mockReset().mockResolvedValue(undefined);
   surfaceOwner.current = null; setupDialogOwner.current = null;
+  qtcDesk.props=null;nativeVoice.capture.mockReset();
   nativeCW.state.pending=false; nativeCW.state.armed=false; nativeCW.state.error=""; });
 
 const operatingContext = "44444444-4444-4444-8444-444444444444";
 const workspaceGeneration = "33333333-3333-4333-8333-333333333333";
+const passStation=()=>({radio_id:"radio1",active_radio:"radio1",tx_owner:null,generation:"setup",revision:3,base_url:"",last_receipt:null,
+  selection:{provider:"direct_flex_lan",generation:7,selection_id:"selection",control_revision:11},worker_generation:5,
+  radio:{provider:"direct_flex_lan",selection_id:"selection",selection_generation:7,snapshot:{generation:13}}}) as any;
+const stationTunePort=vi.fn(async()=>({accepted:true,confirmed:true}));
 const workspaceProps = { operatingContext, workspaceGeneration, stationCall: "OM0RX", radioFrequencyHz: 14_025_000,
-  spots: [] as any[], cluster: null, stationTune: vi.fn(async () => ({ accepted:true, confirmed:true })),
+  spots: [] as any[], cluster: null, stationTune: stationTunePort,
+  captureStationTune:vi.fn(async()=>({binding:captureManualTuneBinding(passStation()),tune:stationTunePort})),
   contestSpot: vi.fn(async () => ({ accepted:true, confirmed:true })) };
 const clientGroupSnapshot=()=>({status:"connected",error:null,enabled:true,operator:"OM0RX",multicastGroup:"239.1.1.1",multicastPort:2239,
   messages:[],unverifiedTransportAcknowledgements:[],capabilities:{chat:true,contactPublication:true,remotePersistenceVerified:true,
@@ -4876,4 +4889,180 @@ it("strict native cold start resumes the supplied contest even when the catalog 
   await waitFor(() => expect(localStorage.getItem("xlog.contesting.not1mm.active-session.v1")).toBe(current.sessionID));
   expect(request.mock.calls.filter(([method]) => method === "contest_open")).toHaveLength(1);
   expect(request.mock.calls.some(([method]) => method === "contest_sessions")).toBe(false);
+});
+
+function directedPassWorkspace(current:()=>ReturnType<typeof projection>) {
+  const item={id:crypto.randomUUID(),schema:2,version:1,sender:"A",target:"B",kind:"pass",body:"RX suggestion",call:"K1PASS",
+    frequencyHz:14026000,mode:"CW",laneID:"laneA",sessionID:current().sessionID,workspaceGeneration,
+    frequencyMeaning:"rx",observedUTC:"2026-11-03T14:00:00.000Z",createdUTC:"2026-11-03T14:01:00.000Z",source:"operator",supersedesID:null,acknowledgedUTC:null};
+  const attempts=new Set<string>();
+  groupChat.authority.mockImplementation(async(_context,_operation,params)=>{
+    if(params.action==="recipient_action"){
+      if(params.event.endsWith("_requested")){if(attempts.has(params.operationID))throw Error("already attempted");attempts.add(params.operationID);}
+      return{};
+    }
+    return {senderStation:"B",authority:{sessionID:current().sessionID,workspaceGeneration},directed:[item]};
+  });
+  return {item,action:(operation:string)=>{const entry=surfaceOwner.current.projections["active-qso"];return{
+    operatingContext,scope:"contesting",sessionID:current().sessionID,workspaceGeneration,panelID:"active-qso",projectionRevision:entry.draft.revision,
+    requestID:crypto.randomUUID(),action:"entry_group_pass",params:{draftID:current().draftID,expectedDraftRevision:entry.draft.revision,
+      messageID:item.id,messageVersion:1,operation,targetLaneID:"laneA",bindingVersion:null,connectionGeneration:null,reviewedUTC:new Date().toISOString()}};}};
+}
+it("opens a fenced QTC opportunity review while preserving occupied Entry and local spot publication data",async()=>{
+  const current={...projection(1,{callsign:"W1HOLD",other_2:"14"}),pluginID:"wae_cw"};
+  const base=operationalRequest(()=>current,()=>0,()=>({dupe:true,multiplierCount:0,countryMultiplier:false,zoneMultiplier:false}));
+  const opportunity={eligibility:"eligible",reason:null,direction:"receive",remaining:7,confirmed:2,reserved:3,availableSources:null,
+    observation:{status:"later",observedUTC:"2026-11-04T10:00:00Z"},opportunity:true};
+  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>method==="contest_strategy"&&params.section!=="qtc"?{id:crypto.randomUUID(),ok:true,result:{version:1,skeds:[],moves:[],dueCount:0}}:method==="contest_strategy"?{id:crypto.randomUUID(),ok:true,
+    result:{available:true,ruleEdition:"WAE 2026",batches:[],eligibleSources:[],score:{qtcPoints:0,total:0},
+      opportunities:{K1ABC:opportunity},operating:{schema:1,workspace:{},attempts:[],observations:{}}}}:base(method,params));
+  const report={id:"qtc-spot",callsign:"K1ABC",frequencyKHz:14025,frequencyText:"14025.0",receivedAt:Date.now(),band:"20m",mode:"CW",comment:"CQ"};
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} spots={[report]}/>);
+  await createContestThroughSetup();
+  await waitFor(()=>expect(surfaceOwner.current.projections["band-maps"].qtcOpportunities?.opportunities.K1ABC).toEqual(opportunity));
+  const map=surfaceOwner.current.projections["band-maps"];
+  expect(map.spots).toEqual([expect.objectContaining({callsign:"K1ABC",contestDupe:true})]);
+  expect(validContestSurfaceProjection("band-maps",map)).toBe(true);
+  await act(async()=>surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,
+    panelID:"band-maps",projectionRevision:1,requestID:crypto.randomUUID(),action:"spot_qtc_review",
+    params:{draftID:current.draftID,expectedDraftRevision:map.draftRevision,spotID:report.id}}));
+  expect(await screen.findByRole("region",{name:"WAE QTC desk"})).toBeTruthy();
+  expect(screen.getByText("Map counterpart K1ABC")).toBeTruthy();
+  expect(surfaceOwner.current.projections["active-qso"].draft.callsign).toBe("W1HOLD");
+  expect(request.mock.calls.some(([method])=>["contest_draft_apply","contest_qso_commit","contest_strategy_apply"].includes(method))).toBe(false);
+  expect(workspaceProps.stationTune).not.toHaveBeenCalled();expect(nativeCW.execute).not.toHaveBeenCalled();
+  expect(report).not.toHaveProperty("qtc");expect(report).not.toHaveProperty("qtcOpportunities");
+});
+
+it("executes a directed pass tune through the current station owner without loading or logging and fences a duplicate",async()=>{
+  const current=projection(1,{callsign:"W1HOLD",other_2:"14"}),request=operationalRequest(()=>current);
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await createContestThroughSetup();await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].status).toBe("ready"));
+  const pass=directedPassWorkspace(()=>current),action=pass.action("tune");
+  await act(async()=>surfaceOwner.current.handle(action));
+  expect(workspaceProps.stationTune).toHaveBeenCalledExactlyOnceWith(14026000,"CW");
+  expect(groupChat.authority.mock.calls.filter(call=>call[2].action==="recipient_action").map(call=>call[2].event)).toEqual(["tune_requested","tune_accepted"]);
+  expect(request.mock.calls.some(([method])=>["contest_draft_apply","contest_qso_commit"].includes(method))).toBe(false);
+  expect(surfaceOwner.current.projections["active-qso"].draft.callsign).toBe("W1HOLD");
+  await expect(surfaceOwner.current.handle(action)).rejects.toThrow(/already attempted/);
+  expect(workspaceProps.stationTune).toHaveBeenCalledTimes(1);
+});
+
+it("loads a directed pass through the existing Call Stack owner and parks the occupied entry explicitly",async()=>{
+  let current=projection(1,{callsign:"W1HOLD",other_2:"14"});
+  const base=operationalRequest(()=>current),request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
+    if(method==="contest_draft_apply"){
+      expect(params.manualStackLoad).toBe(true);
+      current={...current,revision:current.revision+1,fields:current.fields.map(field=>({...field,value:(params.fields as Record<string,string>)[String(field.id)]??field.value}))};
+      return{id:crypto.randomUUID(),ok:true,result:{operationID:params.operationID,projection:current,actions:[],messages:[]}};
+    }
+    return base(method,params);
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await createContestThroughSetup();await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].status).toBe("ready"));
+  const pass=directedPassWorkspace(()=>current);
+  await expect(surfaceOwner.current.handle(pass.action("load"))).rejects.toThrow(/occupied/);
+  expect(request.mock.calls.some(([method])=>method==="contest_draft_apply")).toBe(false);
+  let pending!:Promise<void>;
+  await act(async()=>{pending=surfaceOwner.current.handle(pass.action("park"));});
+  await waitFor(()=>expect(current.fields.find(field=>field.id==="callsign")?.value).toBe("K1PASS"));
+  await act(async()=>{await pending;});
+  const stored=Object.keys(localStorage).filter(key=>key.includes("call-stack")).map(key=>localStorage.getItem(key)).join(" ");
+  expect(stored).toContain("W1HOLD");expect(stored).toContain("14");
+  expect(workspaceProps.stationTune).not.toHaveBeenCalled();
+  expect(request.mock.calls.some(([method])=>method==="contest_qso_commit")).toBe(false);
+  expect(groupChat.authority.mock.calls.filter(call=>call[2].action==="recipient_action").map(call=>call[2].event)).toEqual(["load_requested","loaded"]);
+});
+
+it("rejects a directed pass for another lane before reading authority or dispatching",async()=>{
+  const current=projection(),request=operationalRequest(()=>current);
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await createContestThroughSetup();await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].status).toBe("ready"));
+  const pass=directedPassWorkspace(()=>current),action=pass.action("tune");action.params.targetLaneID="laneB";
+  await expect(surfaceOwner.current.handle(action)).rejects.toThrow(/addressed lane/);
+  expect(groupChat.authority).not.toHaveBeenCalled();expect(workspaceProps.stationTune).not.toHaveBeenCalled();
+});
+it("freezes the single-lane pass radio before authority await and rejects a selection switch without a fallback tune",async()=>{
+  const current=projection(),request=operationalRequest(()=>current),station=passStation(),observed=captureManualTuneBinding(station);
+  const nativeTune=vi.fn(async(params:any)=>({operation_id:params.operation_id,status:"confirmed" as const,request:{action:"manual_tune"}}));
+  const manual=new ManualTuneSession({snapshot:async()=>structuredClone(station),request:nativeTune},{read:()=>null,write:()=>{}});
+  const capture=createContestPassTuneCapture({load:async()=>structuredClone(station),session:()=>manual});
+  const captured:unknown[]=[];
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps} captureStationTune={async()=>{
+    const target=await capture(observed);captured.push(target.binding);return target;
+  }}/>);
+  await createContestThroughSetup();await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].status).toBe("ready"));
+  const pass=directedPassWorkspace(()=>current),respond=groupChat.authority.getMockImplementation()!;
+  let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
+  groupChat.authority.mockImplementation(async(...args:any[])=>{if(args[2].action==="read"){expect(captured).toHaveLength(1);await gate;}return respond(...args);});
+  let failure:unknown,pending!:Promise<unknown>;
+  await act(async()=>{pending=surfaceOwner.current.handle(pass.action("tune")).catch((cause:unknown)=>{failure=cause;});});
+  await waitFor(()=>expect(captured).toHaveLength(1));station.active_radio="radio2";
+  await act(async()=>{release();await pending;});
+  expect(String(failure)).toMatch(/radio binding/);expect(nativeTune).not.toHaveBeenCalled();expect(workspaceProps.stationTune).not.toHaveBeenCalled();
+  expect(groupChat.authority.mock.calls.filter(call=>call[2].action==="recipient_action").map(call=>call[2].event)).toEqual(["tune_requested","uncertain"]);
+  expect(request.mock.calls.some(([method])=>["contest_draft_apply","contest_qso_commit"].includes(method))).toBe(false);
+});
+
+const capturedVoiceTarget=()=>({schemaVersion:1,outputIntent:"60000000-0000-4000-8000-000000000006",target:{provider:"direct_agent",
+  selection_generation:1,selection_id:"70000000-0000-4000-8000-000000000007",worker_generation:2,connection_generation:3,
+  control_revision:4,observation_revision:5,received_at_ms:6}});
+async function qtcVoiceWorkspace(){
+  const saved=newContestSetup("OM0RX");saved.pluginID="wae_ssb";saved.name="WAE SSB";saved.settings.ModeCategory="SSB";saved.preferences.voiceProfilePath="/operator/voice";
+  localStorage.setItem("xlog.contesting.not1mm.setup-draft.v1",JSON.stringify(saved));
+  let current:any={...projection(1,{callsign:"W1HOLD",other_2:"14"}),pluginID:"wae_ssb",pluginName:"WAE SSB",mode:"SSB",supportedModes:["SSB"],matrixTrackers:[],
+    fields:projection(1,{callsign:"W1HOLD",other_2:"14"}).fields.map(field=>({...field,value:field.id==="sent"||field.id==="receive"?"59":field.value}))};
+  const trace:string[]=[],target=capturedVoiceTarget();let release!:()=>void;const hostReply=new Promise<void>(resolve=>{release=resolve;});let actions:any[]=[];
+  nativeVoice.capture.mockImplementationOnce(async()=>{trace.push("capture");return structuredClone(target);});
+  const request=vi.fn(async(method:string,params:Record<string,any>={})=>{
+    const support=workspaceSupport(method,params,current);if(support)return support;
+    if(method==="contest_scp_status")return unavailableSCP();if(method==="contest_history_status")return unavailableHistory();
+    let result:any=method==="contest_catalog"?{plugins:[{id:"wae_ssb",name:"WAE SSB",modes:["SSB"]}]}:
+      method==="contest_sessions"?{sessions:[]}:method==="contest_create"?{projection:current}:
+      method==="contest_log_page"?{rows:[],total:0}:method==="contest_score"?{sessionID:current.sessionID,revision:current.revision,score:current.score,matrices:{},statistics:statisticsFor(current)}:
+      method==="contest_strategy"?{version:1,skeds:[],moves:[],dueCount:0,available:true,ruleEdition:"2026",eligibility:"receive",batches:[],eligibleSources:[],score:{qtcPoints:0,total:0},operating:{schema:1,workspace:{},attempts:[]}}:null;
+    if(method==="contest_strategy_apply"){
+      if(params.action==="qtc_output"){
+        trace.push("host");await hostReply;
+        current={...current,revision:current.revision+1};
+        actions=[{actionID:`${params.operationID}:0`,sessionID:current.sessionID,workspaceGeneration:current.workspaceGeneration,draftID:current.draftID,sourceRevision:current.sourceRevision,
+          kind:"voice_keyer",signal:"phone",mode:"SSB",payload:"1200 K1ABC 123",payloadSHA256:"a".repeat(64),qtc:{schema:1,batchID:params.batchID,field:params.qtcField,voiceTarget:params.voiceTarget}}];
+        result={operationID:params.operationID,replayed:false,revision:current.revision,projection:current,actions,messages:[]};
+      }else if(params.action==="qtc_output_result"){
+        current={...current,revision:current.revision+1};result={operationID:params.operationID,replayed:false,revision:current.revision,projection:current,actions:[],messages:[]};
+      }else result={operationID:params.operationID,replayed:false,revision:current.revision,projection:current,actions:[],messages:[]};
+    }
+    if(method==="contest_output_claim")result={claimed:true,operationID:params.operationID,actions};
+    if(!result)throw Error(method);return{id:crypto.randomUUID(),ok:true,result};
+  });
+  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
+  await createContestThroughSetup();await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].status).toBe("ready"));
+  let entry=surfaceOwner.current.projections["active-qso"];
+  await act(async()=>surfaceOwner.current.handle({operatingContext,sessionID:current.sessionID,workspaceGeneration,action:"entry_operator_arm",params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,armed:true}}));
+  await userEvent.click(screen.getByRole("button",{name:"Productivity desk"}));await userEvent.click(screen.getByRole("button",{name:"QTC"}));
+  await waitFor(()=>expect(qtcDesk.props?.scope?.pluginID).toBe("wae_ssb"));
+  return{request,trace,target,release,current:()=>current};
+}
+it("captures QTC phone target before a delayed host reply and forwards that exact target after a selection change",async()=>{
+  const fixture=await qtcVoiceWorkspace();let pending!:Promise<unknown>;
+  await act(async()=>{pending=qtcDesk.props.onOutput({batchID:"batch",index:0,fields:"all"});});
+  await waitFor(()=>expect(fixture.trace).toEqual(["capture","host"]));
+  const original=structuredClone(fixture.target);fixture.target.target.selection_generation=99;
+  await act(async()=>{fixture.release();await pending;});
+  expect(nativeVoice.play).toHaveBeenCalledOnce();
+  expect((nativeVoice.play.mock.calls[0] as unknown[])[5]).toEqual(original);
+  expect(fixture.request.mock.calls.find(([method,params])=>method==="contest_strategy_apply"&&params?.action==="qtc_output")?.[1]?.voiceTarget).toEqual(original);
+  expect(fixture.current().fields.find((field:any)=>field.id==="callsign").value).toBe("W1HOLD");
+});
+it("QTC Stop during the host reply aborts pending phone output and preserves original-owner release",async()=>{
+  const fixture=await qtcVoiceWorkspace();let failure:unknown,pending!:Promise<unknown>;
+  await act(async()=>{pending=qtcDesk.props.onOutput({batchID:"batch",index:0,fields:"all"}).catch((cause:unknown)=>{failure=cause;});});
+  await waitFor(()=>expect(fixture.trace).toEqual(["capture","host"]));
+  const before=nativeVoice.stop.mock.calls.length;
+  await act(async()=>{await qtcDesk.props.onStop();});
+  expect(nativeVoice.stop.mock.calls.length).toBe(before+1);
+  await act(async()=>{fixture.release();await pending;});
+  expect(failure).toBeTruthy();expect(nativeVoice.play).not.toHaveBeenCalled();
+  expect(fixture.request.mock.calls.some(([method])=>method==="contest_output_claim")).toBe(false);
+  expect(fixture.current().fields.find((field:any)=>field.id==="callsign").value).toBe("W1HOLD");
 });

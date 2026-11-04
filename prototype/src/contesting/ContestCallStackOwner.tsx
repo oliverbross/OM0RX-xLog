@@ -21,6 +21,8 @@ export type ContestCallStackOwnerProps = {
   /** Only a definitive host rejection may release the pending immutable operation. */
   rejected?(cause: unknown): boolean;
   onError(message: string): void;
+  /** The existing workspace may invoke the same controller for an explicit directed pass. */
+  onController?(controller: ContestCallStack | null): void;
 };
 function message(cause: unknown) { return cause instanceof Error ? cause.message : String(cause); }
 
@@ -52,6 +54,10 @@ function ScopedContestCallStackOwner(props: ContestCallStackOwnerProps) {
     setPublished(holder.controller?.snapshot() ?? null);
     if (holder.error) latest.current.onError(holder.error);
   }, [holder]);
+  useEffect(() => {
+    props.onController?.(holder.controller);
+    return () => { props.onController?.(null); };
+  }, [holder, props.onController]);
   const state = holder.controller && published?.sessionID === props.draft.sessionID &&
     published.workspaceGeneration === props.draft.workspaceGeneration && (published.laneID ?? "laneA") === (props.draft.laneID ?? "laneA")
     ? published : holder.controller?.snapshot();

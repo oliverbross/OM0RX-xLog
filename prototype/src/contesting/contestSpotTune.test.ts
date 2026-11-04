@@ -1,11 +1,30 @@
 import { expect, it, vi } from "vitest";
-import { createContestSpotTuner, createContestVFOStepper, createContestReminderTuner } from "./contestSpotTune";
+import { createContestSpotTuner, createContestVFOStepper, createContestReminderTuner,createContestPassTuneCapture } from "./contestSpotTune";
+import {ManualTuneSession,captureManualTuneBinding} from "../live/manualTune";
 
 const station = (active = "radio1", provider: string | null = "direct_flex_lan") => ({
   radio_id:"radio1", active_radio:active, tx_owner:null, generation:"setup", revision:3, base_url:"", last_receipt:null,
   selection:{provider,generation:7,selection_id:"selection",control_revision:11}, worker_generation:5,
   radio:{provider,selection_id:"selection",selection_generation:7,snapshot:{generation:13}},
 }) as any;
+
+it("captures a pass tune before authority work and never selects a replacement active radio afterward",async()=>{
+  const current=station(),observed=captureManualTuneBinding(current),request=vi.fn(async(params:any)=>({operation_id:params.operation_id,status:"confirmed" as const,request:{action:"manual_tune"}}));
+  const manual=new ManualTuneSession({snapshot:async()=>structuredClone(current),request},{read:()=>null,write:()=>{}});
+  const load=vi.fn(async()=>structuredClone(current)),session=vi.fn(()=>manual);
+  const captured=await createContestPassTuneCapture({load,session})(observed);
+  expect(request).not.toHaveBeenCalled();expect(captured.binding).toEqual(observed);
+  current.active_radio="radio2";
+  await expect(captured.tune(14026000,"CW")).rejects.toThrow(/radio binding/);
+  expect(load).toHaveBeenCalledExactlyOnceWith("radio1");expect(session).toHaveBeenCalledExactlyOnceWith("radio1");expect(request).not.toHaveBeenCalled();
+});
+it("same-context captured pass tunes once through the existing owner without auto-review or retry",async()=>{
+  const current=station(),request=vi.fn(async(params:any)=>({operation_id:params.operation_id,status:"confirmed" as const,request:{action:"manual_tune"}}));
+  const manual=new ManualTuneSession({snapshot:async()=>structuredClone(current),request},{read:()=>null,write:()=>{}});
+  const captured=await createContestPassTuneCapture({load:async()=>structuredClone(current),session:()=>manual})(captureManualTuneBinding(current));
+  await expect(captured.tune(14026000,"CW")).resolves.toMatchObject({confirmed:true});
+  await expect(captured.tune(14026000,"CW")).rejects.toThrow(/already attempted/);expect(request).toHaveBeenCalledOnce();
+});
 
 it("routes a reminder only to its explicit target and retains an unresolved tune",async()=>{
   const tune=vi.fn(async()=>({accepted:true,confirmed:true})),check=vi.fn(async()=>{}),review=vi.fn();

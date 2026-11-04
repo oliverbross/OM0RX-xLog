@@ -447,9 +447,13 @@ function ContestSpots({panelID,context,projection,projectionRevision,send}:{pane
         expectedDraftRevision:projection.draftRevision,spotID:target.id,marked:!target.marked}})}>{target.marked?"Unmark":"Mark"}</button>
       <button type="button" role="menuitem" onClick={()=>act({action:"spot_delete",params:{draftID:projection.draftID,
         expectedDraftRevision:projection.draftRevision,spotID:target.id}})}>Delete</button>
+      {projection.qtcOpportunities&&<button type="button" role="menuitem" onClick={()=>act({action:"spot_qtc_review",params:{draftID:projection.draftID,
+        expectedDraftRevision:projection.draftRevision,spotID:target.id}})}>Review QTC opportunity</button>}
       <button type="button" role="menuitem" onClick={closeMenu}>Cancel</button>
     </div>}</>;
   if(panelID==="band-maps")return <section className="contest-spots" aria-label="Contest Band Map">{workflow}<BandMaps compact contestPresentation spots={filteredSpots}
+    qtcOpportunities={projection.qtcOpportunities} onQTCReview={spot=>void send({action:"spot_qtc_review",params:{draftID:projection.draftID,
+      expectedDraftRevision:projection.draftRevision,spotID:String(spot.id)}},projectionRevision,{safePresentation:true})}
     contestBandPlan={decodeContestBandPlan(projection.bandSegments,projection.supportedBands)}
     contestBands={projection.supportedBands} contestAllowedModes={projection.allowedModeGroups}
     observedReceiveBandwidthHz={receiveBandwidth}

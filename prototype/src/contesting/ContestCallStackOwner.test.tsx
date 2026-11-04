@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ContestCallStackOwner, type ContestCallStackOwnerProps } from "./ContestCallStackOwner";
 import { callStackStorageKey, emptyCallStack, type CallStackClassification } from "./contestCallStack";
 
@@ -16,6 +16,14 @@ function add(call: string) {
   fireEvent.change(screen.getByRole("textbox", { name: "Add heard call to stack" }), { target: { value: call } });
   fireEvent.click(screen.getByRole("button", { name: "Add caller" }));
 }
+it("exposes the same live scoped controller and retires it on unmount without a draft effect",()=>{
+  const p=props(),controller=vi.fn(),view=render(<ContestCallStackOwner {...p} onController={controller}/>);
+  const exposed=controller.mock.calls.at(-1)?.[0];expect(exposed).toBeTruthy();
+  act(()=>{exposed.add("K1PASS");});
+  expect(localStorage.getItem(callStackStorageKey(p.draft))).toContain("K1PASS");
+  expect(p.mutate).not.toHaveBeenCalled();
+  view.unmount();expect(controller.mock.calls.at(-1)?.[0]).toBeNull();
+});
 it("persists the session-scoped queue and restores it after unmount with stable IDs", async () => {
   const p = props(), view = render(<ContestCallStackOwner {...p}/>); add("K1ONE");
   expect(screen.getByRole("button", { name: "K1ONE" })).toBeTruthy();

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ContestCallStack, callStackStorageKey, currentStackClassification, emptyCallStack, occupiedStackDraft,
-  restoreCallStack, type CallStackDraft, type CallStackOperation, type CallStackPorts, type CallStackResult, type CallStackState } from "./contestCallStack";
+  restoreCallStack, type CallStackDraft, type ParkedCallStackDraft, type CallStackOperation, type CallStackPorts, type CallStackResult, type CallStackState } from "./contestCallStack";
 
 const scope = { sessionID: "practice-session", workspaceGeneration: "disposable-workspace" };
 const clone = <T,>(value: T): T => structuredClone(value);
@@ -33,6 +33,32 @@ function fixture() {
 }
 
 describe("manual Call Stack assistance", () => {
+  it("retains a bounded versioned raw parked draft without inventing heard fields or restoring an old serial",async()=>{
+    const f=fixture();
+    const original:ParkedCallStackDraft={...f.draft(),heardFieldIDs:[],receivedFieldIDs:["receive","other_2","name","grid"],
+      captureParkedSnapshot:true,reservedSerial:7,allocatedSerialFieldID:"other_1"};
+    f.setDraft(original);const stack=f.controller(),incoming=stack.add("K1PASS");
+    await stack.load(incoming,"park");
+    const parked=stack.snapshot().items[0];expect(parked.fragments).toEqual({});
+    expect(parked.parkedDraft).toEqual({schema:1,draft:original});
+    const raw=JSON.stringify(stack.snapshot());expect(restoreCallStack(raw,scope).items[0].parkedDraft?.draft.fields.other_2).toBe("14");
+    // A later host-owned serial is retained; received raw values restore with their original unknown provenance.
+    f.setDraft({...f.draft(),draftID:"draft-8",fields:{...f.draft().defaults,other_1:"8"},defaults:{...f.draft().defaults,other_1:"8"}});
+    const reopened=f.controller(restoreCallStack(raw,scope));await reopened.load(parked.id,"discard");
+    expect(f.draft().fields).toMatchObject({callsign:"K1AAA",other_2:"14",name:"Alice",other_1:"8"});
+    expect(f.operations.at(-1)?.loadedHeardFieldIDs).toEqual([]);
+    expect(f.counts()).toEqual({commits:0,loads:2});
+    const malformed=JSON.parse(raw);malformed.items[0].parkedDraft.draft.fields.other_2="x".repeat(4097);
+    expect(()=>restoreCallStack(JSON.stringify(malformed),scope)).toThrow(/preserve/);
+  });
+  it("restores the exact raw parked value instead of the legacy shortened heard preview",async()=>{
+    const f=fixture(),name="A".repeat(160);
+    f.setDraft({...f.draft(),captureParkedSnapshot:true,receivedFieldIDs:["name"],heardFieldIDs:["name"],
+      fields:{...f.draft().fields,name}} as ParkedCallStackDraft);
+    const stack=f.controller(),incoming=stack.add("K1PASS");await stack.load(incoming,"park");
+    const parked=stack.snapshot().items[0];expect(parked.fragments.name.value).toHaveLength(128);
+    await stack.load(parked.id,"discard");expect(f.draft().fields.name).toBe(name);
+  });
   it("keeps FIFO order, stable item identities and explicit manual promotion without contacting the host", () => {
     const f = fixture(), stack = f.controller();
     const one = stack.add(" k1one "), two = stack.add("K2TWO"), partial = stack.add("DL?AB");

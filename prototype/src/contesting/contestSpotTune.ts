@@ -1,5 +1,5 @@
 import type { StationProvider } from "../worker";
-import { manualTuneSession, type ManualTuneSession } from "../live/manualTune";
+import { manualTuneSession,captureManualTuneBinding,assertManualTuneBinding,type ManualTuneBinding, type ManualTuneSession } from "../live/manualTune";
 import { loadStationSession, type RadioID, type StationSession } from "../live/stationSession";
 
 type Dependencies = {
@@ -56,6 +56,22 @@ export const createContestSpotTuner = ({ load, session }: Dependencies = default
 };
 
 export const tuneContestSpot = createContestSpotTuner();
+
+export type CapturedContestTune={binding:ManualTuneBinding;tune:(frequencyHz:number,mode:string)=>Promise<unknown>};
+/** Freeze the previously observed radio before authority I/O; never select an active-radio fallback later. */
+export const createContestPassTuneCapture=({load,session}:Dependencies=defaults)=>async(observedBinding:ManualTuneBinding):Promise<CapturedContestTune>=>{
+  const binding=structuredClone(observedBinding),current=await load(binding.radioID);
+  assertManualTuneBinding(current,binding);
+  const tune=session(binding.radioID);let attempted=false;
+  return{binding:structuredClone(binding),tune:async(frequencyHz,mode)=>{
+    if(attempted)throw Error("This directed pass tune was already attempted. Review its original receipt.");
+    attempted=true;
+    if(tune.getSnapshot().pending)throw Error("Review the previous manual tune receipt before a directed pass; no tune was repeated.");
+    return tune.tune(binding.provider,frequencyHz,mode,undefined,undefined,binding);
+  }};
+};
+export const captureContestPassTune=createContestPassTuneCapture();
+export {captureManualTuneBinding};
 
 /** An operator-selected reminder target never falls back to the active radio. */
 export const createContestReminderTuner=({load,session}:Dependencies=defaults)=>async(radioId:RadioID,frequencyHz:number,mode:string)=>{

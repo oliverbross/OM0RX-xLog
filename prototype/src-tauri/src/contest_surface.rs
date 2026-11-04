@@ -161,6 +161,9 @@ pub fn release_owner(context: &ContestWindowContext, owner_epoch: &str) -> Resul
 }
 
 pub fn submit(label: &str, envelope: Value, focused: bool) -> Result<Value, String> {
+    if label == "contest--group-chat" && envelope["action"] != "entry_group_pass" {
+        return Err("Group Chat can submit only an explicit directed-pass action.".into());
+    }
     let panel_id = contest_panel(label)?;
     let checked = validate_action_envelope(&envelope)?;
     if checked.panel_id != panel_id {
@@ -672,6 +675,7 @@ fn require_context(state: &State, context: &ContestWindowContext) -> Result<(), 
 }
 
 fn contest_panel(label: &str) -> Result<String, String> {
+    if label == "contest--group-chat" { return Ok("active-qso".into()); }
     if label == "contest--edit-contact" { return Ok("logbook".into()); }
     let identity = WorkspaceWindowIdentity::parse_native_label(label)?;
     if identity.scope != WorkspaceWindowScope::Contesting {
@@ -768,7 +772,7 @@ fn validate_action_envelope(value: &Value) -> Result<CheckedAction, String> {
 
 fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(), String> {
     match action {
-        "spot_select" | "spot_confirm" | "spot_delete" => {
+        "spot_select" | "spot_qtc_review" | "spot_confirm" | "spot_delete" => {
             draft(params, &["spotID"])?;
             text_value(&params["spotID"], 128, false, "spot ID")?;
         }
@@ -801,6 +805,19 @@ fn validate_action_params(action: &str, params: &Map<String, Value>) -> Result<(
                 uint_value(&params["bindingVersion"],MAX_SAFE_INTEGER,"CW Entry binding")?;
             } else {draft(params,&["sourceEpoch","spotID","spotVersion"])?;}
             for key in ["sourceEpoch","spotID","spotVersion"]{canonical_uuid_value(&params[key],"CW native selection")?;}
+        }
+        "entry_group_pass" => {
+            draft(params, &["messageID", "messageVersion", "operation", "targetLaneID", "bindingVersion", "connectionGeneration", "reviewedUTC"])?;
+            canonical_uuid_value(&params["messageID"], "directed pass identity")?;
+            if params["messageVersion"] != 1 { return Err("Unsupported directed pass version".into()); }
+            enum_value(&params["operation"], &["load", "tune", "park"], "directed pass action")?;
+            enum_value(&params["targetLaneID"], &["laneA", "laneB"], "directed pass lane")?;
+            nullable_uint(&params["bindingVersion"], MAX_SAFE_INTEGER, "directed pass binding")?;
+            if !params["connectionGeneration"].is_null() {
+                if params["connectionGeneration"].is_string() { text_value(&params["connectionGeneration"], 256, false, "directed pass connection")?; }
+                else { uint_value(&params["connectionGeneration"], MAX_SAFE_INTEGER, "directed pass connection")?; }
+            }
+            canonical_timestamp(&params["reviewedUTC"], "directed pass review UTC")?;
         }
         "entry_set_exchange" => {
             draft(params, &["fieldID", "value"])?;
@@ -1121,7 +1138,7 @@ fn validate_messages_projection(value: &Map<String, Value>) -> Result<(), String
 }
 
 fn validate_spot_projection(value: &Map<String, Value>) -> Result<(), String> {
-    exact_optional(value, &["schemaVersion", "status", "draftID", "draftRevision", "radioFrequencyHz", "connectedClusters", "loadedSpots", "selectedSpotID", "configuredClusters", "connections", "markedOnly", "spots", "busy"], &["contestSessionID", "supportedBands", "allowedModeGroups", "bandSegments", "showWorked"], "spot projection")?;
+    exact_optional(value, &["schemaVersion", "status", "draftID", "draftRevision", "radioFrequencyHz", "connectedClusters", "loadedSpots", "selectedSpotID", "configuredClusters", "connections", "markedOnly", "spots", "busy"], &["contestSessionID", "supportedBands", "allowedModeGroups", "bandSegments", "showWorked", "qtcOpportunities"], "spot projection")?;
     text_value(&value["draftID"], 160, false, "spot draft ID")?;
     uint_value(&value["draftRevision"], MAX_SAFE_INTEGER, "spot draft revision")?;
     nullable_uint(&value["radioFrequencyHz"], 100_000_000_000, "spot radio frequency")?;
@@ -1182,6 +1199,7 @@ fn validate_spot_projection(value: &Map<String, Value>) -> Result<(), String> {
         boolean(show_worked, "show-worked filter")?;
     }
     boolean(&value["busy"], "spot projection busy state")?;
+    if let Some(qtc)=value.get("qtcOpportunities") {validate_qtc_opportunities(qtc)?;}
     let mut ids = BTreeSet::new();
     for item in array(&value["spots"], 2_000, "contest spots")? {
         let spot = object(item, "contest spot")?;
@@ -1222,6 +1240,26 @@ fn validate_spot_projection(value: &Map<String, Value>) -> Result<(), String> {
         boolean(&spot["marked"], "spot marked state")?;
     }
     Ok(())
+}
+fn validate_qtc_opportunities(value:&Value)->Result<(),String>{
+    let value=object(value,"QTC opportunities")?;exact(value,&["schema","revision","opportunities"],"QTC opportunity projection")?;
+    if value["schema"]!=1{return Err("Unsupported QTC opportunity schema".into());}
+    uint_value(&value["revision"],MAX_SAFE_INTEGER,"QTC projection revision")?;
+    let rows=object(&value["opportunities"],"QTC counterpart opportunities")?;
+    if rows.len()>2000{return Err("QTC counterpart projection exceeds its bound".into());}
+    for (call,row) in rows {
+        if !(3..=32).contains(&call.len())||!call.bytes().all(|b|b.is_ascii_uppercase()||b.is_ascii_digit()||b==b'/'){return Err("Invalid QTC counterpart".into());}
+        let row=object(row,"QTC opportunity")?;exact(row,&["eligibility","reason","direction","remaining","confirmed","reserved","availableSources","observation","opportunity"],"QTC opportunity")?;
+        enum_value(&row["eligibility"],&["unknown","eligible","ineligible"],"QTC eligibility")?;
+        nullable_text(&row["reason"],512,"QTC reason")?;enum_value(&row["direction"],&["send","receive"],"QTC direction")?;
+        uint_value(&row["remaining"],10,"QTC remaining allowance")?;
+        for key in ["confirmed","reserved"]{uint_value(&row[key],1_000_000,"QTC journal count")?;}
+        nullable_uint(&row["availableSources"],1_000_000,"QTC source count")?;boolean(&row["opportunity"],"QTC opportunity")?;
+        let observation=object(&row["observation"],"local QTC observation")?;exact_optional(observation,&["status"],&["observedUTC","note"],"local QTC observation")?;
+        enum_value(&observation["status"],&["unknown","available","later","unavailable"],"local QTC status")?;
+        if let Some(utc)=observation.get("observedUTC"){text_value(utc,64,false,"QTC observation UTC")?;}
+        if let Some(note)=observation.get("note"){text_value(note,256,true,"QTC observation note")?;}
+    }Ok(())
 }
 
 fn validate_entry_projection(value: &Map<String, Value>) -> Result<(), String> {
@@ -3159,6 +3197,18 @@ mod tests {
     const WORKSPACE: &str = "30000000-0000-4000-8000-000000000001";
     const REQUEST: &str = "40000000-0000-4000-8000-000000000001";
     #[test]
+    fn directed_pass_action_preserves_lane_connection_and_explicit_action_without_payload_override() {
+        assert_eq!(contest_panel("contest--group-chat").unwrap(), "active-qso");
+        let params=json!({"draftID":REQUEST,"expectedDraftRevision":2,"messageID":REQUEST,"messageVersion":1,
+            "operation":"tune","targetLaneID":"laneB","bindingVersion":4,"connectionGeneration":"connection-7","reviewedUTC":"2026-11-04T00:00:00.000Z"});
+        assert!(validate_action_envelope(&action("entry_group_pass","active-qso",params.clone())).is_ok());
+        for (field,value) in [("messageVersion",json!(2)),("operation",json!("transmit")),("targetLaneID",json!("active")),
+            ("connectionGeneration",json!(true)),("reviewedUTC",json!("now")),("frequencyHz",json!(14025000))] {
+            let mut invalid=params.clone();invalid[field]=value;
+            assert!(validate_action_envelope(&action("entry_group_pass","active-qso",invalid)).is_err());
+        }
+    }
+    #[test]
     fn detached_lane_identity_preserves_generation_type_and_never_accepts_output_authority() {
         let mut lane = json!({"mode":"SO2R","laneID":"laneB","bindingVersion":2,"binding":{
             "radioID":"radio2","receiverID":"receiver2","vfo":"B","sliceID":null,"generation":7}});
@@ -4600,6 +4650,12 @@ mod tests {
             "connections":[{"serverID":"server-1","serverName":"ShackCQ","phase":"connected","error":null}],"markedOnly":false,
             "showWorked":false,"spots":[spot.clone()],"busy":false});
         for panel in ["band-maps", "world-map", "dx-cluster"] { assert!(validate_projection(panel, &projection).is_ok()); }
+        let mut qtc=projection.clone();qtc["qtcOpportunities"]=json!({"schema":1,"revision":2,"opportunities":{"K1ABC":{
+            "eligibility":"eligible","reason":null,"direction":"receive","remaining":7,"confirmed":2,"reserved":3,"availableSources":null,
+            "observation":{"status":"later","observedUTC":"2026-11-04T10:00:00Z"},"opportunity":true}}});
+        assert!(validate_projection("band-maps",&qtc).is_ok());qtc["qtcOpportunities"]["schema"]=json!(2);
+        assert!(validate_projection("band-maps",&qtc).is_err());
+        for panel in ["band-maps","dx-cluster"] {assert!(validate_action_envelope(&action("spot_qtc_review",panel,json!({"draftID":"draft","expectedDraftRevision":2,"spotID":"spot-1"}))).is_ok());}
         let mut invalid_show_worked = projection.clone(); invalid_show_worked["showWorked"] = json!("false");
         assert!(validate_projection("band-maps", &invalid_show_worked).is_err());
         assert!(validate_action_envelope(&action("spot_select", "world-map",

@@ -32,6 +32,11 @@ it.each(["band-maps","dx-cluster"] as const)("validates fenced %s spot selection
     connections:[{serverID:"server-1",serverName:"ShackCQ",phase:"connected",error:null}],
     markedOnly:false,spots:[spot],busy:false};
   expect(validContestSurfaceProjection(panelID,projection)).toBe(true);
+  const qtcOpportunities={schema:1,revision:5,opportunities:{K1ABC:{eligibility:"eligible",reason:null,direction:"receive",remaining:7,
+    confirmed:2,reserved:3,availableSources:null,observation:{status:"later",observedUTC:"2026-11-04T10:00:00Z"},opportunity:true}}};
+  expect(validContestSurfaceProjection(panelID,{...projection,qtcOpportunities})).toBe(true);
+  expect(validContestSurfaceProjection(panelID,{...projection,qtcOpportunities:{...qtcOpportunities,schema:2}})).toBe(false);
+  expect(()=>validateContestSurfaceActionEnvelope({...base,panelID,action:"spot_qtc_review",params:{...draft,spotID:spot.id}})).not.toThrow();
   expect(validContestSurfaceProjection(panelID,{...projection,contestSessionID:base.sessionID,supportedBands:["40m"],
     allowedModeGroups:["phone"],bandSegments:['{"band":"40m"}'],showWorked:true})).toBe(true);
   expect(validContestSurfaceProjection(panelID,{...projection,showWorked:"yes"})).toBe(false);

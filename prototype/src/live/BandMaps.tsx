@@ -15,6 +15,7 @@ import { BandMapGuideControls, GuideMarkerInspector, useBandMapGuides } from "./
 import { builtinGuides } from "./bandMapBuiltinGuides";
 import { clippedGuideRange, ibpMarkers, type BandMapGuide, type GuideMarker } from "./bandMapGuides";
 import { tuneGuideMarker } from "./guideTune";
+import { qtcOpportunityFor, qtcOpportunityLabel, type QTCOpportunityProjection } from "../contesting/contestQTCOpportunities";
 
 export type BandMapSpot = Record<string, any> & { id?: unknown };
 // An explicit host slot lets compact maps share the workspace toolbar without
@@ -38,7 +39,8 @@ type Props = { spots: BandMapSpot[]; onSelect: (spot: BandMapSpot) => void; radi
   focusedBand?: string; onFocusedBandChange?: (band: string) => void; storageNamespace?: string;
   selectedSpotId?: string | null; onSpotContextMenu?: (spot: BandMapSpot, event: ReactMouseEvent<HTMLElement>) => void;
   contestPresentation?: boolean; contestBandPlan?: ContestBandPlanEntry[]; contestBands?: readonly string[];
-  contestAllowedModes?: readonly ContestBandMode[]; showWorked?: boolean; onShowWorkedChange?: (showWorked: boolean) => void };
+  contestAllowedModes?: readonly ContestBandMode[]; showWorked?: boolean; onShowWorkedChange?: (showWorked: boolean) => void;
+  qtcOpportunities?:QTCOpportunityProjection; onQTCReview?:(spot:BandMapSpot)=>void };
 type ViewRange = { low: number; high: number };
 type PlacedSpot = { spot: BandMapSpot; top: number; anchorTop: number; lane: number; key: string };
 export function panBandRange(view: ViewRange, full: ViewRange, delta: number): ViewRange {
@@ -449,12 +451,12 @@ function BandPanel({ band, spots, onSelect, onRemove, canRemove, compact, fontSc
       </svg>
       {placed.map(({ spot, lane, top, key }) => {
         const color = contestPresentation?contestBandMapSpotColor(spot):bandMapSpotColor(spot);
-        const tooltip = `${text(spot.callsign)} · ${formatSpotFrequency(spot.frequencyKHz * 1000)} MHz · ${text(spot.mode)} · ${text(spot.callStatus)} · ${text(spot.dxccStatus)}${contestPresentation?` · ${contestPointDescription(spot)}`:""}${spot.country ? ` · ${countryDisplay(spot.country)}` : ""}${spot.comment ? ` · ${text(spot.comment)}` : ""}`;
+        const tooltip = `${text(spot.callsign)} · ${formatSpotFrequency(spot.frequencyKHz * 1000)} MHz · ${text(spot.mode)} · ${text(spot.callStatus)} · ${text(spot.dxccStatus)}${contestPresentation?` · ${contestPointDescription(spot)}`:""}${spot.country ? ` · ${countryDisplay(spot.country)}` : ""}${spot.comment ? ` · ${text(spot.comment)}` : ""}${spot.qtcEnabled?` · ${qtcOpportunityLabel(spot.qtc)}`:""}`;
         const centre = axis + laneWidth * (lane + 0.5);
         return <button key={key} type="button" className={`band-map-spot${contestPresentation && contestBandMapSpotWorked(spot) ? " is-worked" : ""}${contestPresentation&&contestBandMapSpotPending(spot)?" is-pending":""}${spot.marked ? " is-marked" : ""}${selectedSpotId === String(spot.id) ? " is-selected" : ""}`}
             style={{ top, left: centre, width: spotWidth, color }} title={tooltip} aria-label={`${tooltip}${spot.marked ? " · Marked" : ""}`}
             aria-current={selectedSpotId === String(spot.id) ? "true" : undefined} onClick={() => onSelect(spot)}
-             onContextMenu={event => onSpotContextMenu?.(spot, event)}><strong>{text(spot.callsign)}</strong></button>;
+             onContextMenu={event => onSpotContextMenu?.(spot, event)}><strong>{text(spot.callsign)}</strong>{spot.qtcEnabled&&<span className="band-map-qtc-flag" aria-hidden="true">{spot.qtc?.opportunity?"Q":!spot.qtc||spot.qtc.eligibility==="unknown"?"?":"–"}</span>}</button>;
       })}
       {hidden > 0 && <span className="band-map-overflow" role="status" aria-label={`${hidden} more spots; zoom in to separate labels`} title={`${hidden} more spots; zoom in to separate labels`}>{hidden} more · zoom in</span>}
     </div>
@@ -474,6 +476,7 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBan
   onGuideTune,
   storageNamespace, selectedSpotId, onSpotContextMenu, contestPresentation = false, contestBandPlan, contestBands, contestAllowedModes,
   showWorked: controlledShowWorked, onShowWorkedChange,
+  qtcOpportunities,onQTCReview,
   selectionHint = "Select a marker to load it into the logger." }: Props) {
   const toolbarHost = useContext(BandMapsToolbarContext);
   const guides = useBandMapGuides(compact, !contestPresentation);
@@ -585,6 +588,8 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBan
     setResolution("full");
   };
   const [selected, setSelected] = useState<BandMapSpot | null>(null);
+  const [qtcOnly,setQTCOnly]=useState(false);
+  useEffect(()=>setQTCOnly(false),[storageNamespace]);
   useEffect(() => {
     if (!contestPresentation) return;
     setContestBand(current => radioBand && availableContestBands.includes(radioBand) ? radioBand : availableContestBands.includes(current) ? current : availableContestBands[0] ?? "20m");
@@ -608,17 +613,18 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBan
   useEffect(()=>{if(contestPresentation&&controlledShowWorked===undefined)store(compact,"showWorked",showWorked,storageNamespace);},
     [compact,contestPresentation,controlledShowWorked,showWorked,storageNamespace]);
   useEffect(() => { const timer = window.setInterval(() => setAgeClock(Date.now()), 30_000); return () => window.clearInterval(timer); }, []);
-  const classifiedSpots = useMemo(() => contestPresentation ? spots.map(spot => {
+  const qtcSpots=useMemo<BandMapSpot[]>(()=>qtcOpportunities?spots.map(spot=>({...spot,qtcEnabled:true,qtc:qtcOpportunityFor(qtcOpportunities,spot.callsign)})):spots,[spots,qtcOpportunities]);
+  const classifiedSpots = useMemo(() => contestPresentation ? qtcSpots.map(spot => {
     const entry = contestBandPlan?.find(item => item.band === spot.band);
     const frequency = finite(spot.frequencyKHz);
     const mode = !entry || frequency === null ? modeGroup(text(spot.mode)) : contestModeForSpot(entry,frequency,allowedContestModes,spot.comment,spot.mode);
     return { ...spot, mode: contestModeLabel(mode) };
-  }) : spots, [allowedContestModes,contestBandPlan, contestPresentation, spots]);
+  }) : qtcSpots, [allowedContestModes,contestBandPlan, contestPresentation, qtcSpots]);
   const recentReports=useMemo(()=>filterRecentBandMapSpots(classifiedSpots,spotAgeMinutes,ageClock),[classifiedSpots,spotAgeMinutes,ageClock]);
   const recentUnique = useMemo(() => deduplicateBandMapSpots(recentReports,contestPresentation),
     [recentReports,contestPresentation]);
-  const contestVisible=useMemo(()=>contestPresentation&&!showWorked?recentUnique.filter(spot=>!contestBandMapSpotWorked(spot)):recentUnique,
-    [contestPresentation,recentUnique,showWorked]);
+  const contestVisible=useMemo(()=>qtcOnly&&qtcOpportunities?recentUnique.filter(spot=>spot.qtc?.opportunity===true):contestPresentation&&!showWorked?recentUnique.filter(spot=>!contestBandMapSpotWorked(spot)):recentUnique,
+    [contestPresentation,recentUnique,showWorked,qtcOnly,qtcOpportunities]);
   const filtered = useMemo(() => contestVisible.filter((spot) => {
     const needle = query.trim().toLowerCase();
     return modes.includes(modeGroup(text(spot.mode))) && (compact || ((!needle || [spot.callsign, spot.country, spot.comment, spot.source].some((part) => text(part).toLowerCase().includes(needle)))
@@ -632,7 +638,7 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBan
     selectBands(next);
   };
   const remove = (band: string) => { if (bands.length <= 1) return; selectBands(bands.filter((item) => item !== band)); };
-  const choose = (spot: BandMapSpot) => { setSelected(spot); onSelect(spot); };
+  const choose = (spot: BandMapSpot) => { setSelected(spot); if(qtcOnly&&qtcOpportunities)onQTCReview?.(spot);else onSelect(spot); };
   const markCustom = useCallback(() => setResolution(current => current === "custom" ? current : "custom"), []);
   const toolbarControls = <div className="band-maps-head-controls"><label className="band-maps-follow"><input type="checkbox" checked={follow} onChange={(event) => setFollow(event.target.checked)} /> Follow radio</label>
         {typeof observedReceiveBandwidthHz === "number" && Number.isFinite(observedReceiveBandwidthHz) && observedReceiveBandwidthHz > 0 &&
@@ -669,6 +675,8 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBan
           ["Mode / search hidden",contestVisible.length-filtered.length]]:undefined} />)}
     </div>
     <footer className="band-maps-quick-controls" aria-label="Band map view controls">
+      {qtcOpportunities&&<label><input type="checkbox" checked={qtcOnly} onChange={event=>setQTCOnly(event.currentTarget.checked)}/>QTC opportunities</label>}
+      {qtcOpportunities&&qtcOnly&&<span>QTC markers open review; Entry is retained.</span>}
       {!contestPresentation && <BandMapGuideControls {...guides} compact={compact} />}
       {guideMarker && <GuideMarkerInspector marker={guideMarker} tune={onGuideTune ?? tuneGuideMarker} close={() => setGuideMarker(null)} />}
       {contestPresentation&&<div className="contest-band-map-legend" aria-label="Contest spot colors">

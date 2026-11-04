@@ -22,7 +22,7 @@ vi.mock("../live/stationSession", async importOriginal => {
 });
 vi.mock("../live/workspaceNavigation", () => ({ connectWorkspaceNavigation: () => () => {}, isContestMenuRoute: () => false }));
 vi.mock("./Not1MMContestWorkspace", () => ({ Not1MMContestWorkspace: mocks.workspace }));
-vi.mock("./contestSpotTune", () => ({ tuneContestSpot: vi.fn(), stepContestVFO: vi.fn() }));
+vi.mock("./contestSpotTune",async importOriginal=>({ ...await importOriginal<typeof import("./contestSpotTune")>(), tuneContestSpot: vi.fn(), stepContestVFO: vi.fn() }));
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); window.history.replaceState(null, "", "/"); });
 
