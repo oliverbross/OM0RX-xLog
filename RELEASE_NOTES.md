@@ -1,3 +1,21 @@
+# OM0RX-xLog 1.5.7 — TLF contest software candidate
+
+Prepared from tested product source `1cf9a145a9191be845c159a7ec8cde38169cf0a8` on canonical `main`.
+This advances all five version records for one private macOS arm64 candidate.
+The exact release-preparation commit is supplied to
+`docs/releases/build-1.5.7-macos-arm64.sh`; the recipe verifies that source in
+the extracted signed bundle and retains its build/signature/archive receipts.
+No build, native rehearsal, physical station qualification or installation is
+claimed by this preparation entry.
+
+The source includes typed CW speed sections and owned WinKeyer callsign streams,
+conservative corrected-call formatting, the organiser-pinned OK/OM DX CW 2026
+definition, the durable WAE QTC desk/output/recorder/map workflow, and complete
+directed passes with finite CQ WW/WAE operating guidance. Flex advanced CW,
+exact-lane streaming/QTC output, WPX 2027 and physical qualification retain their
+explicit limitations. The simulator is excluded. Detailed task and acceptance
+evidence stays in the [master execution ledger](docs/planning/OM0RX-xLog_TLF_Contesting_Master_Plan_2026-11-03.md).
+
 # OM0RX-xLog 1.5.6 — host architecture worker staging
 
 The 1.5.5/a42d61ce release attempt built and signed successfully but failed its unchanged arm64-only worker check: Xcode produced a universal worker. That failed archive and build log are retained; it was not installed. Mac staging now selects the Rust host target slice before metadata and signing, checks the result, and preserves the original Xcode output. Windows/Linux copying is unchanged.
