@@ -630,6 +630,14 @@ public struct CountryReferencePack: Codable, Sendable {
         var identities = Set<String>()
         var compiled: [CompiledRule] = []
         compiled.reserveCapacity(value.records.count)
+        var dates: [String: Date] = [:]
+        func validatedDate(_ raw: String?) throws -> Date? {
+            guard let raw else { return nil }
+            if let cached = dates[raw] { return cached }
+            let parsed = try date(raw)!
+            dates[raw] = parsed
+            return parsed
+        }
         for item in value.records {
             let identity = "\(item.component)|\(item.line)|\(item.pattern)|\(item.exact)|\(item.start ?? "")|\(item.end ?? "")"
             guard identities.insert(identity).inserted else { throw ValidationError.invalid("duplicate rule identity") }
@@ -640,7 +648,7 @@ public struct CountryReferencePack: Codable, Sendable {
                   !country.name.isEmpty, country.name.utf8.count <= 512,
                   country.latitude.map({ $0.isFinite && (-90...90).contains($0) }) ?? true,
                   country.longitude.map({ $0.isFinite && (-180...180).contains($0) }) ?? true else { throw ValidationError.invalid("invalid country values") }
-            let rule = try CompiledRule(item)
+            let rule = try CompiledRule(item, start: validatedDate(item.start), end: validatedDate(item.end))
             guard rule.start == nil || rule.end == nil || rule.start! <= rule.end! else { throw ValidationError.invalid("inverted date window") }
             compiled.append(rule)
         }
@@ -649,22 +657,29 @@ public struct CountryReferencePack: Codable, Sendable {
 
     fileprivate struct CompiledRule: @unchecked Sendable {
         let record: Record
-        let expression: NSRegularExpression
+        let expression: NSRegularExpression?
         let start: Date?
         let end: Date?
         let positions: Int
         let specificity: [Int]
         let leadingLiteral: String
-        var literalPattern: String? {
-            record.pattern.utf8.allSatisfy { $0 >= 65 && $0 <= 90 || $0 >= 48 && $0 <= 57 || $0 == 47 } ? record.pattern : nil
-        }
+        let literalPattern: String?
         private var authority: Int { record.component == "CallResolution.tbl" ? 2 : record.component == "AreaOK1RR.tbl" ? 1 : 0 }
         struct Rank: Equatable { let deleted: Bool; let exact: Bool; let positions: Int; let specificity: [Int]; let authority: Int }
         var rank: Rank { Rank(deleted: record.deleted, exact: record.exact, positions: positions, specificity: specificity, authority: authority) }
-        init(_ record: Record) throws {
-            self.record = record; start = try CountryReferencePack.date(record.start); end = try CountryReferencePack.date(record.end)
+        init(_ record: Record, start: Date?, end: Date?) throws {
+            self.record = record; self.start = start; self.end = end
             let chars = Array(record.pattern)
             guard (1...128).contains(chars.count) else { throw ValidationError.invalid("pattern size") }
+            // Most exact exceptions and many prefixes are plain ASCII. They
+            // need the same validated dates/rank, but no regex compilation.
+            if record.pattern.utf8.allSatisfy({ $0 >= 65 && $0 <= 90 || $0 >= 48 && $0 <= 57 || $0 == 47 }) {
+                literalPattern = record.pattern; expression = nil
+                positions = chars.count; specificity = Array(repeating: 3, count: chars.count)
+                leadingLiteral = record.pattern
+                return
+            }
+            literalPattern = nil
             var expression = "^", cursor = 0, scores: [Int] = []
             while cursor < chars.count {
                 let ch = chars[cursor]
@@ -687,7 +702,10 @@ public struct CountryReferencePack: Codable, Sendable {
             positions = scores.count; specificity = scores
             leadingLiteral = String(chars.prefix { $0.isASCII && ($0.isUppercase || $0.isNumber || $0 == "/") })
         }
-        func matches(_ key: String) -> Bool { expression.firstMatch(in: key, range: NSRange(key.startIndex..., in: key)) != nil }
+        func matches(_ key: String) -> Bool {
+            if let literalPattern { return record.exact ? key == literalPattern : key.hasPrefix(literalPattern) }
+            return expression?.firstMatch(in: key, range: NSRange(key.startIndex..., in: key)) != nil
+        }
         static func precedes(_ lhs: Self, _ rhs: Self) -> Bool {
             if lhs.record.deleted != rhs.record.deleted { return lhs.record.deleted }
             if lhs.record.exact != rhs.record.exact { return lhs.record.exact }

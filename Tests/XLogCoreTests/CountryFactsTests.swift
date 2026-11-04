@@ -123,6 +123,48 @@ struct CountryFactsTests {
         #expect(throws: (any Error).self) { try CTYResolver(countryPack: JSONSerialization.data(withJSONObject: object)) }
     }
 
+    @Test("Literal exact and prefix rules retain wildcard boundaries and full validation")
+    func literalRuleBoundaries() throws {
+        var object = try #require(JSONSerialization.jsonObject(with: CTYResolver.bundledCountryPackBytes()) as? [String: Any])
+        let originals = try #require(object["records"] as? [[String: Any]])
+        let components = ["Country.tab", "CallResolution.tbl", "AreaOK1RR.tbl", "CountryDel.tab"]
+        var records = Array(originals.prefix(100))
+        for index in records.indices {
+            records[index]["pattern"] = "QQ\(index)A"
+            records[index]["exact"] = true
+            records[index]["deleted"] = false
+            records[index]["component"] = components[index % components.count]
+            records[index]["line"] = index + 1
+            records[index].removeValue(forKey: "start"); records[index].removeValue(forKey: "end")
+            records[index]["country"] = ["name": "Synthetic", "adif": index == 0 ? 504 : 147,
+                "continent": "EU", "cqZone": 15, "ituZone": 28]
+        }
+        records[0]["pattern"] = "ZZ1ABC"
+        records[1]["pattern"] = "ZZ1"; records[1]["exact"] = false
+        records[2]["pattern"] = "ZZ2?"; records[2]["exact"] = false
+        records[3]["pattern"] = "ZZ3[A-C]"
+        object["ambiguousPrefixes"] = [] // This synthetic fixture defines its own complete rule set.
+        object["records"] = records
+        let resolver = try CTYResolver(countryPack: JSONSerialization.data(withJSONObject: object))
+        #expect(resolver.facts("ZZ1ABC", at: day).country?.adif == 504)
+        for call in ["ZZ1ABCD", "ZZ2AABC", "ZZ3B"] {
+            #expect(resolver.facts(call, at: day).country?.adif == 147, "\(call)")
+        }
+        for call in ["ZZ0ABC", "ZZ22ABC", "ZZ3D", "ZZ3BA"] {
+            #expect(resolver.facts(call, at: day).status == .unknown, "\(call)")
+        }
+        let valid = records[0]
+        for pattern in ["", String(repeating: "A", count: 129), "ZZ1*", "ZZ1[Z-A]"] {
+            records[0] = valid; records[0]["pattern"] = pattern; object["records"] = records
+            #expect(throws: (any Error).self) { try CTYResolver(countryPack: JSONSerialization.data(withJSONObject: object)) }
+        }
+        for (start, end) in [("2020-02-30T00:00:00Z", "2020-03-01T00:00:00Z"),
+                             ("2021-01-01T00:00:00Z", "2020-01-01T00:00:00Z")] {
+            records[0] = valid; records[0]["start"] = start; records[0]["end"] = end; object["records"] = records
+            #expect(throws: (any Error).self) { try CTYResolver(countryPack: JSONSerialization.data(withJSONObject: object)) }
+        }
+    }
+
     @Test("Neutral fallback fills only unknown facts and retains winning source under a composite identity")
     func neutralFallback() throws {
         let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".csv")
