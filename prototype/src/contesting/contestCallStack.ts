@@ -15,7 +15,8 @@ export type CallStackDraft = CallStackScope & { draftID: string; revision: numbe
 export type ParkedCallStackDraft = CallStackDraft & { captureParkedSnapshot?: true; reservedSerial?:number|null;allocatedSerialFieldID?:string|null };
 export type CallStackDecision = "swap" | "park" | "discard";
 export type CallStackOperation = { kind: "commit" | "load"; operationID: string;
-  draft: CallStackDraft; fields: Record<string, string>; loadedHeardFieldIDs?:string[] };
+  draft: CallStackDraft; fields: Record<string, string>; loadedHeardFieldIDs?:string[];
+  stackTransition?: { schema: 1; parkCurrent: boolean; resumeDraftID?: string } };
 export type CallStackResult = { operationID: string; draft: CallStackDraft; qsoID?: string };
 type Transition = { item: CallStackItem; outgoing?: CallStackItem; decision: CallStackDecision };
 type Pending = { phase: "commit"; operation: CallStackOperation; transition: Transition }
@@ -109,11 +110,14 @@ export function restoreCallStack(raw: string | null, scope: CallStackScope): Cal
     else if (!record(operation) || operation.kind !== pending.phase || typeof operation.operationID !== "string" ||
       !operation.operationID || !validDraft(operation.draft) || !sameScope(operation.draft, scope) || !strings(operation.fields) ||
       operation.loadedHeardFieldIDs!==undefined&&(!Array.isArray(operation.loadedHeardFieldIDs)||operation.loadedHeardFieldIDs.length>64||
-        !operation.loadedHeardFieldIDs.every(id=>typeof id==="string"&&id.length<=64))) return fail();
+        !operation.loadedHeardFieldIDs.every(id=>typeof id==="string"&&id.length<=64)) ||
+      operation.stackTransition!==undefined&&(!record(operation.stackTransition)||operation.stackTransition.schema!==1||
+        typeof operation.stackTransition.parkCurrent!=="boolean"||operation.stackTransition.resumeDraftID!==undefined&&
+        typeof operation.stackTransition.resumeDraftID!=="string")) return fail();
   }
   return value as unknown as CallStackState;
 }
-/** Only explicitly heard receiver fields travel; sent values always come from the active host draft. */
+/** Ordinary callers carry received fields; durable parked drafts resume through the Host. */
 export function stackItemFields(item: CallStackItem, draft: CallStackDraft) {
   const fields: Record<string, string> = { ...draft.defaults, callsign: item.callsign };
   if(item.parkedDraft){
@@ -205,6 +209,10 @@ export class ContestCallStack {
   }
   private async performLoad(draft: CallStackDraft, transition: Transition, afterCommit = false) {
     const operation: CallStackOperation = { kind: "load", operationID: this.id(), draft, fields: stackItemFields(transition.item, draft),
+      ...((transition.outgoing && (draft as ParkedCallStackDraft).captureParkedSnapshot) || transition.item.parkedDraft ? {
+        stackTransition: { schema: 1 as const, parkCurrent: !!transition.outgoing,
+          ...(transition.item.parkedDraft ? { resumeDraftID: transition.item.parkedDraft.draft.draftID } : {}) }
+      } : {}),
       ...(transition.item.parkedDraft?{loadedHeardFieldIDs:transition.item.parkedDraft.draft.heardFieldIDs}: {}) };
     this.save({ ...this.state, pending: { phase: "load", operation, transition, afterCommit } }); await this.execute(operation);
   }
@@ -232,8 +240,13 @@ export class ContestCallStack {
       this.save({ ...this.state, pending: { phase: "committed", draft: result.draft, transition: pending.transition } });
       await this.continueCommitted(); return;
     }
-    if (result.draft.draftID !== pending.operation.draft.draftID ||
-        Object.entries(pending.operation.fields).some(([id, value]) => result.draft.fields[id] !== value))
+    const resuming = pending.operation.stackTransition?.resumeDraftID;
+    const expectedFields = resuming ? pending.transition.item.parkedDraft!.draft.fields : pending.operation.fields;
+    const allocated = (pending.operation.draft as ParkedCallStackDraft).allocatedSerialFieldID;
+    if ((resuming ? result.draft.draftID !== resuming : pending.operation.stackTransition?.parkCurrent
+        ? result.draft.draftID === pending.operation.draft.draftID : result.draft.draftID !== pending.operation.draft.draftID) ||
+        Object.entries(expectedFields).some(([id, value]) =>
+          (!pending.operation.stackTransition || !!resuming || id !== allocated) && result.draft.fields[id] !== value))
       throw new Error("The loaded draft does not match the queued caller; retain the queue for recovery.");
     const { transition } = pending, items = this.state.items.flatMap(item => item.id !== transition.item.id ? [item]
       : transition.decision === "swap" && transition.outgoing ? [transition.outgoing] : []);

@@ -18,9 +18,15 @@ The recipient has separate actions:
 - **Park current entry and load** uses the existing call-stack parking workflow
   to retain an occupied draft, exchange and serial before explicitly loading
   the proposal. Its versioned raw snapshot keeps restored/inferred exchange
-  values distinct from fields actually heard. Returning to that queued entry
-  restores received values; sent values and the original serial remain audit
-  data, while the active host owns the current sent exchange and serial.
+  values distinct from fields actually heard. The Host parks the original draft
+  and its unconsumed serial atomically, then gives the incoming caller a separate
+  draft/reservation. Returning resumes the original draft, sent report/exchange,
+  received fields and frequency/mode. It does not copy an old serial into a new
+  draft. Restart/reply recovery uses the same durable operation identity.
+  A missing/consumed legacy reservation, changed setup/lane binding, replica or
+  active/uncertain output refuses the transition and retains Entry and queue.
+  Resume never arms or resumes output. Legacy audit-only snapshots cannot claim
+  sent-exchange preservation and must be reconciled explicitly.
 - **Review and tune** uses the existing guarded station coordinator. It neither
   loads Entry nor grants transmit ownership. A CAT command accepted by its owner
   remains different from a frequency observed on the radio.

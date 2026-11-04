@@ -2754,10 +2754,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     if(laneScope){base=contestLaneProjection(base,laneScope.laneID);
       const buffer=laneBuffersRef.current[laneScope.laneID];values=values??(buffer?.scope.draftID===base.draftID?buffer.fields:projectionFields(base));
     }else values=values??fieldsRef.current;
-    const pass=passStackAdmissionRef.current;
     return {sessionID:base.sessionID,workspaceGeneration:base.workspaceGeneration,draftID:base.draftID,revision:base.revision,
-      ...(pass&&pass.sessionID===base.sessionID&&pass.workspaceGeneration===base.workspaceGeneration&&pass.draftID===base.draftID?
-        {captureParkedSnapshot:true as const,reservedSerial:base.reservedSerial??null,allocatedSerialFieldID:base.allocatedSerialFieldID??null}:{}),
+      captureParkedSnapshot:true as const,reservedSerial:base.reservedSerial??null,allocatedSerialFieldID:base.allocatedSerialFieldID??null,
       ...(laneScope?{laneID:laneScope.laneID,bindingVersion:laneScope.bindingVersion,bindingGeneration:laneScope.bindingGeneration}:{}),
       fields:{...values},defaults:clearedContestFields(base,base.mode),receivedFieldIDs:base.fields.filter(field=>field.id!=="callsign"&&field.id!=="sent"&&
         field.id!==base.allocatedSerialFieldID&&!field.readOnly&&field.visible&&field.enabled).map(field=>field.id),heardFieldIDs:base.fields.filter(field=>field.id!=="callsign"&&field.id!=="sent"&&
@@ -2785,6 +2783,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     return {operationID:operation.operationID,draft:stackDraft(next,projectionFields(next)),...(operation.kind==="commit"?{qsoID:operation.operationID}:{})};
   };
   const mutateStack=async(operation:CallStackOperation)=>{
+    if(operation.stackTransition&&cwCallsignOutputBlockedRef.current)
+      throw new Error("Disarm contest output and finish its pending operation before parking or resuming Entry.");
     if(operation.draft.laneID){
       const current=projectionRef.current;if(!current)throw Error("The Call Stack session changed.");
       const scope={sessionID:operation.draft.sessionID,workspaceGeneration:operation.draft.workspaceGeneration,laneID:operation.draft.laneID,
@@ -2793,7 +2793,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
         const version=laneBuffer(scope).version;
         const changed=await mutate(operation.kind==="commit"?"contest_qso_commit":"contest_draft_apply",base,{
           ...contestLaneParams(scope),operationID:operation.operationID,expectedRevision:operation.draft.revision,fields:operation.fields,
-          ...(operation.kind==="commit"?{qsoID:operation.operationID}:{manualStackLoad:true})});
+          ...(operation.kind==="commit"?{qsoID:operation.operationID}:{manualStackLoad:true,
+            ...(operation.stackTransition?{stackTransition:operation.stackTransition,stackCurrentFields:operation.draft.fields}:{})})});
         return stackResult(operation,changed,laneBuffersRef.current[scope.laneID]?.version!==version);
       },false);
     }
@@ -2811,7 +2812,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     try{
       const changed=await mutate(operation.kind==="commit"?"contest_qso_commit":"contest_draft_apply",current,{
         operationID:operation.operationID,expectedRevision:operation.draft.revision,draftID:operation.draft.draftID,fields:operation.fields,
-        ...(operation.kind==="commit"?{qsoID:operation.operationID}:{manualStackLoad:true})});
+        workspaceGeneration:operation.draft.workspaceGeneration,
+        ...(operation.kind==="commit"?{qsoID:operation.operationID}:{manualStackLoad:true,
+          ...(operation.stackTransition?{stackTransition:operation.stackTransition,stackCurrentFields:operation.draft.fields}:{})})});
       if(operation.kind==="load")typedFieldsRef.current={draftID:changed.projection.draftID,fields:new Set(operation.loadedHeardFieldIDs??(operation.draft.receivedFieldIDs??[])
         .filter(id=>operation.fields[id]!==operation.draft.defaults[id]))};
       return await stackResult(operation,changed,editVersionRef.current!==version);

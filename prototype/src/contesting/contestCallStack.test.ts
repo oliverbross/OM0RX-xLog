@@ -6,6 +6,7 @@ const scope = { sessionID: "practice-session", workspaceGeneration: "disposable-
 const clone = <T,>(value: T): T => structuredClone(value);
 function fixture() {
   let counter = 0, serial = 7, saved: CallStackState | null = null, commits = 0, loads = 0;
+  const parkedDrafts = new Map<string, CallStackDraft>();
   let draft: CallStackDraft = { ...scope, draftID: "draft-7", revision: 1,
     fields: { callsign: "K1AAA", sent: "599", receive: "599", other_1: "7", other_2: "14", name: "Alice", grid: "FN42" },
     defaults: { callsign: "", sent: "599", receive: "", other_1: "7", other_2: "", name: "", grid: "" },
@@ -22,7 +23,19 @@ function fixture() {
         commits += 1; serial += 1;
         const defaults = { ...draft.defaults, other_1: String(serial) };
         draft = { ...draft, draftID: `draft-${serial}`, revision: draft.revision + 1, fields: { ...defaults }, defaults };
-      } else { loads += 1; draft = { ...draft, fields: { ...operation.fields }, revision: draft.revision + 1 }; }
+      } else {
+        loads += 1;
+        if (operation.stackTransition?.parkCurrent) parkedDrafts.set(draft.draftID, clone(draft));
+        const resume = operation.stackTransition?.resumeDraftID;
+        if (resume) {
+          const original = parkedDrafts.get(resume); if (!original) throw "rejected";
+          draft = { ...clone(original), revision: draft.revision + 1 }; parkedDrafts.delete(resume);
+        } else if (operation.stackTransition?.parkCurrent) {
+          serial += 1;
+          draft = { ...draft, draftID: `draft-${serial}`, fields: { ...operation.fields, other_1: String(serial) },
+            defaults: { ...draft.defaults, other_1: String(serial) }, revision: draft.revision + 1 };
+        } else draft = { ...draft, fields: { ...operation.fields }, revision: draft.revision + 1 };
+      }
       const result: CallStackResult = { operationID: operation.operationID, draft: clone(draft),
         ...(operation.kind === "commit" ? { qsoID: `qso-${serial - 1}` } : {}) };
       receipts.set(operation.operationID, clone(result)); return result;
@@ -33,7 +46,7 @@ function fixture() {
 }
 
 describe("manual Call Stack assistance", () => {
-  it("retains a bounded versioned raw parked draft without inventing heard fields or restoring an old serial",async()=>{
+  it("resumes a bounded raw parked draft through its original authoritative identity",async()=>{
     const f=fixture();
     const original:ParkedCallStackDraft={...f.draft(),heardFieldIDs:[],receivedFieldIDs:["receive","other_2","name","grid"],
       captureParkedSnapshot:true,reservedSerial:7,allocatedSerialFieldID:"other_1"};
@@ -42,10 +55,11 @@ describe("manual Call Stack assistance", () => {
     const parked=stack.snapshot().items[0];expect(parked.fragments).toEqual({});
     expect(parked.parkedDraft).toEqual({schema:1,draft:original});
     const raw=JSON.stringify(stack.snapshot());expect(restoreCallStack(raw,scope).items[0].parkedDraft?.draft.fields.other_2).toBe("14");
-    // A later host-owned serial is retained; received raw values restore with their original unknown provenance.
+    // Resumption selects the original draft; it cannot copy its serial into a new draft.
     f.setDraft({...f.draft(),draftID:"draft-8",fields:{...f.draft().defaults,other_1:"8"},defaults:{...f.draft().defaults,other_1:"8"}});
     const reopened=f.controller(restoreCallStack(raw,scope));await reopened.load(parked.id,"discard");
-    expect(f.draft().fields).toMatchObject({callsign:"K1AAA",other_2:"14",name:"Alice",other_1:"8"});
+    expect(f.draft().draftID).toBe("draft-7");
+    expect(f.draft().fields).toMatchObject({callsign:"K1AAA",other_2:"14",name:"Alice",other_1:"7"});
     expect(f.operations.at(-1)?.loadedHeardFieldIDs).toEqual([]);
     expect(f.counts()).toEqual({commits:0,loads:2});
     const malformed=JSON.parse(raw);malformed.items[0].parkedDraft.draft.fields.other_2="x".repeat(4097);
@@ -53,7 +67,7 @@ describe("manual Call Stack assistance", () => {
   });
   it("restores the exact raw parked value instead of the legacy shortened heard preview",async()=>{
     const f=fixture(),name="A".repeat(160);
-    f.setDraft({...f.draft(),captureParkedSnapshot:true,receivedFieldIDs:["name"],heardFieldIDs:["name"],
+    f.setDraft({...f.draft(),captureParkedSnapshot:true,allocatedSerialFieldID:"other_1",receivedFieldIDs:["name"],heardFieldIDs:["name"],
       fields:{...f.draft().fields,name}} as ParkedCallStackDraft);
     const stack=f.controller(),incoming=stack.add("K1PASS");await stack.load(incoming,"park");
     const parked=stack.snapshot().items[0];expect(parked.fragments.name.value).toHaveLength(128);

@@ -2926,7 +2926,10 @@ class Host:
                 admit(desk, method, params, require)
             elif method == "draft_apply":
                 previous_call = desk.callsign.text().strip().upper()
-                self.apply_fields(desk, params)
+                if "stackTransition" in params:
+                    desk = self.stack_transition(desk, params, action_lane)
+                else:
+                    self.apply_fields(desk, params)
                 self.clear_received_fields_after_vfo_change(desk, params)
                 if params.get("manualStackLoad") is not True:
                     self.prefill(desk, reset_cq_ww_zone=(desk.callsign.text().strip().upper() != previous_call))
@@ -4424,6 +4427,59 @@ class Host:
                                                 else desk.state["draft"]["fields"][serial_field])
         desk.prev_call = ""
         desk.current_widget = "callsign"
+
+    def stack_transition(self, desk, params, lane_id):
+        """Atomically exchange durable drafts under the existing serial owner."""
+        state, store = desk.state, desk.database
+        transition = params["stackTransition"]
+        require(isinstance(transition, dict) and transition.get("schema") == 1
+                and set(transition) <= {"schema", "parkCurrent", "resumeDraftID"}
+                and type(transition.get("parkCurrent")) is bool, "Invalid parked-draft transition")
+        require(not store.replica() and not state.get("replicaReservation"),
+                "Durable parking requires the local serial authority; Entry and the pass were retained", "replica_read_only")
+        require(params.get("workspaceGeneration") == workspace_generation(state), "Parking workspace changed", "stale_context")
+        require(params.get("draftID") == state["draft"]["id"], "Parking draft changed", "stale_draft")
+        if "countries" in params:
+            self.apply_fields(desk, {"countries": params["countries"], "referenceID": params.get("referenceID")})
+        parked = state.setdefault("parkedDrafts", {})
+        saved_id = transition.get("resumeDraftID")
+        saved = parked.get(saved_id) if isinstance(saved_id, str) else None
+        lane = state.get("laneState", {}).get("lanes", {}).get(lane_id, {})
+        binding = {"laneID": lane_id, "bindingVersion": lane.get("bindingVersion"), "binding": lane.get("binding")}
+        if saved_id is not None:
+            require(saved is not None and saved.get("schema") == 1 and saved.get("binding") == binding,
+                    "The original parked draft or exact lane binding is unavailable; both entries were retained", "parked_draft_unavailable")
+            require(saved.get("sentSetup") == {"station": state["station"], "settings": state["settings"]},
+                    "Contest setup changed since parking; preserve and reconcile the original sent exchange before resuming", "parked_draft_unavailable")
+            draft = saved["context"]["draft"]
+            if requires_serial(state):
+                reservation = store.exec_sql("SELECT serial,qso_id FROM xlog_serial WHERE draft_id=? AND scope=?",
+                                             (draft["id"], serial_scope(state, draft["frequencyHz"])))
+                require(reservation and reservation["qso_id"] is None and reservation["serial"] == draft.get("serial"),
+                        "The parked serial is no longer an unconsumed reservation; both entries were retained", "serial_conflict")
+        if transition["parkCurrent"]:
+            require(len(parked) < 128, "Durable parked drafts are full; both entries were retained")
+            self.apply_fields(desk, {"draftID": params["draftID"], "fields": params.get("stackCurrentFields", {})})
+            require(bool(desk.callsign.text().strip()), "Complete the outgoing call before parking")
+            desk.persist()
+            from .lanes import snapshot
+            parked[state["draft"]["id"]] = {"schema": 1, "binding": deepcopy(binding),
+                                           "context": snapshot(state), "operationID": self._operation,
+                                           "sentSetup": deepcopy({"station": state["station"], "settings": state["settings"]})}
+        if saved is not None:
+            for key, value in saved["context"].items():
+                state[key] = deepcopy(value)
+            del parked[saved_id]
+            # A resumed entry carries no live output continuation/arming authority.
+            state["esmCallSent"] = ""
+            return Desk(store, state, self.commit)
+        if transition["parkCurrent"]:
+            self.advance_draft(desk)
+        fields = deepcopy(params.get("fields", {}))
+        if requires_serial(state):
+            fields.pop("sent" if state["pluginID"] in SENT_FIELD_SERIAL_PLUGINS else "other_1", None)
+        self.apply_fields(desk, {"fields": fields})
+        return desk
 
     def validate_replica_reservation(self, desk, reservation, authority):
         state = desk.state
