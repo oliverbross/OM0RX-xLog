@@ -75,6 +75,16 @@ operation-flag assertion). Initial test setup mistakes in replay revision, keyer
 route/arm and lease epoch were corrected before recording the product failure.
 These are software FIFO/contract results; no physical serial device or RF was used.
 
+**Follow-up integration / candidate preparation:** exact product source
+`4dede3b603ec04c2a6b24c2ea82eac1220120c7c` passes full Python 617 and full native Rust 1,064;
+affected workspace UI 212, actual Python OK/OM desk 1 (100 unrelated skipped), and
+TypeScript pass. Raw commands/log digests are in `.build/tlf-followup/*.json` and
+retained raw logs. Existing React act and Rust dead-code warnings remain. The
+previous failed broad frontend run followed by focused recovery remains accurately
+recorded below; this follow-up does not claim a full frontend rerun or sum overlapping
+totals. Next unused candidate version 1.5.9 advances all five records with exact
+source recipe `docs/releases/build-1.5.9-macos-arm64.sh`. Build evidence pending.
+
 **Final correction disposition and commits:** all completed commits were pushed
 immediately to canonical `main`; starting SHA is above. Final documentation is a
 later documentation-only commit; the executable remains exact release source

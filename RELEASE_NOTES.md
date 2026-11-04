@@ -1,3 +1,28 @@
+# OM0RX-xLog 1.5.9 — focused TLF follow-up candidate
+
+Prepared from tested product source `4dede3b603ec04c2a6b24c2ea82eac1220120c7c` on canonical `main`.
+The exact release-preparation commit is supplied to
+`docs/releases/build-1.5.9-macos-arm64.sh`; the recipe checks extracted source,
+version, Developer ID signature and the unchanged first signed-worker gate.
+
+- Preserve the fresh early-call suppression decision on the durable Host operation
+  even when the default CALL action compiles empty. The matching live native
+  continuation appends the exchange once while WinKeyer still owns the queued call.
+  Replay, owner/epoch/provider changes and restart recovery remain guarded.
+- Retained OK/OM logs without current derived credit require deliberate per-contest
+  Recalculate before a complete submission claim or Cabrillo export. Reads preserve
+  history; new QSOs/setup cannot clear the gate. Official rule identity is unchanged.
+- R01/R04–R08 remain verified within their existing boundaries. R03 MO2T remains
+  OPEN / contained: actual transmitter attribution and permitted serial ownership
+  are absent, so TWO setup and historical TWO complete Cabrillo claims remain gated.
+
+No installation, RF, physical CAT, recording or log submission is included.
+Physical WinKeyer/voice/fldigi/recorder qualification, advanced Flex/exact-lane
+capabilities, WPX 2027 publication and notarization remain separate.
+The [master ledger](docs/planning/OM0RX-xLog_TLF_Contesting_Master_Plan_2026-11-03.md)
+retains the sole task/acceptance register and previous broad-plus-focused frontend
+evidence; no all-green full frontend rerun is implied.
+
 # OM0RX-xLog 1.5.8 — TLF correction candidate
 
 Prepared from tested product source `defa0007d2257ba360232415e6837c80bf6aa062` on canonical `main`.
