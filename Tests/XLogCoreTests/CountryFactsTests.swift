@@ -123,6 +123,20 @@ struct CountryFactsTests {
         #expect(throws: (any Error).self) { try CTYResolver(countryPack: JSONSerialization.data(withJSONObject: object)) }
     }
 
+    @Test("Packed entity names retain every applicable legacy catalogue label")
+    func completeCatalogueLabels() throws {
+        let legacy = try CTYResolver.bundled()
+        let names = Dictionary(uniqueKeysWithValues: legacy.entities.map { ($0.adif, $0.name) })
+        let packed = Self.packed.entities
+        let pack = try #require(Self.packed.countryPack)
+        let applicable = Set(pack.records.map { $0.country.adif }).intersection(names.keys)
+        #expect(applicable.count > 300)
+        #expect(Set(packed.filter { names[$0.adif] != nil }.map(\.adif)) == applicable)
+        for country in packed {
+            if let expected = names[country.adif] { #expect(country.name == expected, "ADIF \(country.adif)") }
+        }
+    }
+
     @Test("Literal exact and prefix rules retain wildcard boundaries and full validation")
     func literalRuleBoundaries() throws {
         var object = try #require(JSONSerialization.jsonObject(with: CTYResolver.bundledCountryPackBytes()) as? [String: Any])

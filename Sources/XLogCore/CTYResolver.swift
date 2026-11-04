@@ -48,8 +48,15 @@ public final class CTYResolver: @unchecked Sendable {
     // retain the original matched description separately in source evidence.
     private static let entityCatalogue: CTYResolver? = try? bundled()
     private static var entityCatalogueDigest: String { entityCatalogue?.contentDigest ?? "unavailable" }
-    private static let entityNames: [Int: String] = Dictionary(
-        (entityCatalogue?.entities ?? []).map { ($0.adif, $0.name) }, uniquingKeysWith: { first, _ in first })
+    private static let entityNames: [Int: String] = {
+        var names: [Int: String] = [:]
+        // Use the same winning rules as entities, without sorting display names
+        // just to rebuild a dictionary keyed by ADIF identity.
+        for rule in entityCatalogue?.rules ?? [] where rule.country.latitude != nil && rule.country.longitude != nil {
+            names[rule.country.adif] = names[rule.country.adif] ?? rule.country.name
+        }
+        return names
+    }()
     private static func entityNamedCountry(_ country: CountryInfo) -> CountryInfo {
         CountryInfo(name: entityNames[country.adif] ?? country.name, adif: country.adif,
             continent: country.continent, cqZone: country.cqZone, ituZone: country.ituZone,
@@ -92,7 +99,7 @@ public final class CTYResolver: @unchecked Sendable {
             for raw in tokens {
                 let exact = raw.hasPrefix("=")
                 let legacyToken = Self.cleanLegacyToken(raw)
-                let endpointToken = Self.cleanEndpointToken(raw)
+                let endpointToken = Self.cleanEndpointToken(legacyToken)
                 if !legacyToken.isEmpty, !endpointToken.isEmpty {
                     parsed.append(Rule(token: legacyToken, endpointToken: endpointToken,
                                        primaryPrefix: columns[0].uppercased(),
@@ -160,9 +167,14 @@ public final class CTYResolver: @unchecked Sendable {
     }
 
     /// Bundle, imported bytes and downloaded bytes use this exact validator.
-    public init(countryPack data: Data) throws {
+    public convenience init(countryPack data: Data) throws {
+        try self.init(countryPack: data, constructionObserver: nil)
+    }
+
+    public init(countryPack data: Data, constructionObserver: (@Sendable (String) -> Void)?) throws {
         neutralFallback = nil
-        let (pack, compiled) = try CountryReferencePack.decodeAndCompile(data)
+        constructionObserver?("packDecodeStarted")
+        let (pack, compiled) = try CountryReferencePack.decodeAndCompile(data, constructionObserver: constructionObserver)
         countryPack = pack; packedRules = compiled
         // Literal exact exceptions need only their full-call bucket. Keeping
         // thousands of unrelated exceptions in every first-letter scan made
@@ -171,8 +183,11 @@ public final class CTYResolver: @unchecked Sendable {
         let patterns = compiled.filter { !$0.record.exact || $0.literalPattern == nil }
         packedIndex = Dictionary(grouping: patterns.filter { !$0.leadingLiteral.isEmpty }, by: { $0.leadingLiteral })
         packedWildcards = patterns.filter { $0.leadingLiteral.isEmpty }
+        constructionObserver?("packIndicesBuilt")
         rules = []; endpointRules = []; endpointIndex = [:]
+        constructionObserver?("packDigestStarted")
         contentDigest = Self.digest(data)
+        constructionObserver?("packDigestReturned")
     }
 
     /// A downloaded XML source can intentionally cover only some prefixes.
@@ -194,7 +209,13 @@ public final class CTYResolver: @unchecked Sendable {
     private func primaryOnly() -> CTYResolver { CTYResolver(primary: self, fallback: nil) }
 
     public static func bundledCountryPack() throws -> CTYResolver {
-        try CTYResolver(countryPack: bundledCountryPackBytes())
+        try bundledCountryPack(constructionObserver: nil)
+    }
+
+    public static func bundledCountryPack(constructionObserver: (@Sendable (String) -> Void)?) throws -> CTYResolver {
+        let bytes = try bundledCountryPackBytes()
+        constructionObserver?("packBytesRead")
+        return try CTYResolver(countryPack: bytes, constructionObserver: constructionObserver)
     }
 
     public static func bundledCountryPackBytes() throws -> Data {
@@ -443,15 +464,16 @@ public final class CTYResolver: @unchecked Sendable {
         return output(.unknown)
     }
 
+    private static let legacyAnnotations = try! NSRegularExpression(pattern: #"\([^)]*\)|\[[^]]*\]|<[^>]*>"#)
+    private static let endpointAnnotations = try! NSRegularExpression(pattern: #"\{[^}]*\}"#)
     private static func cleanLegacyToken(_ raw: String) -> String {
         var token = raw.uppercased().trimmingCharacters(in: CharacterSet(charactersIn: "*=;"))
-        token = token.replacingOccurrences(of: #"\([^)]*\)|\[[^]]*\]|<[^>]*>"#,
-                                           with: "", options: .regularExpression)
+        token = legacyAnnotations.stringByReplacingMatches(in: token, range: NSRange(token.startIndex..., in: token), withTemplate: "")
         return token.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private static func cleanEndpointToken(_ raw: String) -> String {
-        cleanLegacyToken(raw).replacingOccurrences(of: #"\{[^}]*\}"#, with: "", options: .regularExpression)
+    private static func cleanEndpointToken(_ legacyToken: String) -> String {
+        endpointAnnotations.stringByReplacingMatches(in: legacyToken, range: NSRange(legacyToken.startIndex..., in: legacyToken), withTemplate: "")
     }
 
     private static func sortedRules(_ rules: [Rule], by token: KeyPath<Rule, String>) -> [Rule] {
@@ -600,9 +622,11 @@ public struct CountryReferencePack: Codable, Sendable {
 
     /// Keep the validated compiled rules instead of constructing them again on
     /// the first statistics/facts read. Imports still validate the entire pack.
-    fileprivate static func decodeAndCompile(_ data: Data) throws -> (CountryReferencePack, [CompiledRule]) {
+    fileprivate static func decodeAndCompile(_ data: Data,
+        constructionObserver: (@Sendable (String) -> Void)? = nil) throws -> (CountryReferencePack, [CompiledRule]) {
         guard (100...32_000_000).contains(data.count) else { throw ValidationError.invalid("size outside bounds") }
         let value = try JSONDecoder().decode(Self.self, from: data)
+        constructionObserver?("packJSONDecoded")
         guard value.schemaVersion == 1, value.normalizerVersion == "xlog-ok1rr-1", value.conflictPolicy == "reportAmbiguous",
               value.provider.utf8.count <= 256, !value.provider.isEmpty, value.attribution.utf8.count <= 4096,
               (value.sourceVersion?.utf8.count ?? 0) <= 256, value.sourceURL.utf8.count <= 2048,
@@ -652,6 +676,7 @@ public struct CountryReferencePack: Codable, Sendable {
             guard rule.start == nil || rule.end == nil || rule.start! <= rule.end! else { throw ValidationError.invalid("inverted date window") }
             compiled.append(rule)
         }
+        constructionObserver?("packRulesCompiled")
         return (value, compiled)
     }
 
@@ -684,7 +709,8 @@ public struct CountryReferencePack: Codable, Sendable {
             while cursor < chars.count {
                 let ch = chars[cursor]
                 if ch.isASCII && (ch.isUppercase || ch.isNumber || ch == "/") {
-                    expression += NSRegularExpression.escapedPattern(for: String(ch)); scores.append(3)
+                    // These admitted ASCII literals are never regex metacharacters.
+                    expression.append(ch); scores.append(3)
                 } else if ch == "#" { expression += "[0-9]"; scores.append(2) }
                 else if ch == "?" { expression += "[A-Z]"; scores.append(1) }
                 else if ch == "%" { expression += "[A-Z0-9]"; scores.append(0) }

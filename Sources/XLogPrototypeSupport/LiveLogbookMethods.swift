@@ -775,7 +775,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
             let attributes = try fileManager.attributesOfItem(atPath: pack.path)
             let source = "pack|\((attributes[.systemFileNumber] as? NSNumber)?.uint64Value ?? 0)|\((attributes[.size] as? NSNumber)?.uint64Value ?? 0)|\((attributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0)"
             if let cached = ctyResolverCache, cached.source == source { return cached }
-            if let resolver = try? CTYResolver(countryPack: Data(contentsOf: pack)) {
+            if let resolver = try? CTYResolver(countryPack: Data(contentsOf: pack), constructionObserver: aggregateReadPhaseObserver) {
                 ctyResolverCache = (source, resolver); return (source, resolver)
             }
             // An external corruption is not permission to replace the last
@@ -803,7 +803,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
             }
         }
         if let cached = ctyResolverCache, cached.source == "bundled" { return cached }
-        let resolver = try CTYResolver.bundledCountryPack()
+        let resolver = try CTYResolver.bundledCountryPack(constructionObserver: aggregateReadPhaseObserver)
         ctyResolverCache = ("bundled", resolver)
         return ("bundled", resolver)
     }
