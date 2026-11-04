@@ -137,6 +137,17 @@ it("records deliberate series completion without sending final QSL or inventing 
   await waitFor(() => expect(options.onMutate).toHaveBeenCalledWith("qtc_complete", { batchID: "batch1" }));
   expect(options.onOutput).not.toHaveBeenCalled();
 });
+it("gives restored legacy corrections an editor identity before a fast changed-row save", async () => {
+  const options = props(), restored = { ...structuredClone(data), operating: { schema: 1, workspace: {
+    pendingEdit: { batchID: "batch1", index: 1, row: { time: "0801", callsign: "DL2ABC", serial: "91" } }
+  } } };
+  render(<ContestQTC {...options} request={vi.fn(async () => ({ id: "read", ok: true, result: restored })) as unknown as ContestRequest}/>);
+  const serial = await screen.findByLabelText("Pending QTC row 2 serial");
+  fireEvent.change(serial, { target: { value: "92" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save pending item correction" }));
+  await waitFor(() => expect(options.onMutate).toHaveBeenCalledWith("qtc_item", {
+    batchID: "batch1", index: 1, item: { time: "0801", callsign: "DL2ABC", serial: "92" }, editID: expect.any(String) }));
+});
 it("does not let a late output response replace the visible Stop outcome", async () => {
   const options = props(); let release!: () => void;
   options.onOutput.mockImplementation(() => new Promise<undefined>(resolve => { release = () => resolve(undefined); }));

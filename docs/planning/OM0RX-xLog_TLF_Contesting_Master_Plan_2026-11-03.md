@@ -44,6 +44,10 @@ editor protection pass (`test_tlf_qtc_operating test_wave5_qtc_host`: 15).
 Frontend correction/close/save→immediate ack and identity propagation passed
 (`ContestQTC.test.tsx`: 14); TypeScript check passed. Initial UI assertion omitted
 the new identity and was updated to check it. Final native rehearsal pending.
+The subsequent legacy-hydration subcase assigns an editor identity before an
+immediate changed-row save; the affected UI suite now passes 15 cases and the
+final TypeScript check passes. This is a focused follow-up to the integration
+base, not another complete frontend gate.
 
 **TLF-R07 / P2-01/P3-05/06; RULE-04/05/06/08 — VERIFIED_SOFTWARE:** a 40M
 attempt from a 20M series previously used 20M for timing. `_qtc_activity` now

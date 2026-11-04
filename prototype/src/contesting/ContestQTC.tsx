@@ -61,9 +61,12 @@ export function ContestQTC({ scope, request, disabled, opportunityIntent, onMuta
       if (hydrated.current !== identity) {
         const restored = frame.result.operating?.workspace;
         if (restored && !dirtyRef.current) {
+          const pendingEdit = restored.pendingEdit ? { ...restored.pendingEdit,
+            editID: restored.pendingEdit.editID ?? crypto.randomUUID() } : null;
           setWorkspace(current => ({ ...current, ...restored,
+            pendingEdit,
             rows: restored.rows?.length ? restored.rows.map(row => ({ ...row })) : current.rows }));
-          setEditing(restored.pendingEdit ?? null);
+          setEditing(pendingEdit);
         }
         hydrated.current = identity;
       }
@@ -252,7 +255,7 @@ export function ContestQTC({ scope, request, disabled, opportunityIntent, onMuta
         <p>Bookmarks require an existing captured timeline; they never start recording. Missing audio does not block QTC entry.</p>
       </section>}
       {!editing && workspace.pendingEdit && <button disabled={locked} onClick={() => setEditing(workspace.pendingEdit ?? null)}>Continue pending correction</button>}
-      {editing && <form onSubmit={event => { event.preventDefault(); void run(() => onMutate("qtc_item", { batchID: editing.batchID, index: editing.index, item: editing.row, editID: editing.editID })).then(accepted => {
+      {editing && <form onSubmit={event => { event.preventDefault(); void run(() => onMutate("qtc_item", { batchID: editing.batchID, index: editing.index, item: editing.row, editID: editing.editID ?? crypto.randomUUID() })).then(accepted => {
         if (accepted) { setEditing(null); update({ pendingEdit: null }); }
       }); }}>
         <h3>Correct pending received item {editing.index + 1}</h3>
