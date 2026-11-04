@@ -236,8 +236,8 @@ impl Core {
         // Pot/echo never refresh authoritative status or finish a native job.
         if byte & 0xc0 == 0x80 {
             self.snapshot.pot_position=Some(byte & 0x3f);self.last_pot=Some(now);
-            self.snapshot.pot_wpm=self.snapshot.applied_preferences.as_ref().and_then(|p|p.pot_minimum)
-                .and_then(|min|min.checked_add(byte & 0x3f)).filter(|v|*v<=99);
+            self.snapshot.pot_wpm=self.snapshot.applied_preferences.as_ref().and_then(|p|p.pot_minimum.zip(p.pot_range))
+                .filter(|(_,range)|byte&0x3f<=*range).and_then(|(min,_)|min.checked_add(byte & 0x3f)).filter(|v|*v<=99);
             return;
         }
         if (0x20..=0x7e).contains(&byte) {
@@ -441,7 +441,7 @@ impl Core {
         match port.write(bytes) {
             Ok(n) if n == bytes.len() => {
                 self.last_write = now;
-                if bytes == CLEAR || bytes[0] == 0x1c || bytes[0] == 0x1e || bytes.len() == 1 && bytes[0] >= 0x20 {
+                if bytes == CLEAR || bytes[0] == 0x1b || bytes[0] == 0x1c || bytes[0] == 0x1e || bytes.len() == 1 && bytes[0] >= 0x20 {
                     self.last_output = now;
                 }
                 Ok(())
@@ -1072,6 +1072,7 @@ mod tests {
         c.receive(0x85,2500);for _ in 0..140{c.receive(b'C',2501);}
         assert_eq!(c.last_status,Some(1));assert!(!c.fresh(2500));assert_eq!(c.snapshot.pot_position,Some(5));assert_eq!(c.snapshot.pot_wpm,Some(15));
         assert_eq!(c.snapshot.reported_echo.len(),128);assert!(c.snapshot.owns_output);assert_eq!(c.snapshot.echo_evidence,"uncorrelated-device-report");
+        c.receive(0xbf,2502);assert_eq!(c.snapshot.pot_wpm,None,"An out-of-range raw pot offset cannot become a claimed speed");
     }
     #[test]
     fn volatile_preferences_emit_only_supported_idle_bundle_and_partial_failure_disarms(){
