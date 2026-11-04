@@ -1,5 +1,8 @@
-import {describe,expect,it,vi} from "vitest";
+import {afterEach,describe,expect,it,vi} from "vitest";
+import {invoke} from "@tauri-apps/api/core";
 import {ContestVoiceOutput,type ContestVoiceAction,type ContestVoiceOrigin,type ContestVoiceTarget} from "./contestVoiceOutput";
+vi.mock("@tauri-apps/api/core",()=>({invoke:vi.fn()}));
+afterEach(()=>{vi.restoreAllMocks();vi.mocked(invoke).mockReset();});
 
 const origin:ContestVoiceOrigin={sessionID:"10000000-0000-4000-8000-000000000001",workspaceGeneration:"20000000-0000-4000-8000-000000000002",
   draftID:"30000000-0000-4000-8000-000000000003",sourceRevision:"source"};
@@ -42,6 +45,56 @@ describe("ContestVoiceOutput",()=>{
   const target=():ContestVoiceTarget=>({schemaVersion:1,outputIntent:"60000000-0000-4000-8000-000000000006",target:{provider:"direct_agent",
     selection_generation:1,selection_id:"70000000-0000-4000-8000-000000000007",worker_generation:2,connection_generation:3,
     control_revision:4,observation_revision:5,received_at_ms:6}});
+  it("Stop during capability discovery retires playback before native preparation",async()=>{
+    const h=harness();vi.spyOn(h.output,"ownsNativeClaim","get").mockReturnValue(true);
+    let capabilities!: (value:unknown)=>void;
+    vi.mocked(invoke).mockImplementation(async(_command,args:any)=>args.params.action==="capabilities"
+      ?new Promise(resolve=>{capabilities=resolve;}):{} as any);
+    const playing=h.output.play([action()],origin,"/profile","",undefined,target());
+    await h.output.stop();capabilities({nativeAvailable:false});
+    await expect(playing).rejects.toThrow("stopped");
+    expect(h.request).not.toHaveBeenCalled();expect(h.ptt.acquire).not.toHaveBeenCalled();
+  });
+  it("reserves its output owner before the first asynchronous preflight",async()=>{
+    const h=harness();vi.spyOn(h.output,"ownsNativeClaim","get").mockReturnValue(true);
+    let capabilities!: (value:unknown)=>void;
+    vi.mocked(invoke).mockImplementationOnce(()=>new Promise(resolve=>{capabilities=resolve;}) as any).mockResolvedValue({nativeAvailable:false});
+    const first=h.output.play([action(0)],origin,"/profile","",undefined,target());
+    try{await expect(h.output.play([action(1)],origin,"/profile","",undefined,target())).rejects.toThrow("already active");}
+    finally{capabilities({nativeAvailable:false});await first;}
+    expect(h.request).toHaveBeenCalledOnce();
+  });
+  it("freezes a supplied target before delayed native capability discovery",async()=>{
+    const h=harness(),captured=target(),original=structuredClone(captured);vi.spyOn(h.output,"ownsNativeClaim","get").mockReturnValue(true);
+    let capabilities!: (value:unknown)=>void;
+    vi.mocked(invoke).mockImplementationOnce(()=>new Promise(resolve=>{capabilities=resolve;}) as any);
+    const playing=h.output.play([action()],origin,"/profile","",undefined,captured);
+    captured.target.connection_generation=99;
+    capabilities({nativeAvailable:false});await playing;
+    expect(h.request.mock.calls[0][0].requests[0].boundTarget).toEqual(original);
+  });
+  it.each(["direct_agent","direct_tci"] as const)("accepts equivalent %s targets independently of JSON key order",async provider=>{
+    const h=harness(),captured=target();captured.target.provider=provider;
+    if(provider==="direct_tci"){captured.target.radio_id="radio2";captured.target.tci={trx:1,channel:0};}
+    h.request.mockImplementationOnce(async params=>{
+      const values=await Promise.all(params.requests.map(prepared)),bound=values[0].boundTarget!;
+      bound.target=Object.fromEntries(Object.entries(bound.target).reverse()) as ContestVoiceTarget["target"];
+      if(bound.target.tci)bound.target.tci={channel:bound.target.tci.channel,trx:bound.target.tci.trx};
+      return values;
+    });
+    await h.output.play([action()],origin,"/profile","",undefined,captured);
+    expect(h.ptt.acquire).toHaveBeenCalledOnce();expect(h.order.at(-1)).toBe("ptt-off");
+  });
+  it("attempts legacy PTT release even when the independent native Stop fails",async()=>{
+    const h=harness();vi.spyOn(h.output,"ownsNativeClaim","get").mockReturnValue(true);
+    vi.mocked(invoke).mockImplementation(async(_command,args:any)=>{if(args.params.action==="stop")throw Error("native Stop unavailable");return{nativeAvailable:false} as any;});
+    let finish!:()=>void;const held=new Promise<void>(resolve=>{finish=resolve;});
+    const factory=(h.output as any).makeAudio;(h.output as any).makeAudio=(url:string)=>{const audio=factory(url);audio.play=async()=>held;return audio;};
+    const playing=h.output.play([action()],origin,"/profile","",undefined,target());
+    await vi.waitFor(()=>expect(h.ptt.acquire).toHaveBeenCalledOnce());
+    try{await expect(h.output.stop()).rejects.toThrow("native Stop unavailable");expect(h.ptt.release).toHaveBeenCalledOnce();}
+    finally{finish();await playing.catch(()=>{});}
+  });
   it("carries the original QTC target through delayed preparation and PTT admission without replacement",async()=>{
     const h=harness(),captured=target(),original=structuredClone(captured);
     let resolve!:()=>void;const reply=new Promise<void>(done=>{resolve=done;});

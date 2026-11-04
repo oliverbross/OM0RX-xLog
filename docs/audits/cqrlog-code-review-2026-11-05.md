@@ -138,3 +138,26 @@ new late-Finish, post-settings cancellation/workspace and teardown-failure cases
 `/tmp/xlog-cqrlog-review-voice-ui-tsc.log`. Fake state/stream teardown and PCM
 round-trip tests qualify these software boundaries; physical recording/audio
 device failure remains unrun.
+
+## Contest voice preflight, Stop and target identity
+
+Capability/target discovery had been moved ahead of the renderer's cancellation
+owner. Stop during that await could miss the operation, and two Plays could
+both enter. The operation is now reserved before any await, with cancellation
+checked after both asynchronous preflight steps. Supplied target evidence is
+cloned before those awaits, preserving the original QTC/provider binding.
+
+An independent native Stop error also bypassed the legacy playback/PTT release
+path. Release is now attempted even when that Stop fails; the error is still
+reported. Finally, target comparison used JSON property order rather than field
+identity, rejecting equivalent Agent/TCI objects after serialization. The
+comparison now checks all scalar route/observation fields and nested TRX/channel
+values; changed targets still fail before PTT.
+
+Five regressions failed before these fixes
+(`/tmp/xlog-cqrlog-review-contest-voice-before.log`). All **17 contest voice
+renderer tests** now pass, including a further delayed-preflight target-freeze
+case; TypeScript passes. Logs:
+`/tmp/xlog-cqrlog-review-contest-voice-after.log` and
+`/tmp/xlog-cqrlog-review-contest-voice-tsc.log`. Tests mock native IPC/audio/PTT;
+they do not claim connected playback or physical release acceptance.

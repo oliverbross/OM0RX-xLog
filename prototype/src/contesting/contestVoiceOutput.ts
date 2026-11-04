@@ -22,7 +22,9 @@ export async function captureContestVoiceTarget(origin:Pick<ContestVoiceOrigin,"
 }
 const sameTarget=(left:ContestVoiceTarget|undefined,right:ContestVoiceTarget|undefined)=>left===undefined?right===undefined:
   !!right&&validContestVoiceTarget(right)&&left.schemaVersion===right.schemaVersion&&left.outputIntent===right.outputIntent&&
-  JSON.stringify(left.target)===JSON.stringify(right.target);
+  (["provider","selection_generation","selection_id","worker_generation","connection_generation","control_revision","observation_revision","received_at_ms"] as const)
+    .every(key=>left.target[key]===right.target[key])&&(left.target.radio_id??null)===(right.target.radio_id??null)&&
+  left.target.tci?.trx===right.target.tci?.trx&&left.target.tci?.channel===right.target.tci?.channel;
 export type ContestVoiceAction = { actionID:string; sessionID:string; workspaceGeneration?:string; draftID:string; sourceRevision?:string;
   kind:string; signal:string; mode:string; payload:string; payloadSHA256:string };
 type PreparedSegment = { name:string; wavBase64:string; durationMs:number; sha256:string; decodedBytes:number };
@@ -104,8 +106,6 @@ export class ContestVoiceOutput {
     if(!this.production)throw new Error("Contest phone audio and PTT are disabled in the Contesting Test profile.");
     if(external?.aborted)throw new ContestVoiceStopped();
     if(this.controller)throw new Error("Contest phone output is already active. Use Stop before sending another message.");
-    const nativeAudio=this.ownsNativeClaim&&(await invoke<{nativeAvailable:boolean}>("voice_request",{params:{action:"capabilities"}})).nativeAvailable;
-    if(this.ownsNativeClaim&&!capturedTarget)capturedTarget=await captureContestVoiceTarget(origin);
     if(capturedTarget!==undefined){if(!validContestVoiceTarget(capturedTarget))throw Error("The captured contest voice target is invalid.");capturedTarget=structuredClone(capturedTarget);}
     const scope=`${origin.sessionID}/${origin.workspaceGeneration}`;
     if(this.scope!==scope){this.scope=scope;this.consumed.clear();}
@@ -120,10 +120,17 @@ export class ContestVoiceOutput {
       ids.add(action.actionID);
     }
     const controller=new AbortController();this.controller=controller;
+    let nativeAudio=false;
     const stopped=()=>{controller.abort();if(nativeAudio)void invoke("voice_request",{params:{action:"stop"}}).catch(()=>{});};external?.addEventListener("abort",stopped,{once:true});
     if(external?.aborted)stopped();
     const urls:string[]=[];const audio:VoiceAudio[]=[];
     try{
+      // Reserve/cancel the operation before any asynchronous preflight. Stop
+      // during capability or target discovery must also retire this play.
+      nativeAudio=this.ownsNativeClaim&&(await invoke<{nativeAvailable:boolean}>("voice_request",{params:{action:"capabilities"}})).nativeAvailable;
+      if(controller.signal.aborted)throw new ContestVoiceStopped();
+      if(this.ownsNativeClaim&&!capturedTarget)capturedTarget=await captureContestVoiceTarget(origin);
+      if(controller.signal.aborted)throw new ContestVoiceStopped();
       const prepared=await this.request({requests:actions.map(action=>({schemaVersion:1,sessionID:origin.sessionID,
         workspaceGeneration:origin.workspaceGeneration,draftID:origin.draftID,actionID:action.actionID,payload:action.payload,
         payloadSHA256:action.payloadSHA256,profilePath,...(capturedTarget?{boundTarget:capturedTarget}:{})}))});
@@ -168,8 +175,11 @@ export class ContestVoiceOutput {
     }
   }
 
-  async stop():Promise<void>{this.controller?.abort();this.activeAudio?.pause();if(this.ownsNativeClaim)await invoke("voice_request",{params:{action:"stop"}});try{await this.acquisition;}catch{/* native acquisition releases on failure */}
-    const error=await this.releasePTT();if(error)throw error;}
+  async stop():Promise<void>{this.controller?.abort();this.activeAudio?.pause();let nativeError:unknown;
+    try{if(this.ownsNativeClaim)await invoke("voice_request",{params:{action:"stop"}});}catch(cause){nativeError=cause;}
+    try{await this.acquisition;}catch{/* native acquisition releases on failure */}
+    const error=await this.releasePTT();if(error)throw error;
+    if(nativeError)throw nativeError instanceof Error?nativeError:new Error("Native voice Stop is unconfirmed; inspect the retained output owner.");}
 
   private async releasePTT():Promise<Error|null>{
     if(!this.pttActive)return null;
