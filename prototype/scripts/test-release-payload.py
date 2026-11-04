@@ -2,6 +2,7 @@ import gzip
 import importlib.util
 import io
 import json
+import copy
 from contextlib import closing
 from pathlib import Path
 import sqlite3
@@ -96,6 +97,82 @@ class ReleasePayloadTests(unittest.TestCase):
         self.assertTrue(payload.scan(self.root)['passed'])
         (self.root / 'outside').symlink_to(self.root.parent)
         self.assertFalse(payload.scan(self.root)['passed'])
+
+
+class CountryPackPayloadTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.resource = Path(__file__).resolve().parents[2] / 'Sources/XLogCore/Resources/country-reference-pack.json'
+        cls.public_bytes = cls.resource.read_bytes()
+        cls.public = json.loads(cls.public_bytes)
+        assert payload.MAX_JSON < len(cls.public_bytes) < payload.MAX_COUNTRY_PACK_JSON
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name)
+
+    def write_transport(self, data, transport, name=payload.COUNTRY_PACK_NAME):
+        for existing in self.root.iterdir():
+            existing.unlink()
+        if transport == 'file':
+            (self.root / name).write_bytes(data)
+        elif transport == 'gzip':
+            (self.root / (name + '.gz')).write_bytes(gzip.compress(data))
+        else:
+            with zipfile.ZipFile(self.root / 'resources.zip', 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+                if transport == 'zip':
+                    archive.writestr('resources/' + name, data)
+                else:
+                    archive.writestr('resources/' + name + '.gz', gzip.compress(data))
+
+    def test_actual_large_public_resource_passes_every_bounded_transport(self):
+        for transport in ['file', 'gzip', 'zip', 'zip-gzip']:
+            with self.subTest(transport=transport):
+                self.write_transport(self.public_bytes, transport)
+                report = payload.scan(self.root)
+                self.assertTrue(report['passed'], report['findings'])
+
+    def test_recursive_credentials_and_qso_after_four_mib_are_rejected_in_all_transports(self):
+        for private, expected in [({'nested': [{'password': 'private-fixture'}]}, 'non-empty operator/account setting'),
+                                  ({'nested': [{'CALL': 'TEST1', 'QSO_DATE': '20260101'}]}, 'saved QSO record')]:
+            value = copy.deepcopy(self.public)
+            value['records'][-1]['country']['injected'] = private
+            data = json.dumps(value).encode()
+            self.assertGreater(data.index(b'"injected"'), payload.MAX_JSON)
+            for transport in ['file', 'gzip', 'zip', 'zip-gzip']:
+                with self.subTest(private=expected, transport=transport):
+                    self.write_transport(data, transport)
+                    report = payload.scan(self.root)
+                    self.assertFalse(report['passed'])
+                    self.assertTrue(any(expected in item['reason'] for item in report['findings']), report['findings'])
+
+    def test_country_pack_budget_requires_exact_filename_and_schema(self):
+        for name in ['other.json', 'not-country-reference-pack.json', 'country-reference-pack.JSON']:
+            for transport in ['file', 'gzip', 'zip', 'zip-gzip']:
+                with self.subTest(name=name, transport=transport):
+                    self.write_transport(self.public_bytes, transport, name)
+                    self.assertFalse(payload.scan(self.root)['passed'])
+        for mutation in [lambda v: v.update({'extra': 'not a public field'}),
+                         lambda v: v['records'][-1]['country'].update({'extra': 'not a public field'}),
+                         lambda v: v.update({'records': []}),
+                         lambda v: v.update({'schemaVersion': True}),
+                         lambda v: v['records'][-1].update({'start': '2026-02-30T00:00:00Z'}),
+                         lambda v: v['records'][-1].update({'pattern': '[Z-A]'}),
+                         lambda v: v['records'][-1]['country'].update({'latitude': float('nan')}),
+                         lambda v: v.update({'sourceURL': 'https://user:secret@example.com/country.json'})]:
+            value = copy.deepcopy(self.public)
+            mutation(value)
+            self.assertIsNotNone(payload.inspect_bytes(payload.COUNTRY_PACK_NAME, json.dumps(value).encode()))
+
+    def test_malformed_duplicate_keys_and_oversized_country_packs_fail_closed(self):
+        duplicate = self.public_bytes.rstrip()[:-1] + b',"provider":"duplicate"}'
+        for data in [self.public_bytes.rstrip()[:-1], duplicate,
+                     self.public_bytes + b' ' * (payload.MAX_COUNTRY_PACK_JSON + 1 - len(self.public_bytes))]:
+            for transport in ['file', 'gzip', 'zip', 'zip-gzip']:
+                with self.subTest(bytes=len(data), transport=transport):
+                    self.write_transport(data, transport)
+                    self.assertFalse(payload.scan(self.root)['passed'])
 
 
 if __name__ == '__main__':
