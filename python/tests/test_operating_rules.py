@@ -13,7 +13,7 @@ class OperatingRulesTests(unittest.TestCase):
             "OperatorCategory": "SINGLE-OP", "TransmitterCategory": "ONE", "BandCategory": "ALL",
             "OverlayCategory": "N/A", "StartDate": "2026-05-30 00:00:00"},
             "operatingPlan": {"ruleProfileID": "wpx-2026-single-op", "note": "Rest later"}},
-            database=SimpleNamespace(fetch_all_contacts_asc=lambda: self.rows))
+            database=SimpleNamespace(fetch_all_contacts_asc=lambda: self.rows), contest=SimpleNamespace(dupe_type=2))
         self.params = {"now": "2026-06-01T00:00:00Z"}
 
     def row(self, stamp, band=14, identity=None, mode="CW"):

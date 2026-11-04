@@ -24,6 +24,16 @@ physical CAT action or submission is authorised by this correction pass.
 
 ### Correction evidence (this register remains authoritative)
 
+**TLF-R04 / P3-05/06; RULE-03/04/08 — VERIFIED_SOFTWARE:**
+the duplicate K1ABC/zone-4 changed eligibility from 14:12 to 14:20. Guidance now
+uses the same historical duplicate authority as the Host's log projection before
+accumulating new country/zone facts. The duplicate remains a `non-credit-contact`
+event without replacing 14:12; a valid same-country zero-point new multiplier
+starts its clock. Actual Host commit, source-digest declarations, correction and
+rebuild are covered in `test_wave2_operating_host`. Retained CQ WW rules/FAQ bytes
+were digest-verified and the functional/whole-minute clauses reread. Focused
+`test_operating_rules test_wave2_operating_host` passed (18). No RF clock claim.
+
 **TLF-R09 / P1-05/06; CW-04/07/12/17, G-04 — VERIFIED_SOFTWARE:**
 the old persisted WinKeyer queue receipt omitted OM0RX after restart. Suppression
 now requires a live native-authored continuation bound to a unique native owner,

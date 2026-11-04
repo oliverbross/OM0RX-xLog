@@ -243,9 +243,10 @@ def _dwell(rows, now, family, declarations):
         band = _band(row.get("Band"))
         role = row.get("declaredRole") or _role(row, declarations)
         country, zone = str(row.get("CountryPrefix") or "").upper(), str(row.get("ZN") or "")
+        eligible = row.get("hostCreditEligible", True)
         known_multiplier = bool(country and zone.isdigit() and 1 <= int(zone) <= 40 and band)
-        new_multiplier = known_multiplier and (country not in countries.get(band, set()) or int(zone) not in zones.get(band, set()))
-        if known_multiplier:
+        new_multiplier = eligible and known_multiplier and (country not in countries.get(band, set()) or int(zone) not in zones.get(band, set()))
+        if eligible and known_multiplier:
             countries.setdefault(band, set()).add(country)
             zones.setdefault(band, set()).add(int(zone))
         if not band or role not in {*names, "multiplier"}:
@@ -258,8 +259,8 @@ def _dwell(rows, now, family, declarations):
             continue
         if family == "cqww" and role == "multiplier" and not new_multiplier:
             events.append({"id": str(row.get("ID", "")), "role": role, "atUTC": _iso(stamp),
-                           "status": "not-a-new-multiplier" if known_multiplier else "multiplier-facts-unknown"})
-            if not known_multiplier:
+                           "status": "non-credit-contact" if not eligible else "not-a-new-multiplier" if known_multiplier else "multiplier-facts-unknown"})
+            if eligible and not known_multiplier:
                 unknown.append(str(row.get("ID", "")))
             continue
         clock = clocks[role]
@@ -299,7 +300,14 @@ def calculate(desk, params):
     rows, invalid, outside = [], 0, 0
     start = _utc(profile["startUTC"]) if profile else None
     end = _utc(profile["endUTCExclusive"]) if profile else None
-    for row in desk.database.fetch_all_contacts_asc():
+    source_rows = desk.database.fetch_all_contacts_asc()
+    if state["pluginID"] in CQWW_PERIODS:
+        from .statistics_dupes import duplicate_flags
+        # The same read-only authority used by historical dupe projections;
+        # zero-point same-country contacts remain eligible for multipliers.
+        source_rows = [{**row, "hostCreditEligible": duplicate is False}
+                       for row, duplicate in zip(source_rows, duplicate_flags(desk, source_rows))]
+    for row in source_rows:
         stamp = _utc(row.get("TS"))
         if stamp is None:
             invalid += 1
