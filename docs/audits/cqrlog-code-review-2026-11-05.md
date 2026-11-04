@@ -110,3 +110,31 @@ binding for send, preview, recording and import; TypeScript exits zero. Logs:
 `/tmp/xlog-cqrlog-review-voice-ui-tsc.log`. Tests use pure fake state; no microphone,
 speaker, radio or PTT was operated. The installed app and retained signed 1.5.13
 bundle have not been changed; these are source fixes for the next candidate.
+
+## Recording finish and final publication
+
+Record-finish previously used the global voice cancellation path without a job
+identity. A delayed Finish could cancel or prematurely finish a different newer
+job. It now carries the recording action ID shown by the native snapshot and
+only finishes that recording. Global Stop remains independent and available.
+
+Recording publication previously compared only the voice profile after capture;
+an identical profile in a replacement worker/workspace could pass. Stop could
+also arrive during the last settings read after its earlier cancellation check.
+The final write admission now checks the original worker/workspace/profile and
+the current cancel/save flags. Explicit Finish is still permitted, while global
+Stop cancellation retains the original WAV.
+
+The capture loop also checked its error flag only while running. Failure or
+overflow arriving at its deadline/Finish/stream-teardown boundary could therefore
+publish partial audio. The final drained capture now checks that flag after the
+stream is dropped, before producing a WAV for publication.
+
+Validation: the complete voice filter passes **37 native tests**, including the
+new late-Finish, post-settings cancellation/workspace and teardown-failure cases;
+**8 VoiceDesk tests** and TypeScript pass. Logs:
+`/tmp/xlog-cqrlog-review-voice-finalization.log`,
+`/tmp/xlog-cqrlog-review-voice-ui-finalization.log`,
+`/tmp/xlog-cqrlog-review-voice-ui-tsc.log`. Fake state/stream teardown and PCM
+round-trip tests qualify these software boundaries; physical recording/audio
+device failure remains unrun.

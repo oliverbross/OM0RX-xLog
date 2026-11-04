@@ -571,13 +571,7 @@ mod native {
                 break;
             }
         }
-        if samples.is_empty() {
-            return Err(
-                "No microphone samples were captured (check permission and selected device)."
-                    .into(),
-            );
-        }
-        Ok(wav(&samples, route.sample_rate))
+        recorded_wav(&samples, route.sample_rate, failed.load(Ordering::Acquire))
     }
     fn input<T>(
         d: &cpal::Device,
@@ -675,6 +669,18 @@ mod unsupported {
 #[cfg(not(target_os = "macos"))]
 pub use unsupported::*;
 
+#[cfg(any(target_os = "macos", test))]
+fn recorded_wav(samples: &[i16], rate: u32, failed: bool) -> Result<Vec<u8>> {
+    if failed {
+        return Err("The selected microphone failed or its bounded capture queue overflowed; no slot was replaced.".into());
+    }
+    if samples.is_empty() {
+        return Err(
+            "No microphone samples were captured (check permission and selected device).".into(),
+        );
+    }
+    Ok(wav(samples, rate))
+}
 pub fn wav(samples: &[i16], rate: u32) -> Vec<u8> {
     let n = (samples.len() * 2) as u32;
     let mut b = Vec::with_capacity(n as usize + 44);
@@ -699,6 +705,31 @@ pub fn wav(samples: &[i16], rate: u32) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn capture_failure_reported_during_stream_teardown_cannot_publish_partial_audio() {
+        struct FailedStream(Arc<AtomicBool>);
+        impl Drop for FailedStream {
+            fn drop(&mut self) {
+                self.0.store(true, Ordering::Release);
+            }
+        }
+        let failed = Arc::new(AtomicBool::new(false));
+        let samples = [i16::MIN, i16::MAX];
+        {
+            let _stream = FailedStream(failed.clone());
+            assert!(!failed.load(Ordering::Acquire));
+        }
+        assert!(recorded_wav(&samples, 48_000, failed.load(Ordering::Acquire)).is_err());
+        assert!(recorded_wav(&[], 48_000, false).is_err());
+        let bytes = recorded_wav(&samples, 48_000, false).unwrap();
+        assert_eq!(
+            decode(&bytes, &Edit::default(), 48_000)
+                .unwrap()
+                .samples
+                .len(),
+            2
+        );
+    }
     #[test]
     fn source_and_edited_memory_digest_are_stable_across_reviewed_route_resampling() {
         let bytes = wav(&[16_384, -16_384], 8000);

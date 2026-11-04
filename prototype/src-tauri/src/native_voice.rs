@@ -77,7 +77,10 @@ pub enum NativeRequest {
         generation: String,
         overwrite: bool,
     },
-    RecordStop,
+    RecordStop {
+        #[serde(rename = "actionID")]
+        action_id: String,
+    },
     Stop,
     ContestPlay {
         admissions: Vec<VoiceAdmission>,
@@ -176,6 +179,14 @@ struct NativeState {
     last: Value,
 }
 impl NativeState {
+    fn finish_recording(&mut self, id: &str) -> Result<(), String> {
+        let job = self.job.as_ref().filter(|job| job.kind == "recording" && job.id == id)
+            .ok_or("That recording already ended or belongs to another job; no current audio was changed.")?;
+        job.save_recording.store(true, Ordering::Release);
+        job.cancel.store(true, Ordering::Release);
+        self.prepared.clear();
+        Ok(())
+    }
     fn publish_preparation(
         &mut self,
         scope: &str,
@@ -283,6 +294,23 @@ fn reviewed_media_settings(
     let value = settings()?;
     require_reviewed_settings(&value.1, revision, generation)?;
     Ok(value)
+}
+fn recording_publication(
+    original: &(u64, Value, Profile),
+    current: &(u64, Value, Profile),
+    cancelled: bool,
+    save: bool,
+) -> Result<(), String> {
+    if original.0 != current.0
+        || original.1["generation"] != current.1["generation"]
+        || original.2 != current.2
+    {
+        return Err("Voice workspace, library or routes changed during recording; the original slot was retained.".into());
+    }
+    if cancelled && !save {
+        return Err("Voice recording cancelled; the original slot was retained.".into());
+    }
+    Ok(())
 }
 pub(super) fn contest_profile(session: &str) -> Result<PathBuf, String> {
     let setup = call(
@@ -597,7 +625,7 @@ pub fn native_request(
     if !matches!(
         request,
         NativeRequest::Stop
-            | NativeRequest::RecordStop
+            | NativeRequest::RecordStop { .. }
             | NativeRequest::Snapshot
             | NativeRequest::Capabilities
     ) {
@@ -822,8 +850,8 @@ pub fn native_request(
             generation: workspace_generation,
             overwrite,
         } => {
-            let (_, _, profile) =
-                reviewed_media_settings(expected_revision, &workspace_generation)?;
+            let original = reviewed_media_settings(expected_revision, &workspace_generation)?;
+            let profile = &original.2;
             let name = slot(index)?;
             let folder = canonical_profile(&profile.profile_path)?;
             if folder.join(format!("{name}.wav")).exists() && !overwrite {
@@ -844,12 +872,16 @@ pub fn native_request(
                 if cancel.load(Ordering::Acquire) && !save.load(Ordering::Acquire) {
                     return Err("Voice recording cancelled; the original slot was retained.".into());
                 }
-                let (_, _, current) = settings()?;
-                if current != profile {
-                    return Err("Voice library/routes changed during recording; the original slot was retained.".into());
-                }
+                let current = settings()?;
+                // Stop/workspace changes can arrive during the settings read.
+                recording_publication(
+                    &original,
+                    &current,
+                    cancel.load(Ordering::Acquire),
+                    save.load(Ordering::Acquire),
+                )?;
                 profile_write(ProfileWriteRequest {
-                    profile_path: profile.profile_path,
+                    profile_path: profile.profile_path.clone(),
                     slot: name,
                     wav_base64: STANDARD.encode(bytes),
                     overwrite,
@@ -860,8 +892,13 @@ pub fn native_request(
             result?;
             snapshot()
         }
-        NativeRequest::RecordStop => {
-            cancel(true);
+        NativeRequest::RecordStop { action_id } => {
+            let mut s = state()
+                .lock()
+                .map_err(|_| "Native voice state unavailable")?;
+            s.finish_recording(&action_id)?;
+            QUEUE_GENERATION.fetch_add(1, Ordering::AcqRel);
+            drop(s);
             snapshot()
         }
         NativeRequest::Stop => {
@@ -1133,6 +1170,53 @@ mod tests {
             created: Instant::now(),
             identity,
         }
+    }
+    #[test]
+    fn recording_finish_is_scoped_to_the_original_job_and_never_cancels_transmission() {
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let save = Arc::new(AtomicBool::new(false));
+        let mut state = NativeState {
+            job: Some(Job {
+                id: "current".into(),
+                kind: "recording",
+                phase: "recording".into(),
+                cancel: cancelled.clone(),
+                save_recording: save.clone(),
+                consumed: 0,
+                total: 0,
+            }),
+            ..NativeState::default()
+        };
+        assert!(state.finish_recording("retired").is_err());
+        assert!(!cancelled.load(Ordering::Acquire) && !save.load(Ordering::Acquire));
+        state.finish_recording("current").unwrap();
+        assert!(cancelled.load(Ordering::Acquire) && save.load(Ordering::Acquire));
+        cancelled.store(false, Ordering::Release);
+        save.store(false, Ordering::Release);
+        state.job.as_mut().unwrap().kind = "transmit";
+        assert!(state.finish_recording("current").is_err());
+        assert!(!cancelled.load(Ordering::Acquire) && !save.load(Ordering::Acquire));
+        assert!(serde_json::from_value::<NativeRequest>(json!({"action":"record_stop"})).is_err());
+        assert!(serde_json::from_value::<NativeRequest>(
+            json!({"action":"record_stop","actionID":"current"})
+        )
+        .is_ok());
+    }
+    #[test]
+    fn recording_publication_rechecks_workspace_worker_and_stop_after_the_last_settings_read() {
+        let original = (1, json!({"generation":"original"}), Profile::default());
+        assert!(recording_publication(&original, &original, false, false).is_ok());
+        assert!(recording_publication(&original, &original, true, true).is_ok());
+        assert!(recording_publication(&original, &original, true, false).is_err());
+        let mut replacement = original.clone();
+        replacement.0 += 1;
+        assert!(recording_publication(&original, &replacement, true, true).is_err());
+        replacement = original.clone();
+        replacement.1["generation"] = json!("replacement");
+        assert!(recording_publication(&original, &replacement, false, false).is_err());
+        replacement = original.clone();
+        replacement.2.labels[0] = "Changed".into();
+        assert!(recording_publication(&original, &replacement, false, false).is_err());
     }
     #[test]
     fn concurrent_preparation_of_one_intent_publishes_only_one_sendable_action() {

@@ -7,7 +7,7 @@ type Route={deviceId:string;channels:number[];sampleRate:number};
 type Edit={trimStartMs:number;trimEndMs:number|null;gainDb:number};
 type Profile={version:1;profilePath:string;labels:string[];routes:{input:Route|null;monitor:Route|null;transmit:Route|null};edits:Edit[]};
 type Device={id:string;name:string;inputs:{channels:number;minRate:number;maxRate:number}[];outputs:{channels:number;minRate:number;maxRate:number}[];inputRate:number|null;outputRate:number|null;knownTx:boolean};
-type Snapshot={profile:Profile;revision:number;generation:string;devices:Device[];nativeAvailable:boolean;job:null|{kind:string;phase:string;consumedFrames:number;totalFrames:number};last:{status?:string;error?:string}};
+type Snapshot={profile:Profile;revision:number;generation:string;devices:Device[];nativeAvailable:boolean;job:null|{actionID:string;kind:string;phase:string;consumedFrames:number;totalFrames:number};last:{status?:string;error?:string}};
 type AudioIdentity={sourceSHA256:string;editedPCMSHA256:string;outputPCMSHA256:string};
 type Analysis={durationMs:number;peak:number;clippedSamples:number;sampleRate:number;audioIdentity?:AudioIdentity};
 type Request=(params:Record<string,unknown>)=>Promise<any>;
@@ -79,7 +79,7 @@ export default function VoiceDesk({request=native}:{request?:Request}){
         <div className="voice-controls"><button type="button" disabled={busy||!snapshot||!dirty.current} onClick={()=>void save()}>Save voice settings</button><button type="button" disabled={busy} onClick={()=>{dirty.current=false;editBase.current=null;void refresh().then(()=>setMessage("Saved voice settings loaded.")).catch(cause=>setError(String(cause)));}}>Reload saved</button>
           <label className="voice-replace"><input type="checkbox" checked={replace} onChange={e=>setReplace(e.target.checked)}/>Replace selected slot</label>
           <button type="button" disabled={!enabled||busy||hasJob||dirty.current||!profile.routes.input||!profile.profilePath} onClick={()=>void run(async()=>{setMessage("Recording the selected microphone. Use Finish recording to save, or Stop voice to cancel.");await request({action:"record_start",slot:selected,overwrite:replace,...reviewedScope()});setMessage("Voice recording saved; original editing source retained by nondestructive trim/gain.");})}><Mic size={13}/>Record microphone</button>
-          <button type="button" disabled={snapshot?.job?.kind!=="recording"} onClick={()=>void request({action:"record_stop"}).catch(cause=>setError(String(cause)))}>Finish recording</button>
+          <button type="button" disabled={snapshot?.job?.kind!=="recording"} onClick={()=>void request({action:"record_stop",actionID:snapshot?.job?.actionID}).catch(cause=>setError(String(cause)))}>Finish recording</button>
           <label className="voice-import">Import PCM WAV<input type="file" accept=".wav,audio/wav" disabled={busy||hasJob||dirty.current||!profile.profilePath} onChange={e=>{const file=e.target.files?.[0];e.target.value="";if(file)void run(async()=>{const scope=reviewedScope();if(file.size>8*1024*1024)throw Error("Voice WAV must remain below 8 MiB.");const bytes=new Uint8Array(await file.arrayBuffer());let binary="";for(let i=0;i<bytes.length;i+=16384)binary+=String.fromCharCode(...bytes.subarray(i,i+16384));await request({action:"import",slot:selected,wavBase64:btoa(binary),overwrite:replace,...scope});setMessage("Voice WAV imported after native PCM validation.");});}}/></label>
         </div>
       </details>

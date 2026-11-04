@@ -17,6 +17,19 @@ function fixture(){
   });return{request,calls,advance:()=>{revision++;},complete:()=>complete?.()};
 }
 describe("normal voice controls retain native admission",()=>{
+  it("finishes only the exact recording shown by the native snapshot",async()=>{
+    const f=fixture(),actionID="22222222-2222-4222-8222-222222222222";
+    const request=vi.fn(async(params:Record<string,unknown>)=>{
+      if(params.action==="record_stop")return{};
+      const result=await f.request(params);
+      return params.action==="snapshot"?{...result,job:{actionID,kind:"recording",phase:"recording",consumedFrames:0,totalFrames:0}}:result;
+    });
+    render(<VoiceDesk request={request}/>);await screen.findByText(/0.20 s/);
+    fireEvent.click(screen.getByText("Voice memories · normal SSB"));fireEvent.click(screen.getByText("Library, recording and audio routes"));
+    fireEvent.click(screen.getByRole("button",{name:"Finish recording"}));
+    await waitFor(()=>expect(request).toHaveBeenCalledWith({action:"record_stop",actionID}));
+    expect(request.mock.calls.some(([params])=>["send","prepare","record_start"].includes(String(params.action)))).toBe(false);
+  });
   it.each(["record_start","import"])("binds %s to the displayed library revision and workspace",async action=>{
     const f=fixture(),request=vi.fn(async(params:Record<string,unknown>)=>params.action===action?{}:f.request(params));
     render(<VoiceDesk request={request}/>);await screen.findByText(/0.20 s/);
