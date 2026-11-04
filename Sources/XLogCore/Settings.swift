@@ -109,6 +109,7 @@ public struct XLogSettings: Codable, Equatable, Sendable {
     public var portableOperating = PortableOperatingSettings()
     public var nearbySpottedCallsigns = false
     public var cwProfile: CWProfile? = nil
+    public var voiceProfile: VoiceProfile? = nil
     public var ftpBackup = FTPBackupSettings()
 
     public static let defaults = XLogSettings(
@@ -414,7 +415,7 @@ extension XLogSettings {
         case wavelogURL, wavelogStationID, logbookMode, automaticSync, syncIntervalMinutes
         case qrzUsername, qrzEnabled, callsignLookupProvider, hamqthUsername
         case xcatHost, xcatRigCtlPort, clubLogCTYURL, lotwActivityURL
-        case stationEquipment, portableOperating, nearbySpottedCallsigns, cwProfile, ftpBackup
+        case stationEquipment, portableOperating, nearbySpottedCallsigns, cwProfile, voiceProfile, ftpBackup
     }
 
     public init(from decoder: Decoder) throws {
@@ -448,6 +449,7 @@ extension XLogSettings {
         portableOperating = try values.decodeIfPresent(PortableOperatingSettings.self, forKey: .portableOperating) ?? PortableOperatingSettings()
         nearbySpottedCallsigns = try values.decodeIfPresent(Bool.self, forKey: .nearbySpottedCallsigns) ?? false
         cwProfile = try values.decodeIfPresent(CWProfile.self, forKey: .cwProfile)
+        voiceProfile = try values.decodeIfPresent(VoiceProfile.self, forKey: .voiceProfile)
         ftpBackup = try values.decodeIfPresent(FTPBackupSettings.self, forKey: .ftpBackup) ?? FTPBackupSettings()
     }
 }

@@ -39,7 +39,7 @@ pub struct Input {
     pub health: Arc<Health>,
     pub clock: Instant,
 }
-fn device(id: &str) -> Result<cpal::Device> {
+pub(crate) fn device(id: &str) -> Result<cpal::Device> {
     cpal::default_host()
         .devices()
         .map_err(|e| e.to_string())?
@@ -74,7 +74,7 @@ pub fn devices() -> Result<Value> {
     }
     Ok(json!(result))
 }
-fn format(d: &cpal::Device, input: bool, channels: u16, rate: u32) -> Result<cpal::SampleFormat> {
+pub(crate) fn format(d: &cpal::Device, input: bool, channels: u16, rate: u32) -> Result<cpal::SampleFormat> {
     let ranges = if input {
         d.supported_input_configs().map(|v| v.collect::<Vec<_>>())
     } else {
@@ -121,7 +121,7 @@ pub fn validate(c: &Config) -> Result<()> {
     validate_input(c)?;
     validate_listening(&c.output_id)
 }
-fn stream_config(channels: u16, rate: u32) -> cpal::StreamConfig {
+pub(crate) fn stream_config(channels: u16, rate: u32) -> cpal::StreamConfig {
     cpal::StreamConfig {
         channels,
         sample_rate: rate,

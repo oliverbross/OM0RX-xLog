@@ -12,6 +12,8 @@ export const normalActions = [
   {id:"open-cw-workbench",label:"Open CW workbench",context:"Normal Logging",defaultBinding:""},
   {id:"cw-compose-preview",label:"Preview CW composition",context:"CW workbench",defaultBinding:""},
   {id:"cw-compose-send",label:"Send CW composition",context:"Focused CW workbench · armed",defaultBinding:""},
+  {id:"voice-send",label:"Send selected voice memory",context:"Focused voice desk · SSB",defaultBinding:""},
+  {id:"voice-stop",label:"Stop voice memory",context:"Normal Logging",defaultBinding:""},
 ] as const;
 export type NormalAction = typeof normalActions[number]["id"];
 export type NormalBindings = {version:1;overrides:Record<string,string>};

@@ -2037,6 +2037,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
         throw new Error("The contest phone voice-keyer intent could not be verified; no audio or PTT action was taken.");
       return { operationID: action.actionID, mode: "SSB", macro: action.label, text: payload, status: "confirmed" };
     });
+    if (!phoneProductionAvailable || !voiceOutput.ownsNativeClaim) {
     const claimParams = { sessionID: changed.projection.sessionID, operationID, revision: changed.projection.revision };
     const firstClaim = result<Data>("contest_output_claim", claimParams);
     let timer = 0;
@@ -2059,6 +2060,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     } finally { if (timer) window.clearTimeout(timer); }
     if (claimed && (claimed.claimed !== true || claimed.operationID !== operationID || canonicalJSON(claimed.actions) !== canonicalJSON(actions)))
       throw new Error("The contest phone output claim could not be verified; do not retry the key.");
+    }
     if (controller.signal.aborted || phoneSimulationControllerRef.current !== controller) throw new PhoneSimulationStopped();
     if (phoneProductionAvailable) await voiceOutput.play(actions as ContestVoiceAction[], origin,
       String(setup.preferences.voiceProfilePath ?? ""), String(setup.preferences.soundDevice ?? ""), controller.signal);
@@ -2935,8 +2937,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
             return {...outcome,actions:[]};
           }
           if(canonicalJSON(actions[0].qtc.voiceTarget)!==canonicalJSON(voiceTarget))throw Error("The QTC voice target changed in its host receipt.");
-          const claimed=await result<Data>("contest_output_claim",{sessionID:origin.sessionID,operationID,revision:changed.revision});
+          if(!voiceOutput.ownsNativeClaim){const claimed=await result<Data>("contest_output_claim",{sessionID:origin.sessionID,operationID,revision:changed.revision});
           if(claimed.claimed!==true||canonicalJSON(claimed.actions)!==canonicalJSON(actions))throw Error("QTC output claim is unconfirmed. Inspect its original attempt.");
+          }
           if(controller.signal.aborted||!scopeCurrent())throw Error("QTC output was stopped before native voice preparation.");
           await voiceOutput.play(actions as ContestVoiceAction[],origin,String(setup.preferences.voiceProfilePath??""),String(setup.preferences.soundDevice??""),controller.signal,voiceTarget);
           const outcome=await mutate("contest_strategy_apply",changed.projection,{workspaceGeneration:origin.workspaceGeneration,

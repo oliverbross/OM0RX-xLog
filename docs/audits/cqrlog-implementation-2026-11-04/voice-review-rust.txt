@@ -1,0 +1,61 @@
+   Compiling xlog-prototype v1.5.9 (/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri)
+warning: method `prosigns` is never used
+   --> src/winkeyer.rs:139:12
+    |
+130 | impl Sequence {
+    | ------------- method in this implementation
+...
+139 |     pub fn prosigns(&self) -> bool {self.has_prosigns()}
+    |            ^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `open` is never used
+   --> src/workspace_window_runtime.rs:421:8
+    |
+421 | pub fn open(app: &AppHandle, label: &str) -> Result<(), String> {
+    |        ^^^^
+
+warning: function `contest_toggle` is never used
+   --> src/workspace_window_runtime.rs:449:8
+    |
+449 | pub fn contest_toggle(app: &AppHandle, context: crate::contest_window_context::ContestWindowContext,
+    |        ^^^^^^^^^^^^^^
+
+warning: `xlog-prototype` (bin "xlog-prototype" test) generated 3 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.23s
+     Running unittests src/main.rs (prototype/src-tauri/target/debug/deps/xlog_prototype-f41ae57153c659ff)
+
+running 30 tests
+test contest_voice::native::tests::phone_admission_preserves_tci_addressed_modulation_without_a_vfo ... ok
+test contest_voice::native::tests::phone_admission_rejects_absent_conflicting_or_unmarked_tx_evidence ... ok
+test contest_voice::native::tests::phone_admission_uses_the_actual_transmit_vfo_for_flex_and_agent_split ... ok
+test contest_voice::tests::captured_voice_target_rejects_switches_across_delayed_host_or_audio_work_without_dispatch ... ok
+test contest_voice::native::tests::native_claim_requires_the_complete_canonical_payload_and_draft_before_any_output ... ok
+test contest_voice::native::tests::normal_context_never_uses_a_fake_contest_and_request_schema_rejects_audio_paths ... ok
+test contest_voice::tests::managed_profile_rejects_malformed_audio_and_symbolic_link_slots ... ok
+test contest_voice::tests::managed_profile_rejects_oversized_slot_before_reading_it ... ok
+test contest_voice::tests::managed_profile_rejects_inconsistent_pcm_headers ... ok
+test contest_voice::tests::prepared_voice_admission_cannot_substitute_a_fresh_replacement_target ... ok
+test contest_voice::tests::priority_stop_and_supervisor_share_one_release_receipt_on_the_original_owner ... ok
+test contest_voice::tests::managed_profile_never_recreates_a_missing_profile_directory ... ok
+test contest_voice::tests::production_voice_json_uses_the_same_identity_names_as_the_renderer ... ok
+test contest_voice::tests::queued_acquisition_is_retained_by_the_shutdown_barrier ... ok
+test contest_voice::tests::prepare_acquire_release_prepare_replay_is_tombstoned_in_scope ... ok
+test contest_voice::tests::stop_during_preparation_cannot_republish_old_audio_or_admissions ... ok
+test contest_voice::tests::consumed_tombstones_survive_more_than_256_actions_until_scope_changes ... ok
+test contest_voice::tests::test_profile_and_non_owner_never_admit_io ... ok
+test contest_voice::tests::voice_release_requires_its_original_operation_and_never_releases_another_ptt_owner ... ok
+test voice_audio::tests::presentation_drain_waits_for_final_nonzero_sample_and_stop_never_resumes ... ok
+test voice_audio::tests::routes_reject_legacy_ids_implicit_defaults_and_overlapping_monitor ... ok
+test contest_voice::tests::stale_context_digest_missing_or_malformed_audio_fail_closed ... ok
+test voice_audio::tests::sleep_clock_reversal_and_backend_callback_gaps_retire_audio_before_another_sample ... ok
+test voice_audio::tests::source_and_edited_memory_digest_are_stable_across_reviewed_route_resampling ... ok
+test voice_audio::tests::source_edit_and_resample_preserve_endpoints_clipping_and_original ... ok
+test contest_voice::tests::resolves_not1mm_character_and_bracket_wavs_in_order ... ok
+test contest_voice::tests::batch_caps_aggregate_segments_and_binds_the_exact_manifest ... ok
+test contest_voice::tests::maps_slash_explicitly_and_rejects_every_unsupported_character ... ok
+test contest_voice::tests::managed_profile_writes_inspects_and_previews_only_bounded_slots ... ok
+test contest_voice::tests::shutdown_waits_for_late_acquisition_then_releases_owned_ptt ... ok
+
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 1073 filtered out; finished in 0.07s

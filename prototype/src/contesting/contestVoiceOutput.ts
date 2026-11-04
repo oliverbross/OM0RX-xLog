@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 export type ContestVoiceOrigin = { sessionID:string; workspaceGeneration:string; draftID:string; sourceRevision:string };
-export type ContestVoiceTarget={schemaVersion:1;outputIntent:string;target:{provider:"direct_agent"|"direct_flex_lan";
+export type ContestVoiceTarget={schemaVersion:1;outputIntent:string;target:{provider:"direct_agent"|"direct_flex_lan"|"direct_tci";
+  radio_id?:string|null;tci?:{trx:number;channel:number}|null;
   selection_generation:number;selection_id:string;worker_generation:number;connection_generation:number;
   control_revision:number;observation_revision:number;received_at_ms:number}};
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -8,7 +9,10 @@ export function validContestVoiceTarget(value:unknown):value is ContestVoiceTarg
   if(!value||typeof value!=="object"||Array.isArray(value))return false;
   const item=value as ContestVoiceTarget,target=item.target;
   return Object.keys(item).length===3&&item.schemaVersion===1&&uuid.test(item.outputIntent)&&!!target&&typeof target==="object"&&
-    Object.keys(target).length===8&&["direct_agent","direct_flex_lan"].includes(target.provider)&&uuid.test(target.selection_id)&&
+    Object.keys(target).every(key=>["provider","selection_generation","selection_id","worker_generation","connection_generation","control_revision","observation_revision","received_at_ms","radio_id","tci"].includes(key))&&
+    ["direct_agent","direct_flex_lan","direct_tci"].includes(target.provider)&&uuid.test(target.selection_id)&&
+    (target.radio_id==null||typeof target.radio_id==="string")&&
+    (target.provider!=="direct_tci"||!!target.tci&&Number.isInteger(target.tci.trx)&&Number.isInteger(target.tci.channel))&&
     [target.selection_generation,target.worker_generation,target.connection_generation,target.control_revision,target.observation_revision,target.received_at_ms].every(value=>Number.isSafeInteger(value)&&value>=0)&&target.worker_generation>0;
 }
 export async function captureContestVoiceTarget(origin:Pick<ContestVoiceOrigin,"sessionID"|"workspaceGeneration">):Promise<ContestVoiceTarget>{
@@ -18,7 +22,7 @@ export async function captureContestVoiceTarget(origin:Pick<ContestVoiceOrigin,"
 }
 const sameTarget=(left:ContestVoiceTarget|undefined,right:ContestVoiceTarget|undefined)=>left===undefined?right===undefined:
   !!right&&validContestVoiceTarget(right)&&left.schemaVersion===right.schemaVersion&&left.outputIntent===right.outputIntent&&
-  Object.keys(left.target).every(key=>left.target[key as keyof ContestVoiceTarget["target"]]===right.target[key as keyof ContestVoiceTarget["target"]]);
+  JSON.stringify(left.target)===JSON.stringify(right.target);
 export type ContestVoiceAction = { actionID:string; sessionID:string; workspaceGeneration?:string; draftID:string; sourceRevision?:string;
   kind:string; signal:string; mode:string; payload:string; payloadSHA256:string };
 type PreparedSegment = { name:string; wavBase64:string; durationMs:number; sha256:string; decodedBytes:number };
@@ -94,10 +98,14 @@ export class ContestVoiceOutput {
   constructor(private readonly production:boolean,private readonly request:VoiceNative=native,private readonly ptt:VoicePTT=nativePTT,
     private readonly makeAudio:AudioFactory=audioFactory,private readonly createURL=(blob:Blob)=>URL.createObjectURL(blob),
     private readonly revokeURL=(url:string)=>URL.revokeObjectURL(url)){}
+  get ownsNativeClaim():boolean{return this.request===native&&this.ptt===nativePTT&&this.makeAudio===audioFactory;}
 
   async play(actions:ContestVoiceAction[],origin:ContestVoiceOrigin,profilePath:string,deviceID:string,external?:AbortSignal,capturedTarget?:ContestVoiceTarget):Promise<void>{
     if(!this.production)throw new Error("Contest phone audio and PTT are disabled in the Contesting Test profile.");
+    if(external?.aborted)throw new ContestVoiceStopped();
     if(this.controller)throw new Error("Contest phone output is already active. Use Stop before sending another message.");
+    const nativeAudio=this.ownsNativeClaim&&(await invoke<{nativeAvailable:boolean}>("voice_request",{params:{action:"capabilities"}})).nativeAvailable;
+    if(this.ownsNativeClaim&&!capturedTarget)capturedTarget=await captureContestVoiceTarget(origin);
     if(capturedTarget!==undefined){if(!validContestVoiceTarget(capturedTarget))throw Error("The captured contest voice target is invalid.");capturedTarget=structuredClone(capturedTarget);}
     const scope=`${origin.sessionID}/${origin.workspaceGeneration}`;
     if(this.scope!==scope){this.scope=scope;this.consumed.clear();}
@@ -112,7 +120,8 @@ export class ContestVoiceOutput {
       ids.add(action.actionID);
     }
     const controller=new AbortController();this.controller=controller;
-    const stopped=()=>controller.abort();external?.addEventListener("abort",stopped,{once:true});
+    const stopped=()=>{controller.abort();if(nativeAudio)void invoke("voice_request",{params:{action:"stop"}}).catch(()=>{});};external?.addEventListener("abort",stopped,{once:true});
+    if(external?.aborted)stopped();
     const urls:string[]=[];const audio:VoiceAudio[]=[];
     try{
       const prepared=await this.request({requests:actions.map(action=>({schemaVersion:1,sessionID:origin.sessionID,
@@ -128,7 +137,7 @@ export class ContestVoiceOutput {
           !sameTarget(capturedTarget,value.boundTarget))throw new Error("Native voice preparation identity or captured radio target was lost; no PTT action was taken.");
         await verifyManifest(value);
         durationMs+=value.totalDurationMs;
-        for(const segment of value.segments){
+        for(const segment of nativeAudio?[]:value.segments){
           const url=wavURL(segment.wavBase64,this.createURL);urls.push(url);const item=this.makeAudio(url);item.preload="auto";
           if(deviceID){if(typeof item.setSinkId!=="function")throw new Error("This runtime cannot route voice audio to the selected output device.");await item.setSinkId(deviceID);}
           const ready=waitFor(item,"canplaythrough",controller.signal,10_000);item.src=url;item.load();await ready;audio.push(item);
@@ -138,6 +147,7 @@ export class ContestVoiceOutput {
       if(controller.signal.aborted)throw new ContestVoiceStopped();
       const admissions=prepared.map(({sessionID,workspaceGeneration,draftID,actionID,payloadSHA256,manifestSHA256,boundTarget})=>
         ({sessionID,workspaceGeneration,draftID,actionID,payloadSHA256,manifestSHA256,...(boundTarget?{boundTarget}:{})}));
+      if(nativeAudio){await invoke("voice_request",{params:{action:"contest_play",admissions}});return;}
       this.acquisition=(async()=>{const keyed=await this.ptt.acquire(admissions);
         if(!keyed.accepted||!keyed.confirmed)throw new Error("Native PTT did not prove fresh transmit readiness for contest phone output.");
         this.pttActive=true;})();
@@ -158,7 +168,7 @@ export class ContestVoiceOutput {
     }
   }
 
-  async stop():Promise<void>{this.controller?.abort();this.activeAudio?.pause();try{await this.acquisition;}catch{/* native acquisition releases on failure */}
+  async stop():Promise<void>{this.controller?.abort();this.activeAudio?.pause();if(this.ownsNativeClaim)await invoke("voice_request",{params:{action:"stop"}});try{await this.acquisition;}catch{/* native acquisition releases on failure */}
     const error=await this.releasePTT();if(error)throw error;}
 
   private async releasePTT():Promise<Error|null>{

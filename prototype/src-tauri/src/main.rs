@@ -78,6 +78,7 @@ mod contest_log_review;
 mod contest_analytics;
 mod contest_lane_output;
 mod contest_voice;
+mod voice_audio;
 mod contest_recorder;
 mod contest_recorder_store;
 #[cfg(target_os = "macos")]
@@ -2803,6 +2804,24 @@ async fn cw_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow,
         .await.map_err(|_| "CW session task failed; use Stop before retrying.".to_string())?
 }
 
+#[tauri::command]
+async fn voice_request(app:tauri::AppHandle,window:tauri::WebviewWindow,state:tauri::State<'_,acceptance::Acceptance>,
+    params:contest_voice::NativeRequest)->Result<serde_json::Value,String>{
+    runtime_profile::require_external_io_disabled()?;
+    params.validate_surface(window.label())?;
+    if !matches!(window.label(),"main"|"contest-setup") || runtime_profile::isolated(state.path.is_some()) || APP_EXITING.load(Ordering::Acquire) {
+        return Err("Native voice controls require the live operator desk or contest owner.".into());
+    }
+    if params.is_output() && (!window.is_visible().unwrap_or(false) || !window.is_focused().unwrap_or(false)) {
+        return Err("Focus the visible voice controls before preparing or sending a memory. Stop remains available.".into());
+    }
+    let admission=if params.is_output(){Some(operating_module::owner()?.admit_current()?)}else{None};
+    let voice_generation=contest_voice::native_generation();
+    let voice_surface=window.label().to_owned();
+    tauri::async_runtime::spawn_blocking(move||{let _admission=admission;contest_voice::native_request(&app,params,voice_generation,&voice_surface)})
+        .await.map_err(|_|"Native voice operation failed; use Stop and verify RX before retrying.".to_string())?
+}
+
 #[tauri::command(rename_all="snake_case")]
 async fn tci_transmit_disable(app:tauri::AppHandle,window:tauri::WebviewWindow,state:tauri::State<'_,acceptance::Acceptance>,
     radio_id:String,connection_generation:u64,generation:String,revision:u64,operation_id:String)->Result<serde_json::Value,String>{
@@ -3949,8 +3968,9 @@ fn contest_voice_profile_write(window: tauri::WebviewWindow, state: tauri::State
 #[tauri::command]
 async fn contest_voice_profile_pick(window: tauri::WebviewWindow,
     state: tauri::State<'_, acceptance::Acceptance>) -> Result<Option<String>, String> {
-    validate_contest_voice_profile_caller(window.label(), runtime_profile::isolated(state.path.is_some()),
-        APP_EXITING.load(Ordering::Acquire))?;
+    if !matches!(window.label(),"main"|"contest-setup") || runtime_profile::isolated(state.path.is_some()) || APP_EXITING.load(Ordering::Acquire) {
+        return Err("Voice library selection belongs to the live operator desk or contest setup.".into());
+    }
     pick_contest_voice_profile_native(window).await
 }
 
@@ -3965,7 +3985,7 @@ async fn pick_contest_voice_profile_native(window: tauri::WebviewWindow) -> Resu
             let panel = NSOpenPanel::openPanel(main);
             panel.setCanChooseFiles(false); panel.setCanChooseDirectories(true);
             panel.setAllowsMultipleSelection(false); panel.setCanCreateDirectories(true);
-            panel.setMessage(Some(&NSString::from_str("Choose or create a contest voice WAV profile folder")));
+            panel.setMessage(Some(&NSString::from_str("Choose or create the shared voice WAV library folder")));
             if panel.runModal() == NSModalResponseOK {
                 panel.URL().and_then(|url| url.path()).map(|path| path.to_string())
             } else { None }
@@ -4856,7 +4876,7 @@ fn main() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![hide_prepared_contest_owner, close_learning_window, operating_module_status, operating_module_switch, operating_module_transition_ack, operating_module_transition_pending, worker_request, cw_session_request, tci_transmit_disable, contest_cw_speed_request, station_session_request, band_map_marker_tune, radio_release_request, carrier_tune_request, ptt_session_request, amplifier_transition_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
+        .invoke_handler(tauri::generate_handler![hide_prepared_contest_owner, close_learning_window, operating_module_status, operating_module_switch, operating_module_transition_ack, operating_module_transition_pending, worker_request, cw_session_request, voice_request, tci_transmit_disable, contest_cw_speed_request, station_session_request, band_map_marker_tune, radio_release_request, carrier_tune_request, ptt_session_request, amplifier_transition_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
             spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
             spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity, supersede_spot_rotor, cw_callsign_request, cw_tune_request, cw_contest_callsign_resolve,
             operator_draft_read_radio,

@@ -21,10 +21,12 @@ export function useNormalCommands(active:boolean,onError:(message:string)=>void,
       const action=actionForEvent(event,currentNormalBindings());
       if(!action || action==="save-current-qso"||action==="focus-callsign")return;
       if(current.current.scope==="cw"&&!["cw-compose-preview","cw-compose-send"].includes(action))return;
-      if(["cw-compose-preview","cw-compose-send"].includes(action)) {
+      if(["cw-compose-preview","cw-compose-send","voice-send","voice-stop"].includes(action)) {
         if(document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]'))return;
         event.preventDefault();event.stopPropagation();
-        window.dispatchEvent(new Event(`xlog:${action}`));return;
+        if(action==="voice-stop"&&!document.querySelector(".voice-desk")) {
+          void invoke("voice_request",{params:{action:"stop"}}).catch(cause=>current.current.onError(String(cause)));
+        } else window.dispatchEvent(new Event(`xlog:${action}`));return;
       }
       if(action==="accept-nearby-callsign"){
         if(!document.querySelector('[aria-label="Nearby spotted callsigns"]'))return;

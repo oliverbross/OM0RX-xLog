@@ -1,0 +1,18 @@
+
+> om0rx-xlog-p1-prototype@1.5.9 test:vitest
+> vitest run --maxWorkers=1 src/live/VoiceDesk.test.tsx src/contesting/contestVoiceOutput.test.ts src/contesting/contestVoiceProfile.test.ts
+
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.3 [39m[90m/Users/oliver/Documents/Projects/OM0RX-xLog/prototype[39m
+
+ [32m✓[39m src/live/VoiceDesk.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 380[2mms[22m[39m
+ [32m✓[39m src/contesting/contestVoiceOutput.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 197[2mms[22m[39m
+ [32m✓[39m src/contesting/contestVoiceProfile.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[32m21 passed[39m[22m[90m (21)[39m
+[2m   Start at [22m 22:55:40
+[2m   Duration [22m 1.90s[2m (environment 44%, tests 37%, import 13%, transform 6%)[22m
+
+[2m    Isolate [22m [33m3 workers spawned[39m[2m · ~328ms startup each (spawn + environment, per file)[22m
+[2m            [22m [2mat least ~655ms faster with [22m[33misolate: false[39m[2m — reuses workers across files instead of one per file[22m

@@ -13,7 +13,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
-        Mutex, OnceLock,
+        Arc, Mutex, OnceLock,
     },
     time::{Duration, Instant},
 };
@@ -63,11 +63,15 @@ pub struct ProfilePreview {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PrepareRequest {
     schema_version: u8,
+    #[serde(rename="sessionID",alias="sessionId")]
     session_id: String,
     workspace_generation: String,
+    #[serde(rename="draftID",alias="draftId")]
     draft_id: String,
+    #[serde(rename="actionID",alias="actionId")]
     action_id: String,
     payload: String,
+    #[serde(rename="payloadSHA256",alias="payloadSha256")]
     payload_sha256: String,
     profile_path: String,
     #[serde(default)]
@@ -80,7 +84,7 @@ pub struct PrepareBatchRequest {
     requests: Vec<PrepareRequest>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PreparedSegment {
     name: String,
@@ -93,11 +97,16 @@ pub struct PreparedSegment {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PreparedVoice {
+    #[serde(rename="sessionID")]
     session_id: String,
     workspace_generation: String,
+    #[serde(rename="draftID")]
     draft_id: String,
+    #[serde(rename="actionID")]
     action_id: String,
+    #[serde(rename="payloadSHA256")]
     payload_sha256: String,
+    #[serde(rename="manifestSHA256")]
     manifest_sha256: String,
     segments: Vec<PreparedSegment>,
     total_duration_ms: u64,
@@ -117,11 +126,16 @@ pub struct BoundVoiceTarget {
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct VoiceAdmission {
+    #[serde(rename="sessionID",alias="sessionId")]
     session_id: String,
     workspace_generation: String,
+    #[serde(rename="draftID",alias="draftId")]
     draft_id: String,
+    #[serde(rename="actionID",alias="actionId")]
     action_id: String,
+    #[serde(rename="payloadSHA256",alias="payloadSha256")]
     payload_sha256: String,
+    #[serde(rename="manifestSHA256",alias="manifestSha256")]
     manifest_sha256: String,
     #[serde(default)]
     bound_target: Option<BoundVoiceTarget>,
@@ -153,9 +167,13 @@ impl PTTRequest {
 struct VoiceRuntime {
     shutting_down: bool,
     active_ptt: bool,
+    ptt_owner_id: Option<String>,
+    ptt_release_operation: Option<(String,String)>,
     pending_acquisitions: usize,
     scope: Option<(String, String)>,
     prepared: HashMap<AdmissionKey, VoiceAdmission>,
+    prepared_audio: HashMap<AdmissionKey, Vec<PreparedSegment>>,
+    prepared_generation: u64,
     consumed: HashSet<AdmissionKey>,
 }
 
@@ -174,6 +192,7 @@ fn enter_scope(state: &mut VoiceRuntime, session_id: &str, workspace_generation:
     if state.scope.as_ref() != Some(&scope) {
         state.scope = Some(scope);
         state.prepared.clear();
+        state.prepared_audio.clear();
         state.consumed.clear();
     }
 }
@@ -263,6 +282,16 @@ pub fn prepare_batch(
     active_session: &str,
     active_workspace: &str,
 ) -> Result<Vec<PreparedVoice>, String> {
+    let generation = native::native_generation();
+    prepare_batch_at_generation(request, active_session, active_workspace, generation)
+}
+
+fn prepare_batch_at_generation(
+    request: PrepareBatchRequest,
+    active_session: &str,
+    active_workspace: &str,
+    generation: u64,
+) -> Result<Vec<PreparedVoice>, String> {
     if request.requests.is_empty() || request.requests.len() > 12 {
         return Err("Invalid contest voice action batch.".into());
     }
@@ -292,13 +321,41 @@ pub fn prepare_batch(
     let mut state = runtime()
         .lock()
         .map_err(|_| "Contest voice runtime unavailable")?;
+    publish_prepared_batch(&mut state, &prepared, &budget, active_session, active_workspace,
+        generation, native::native_generation())?;
+    Ok(prepared)
+}
+
+fn publish_prepared_batch(
+    state: &mut VoiceRuntime,
+    prepared: &[PreparedVoice],
+    budget: &BatchBudget,
+    active_session: &str,
+    active_workspace: &str,
+    generation: u64,
+    current_generation: u64,
+) -> Result<(), String> {
+    // Stop advances the epoch before taking this same runtime lock. A delayed
+    // file read must not reinstall the preparations Stop just retired.
+    if generation != current_generation {
+        return Err("Voice preparation was retired by Stop; no audio was admitted.".into());
+    }
+    if state.prepared_generation != generation {
+        state.prepared.clear();
+        state.prepared_audio.clear();
+        state.prepared_generation = generation;
+    }
     if state.shutting_down {
         return Err("Contest voice output is shutting down.".into());
     }
     if state.scope.as_ref() != Some(&(active_session.to_owned(), active_workspace.to_owned())) {
         return Err("The contest voice context changed while audio was being prepared.".into());
     }
-    for value in &prepared {
+    let retained_bytes:usize=state.prepared_audio.values().flatten().map(|s|s.decoded_bytes).sum();
+    if retained_bytes.saturating_add(budget.decoded_bytes)>MAX_BATCH_WAV_BYTES {
+        return Err("The native prepared voice journal exceeds its 32 MiB limit; Stop clears old preparations.".into());
+    }
+    for value in prepared {
         let admission = VoiceAdmission {
             session_id: value.session_id.clone(),
             workspace_generation: value.workspace_generation.clone(),
@@ -312,13 +369,15 @@ pub fn prepare_batch(
         if state.prepared.contains_key(&key) || state.consumed.contains(&key) {
             return Err("The contest voice action was concurrently prepared or consumed; replay denied.".into());
         }
+        state.prepared_audio.insert(key.clone(), value.segments.clone());
         state.prepared.insert(key, admission);
     }
     if state.prepared.len() > 256 {
         state.prepared.clear();
+        state.prepared_audio.clear();
         return Err("Contest voice preparation journal is full; prepare the message again.".into());
     }
-    Ok(prepared)
+    Ok(())
 }
 
 fn validate_bound_target(bound: &BoundVoiceTarget) -> Result<(), String> {
@@ -328,10 +387,19 @@ fn validate_bound_target(bound: &BoundVoiceTarget) -> Result<(), String> {
     bound.target.validate()
 }
 
-fn same_bound_identity(original: &crate::ptt_session::Target, current: &crate::ptt_session::Target) -> Result<(), String> {
-    if original.provider != current.provider || original.selection_id != current.selection_id ||
-        original.selection_generation != current.selection_generation || original.worker_generation != current.worker_generation ||
-        original.connection_generation != current.connection_generation || original.control_revision != current.control_revision || original.radio_id != current.radio_id || original.tci != current.tci {
+fn same_bound_identity(
+    original: &crate::ptt_session::Target,
+    current: &crate::ptt_session::Target,
+) -> Result<(), String> {
+    if original.provider != current.provider
+        || original.selection_id != current.selection_id
+        || original.selection_generation != current.selection_generation
+        || original.worker_generation != current.worker_generation
+        || original.connection_generation != current.connection_generation
+        || original.control_revision != current.control_revision
+        || original.radio_id != current.radio_id
+        || original.tci != current.tci
+    {
         return Err("The captured contest voice radio selection or provider generation changed; no replacement target may be keyed.".into());
     }
     Ok(())
@@ -356,14 +424,37 @@ pub fn capture_target(app: &tauri::AppHandle) -> Result<BoundVoiceTarget, String
     Ok(bound)
 }
 
-pub fn prepare_batch_bound(app: &tauri::AppHandle, request: PrepareBatchRequest, active_session: &str, active_workspace: &str) -> Result<Vec<PreparedVoice>, String> {
-    let bound = request.requests.first().and_then(|item| item.bound_target.clone());
-    if request.requests.iter().any(|item| item.bound_target != bound) {
+pub fn prepare_batch_bound(
+    app: &tauri::AppHandle,
+    request: PrepareBatchRequest,
+    active_session: &str,
+    active_workspace: &str,
+) -> Result<Vec<PreparedVoice>, String> {
+    let generation = native::native_generation();
+    let profile = native::contest_profile(active_session)?;
+    for item in &request.requests {
+        if canonical_profile(&item.profile_path)? != profile {
+            return Err("Voice audio folder differs from the canonical contest library; no audio or PTT was admitted.".into());
+        }
+    }
+    let bound = request
+        .requests
+        .first()
+        .and_then(|item| item.bound_target.clone());
+    if request
+        .requests
+        .iter()
+        .any(|item| item.bound_target != bound)
+    {
         return Err("All voice actions must retain the same captured native target.".into());
     }
-    if let Some(target) = &bound { current_bound_target(app, target)?; }
-    let prepared = prepare_batch(request, active_session, active_workspace)?;
-    if let Some(target) = &bound { current_bound_target(app, target)?; }
+    if let Some(target) = &bound {
+        current_bound_target(app, target)?;
+    }
+    let prepared = prepare_batch_at_generation(request, active_session, active_workspace, generation)?;
+    if let Some(target) = &bound {
+        current_bound_target(app, target)?;
+    }
     Ok(prepared)
 }
 
@@ -659,6 +750,9 @@ fn validate_prepared_admissions(
     state: &mut VoiceRuntime,
     admissions: &[VoiceAdmission],
 ) -> Result<(), String> {
+    if state.prepared_generation != native::native_generation() {
+        return Err("Voice preparation was retired by Stop; no audio was admitted.".into());
+    }
     if admissions.is_empty() || admissions.len() > 12 {
         return Err("Invalid contest voice admission batch.".into());
     }
@@ -678,6 +772,7 @@ fn validate_prepared_admissions(
     for admission in admissions {
         let key = admission_key(admission);
         state.prepared.remove(&key);
+        state.prepared_audio.remove(&key);
         state.consumed.insert(key);
     }
     Ok(())
@@ -727,7 +822,11 @@ fn ptt_release_required(app: &tauri::AppHandle) -> Result<bool, String> {
     Ok(!owner.snapshot()?["release_required"].is_null())
 }
 
-fn apply_ptt(app: &tauri::AppHandle, enabled: bool, bound: Option<&BoundVoiceTarget>) -> Result<String, String> {
+fn apply_ptt(
+    app: &tauri::AppHandle,
+    enabled: bool,
+    bound: Option<&BoundVoiceTarget>,
+) -> Result<String, String> {
     let owner = crate::ptt_session::owner(app)?;
     owner.reconcile(&crate::station_telemetry::owner(app)?.snapshot()?)?;
     let snapshot = owner.snapshot()?;
@@ -740,13 +839,37 @@ fn apply_ptt(app: &tauri::AppHandle, enabled: bool, bound: Option<&BoundVoiceTar
     if !enabled {
         crate::carrier_tune::revoke_output_intent()?;
     }
-    let (target,intent) = if enabled && bound.is_some() {
-        let bound=bound.unwrap();(current_bound_target(app,bound)?,bound.output_intent.clone())
+    let (target, intent) = if !enabled {
+        (
+            owner
+                .retained_target()?
+                .ok_or("No original voice PTT target is retained")?,
+            crate::carrier_tune::output_intent()?,
+        )
+    } else if bound.is_some() {
+        let bound = bound.unwrap();
+        (
+            current_bound_target(app, bound)?,
+            bound.output_intent.clone(),
+        )
     } else {
-        (serde_json::from_value::<crate::ptt_session::Target>(crate::ptt_session::context(app)?["target"].clone())
-            .map_err(|_| "Exact native contest voice PTT target is unavailable")?,crate::carrier_tune::output_intent()?)
+        (
+            serde_json::from_value::<crate::ptt_session::Target>(
+                crate::ptt_session::context(app)?["target"].clone(),
+            )
+            .map_err(|_| "Exact native contest voice PTT target is unavailable")?,
+            crate::carrier_tune::output_intent()?,
+        )
     };
-    let operation_id = uuid::Uuid::new_v4().to_string();
+    let operation_id = if enabled {uuid::Uuid::new_v4().to_string()} else {
+        let retained=snapshot["release_required"]["owner_id"].as_str().ok_or("Original voice PTT owner unavailable")?;
+        let mut state=runtime().lock().map_err(|_|"Voice runtime unavailable")?;
+        release_operation(&mut state,retained)
+    };
+    if enabled {
+        let mut state=runtime().lock().map_err(|_| "Voice runtime unavailable")?;
+        state.ptt_owner_id = Some(operation_id.clone());state.ptt_release_operation=None;
+    }
     owner.apply_admitted(
         &operation_id,
         enabled,
@@ -757,23 +880,57 @@ fn apply_ptt(app: &tauri::AppHandle, enabled: bool, bound: Option<&BoundVoiceTar
     )?;
     Ok(operation_id)
 }
+fn release_operation(state:&mut VoiceRuntime,owner:&str)->String{
+    if let Some((retained,id))=&state.ptt_release_operation {if retained==owner{return id.clone();}}
+    let id=uuid::Uuid::new_v4().to_string();state.ptt_release_operation=Some((owner.to_owned(),id.clone()));id
+}
 
 fn release_locked(app: &tauri::AppHandle) -> Result<(), String> {
     if !ptt_release_required(app)? {
-        runtime()
+        let mut state = runtime()
             .lock()
-            .map_err(|_| "Contest voice runtime unavailable")?
-            .active_ptt = false;
+            .map_err(|_| "Contest voice runtime unavailable")?;
+        state.active_ptt = false;
+        state.ptt_owner_id = None;
         return Ok(());
     }
+    let expected = runtime()
+        .lock()
+        .map_err(|_| "Voice runtime unavailable")?
+        .ptt_owner_id
+        .clone();
+    let current = crate::ptt_session::owner(app)?.snapshot()?;
+    require_voice_release_owner(expected.as_deref(), &current)?;
     let operation_id = apply_ptt(app, false, None)?;
     let result = wait_for_ptt_confirmation(app, &operation_id, false);
-    let still_required = ptt_release_required(app).unwrap_or(true);
-    runtime()
+    let still_required = voice_release_required(app).unwrap_or(true);
+    let mut state = runtime()
         .lock()
-        .map_err(|_| "Contest voice runtime unavailable")?
-        .active_ptt = still_required;
+        .map_err(|_| "Contest voice runtime unavailable")?;
+    state.active_ptt = still_required;
+    if !still_required {
+        state.ptt_owner_id = None;
+    }
     result
+}
+fn require_voice_release_owner(expected: Option<&str>, snapshot: &Value) -> Result<(), String> {
+    if expected.is_none() || snapshot["release_required"]["owner_id"].as_str() != expected {
+        return Err("The retained PTT obligation belongs to another output owner; voice Stop cannot release it.".into());
+    }
+    Ok(())
+}
+fn voice_release_required(app: &tauri::AppHandle) -> Result<bool, String> {
+    let expected = runtime()
+        .lock()
+        .map_err(|_| "Voice runtime unavailable")?
+        .ptt_owner_id
+        .clone();
+    let owner = crate::ptt_session::owner(app)?;
+    owner.reconcile(&crate::station_telemetry::owner(app)?.snapshot()?)?;
+    let snapshot = owner.snapshot()?;
+    Ok(expected
+        .as_ref()
+        .is_some_and(|id| snapshot["release_required"]["owner_id"] == *id))
 }
 
 pub fn acquire_ptt(
@@ -805,10 +962,11 @@ pub fn acquire_ptt(
         enter_scope(&mut state, &context.session_id, &context.workspace_generation);
         validate_prepared_admissions(&mut state, &admissions)?;
     }
+    native::claim_contest(crate::worker::generation(),&context.session_id,&admissions)?;
     let operation_id = match apply_ptt(app, true, bound.as_ref()) {
         Ok(id) => id,
         Err(error) => {
-            let retained = ptt_release_required(app).unwrap_or(true);
+            let retained = voice_release_required(app).unwrap_or(true);
             runtime()
                 .lock()
                 .map_err(|_| "Contest voice runtime unavailable")?
@@ -839,6 +997,7 @@ pub fn release_ptt(app: &tauri::AppHandle) -> Result<Value, String> {
     let _lane = lane()
         .lock()
         .map_err(|_| "Contest voice PTT lane unavailable")?;
+    runtime().lock().map_err(|_|"Voice runtime unavailable")?.ptt_release_operation=None;
     release_locked(app)?;
     Ok(json!({"accepted":true,"confirmed":true}))
 }
@@ -857,6 +1016,7 @@ fn shutdown_barrier(
             .map_err(|_| "Contest voice runtime unavailable")?;
         state.shutting_down = true;
         state.prepared.clear();
+        state.prepared_audio.clear();
         state.active_ptt
     };
     if active {
@@ -867,10 +1027,12 @@ fn shutdown_barrier(
 }
 
 pub fn shutdown(app: &tauri::AppHandle) -> Result<(), String> {
+    native::cancel(false);
     shutdown_barrier(lane(), runtime(), || release_locked(app))
 }
 
 pub fn needs_shutdown_barrier() -> bool {
+    if native::active() { return true; }
     if WINDOW_CLOSE_BARRIER.load(Ordering::Acquire) {
         return true;
     }
@@ -885,7 +1047,7 @@ pub fn begin_window_close_barrier() -> bool {
     !WINDOW_CLOSE_BARRIER.swap(true, Ordering::AcqRel)
 }
 
-fn pcm_wav_duration_ms(bytes: &[u8]) -> Result<u64, String> {
+pub(crate) fn pcm_wav_duration_ms(bytes: &[u8]) -> Result<u64, String> {
     if bytes.len() < 12 || &bytes[..4] != b"RIFF" || &bytes[8..12] != b"WAVE" {
         return Err("Voice profile files must be RIFF/WAVE audio.".into());
     }
@@ -957,6 +1119,10 @@ fn pcm_wav_duration_ms(bytes: &[u8]) -> Result<u64, String> {
     Ok(((data_bytes as u64) * 1_000).div_ceil(u64::from(byte_rate)))
 }
 
+#[path = "native_voice.rs"]
+mod native;
+pub use native::{native_generation, native_request, NativeRequest};
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -966,6 +1132,74 @@ mod tests {
     const WORKSPACE: &str = "20000000-0000-4000-8000-000000000002";
     const DRAFT: &str = "30000000-0000-4000-8000-000000000003";
     const OPERATION: &str = "40000000-0000-4000-8000-000000000004";
+    #[test]
+    fn stop_during_preparation_cannot_republish_old_audio_or_admissions() {
+        let mut state = VoiceRuntime::default();
+        enter_scope(&mut state, SESSION, WORKSPACE);
+        let prepared = vec![PreparedVoice {
+            session_id: SESSION.into(), workspace_generation: WORKSPACE.into(), draft_id: DRAFT.into(),
+            action_id: format!("{OPERATION}:0"), payload_sha256: "0".repeat(64),
+            manifest_sha256: "1".repeat(64),
+            segments: vec![PreparedSegment {name:"f1".into(),wav_base64:"AA==".into(),duration_ms:1,sha256:"2".repeat(64),decoded_bytes:1}],
+            total_duration_ms:1,total_decoded_bytes:1,bound_target:None,
+        }];
+        let budget = BatchBudget {segments:1,decoded_bytes:1,base64_bytes:4,duration_ms:1};
+        let current = native::native_generation();
+        // The read began before Stop advanced the native preparation epoch.
+        assert!(publish_prepared_batch(&mut state,&prepared,&budget,SESSION,WORKSPACE,current-1,current).is_err());
+        assert!(state.prepared.is_empty());
+        assert!(state.prepared_audio.is_empty());
+        assert!(state.consumed.is_empty());
+        // A deliberate new request after Stop can prepare once in the new epoch.
+        publish_prepared_batch(&mut state,&prepared,&budget,SESSION,WORKSPACE,current,current).unwrap();
+        let admissions:Vec<_> = state.prepared.values().cloned().collect();
+        assert_eq!(admissions.len(),1);
+        assert_eq!(state.prepared_audio.len(),1);
+        // Also cover a Stop winning immediately after publication but before
+        // admission: the cached epoch cannot be adopted by the new request.
+        state.prepared_generation = current - 1;
+        assert!(validate_prepared_admissions(&mut state,&admissions).is_err());
+        assert!(state.consumed.is_empty());
+        state.prepared_generation = current;
+        validate_prepared_admissions(&mut state,&admissions).unwrap();
+        assert!(validate_prepared_admissions(&mut state,&admissions).is_err());
+    }
+    #[test]
+    fn priority_stop_and_supervisor_share_one_release_receipt_on_the_original_owner(){
+        let mut state=VoiceRuntime::default();let stop=release_operation(&mut state,OPERATION);
+        assert_eq!(release_operation(&mut state,OPERATION),stop);
+        assert_ne!(release_operation(&mut state,SESSION),stop);
+    }
+    #[test]
+    fn voice_release_requires_its_original_operation_and_never_releases_another_ptt_owner() {
+        let retained = json!({"release_required":{"owner_id":OPERATION}});
+        assert!(require_voice_release_owner(Some(OPERATION), &retained).is_ok());
+        assert!(require_voice_release_owner(Some(SESSION), &retained).is_err());
+        assert!(require_voice_release_owner(None, &retained).is_err());
+    }
+    #[test]
+    fn production_voice_json_uses_the_same_identity_names_as_the_renderer() {
+        let value = json!({"schemaVersion":1,"sessionID":SESSION,"workspaceGeneration":WORKSPACE,"draftID":DRAFT,
+            "actionID":format!("{OPERATION}:0"),"payload":"[f1]","payloadSHA256":"0".repeat(64),"profilePath":"/operator/voice"});
+        let decoded: PrepareRequest = serde_json::from_value(value).unwrap();
+        assert_eq!(decoded.session_id, SESSION);
+        let prepared = PreparedVoice {
+            session_id: SESSION.into(),
+            workspace_generation: WORKSPACE.into(),
+            draft_id: DRAFT.into(),
+            action_id: format!("{OPERATION}:0"),
+            payload_sha256: "0".repeat(64),
+            manifest_sha256: "1".repeat(64),
+            segments: vec![],
+            total_duration_ms: 1,
+            total_decoded_bytes: 1,
+            bound_target: None,
+        };
+        let value = serde_json::to_value(prepared).unwrap();
+        assert_eq!(value["sessionID"], SESSION);
+        assert!(value.get("sessionId").is_none());
+        assert!(value["manifestSHA256"].is_string());
+    }
     fn bound_target() -> BoundVoiceTarget {
         BoundVoiceTarget {schema_version:1,output_intent:OPERATION.into(),target:crate::ptt_session::Target {
             provider:"direct_agent".into(),selection_id:OPERATION.into(),selection_generation:1,worker_generation:2,
@@ -990,7 +1224,7 @@ mod tests {
         let bound=bound_target();
         let admission=VoiceAdmission {session_id:SESSION.into(),workspace_generation:WORKSPACE.into(),draft_id:DRAFT.into(),
             action_id:format!("{OPERATION}:0"),payload_sha256:"0".repeat(64),manifest_sha256:"1".repeat(64),bound_target:Some(bound)};
-        let mut state=VoiceRuntime::default();state.prepared.insert(admission_key(&admission),admission.clone());
+        let mut state=VoiceRuntime::default();state.prepared_generation=native::native_generation();state.prepared.insert(admission_key(&admission),admission.clone());
         let mut replaced=admission.clone();replaced.bound_target.as_mut().unwrap().target.connection_generation+=1;
         assert!(validate_prepared_admissions(&mut state,&[replaced]).is_err());
         assert!(!state.consumed.contains(&admission_key(&admission)));
@@ -1124,6 +1358,7 @@ mod tests {
             bound_target: None,
         };
         let mut state = VoiceRuntime::default();
+        state.prepared_generation = native::native_generation();
         state
             .prepared
             .insert(admission_key(&admission), admission.clone());
@@ -1177,6 +1412,7 @@ mod tests {
     #[test]
     fn consumed_tombstones_survive_more_than_256_actions_until_scope_changes() {
         let mut state = VoiceRuntime::default();
+        state.prepared_generation = native::native_generation();
         enter_scope(&mut state, SESSION, WORKSPACE);
         let mut oldest = None;
         for _ in 0..300 {

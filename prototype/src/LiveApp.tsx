@@ -65,6 +65,7 @@ import { PortableContextBanner, AntennaDraftSelector } from "./live/PortableCont
 import SidebarOwnSpots from "./live/SidebarOwnSpots";
 import { deskEquipmentKind, equipmentProfile, hasConfiguredRotor } from "./live/equipmentPreferences";
 import CWDesk from "./live/CWDesk";
+import VoiceDesk from "./live/VoiceDesk";
 import { useSharedCW } from "./live/useSharedCW";
 import { OperatorWorkspace } from "./live/OperatorWorkspace";
 import { DeskMapLogbook } from "./live/DeskMapLogbook";
@@ -711,8 +712,8 @@ function MainLiveApp() {
   useReferenceSchedule(workspace?.workspace_exists === true, request);
   const cw = useSharedCW(`${view}:${draft?.id}:${draft?.call}:${draft?.frequencyHz}:${draft?.mode}`);
   const cwProfile = cw.profile, cwContext = cw.context;
-  const cwControls = providerAllowsCWDesk(stationProvider, cwProfile.output, cw.state) && (cwProfile.showOnDesk || cwProfile.macros.some((macro: Data) => macro.enabled && macro.shortcut) || cw.state.armed || cw.state.owner || cw.state.lease || cw.state.pending)
-    ? <CWDesk profile={cwProfile} context={cwContext} controller={cw.controller} state={cw.state} radioProvider={cw.provider} /> : undefined;
+  const cwControls = <>{providerAllowsCWDesk(stationProvider, cwProfile.output, cw.state) && (cwProfile.showOnDesk || cwProfile.macros.some((macro: Data) => macro.enabled && macro.shortcut) || cw.state.armed || cw.state.owner || cw.state.lease || cw.state.pending)
+    ? <CWDesk profile={cwProfile} context={cwContext} controller={cw.controller} state={cw.state} radioProvider={cw.provider} /> : null}<VoiceDesk/></>;
   const opportunityActivation = useSpotActivation("activate_opportunity");
   const loadOpportunity = (item: Opportunity) => {
     if (!acceptsInput()) { setError("Wait for the verified spot activation outcome before loading another contact."); return; }

@@ -56,3 +56,18 @@ it("uses the same scoped command policy once for a detached CW intent and never 
  expect(send).toHaveBeenCalledTimes(1);expect(native.invoke.mock.calls.filter(([command])=>command==="normal_command_navigate")).toHaveLength(0);
  window.removeEventListener("xlog:cw-compose-send",send);
 });
+it("dispatches voice once and keeps Stop reachable when its desk is unmounted",async()=>{
+ vi.spyOn(document,"hasFocus").mockReturnValue(true);
+ const send=vi.fn(),stop=vi.fn();window.addEventListener("xlog:voice-send",send);window.addEventListener("xlog:voice-stop",stop);
+ render(<Harness generation={generationA}/>);await act(async()=>{});
+ await act(async()=>reads[0].resolve({generation:generationA,revision:1,preferences:{normalCommandBindings:{version:1,overrides:{"voice-send":"Primary+Shift+J","voice-stop":"Primary+Shift+U"}}}}));
+ const event=(key:string,extra:KeyboardEventInit={})=>new KeyboardEvent("keydown",{key,ctrlKey:!/Mac/.test(navigator.platform),metaKey:/Mac/.test(navigator.platform),shiftKey:true,bubbles:true,cancelable:true,...extra});
+ const first=event("j");act(()=>{window.dispatchEvent(first);window.dispatchEvent(first);window.dispatchEvent(event("j",{repeat:true}));window.dispatchEvent(event("j",{isComposing:true}));});
+ expect(send).toHaveBeenCalledTimes(1);
+ const desk=document.createElement("div");desk.className="voice-desk";document.body.append(desk);
+ act(()=>window.dispatchEvent(event("u")));expect(stop).toHaveBeenCalledTimes(1);expect(native.invoke.mock.calls.filter(([command])=>command==="voice_request")).toHaveLength(0);
+ desk.remove();await act(async()=>window.dispatchEvent(event("u")));
+ expect(stop).toHaveBeenCalledTimes(1);expect(native.invoke.mock.calls.filter(([command])=>command==="voice_request")).toEqual([["voice_request",{params:{action:"stop"}}]]);
+ document.documentElement.dataset.shortcutCapture="true";act(()=>window.dispatchEvent(event("j")));expect(send).toHaveBeenCalledTimes(1);
+ window.removeEventListener("xlog:voice-send",send);window.removeEventListener("xlog:voice-stop",stop);
+});
