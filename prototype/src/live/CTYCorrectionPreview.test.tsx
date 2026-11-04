@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { CTYCorrectionPreview } from "./CTYCorrectionPreview";
 import { LogbookPanel } from "./LogbookPanel";
 import { LogbookMutationSession } from "./logbookMutationSession";
@@ -41,7 +41,11 @@ it("shows inferred before/after values, protected count and identity, paging wit
   fireEvent.click(screen.getByRole("button", { name: "Refresh preview" }));
   await screen.findByText("CURACAO (517)");
   expect(request.mock.calls.every(([method]) => method === "logbook_cty_preview")).toBe(true);
-  expect(screen.queryByRole("button", { name: /apply|correct|fix/i })).toBeNull();
+  const legacyPreview = screen.getByRole("region", { name: "PJ country inference preview" });
+  expect(within(legacyPreview).queryByRole("button", { name: /apply|correct|fix/i })).toBeNull();
+  expect(screen.getByRole("button", { name: "Read saved country correction receipts" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Apply selected country changes" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Recover country correction" })).toBeNull();
 });
 
 it("clears stale results, reports errors and supports an empty retry", async () => {

@@ -125,7 +125,8 @@ struct CountryIntegrationTests {
             #expect(profile["country_reference_revision"] as? String == facts["referenceRevision"] as? String)
             #expect(profile["dxcc"] as? Int == expectedADIF)
             if call == "LN8W" {
-                #expect(facts["matchedReferenceRevision"] as? String == (try CTYResolver.bundledCountryPack()).snapshotIdentity)
+                let expectedReference = try CTYResolver.bundledCountryPack().snapshotIdentity
+                #expect(facts["matchedReferenceRevision"] as? String == expectedReference)
             }
             #expect(spot["locationPrecision"] as? String == "entityApproximation")
         }
@@ -507,14 +508,16 @@ struct CountryIntegrationTests {
         let inspected = try await references.handle(method: "reference_country_status", params: [:])
         #expect(inspected["reference_revision"] as? String == originalResolver.snapshotIdentity)
         #expect(inspected["primary_reference_revision"] as? String == originalResolver.primaryReferenceRevision)
-        #expect(inspected["fallback_reference_revision"] as? String == (try CTYResolver.bundledCountryPack()).snapshotIdentity)
+        let expectedFallbackReference = try CTYResolver.bundledCountryPack().snapshotIdentity
+        #expect(inspected["fallback_reference_revision"] as? String == expectedFallbackReference)
         #expect(inspected["policy"] as? String == "xlog-country-facts-v2")
         let file = root.appendingPathComponent("reviewed-country-pack.json")
         let bundled = try CTYResolver.bundledCountryPackBytes(); try bundled.write(to: file)
         let activated = try await references.handle(method: "reference_country_import", params: ["path": file.path])
         #expect(activated["country_reference_changed"] as? Bool == true)
         #expect(activated["rollback_available"] as? Bool == true)
-        #expect(activated["reference_revision"] as? String == (try service.currentCTYResolver()).snapshotIdentity)
+        let activatedReference = try service.currentCTYResolver().snapshotIdentity
+        #expect(activated["reference_revision"] as? String == activatedReference)
         #expect(activated["fallback_reference_revision"] is NSNull)
         #expect(try service.currentCTYResolver().facts("OM0RX", at: date).country?.adif == 504)
         // A later (currently inactive) XML download is also retained, not lost.
