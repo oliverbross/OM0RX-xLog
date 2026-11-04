@@ -17,6 +17,19 @@ function fixture(){
   });return{request,calls,advance:()=>{revision++;},complete:()=>complete?.()};
 }
 describe("normal voice controls retain native admission",()=>{
+  it.each(["record_start","import"])("binds %s to the displayed library revision and workspace",async action=>{
+    const f=fixture(),request=vi.fn(async(params:Record<string,unknown>)=>params.action===action?{}:f.request(params));
+    render(<VoiceDesk request={request}/>);await screen.findByText(/0.20 s/);
+    fireEvent.click(screen.getByText("Voice memories · normal SSB"));fireEvent.click(screen.getByText("Library, recording and audio routes"));
+    if(action==="record_start")fireEvent.click(screen.getByRole("button",{name:"Record microphone"}));
+    else{
+      const file=new File([new Uint8Array([1,2])],"memory.wav",{type:"audio/wav"});
+      Object.defineProperty(file,"arrayBuffer",{value:async()=>new Uint8Array([1,2]).buffer});
+      fireEvent.change(screen.getByLabelText("Import PCM WAV"),{target:{files:[file]}});
+    }
+    await waitFor(()=>expect(request.mock.calls.some(([params])=>params.action===action)).toBe(true));
+    expect(request.mock.calls.find(([params])=>params.action===action)?.[0]).toMatchObject({slot:1,overwrite:false,expectedRevision:4,generation:"10000000-0000-4000-8000-000000000001"});
+  });
   it("retains the desk and disables preparation when native state is unavailable",async()=>{
     const request=vi.fn(async()=>({}));render(<VoiceDesk request={request}/>);
     await screen.findByText(/Native voice state is unavailable/);fireEvent.click(screen.getByText("Voice memories · normal SSB"));
@@ -48,6 +61,7 @@ describe("normal voice controls retain native admission",()=>{
     const send=screen.getByRole("button",{name:"Send memory"});fireEvent.click(send);fireEvent.click(send);
     await waitFor(()=>expect(f.calls.filter(c=>c.action==="send")).toHaveLength(1));
     expect(f.calls.filter(c=>c.action==="prepare")).toHaveLength(1);
+    expect(f.calls.find(c=>c.action==="prepare")).toMatchObject({slot:1,expectedRevision:4,generation:"10000000-0000-4000-8000-000000000001"});
     expect(f.calls.find(c=>c.action==="send")).toEqual({action:"send",actionID:"native-issued-action"});
     fireEvent.click(screen.getByRole("button",{name:"Stop voice"}));await waitFor(()=>expect(f.calls.some(c=>c.action==="stop")).toBe(true));f.complete();
     expect(f.calls.some(c=>"profilePath" in c&&c.action==="send")).toBe(false);
@@ -57,6 +71,6 @@ describe("normal voice controls retain native admission",()=>{
     window.dispatchEvent(new Event("xlog:voice-send"));expect(f.calls.some(c=>c.action==="prepare")).toBe(false);
     fireEvent.click(screen.getByRole("button",{name:"Preview on monitor"}));await screen.findByText("Monitor preview completed without PTT.");
     expect(f.calls.some(c=>c.action==="prepare"||c.action==="send")).toBe(false);
-    expect(f.calls.filter(c=>c.action==="preview")).toEqual([{action:"preview",slot:1}]);
+    expect(f.calls.filter(c=>c.action==="preview")).toEqual([{action:"preview",slot:1,expectedRevision:4,generation:"10000000-0000-4000-8000-000000000001"}]);
   });
 });

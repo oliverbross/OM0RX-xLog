@@ -50,6 +50,8 @@ pub enum NativeRequest {
     },
     Prepare {
         slot: usize,
+        expected_revision: u64,
+        generation: String,
         #[serde(rename = "intentID")]
         intent_id: String,
     },
@@ -59,14 +61,20 @@ pub enum NativeRequest {
     },
     Preview {
         slot: usize,
+        expected_revision: u64,
+        generation: String,
     },
     Import {
         slot: usize,
+        expected_revision: u64,
+        generation: String,
         wav_base64: String,
         overwrite: bool,
     },
     RecordStart {
         slot: usize,
+        expected_revision: u64,
+        generation: String,
         overwrite: bool,
     },
     RecordStop,
@@ -104,6 +112,16 @@ struct Canonical {
     draft_revision: u64,
     settings_revision: u64,
     profile: Profile,
+}
+fn reviewed_preparation(
+    canonical: &Canonical,
+    revision: u64,
+    generation: &str,
+) -> Result<(), String> {
+    if canonical.settings_revision != revision || canonical.generation != generation {
+        return Err("Voice settings or workspace changed. Reload and review the voice desk before preparing audio.".into());
+    }
+    Ok(())
 }
 struct Prepared {
     canonical: Canonical,
@@ -156,6 +174,44 @@ struct NativeState {
     consumed: HashSet<String>,
     job: Option<Job>,
     last: Value,
+}
+impl NativeState {
+    fn publish_preparation(
+        &mut self,
+        scope: &str,
+        intent: &str,
+        id: String,
+        index: usize,
+        prepared: Prepared,
+    ) -> Result<Value, String> {
+        if self.scope != scope {
+            return Err(
+                "Voice workspace changed during preparation; no action was published.".into(),
+            );
+        }
+        // PCM preparation runs outside this lock. A concurrent request may
+        // already have admitted the same intent while those bytes were decoded.
+        if let Some(action) = self.intents.get(intent) {
+            return Ok(json!({"actionID":action,"duplicate":true}));
+        }
+        self.prepared
+            .retain(|_, p| p.created.elapsed() < Duration::from_secs(30));
+        let retained_samples: usize = self.prepared.values().map(|p| p.pcm.samples.len()).sum();
+        if self.prepared.len() >= 16
+            || self.intents.len() >= 4096
+            || retained_samples.saturating_add(prepared.pcm.samples.len()) > 32 * 1024 * 1024
+        {
+            return Err("Voice preparation/action journal is full; Stop clears prepared audio, and a deliberate workspace restart clears consumed intents.".into());
+        }
+        if self.job.is_some() {
+            return Err("Voice audio is already active.".into());
+        }
+        let result = json!({"actionID":id,"durationMs":prepared.pcm.duration_ms(),"peak":prepared.pcm.peak,
+            "clippedSamples":prepared.pcm.clipped,"slot":index,"audioIdentity":prepared.identity});
+        self.intents.insert(intent.into(), id.clone());
+        self.prepared.insert(id, prepared);
+        Ok(result)
+    }
 }
 static NATIVE: OnceLock<Mutex<NativeState>> = OnceLock::new();
 fn state() -> &'static Mutex<NativeState> {
@@ -213,6 +269,20 @@ fn settings() -> Result<(u64, Value, Profile), String> {
     };
     profile.validate()?;
     Ok((worker, saved, profile))
+}
+fn require_reviewed_settings(saved: &Value, revision: u64, generation: &str) -> Result<(), String> {
+    if saved["revision"] != revision || saved["generation"] != generation {
+        return Err("Voice settings or workspace changed. Reload and review the voice desk before using audio or changing a WAV slot.".into());
+    }
+    Ok(())
+}
+fn reviewed_media_settings(
+    revision: u64,
+    generation: &str,
+) -> Result<(u64, Value, Profile), String> {
+    let value = settings()?;
+    require_reviewed_settings(&value.1, revision, generation)?;
+    Ok(value)
 }
 pub(super) fn contest_profile(session: &str) -> Result<PathBuf, String> {
     let setup = call(
@@ -591,25 +661,28 @@ pub fn native_request(
         NativeRequest::Prepare {
             slot: index,
             intent_id,
+            expected_revision,
+            generation: workspace_generation,
         } => {
             if uuid::Uuid::parse_str(&intent_id).is_err() {
                 return Err("Invalid voice intent identity.".into());
             }
             let canonical = canonical()?;
+            reviewed_preparation(&canonical, expected_revision, &workspace_generation)?;
             focused(app, surface)?;
+            let scope = format!(
+                "{}/{}/{}",
+                canonical.worker, canonical.generation, canonical.module["context"]
+            );
             {
                 let mut s = state()
                     .lock()
                     .map_err(|_| "Native voice state unavailable")?;
-                let scope = format!(
-                    "{}/{}/{}",
-                    canonical.worker, canonical.generation, canonical.module["context"]
-                );
                 if s.scope != scope {
                     if s.job.is_some() {
                         return Err("The previous voice owner is still stopping.".into());
                     }
-                    s.scope = scope;
+                    s.scope = scope.clone();
                     s.prepared.clear();
                     s.intents.clear();
                     s.consumed.clear();
@@ -629,26 +702,15 @@ pub fn native_request(
             let target = capture_target(app)?;
             let identity = audio_identity(&pcm, &canonical.profile, index);
             let id = uuid::Uuid::new_v4().to_string();
-            let result = json!({"actionID":id,"durationMs":pcm.duration_ms(),"peak":pcm.peak,"clippedSamples":pcm.clipped,"slot":index,"audioIdentity":identity});
             let mut s = state()
                 .lock()
                 .map_err(|_| "Native voice state unavailable")?;
             require_generation(generation)?;
-            s.prepared
-                .retain(|_, p| p.created.elapsed() < Duration::from_secs(30));
-            let retained_samples: usize = s.prepared.values().map(|p| p.pcm.samples.len()).sum();
-            if s.prepared.len() >= 16
-                || s.intents.len() >= 4096
-                || retained_samples.saturating_add(pcm.samples.len()) > 32 * 1024 * 1024
-            {
-                return Err("Voice preparation/action journal is full; Stop clears prepared audio, and a deliberate workspace restart clears consumed intents.".into());
-            }
-            if s.job.is_some() {
-                return Err("Voice audio is already active.".into());
-            }
-            s.intents.insert(intent_id.clone(), id.clone());
-            s.prepared.insert(
+            s.publish_preparation(
+                &scope,
+                &intent_id,
                 id,
+                index,
                 Prepared {
                     canonical,
                     target,
@@ -656,8 +718,7 @@ pub fn native_request(
                     created: Instant::now(),
                     identity,
                 },
-            );
-            Ok(result)
+            )
         }
         NativeRequest::Send { action_id } => {
             let prepared = {
@@ -705,8 +766,13 @@ pub fn native_request(
             result?;
             snapshot()
         }
-        NativeRequest::Preview { slot: index } => {
-            let (worker, saved, profile) = settings()?;
+        NativeRequest::Preview {
+            slot: index,
+            expected_revision,
+            generation: workspace_generation,
+        } => {
+            let (worker, saved, profile) =
+                reviewed_media_settings(expected_revision, &workspace_generation)?;
             let route = profile
                 .routes
                 .monitor
@@ -732,10 +798,13 @@ pub fn native_request(
         }
         NativeRequest::Import {
             slot: index,
+            expected_revision,
+            generation: workspace_generation,
             wav_base64,
             overwrite,
         } => {
-            let (_, _, profile) = settings()?;
+            let (_, _, profile) =
+                reviewed_media_settings(expected_revision, &workspace_generation)?;
             if active() {
                 return Err("Stop active voice audio before changing a library slot.".into());
             }
@@ -749,9 +818,12 @@ pub fn native_request(
         }
         NativeRequest::RecordStart {
             slot: index,
+            expected_revision,
+            generation: workspace_generation,
             overwrite,
         } => {
-            let (_, _, profile) = settings()?;
+            let (_, _, profile) =
+                reviewed_media_settings(expected_revision, &workspace_generation)?;
             let name = slot(index)?;
             let folder = canonical_profile(&profile.profile_path)?;
             if folder.join(format!("{name}.wav")).exists() && !overwrite {
@@ -868,7 +940,9 @@ fn contest_play(
     let segments = {
         let s = runtime().lock().map_err(|_| "Voice runtime unavailable")?;
         if s.prepared_generation != generation {
-            return Err("Contest voice preparation was retired by Stop; no audio was admitted.".into());
+            return Err(
+                "Contest voice preparation was retired by Stop; no audio was admitted.".into(),
+            );
         }
         let mut prepared = Vec::new();
         for admission in &admissions {
@@ -1017,6 +1091,153 @@ fn validate_claimed_voice_actions(
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn prepared_fixture() -> Prepared {
+        let profile = Profile::default();
+        let pcm = PCM {
+            samples: vec![0.25],
+            rate: 48_000,
+            peak: 0.25,
+            clipped: 0,
+            source_sha256: "source".into(),
+            edited_pcm_sha256: "edited".into(),
+        };
+        let identity = audio_identity(&pcm, &profile, 1);
+        let id = "11111111-1111-4111-8111-111111111111";
+        Prepared {
+            canonical: Canonical {
+                worker: 1,
+                module: json!({"context":id}),
+                generation: id.into(),
+                draft_id: id.into(),
+                draft_revision: 1,
+                settings_revision: 1,
+                profile,
+            },
+            target: BoundVoiceTarget {
+                schema_version: 1,
+                output_intent: id.into(),
+                target: crate::ptt_session::Target {
+                    provider: "direct_agent".into(),
+                    selection_id: id.into(),
+                    selection_generation: 1,
+                    worker_generation: 1,
+                    connection_generation: 1,
+                    control_revision: 1,
+                    observation_revision: 1,
+                    received_at_ms: 1,
+                    radio_id: None,
+                    tci: None,
+                },
+            },
+            pcm,
+            created: Instant::now(),
+            identity,
+        }
+    }
+    #[test]
+    fn concurrent_preparation_of_one_intent_publishes_only_one_sendable_action() {
+        let state = Mutex::new(NativeState {
+            scope: "original".into(),
+            ..NativeState::default()
+        });
+        let decoded = std::sync::Barrier::new(2);
+        let replies = std::thread::scope(|scope| {
+            let prepare = || {
+                assert!(!state.lock().unwrap().intents.contains_key("one-intent"));
+                let prepared = prepared_fixture();
+                decoded.wait();
+                state
+                    .lock()
+                    .unwrap()
+                    .publish_preparation(
+                        "original",
+                        "one-intent",
+                        uuid::Uuid::new_v4().to_string(),
+                        1,
+                        prepared,
+                    )
+                    .unwrap()
+            };
+            let first = scope.spawn(prepare);
+            let second = scope.spawn(prepare);
+            (first.join().unwrap(), second.join().unwrap())
+        });
+        assert_eq!(replies.0["actionID"], replies.1["actionID"]);
+        assert_ne!(
+            replies.0["duplicate"] == true,
+            replies.1["duplicate"] == true
+        );
+        let state = state.lock().unwrap();
+        assert_eq!(state.prepared.len(), 1);
+        assert_eq!(state.intents.len(), 1);
+    }
+    #[test]
+    fn decoded_preparation_cannot_publish_after_the_native_scope_changes() {
+        let mut state = NativeState {
+            scope: "replacement".into(),
+            ..NativeState::default()
+        };
+        assert!(state
+            .publish_preparation(
+                "retired",
+                "intent",
+                uuid::Uuid::new_v4().to_string(),
+                1,
+                prepared_fixture()
+            )
+            .is_err());
+        assert!(state.prepared.is_empty() && state.intents.is_empty());
+        assert!(state
+            .publish_preparation(
+                "replacement",
+                "intent",
+                uuid::Uuid::new_v4().to_string(),
+                1,
+                prepared_fixture()
+            )
+            .is_ok());
+    }
+    #[test]
+    fn normal_preparation_requires_the_settings_and_workspace_actually_reviewed_by_the_desk() {
+        let canonical = prepared_fixture().canonical;
+        assert!(reviewed_preparation(&canonical, 1, &canonical.generation).is_ok());
+        assert!(reviewed_preparation(&canonical, 2, &canonical.generation).is_err());
+        assert!(
+            reviewed_preparation(&canonical, 1, "22222222-2222-4222-8222-222222222222").is_err()
+        );
+        assert!(serde_json::from_value::<NativeRequest>(
+            json!({"action":"prepare","slot":1,"intentID":uuid::Uuid::new_v4().to_string()})
+        )
+        .is_err());
+        assert!(serde_json::from_value::<NativeRequest>(
+            json!({"action":"prepare","slot":1,"intentID":uuid::Uuid::new_v4().to_string(),
+            "expectedRevision":1,"generation":canonical.generation})
+        )
+        .is_ok());
+    }
+    #[test]
+    fn monitor_recording_and_import_require_the_reviewed_library_and_route_scope() {
+        let generation = "11111111-1111-4111-8111-111111111111";
+        let saved = json!({"revision":4,"generation":generation});
+        assert!(require_reviewed_settings(&saved, 4, generation).is_ok());
+        assert!(require_reviewed_settings(&saved, 3, generation).is_err());
+        assert!(require_reviewed_settings(&saved, 4, "other-workspace").is_err());
+        for action in ["preview", "record_start", "import"] {
+            let mut request = json!({"action":action,"slot":1});
+            if action != "preview" {
+                request["overwrite"] = json!(false);
+            }
+            if action == "import" {
+                request["wavBase64"] = json!("bounded input validated after scope admission");
+            }
+            assert!(serde_json::from_value::<NativeRequest>(request.clone()).is_err());
+            request["expectedRevision"] = json!(4);
+            request["generation"] = json!(generation);
+            assert!(serde_json::from_value::<NativeRequest>(request.clone()).is_ok());
+            request["profilePath"] = json!("/unreviewed");
+            assert!(serde_json::from_value::<NativeRequest>(request).is_err());
+        }
+    }
     fn split_radio(provider: &str, receive_mode: &str, transmit_mode: &str) -> Value {
         json!({"provider":provider,"available":true,"snapshot":{"source":provider,"radio":{
             "connected":true,"observed":true,"mode":receive_mode,"receive_vfo":"A","transmit_vfo":"B",
@@ -1077,7 +1298,7 @@ mod tests {
         )
         .is_err());
         assert!(serde_json::from_value::<NativeRequest>(
-            json!({"action":"prepare","slot":1,"intentID":uuid::Uuid::new_v4()})
+            json!({"action":"prepare","slot":1,"intentID":uuid::Uuid::new_v4(),"expectedRevision":1,"generation":uuid::Uuid::new_v4()})
         )
         .is_ok());
         assert!(phone(&json!("USB")));

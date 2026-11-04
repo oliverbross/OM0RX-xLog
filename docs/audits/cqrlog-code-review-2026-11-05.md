@@ -81,3 +81,32 @@ methods (`/tmp/xlog-cqrlog-review-country-index-integration.log`). This is a
 controlled source-level lookup comparison, not a new signed-package, 100k UI,
 disk-cold or RF latency measurement. The expensive oracle is disabled in ordinary
 test runs unless explicitly requested by environment.
+
+## Native voice intent and reviewed settings admission
+
+Normal voice preparation checked its intent journal only before decoding PCM.
+Two concurrent requests could both observe a missing intent, then publish two
+different sendable action IDs. Preparation also lacked a second scope check
+when publishing decoded audio. Publication now rechecks the captured native
+scope and intent under the same state lock; duplicate requests return the one
+original action and cannot mint another token. Existing Stop-generation,
+capacity, expiry, consumed-action and immutable PCM guards remain intact.
+
+Normal Prepare, monitor Preview, Record-start and Import also accepted only a
+slot, using whatever settings happened to be current natively. A desk displaying
+another revision/workspace could consequently select a different route or WAV
+library from the one the operator saw. These requests now require the displayed
+settings revision and workspace generation before audio preparation or library
+access. The renderer captures that scope before asynchronous file decoding.
+Save already had its own revision/generation guard. Stop/record-finish retain
+their independent cancellation paths and require no settings revision.
+
+Validation: nine native voice tests pass, including a barrier-controlled
+concurrent duplicate, retired-scope publication, stale reviewed settings and
+all four strict request schemas. Seven VoiceDesk tests pass, including exact
+binding for send, preview, recording and import; TypeScript exits zero. Logs:
+`/tmp/xlog-cqrlog-review-voice-prepare.log`,
+`/tmp/xlog-cqrlog-review-voice-ui-prepare.log`,
+`/tmp/xlog-cqrlog-review-voice-ui-tsc.log`. Tests use pure fake state; no microphone,
+speaker, radio or PTT was operated. The installed app and retained signed 1.5.13
+bundle have not been changed; these are source fixes for the next candidate.
