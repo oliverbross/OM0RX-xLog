@@ -1,0 +1,30 @@
+Executable=/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.9/.verify.vUmHIYLh/extracted/OM0RX-xLog.app/Contents/MacOS/xlog-prototype
+Identifier=com.oliverbross.xlog.integration
+Format=app bundle with Mach-O thin (arm64)
+CodeDirectory v=20500 size=75020 flags=0x10000(runtime) hashes=2333+7 location=embedded
+VersionPlatform=1
+VersionMin=917504
+VersionSDK=1769984
+Hash type=sha256 size=32
+CandidateCDHash sha256=0eb43e39048691fdb4a37e552079aa768eb71feb
+CandidateCDHashFull sha256=0eb43e39048691fdb4a37e552079aa768eb71feb41c55c97e90959a458c5238f
+Hash choices=sha256
+CMSDigest=0eb43e39048691fdb4a37e552079aa768eb71feb41c55c97e90959a458c5238f
+CMSDigestType=2
+Executable Segment base=0
+Executable Segment limit=28884992
+Executable Segment flags=0x1
+Page size=16384
+CDHash=0eb43e39048691fdb4a37e552079aa768eb71feb
+Signature size=8974
+Authority=Developer ID Application: Oliver Bross (4WCMQ4U946)
+Authority=Developer ID Certification Authority
+Authority=Apple Root CA
+Timestamp=4 Nov 2026 at 20:44:27
+Info.plist entries=16
+TeamIdentifier=4WCMQ4U946
+Runtime Version=27.2.0
+Sealed Resources version=2 rules=13 files=859
+Internal requirements count=1 size=192
+Total signatures=1
+Chosen signature=1

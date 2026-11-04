@@ -1,0 +1,15 @@
+{
+  "command": [
+    "/opt/local/bin/python3.12",
+    "-m",
+    "unittest",
+    "discover",
+    "python/tests"
+  ],
+  "source": "4dede3b603ec04c2a6b24c2ea82eac1220120c7c",
+  "exitCode": 0,
+  "seconds": 59.101808309555054,
+  "rawLog": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/tlf-followup/python.log",
+  "rawLogSHA256": "5292d74bf97f91b973173b14248187ab9828c03e5e00e74d3abebc985b146f69",
+  "state": "passed"
+}

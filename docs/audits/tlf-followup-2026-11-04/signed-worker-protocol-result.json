@@ -1,0 +1,90 @@
+{
+  "schema": 1,
+  "version": "1.5.9",
+  "releaseSource": "dc087a513c68f6fd0458c0cfdad6569fee4d8abf",
+  "root": "/private/tmp/xlog-wave1-tlf-offline-qf0xmzb2",
+  "profileMarker": "f53e8eec-bb17-446b-a2aa-b699c15a42e0",
+  "workerSHA256": "3fb9c2d5ac96c04ead4d937e784117d8aee7b954a50dc223aba4e16102c89f08",
+  "processProofs": [
+    {
+      "pid": 41553,
+      "ppid": 41541,
+      "executable": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+      "command": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker --offline-contest-acceptance=/private/tmp/xlog-wave1-tlf-offline-qf0xmzb2",
+      "EOFExitCode": 0
+    },
+    {
+      "pid": 41566,
+      "ppid": 41541,
+      "executable": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+      "command": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker --offline-contest-acceptance=/private/tmp/xlog-wave1-tlf-offline-qf0xmzb2",
+      "EOFExitCode": 0
+    }
+  ],
+  "GUI": "NOT_RUN; no app/UI binding",
+  "physicalOutput": false,
+  "R02": {
+    "oldFixtureSource": "5016751a03f2adc6eea27def34ed4675e6bdc67a",
+    "beforePoints": [
+      3,
+      0
+    ],
+    "scoreBefore": 0,
+    "scoringCompleteBefore": false,
+    "limitation": "Retained OK/OM credit requires explicit per-contest Recalculate before a complete submission claim; contacts and sent exchanges are preserved",
+    "exportBefore": "blocked",
+    "readHistoryUnchanged": true,
+    "afterPoints": [
+      0,
+      3
+    ],
+    "scoreAfter": 6,
+    "completeAfter": true,
+    "exportAfter": "CLAIMED-SCORE: 6",
+    "workerRestart": true,
+    "originalIdentityAuditPreserved": true
+  },
+  "R09": {
+    "workerForwardsOperationDecision": true,
+    "actions": [
+      {
+        "actionID": "a92d7f58-1e01-4647-9dbf-5784065f855c:0",
+        "cwSequence": {
+          "schema": 1,
+          "segments": [
+            {
+              "kind": "text",
+              "text": "5NN TT1"
+            }
+          ]
+        },
+        "draftID": "61b6ad47-e3b4-4bf4-ac5b-46f060423478",
+        "fields": {
+          "callsign": "OM0RX",
+          "other_1": "001",
+          "other_2": "",
+          "receive": "599",
+          "sent": "599"
+        },
+        "key": "F3",
+        "kind": "function_key",
+        "label": "Run Exch",
+        "sentExchange": "#",
+        "sentSerial": "001",
+        "sessionID": "c7b72982-b133-45c7-9b08-7b40448333b6",
+        "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
+        "stationCall": "OM0RX",
+        "template": "{RST} {SENTNR}",
+        "workspaceGeneration": "2a911ddb-1cf4-45c7-b95b-b7b1c5c3297c"
+      }
+    ],
+    "serialBeforeLog": 1,
+    "qsoCountBeforeLog": 0,
+    "qsoCountAfterOrdinaryLog": 1,
+    "replayedReceipt": true,
+    "boundary": "Host/Swift worker protocol with synthetic native admission; live native owner/pending FIFO is separately covered by actual-Host native regression"
+  },
+  "productionDataWritten": false,
+  "installedApplicationChanged": false,
+  "workersExitedNormally": true
+}

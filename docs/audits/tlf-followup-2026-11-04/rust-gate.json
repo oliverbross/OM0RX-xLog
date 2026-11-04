@@ -1,0 +1,17 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--manifest-path",
+    "prototype/src-tauri/Cargo.toml",
+    "--bin",
+    "xlog-prototype"
+  ],
+  "source": "4dede3b603ec04c2a6b24c2ea82eac1220120c7c",
+  "exitCode": 0,
+  "seconds": 118.02784395217896,
+  "rawLog": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/tlf-followup/rust.log",
+  "rawLogSHA256": "2351845402aef843f90ed57eaf558fd911043e9172f099a9c14ec8791e30892b",
+  "state": "passed"
+}

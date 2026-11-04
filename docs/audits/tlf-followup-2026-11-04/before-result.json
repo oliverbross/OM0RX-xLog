@@ -1,0 +1,52 @@
+{
+  "reviewedSource": "120c31b01445d128e77ff5680b68bb6f3d4f82a5",
+  "hostFileSHA256": "613dcffd879b42acf87fb84f9fba8440f65877207e702212e8b2850ea74ebbfe",
+  "R02": {
+    "fixtureSource": "5016751a03f2adc6eea27def34ed4675e6bdc67a",
+    "points": [
+      3,
+      0
+    ],
+    "total": 0,
+    "scoringComplete": true,
+    "scoringLimitations": [],
+    "export": "CLAIMED-SCORE: 0"
+  },
+  "R09": {
+    "operationDecisionPresent": false,
+    "actions": [
+      {
+        "kind": "function_key",
+        "key": "F3",
+        "label": "Run Exch",
+        "template": "{RST} {SENTNR}",
+        "sessionID": "213aab23-9ce6-498d-83ec-166f761f68fb",
+        "workspaceGeneration": "c4fcd3c2-1d71-4238-b4f9-18ab2ab0f516",
+        "sourceRevision": "7c8b499225a73f7f8f792246881bd7aefc05452f",
+        "draftID": "36b1b0f6-4f39-4041-9a6d-86d9c1037bf5",
+        "fields": {
+          "callsign": "OM0RX",
+          "sent": "599",
+          "receive": "599",
+          "other_1": "001",
+          "other_2": ""
+        },
+        "stationCall": "OM0RX",
+        "sentExchange": "",
+        "sentSerial": "001",
+        "cwSequence": {
+          "schema": 1,
+          "segments": [
+            {
+              "kind": "text",
+              "text": "5NN TT1"
+            }
+          ]
+        },
+        "actionID": "485b67f7-dd4e-420d-9b68-598f9d9c7e32:0"
+      }
+    ],
+    "reservedSerial": 1,
+    "noQSO": true
+  }
+}

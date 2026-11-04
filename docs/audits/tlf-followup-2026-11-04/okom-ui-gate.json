@@ -1,0 +1,19 @@
+{
+  "command": [
+    "npm",
+    "--prefix",
+    "prototype",
+    "run",
+    "test:vitest",
+    "--",
+    "src/contesting/AllContestsPythonDesk.test.tsx",
+    "-t",
+    "okom_dx_cw"
+  ],
+  "source": "4dede3b603ec04c2a6b24c2ea82eac1220120c7c",
+  "exitCode": 0,
+  "seconds": 9.741806030273438,
+  "rawLog": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/tlf-followup/okom-ui.log",
+  "rawLogSHA256": "7281d686f5f430571d73dd663457bd406e097d3259e95cd4dee33950a2bb9efa",
+  "state": "passed"
+}

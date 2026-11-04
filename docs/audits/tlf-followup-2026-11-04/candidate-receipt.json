@@ -1,0 +1,119 @@
+{
+  "schema": 1,
+  "version": "1.5.9",
+  "startingSource": "120c31b01445d128e77ff5680b68bb6f3d4f82a5",
+  "productSource": "4dede3b603ec04c2a6b24c2ea82eac1220120c7c",
+  "releaseSource": "dc087a513c68f6fd0458c0cfdad6569fee4d8abf",
+  "app": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app",
+  "archive": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.9/OM0RX-xLog-1.5.9-macOS-arm64.zip",
+  "archiveSHA256": "d089b249f738f3791c56de1aee27abfdf4434dbab77b26216f1b9a8f13fc680b",
+  "signedAppSHA256": "cc284ee09156c04fd641d330ec0412effcf2eccacb81f117a15bc99657413900",
+  "signedWorkerSHA256": "3fb9c2d5ac96c04ead4d937e784117d8aee7b954a50dc223aba4e16102c89f08",
+  "buildLogSHA256": "658766a371ab1b9cb977c4e9700143c55b02f3b1bfa7390af39f279663a49f01",
+  "signedWorkerGate": {
+    "passed": 9,
+    "failed": 0
+  },
+  "integration": {
+    "python": {
+      "command": [
+        "/opt/local/bin/python3.12",
+        "-m",
+        "unittest",
+        "discover",
+        "python/tests"
+      ],
+      "source": "4dede3b603ec04c2a6b24c2ea82eac1220120c7c",
+      "exitCode": 0,
+      "seconds": 59.101808309555054,
+      "rawLog": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/tlf-followup/python.log",
+      "rawLogSHA256": "5292d74bf97f91b973173b14248187ab9828c03e5e00e74d3abebc985b146f69",
+      "state": "passed"
+    },
+    "rust": {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--manifest-path",
+        "prototype/src-tauri/Cargo.toml",
+        "--bin",
+        "xlog-prototype"
+      ],
+      "source": "4dede3b603ec04c2a6b24c2ea82eac1220120c7c",
+      "exitCode": 0,
+      "seconds": 118.02784395217896,
+      "rawLog": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/tlf-followup/rust.log",
+      "rawLogSHA256": "2351845402aef843f90ed57eaf558fd911043e9172f099a9c14ec8791e30892b",
+      "state": "passed"
+    },
+    "frontend": {
+      "command": [
+        "npm",
+        "--prefix",
+        "prototype",
+        "run",
+        "test:vitest",
+        "--",
+        "src/contesting/Not1MMContestWorkspace.test.tsx"
+      ],
+      "source": "4dede3b603ec04c2a6b24c2ea82eac1220120c7c",
+      "exitCode": 0,
+      "seconds": 58.249178886413574,
+      "rawLog": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/tlf-followup/frontend.log",
+      "rawLogSHA256": "d0aee0c022a1a75b980f7522651ae181421853f14953d24427e85beb14bebe9f",
+      "state": "passed"
+    },
+    "okom-ui": {
+      "command": [
+        "npm",
+        "--prefix",
+        "prototype",
+        "run",
+        "test:vitest",
+        "--",
+        "src/contesting/AllContestsPythonDesk.test.tsx",
+        "-t",
+        "okom_dx_cw"
+      ],
+      "source": "4dede3b603ec04c2a6b24c2ea82eac1220120c7c",
+      "exitCode": 0,
+      "seconds": 9.741806030273438,
+      "rawLog": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/tlf-followup/okom-ui.log",
+      "rawLogSHA256": "7281d686f5f430571d73dd663457bd406e097d3259e95cd4dee33950a2bb9efa",
+      "state": "passed"
+    },
+    "tsc": {
+      "command": [
+        "node",
+        "prototype/node_modules/typescript/bin/tsc",
+        "--noEmit",
+        "-p",
+        "prototype/tsconfig.json"
+      ],
+      "source": "4dede3b603ec04c2a6b24c2ea82eac1220120c7c",
+      "exitCode": 0,
+      "seconds": 40.982327938079834,
+      "rawLog": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/tlf-followup/tsc.log",
+      "rawLogSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "state": "passed"
+    }
+  },
+  "GUI": "NOT_RUN for 1.5.9; software/native boundary and worker checks suffice for the two changed contracts",
+  "R03": "OPEN / contained; no supported MO2T attribution/serial owner",
+  "preservedClosures": [
+    "R01",
+    "R04",
+    "R05",
+    "R06",
+    "R07",
+    "R08"
+  ],
+  "installedVersion": "1.5.6",
+  "installedHostSHA256": "61d9fd33fc3ea89618883db54a40fac531686a33b0256b01a333006f43e52f8f",
+  "installedWorkerSHA256": "f941d518285261c0907ade16eb088f0bd569f057ef64e85518b6651d709f6e7d",
+  "installedApplicationChanged": false,
+  "productionDataWrittenOrCopied": false,
+  "physicalOutput": false,
+  "notarized": false
+}

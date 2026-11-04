@@ -1,0 +1,17 @@
+✔ accepted work drains after EOF through the real retirement path (1733.040375ms)
+✔ Contesting Test EOF leaves production-style spot receipts untouched (41.122667ms)
+✔ marked offline candidate EOF preserves the fake HOME production ledger byte for byte (94.943583ms)
+✔ NDJSON responds with stdin open, preserves correlation and accepts fragments (28.692584ms)
+✔ NDJSON rejects malformed and oversized lines then recovers (19.103708ms)
+✔ P2 core integration methods run through the real bounded worker process (24.434708ms)
+✔ concurrent worker requests have unique correlated replies under a burst (20.10925ms)
+✔ local UI acceptance uses a real isolated workspace and refuses external services (64.81225ms)
+✔ Contesting Test profile composes with isolated local UI acceptance (36.586834ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2139.208667

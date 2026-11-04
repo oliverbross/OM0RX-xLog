@@ -1,0 +1,15 @@
+{
+  "command": [
+    "node",
+    "prototype/node_modules/typescript/bin/tsc",
+    "--noEmit",
+    "-p",
+    "prototype/tsconfig.json"
+  ],
+  "source": "4dede3b603ec04c2a6b24c2ea82eac1220120c7c",
+  "exitCode": 0,
+  "seconds": 40.982327938079834,
+  "rawLog": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/tlf-followup/tsc.log",
+  "rawLogSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "state": "passed"
+}

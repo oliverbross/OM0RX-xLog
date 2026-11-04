@@ -4,6 +4,11 @@ Prepared from tested product source `4dede3b603ec04c2a6b24c2ea82eac1220120c7c` o
 The exact release-preparation commit is supplied to
 `docs/releases/build-1.5.9-macos-arm64.sh`; the recipe checks extracted source,
 version, Developer ID signature and the unchanged first signed-worker gate.
+Signed arm64 build source `dc087a513c68f6fd0458c0cfdad6569fee4d8abf`
+passed the exact-source archive checks and worker gate 9/9. Private bundled-worker
+checks verified retained-log gating/recalculation/restart and suppression-decision
+forwarding. No GUI or physical route was needed for these software contracts.
+See the [candidate evidence](docs/releases/v1.5.9-tlf-follow-up-candidate.md).
 
 - Preserve the fresh early-call suppression decision on the durable Host operation
   even when the default CALL action compiles empty. The matching live native
