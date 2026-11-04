@@ -1,0 +1,12 @@
+[
+  {
+    "fixture": "wae",
+    "exportSHA256": "3e5edceee728c298020809c203303a5a6503ea73b698a87cf15110a0bab90419",
+    "status": "PASS"
+  },
+  {
+    "fixture": "messages",
+    "exportSHA256": "8edc5256b4c2f4eb3b4d6b0e33b94755223034234b5f0e31ea058027a4242efb",
+    "status": "PASS"
+  }
+]

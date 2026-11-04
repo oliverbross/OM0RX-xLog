@@ -1,0 +1,10 @@
+{
+  "NativeBundleBuild.json": "5ee36070e42eb22032dff2ed9974ffee491cf808ed6ad9653714bede124b6e2e",
+  "SHA256SUMS": "45ca3dc41f34b287001ef06d58426a30b82a2cb9cf452dddfb016cfc67b283ef",
+  "build-input.txt": "60d104a193efe66760a7505145991f5b18a16e4fa8d16ada8430322a58febacd",
+  "candidate-receipt.json": "6a954bcce071d7d6e1a7b1e435c2eea9d3d552ede3acea4430774298f51c85b3",
+  "prechange-reopen-result.json": "db88c45c69721814a70c36be8be7057651fcb56ef821dceff4c08ca957e1913d",
+  "signature.txt": "0f8ca974804d83a8d16911c50c42a7e59c58e1c5a5a47487bfe1970aa275fd26",
+  "signed-worker.tap": "f9ce5d2badc2e850e8fcc4f594b97f4b81887ada6bfef529ba289822e42b5413",
+  "ignored-full-build.log": "8bd78d423161dbb1d8097aad1e8a592ce08971d04e9a2442bbe14b7abb8974d4"
+}

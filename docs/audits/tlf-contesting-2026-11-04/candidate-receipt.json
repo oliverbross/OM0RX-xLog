@@ -1,0 +1,238 @@
+{
+  "schema": 1,
+  "version": "1.5.7",
+  "sourceCommit": "4de56b1aeaa1fad93309b0d9a2cc382c04c994da",
+  "productCommit": "1cf9a145a9191be845c159a7ec8cde38169cf0a8",
+  "archive": ".build/releases/1.5.7/OM0RX-xLog-1.5.7-macOS-arm64.zip",
+  "archiveSHA256": "ab2f14cecf30c2056d49ed2a1b1891080a09fabdf58143b8881f6f0a1a96ef35",
+  "signedAppSHA256": "935dbada39cf7d9e56eb71f3df412cb50ee2ff642f5440acb45e6625e0d261bd",
+  "signedWorkerSHA256": "0568824a63bea172c304d43a6d5355537505e04c2cead2c7d5ae1bb38ced8ebf",
+  "notarized": false,
+  "installed": false,
+  "physicalStationIO": false,
+  "offlineRoot": "/private/tmp/xlog-wave1-tlf-offline-0aw3hp45",
+  "offlineWebviewID": "dac3f421-3190-4f20-97c5-2f20ec655add",
+  "loopbackRoot": "/private/tmp/xlog-wave1-tlf-loopback-rc7prh9s",
+  "loopbackWebviewID": "10d71cb6-f177-45da-ade9-1df695455708",
+  "nativeOffline": {
+    "okom": {
+      "sessionID": "35640397-44b6-4cfb-b37d-34283c8aa816",
+      "workspaceGeneration": "fc5ac913-f4d7-4b0d-92cf-c0f6ea399213",
+      "revision": 8,
+      "draft": {
+        "fields": {
+          "callsign": "",
+          "other_1": "PRE",
+          "other_2": "",
+          "receive": "599",
+          "sent": "599"
+        },
+        "frequencyHz": 14025000,
+        "id": "cf829428-0f4d-487d-867a-d716fbe77a46",
+        "prevCall": ""
+      },
+      "contacts": 2,
+      "outputClaims": 0,
+      "serials": []
+    },
+    "wae": {
+      "sessionID": "2dd41260-40dc-4821-a2d6-9da2b4739518",
+      "workspaceGeneration": "fc5ac913-f4d7-4b0d-92cf-c0f6ea399213",
+      "revision": 9,
+      "draft": {
+        "fields": {
+          "callsign": "K9KEEP",
+          "other_1": "002",
+          "other_2": "777",
+          "receive": "599",
+          "sent": "599"
+        },
+        "frequencyHz": 14025000,
+        "id": "1e3d8cb3-32ca-408d-8f16-cad0c6917300",
+        "prevCall": "",
+        "serial": 2
+      },
+      "contacts": 1,
+      "outputClaims": 0,
+      "serials": [
+        [
+          "6303fa4b-f3fb-45a1-908a-c854542e45eb",
+          1,
+          "contest",
+          null
+        ],
+        [
+          "1e3d8cb3-32ca-408d-8f16-cad0c6917300",
+          2,
+          "contest",
+          null
+        ]
+      ],
+      "qtc": {
+        "batches": [
+          {
+            "count": 2,
+            "counterpart": "K1ABC",
+            "direction": "receive",
+            "frequencyHz": 14025000,
+            "id": "tlf-synthetic-receive-1",
+            "items": [
+              {
+                "callsign": "DL1ABC",
+                "repeats": [],
+                "serial": "12",
+                "status": "confirmed",
+                "time": "0800"
+              },
+              {
+                "callsign": "OK1ABC",
+                "repeats": [],
+                "serial": "13",
+                "status": "confirmed",
+                "time": "0801"
+              }
+            ],
+            "mode": "CW",
+            "number": 1,
+            "status": "open",
+            "timestamp": "2026-08-08 09:00:00"
+          }
+        ],
+        "schema": 1
+      },
+      "qtcOperating": {
+        "activities": [
+          {
+            "action": "qtc_create",
+            "atUTC": "2026-11-04T08:13:45.831285+00:00",
+            "basis": "operator declaration; RF unverified",
+            "batchID": "tlf-synthetic-receive-1",
+            "frequencyHz": 14025000,
+            "operationID": "3d5f1e04-8e10-4ca5-922f-f4db5a70a68b"
+          },
+          {
+            "action": "qtc_confirm",
+            "atUTC": "2026-11-04T08:13:45.835762+00:00",
+            "basis": "operator declaration; RF unverified",
+            "batchID": "tlf-synthetic-receive-1",
+            "frequencyHz": 14025000,
+            "operationID": "ef291d65-5859-4552-98ee-c30f39714f9d"
+          },
+          {
+            "action": "qtc_confirm",
+            "atUTC": "2026-11-04T08:20:49.231788+00:00",
+            "basis": "operator declaration; RF unverified",
+            "batchID": "tlf-synthetic-receive-1",
+            "frequencyHz": 14025000,
+            "operationID": "156894c0-ea70-4c97-9a18-3d210a948567"
+          }
+        ],
+        "attempts": [],
+        "completedSeries": {
+          "tlf-synthetic-receive-1": {
+            "completedUTC": "2026-11-04T08:21:05.909100+00:00",
+            "operationID": "169f6973-7e62-4bbc-ab25-6bb4e6e840d8"
+          }
+        },
+        "observations": {
+          "K1ABC": {
+            "note": "Synthetic local rehearsal only",
+            "observedUTC": "2026-11-04T08:13:45.841271+00:00",
+            "status": "later"
+          }
+        },
+        "schema": 1,
+        "workspace": {
+          "counterpart": "K1ABC",
+          "direction": "receive",
+          "number": 1,
+          "pendingEdit": null,
+          "rows": [
+            {
+              "callsign": "W1AW",
+              "serial": "91",
+              "time": "0802"
+            }
+          ],
+          "selectedBatchID": "",
+          "selectedField": "serial",
+          "selectedIndex": 0,
+          "timestamp": "2026-11-04 08:20:18"
+        }
+      }
+    }
+  },
+  "nativeLoopback": {
+    "sessionID": "2f64c6e8-7e9d-49c3-8624-3b7c8be98272",
+    "workspaceGeneration": "9a0c107a-cdc9-44a4-a1c5-9253adc88103",
+    "revision": 4,
+    "draft": {
+      "fields": {
+        "callsign": "OM1ABC",
+        "other_1": "PRE",
+        "other_2": "PRE",
+        "receive": "599",
+        "sent": "599"
+      },
+      "frequencyHz": 14025000,
+      "id": "05514f9f-58e4-4d6b-bc81-ab571dde963c",
+      "prevCall": ""
+    },
+    "contacts": 1,
+    "outputClaims": 0,
+    "serials": [],
+    "send": {
+      "id": "63de2b4f-f48e-443f-96d1-29d0b486d811",
+      "action": "send",
+      "params": {
+        "senderStation": "TLF-B",
+        "action": "send",
+        "message": {
+          "target": "TLF-A",
+          "kind": "pass",
+          "body": "Synthetic local receive-frequency pass; explicit review required",
+          "call": "DL1ABC",
+          "frequencyHz": 14025000,
+          "mode": "CW",
+          "laneID": "laneA",
+          "schema": 2,
+          "version": 1,
+          "sessionID": "2f64c6e8-7e9d-49c3-8624-3b7c8be98272",
+          "workspaceGeneration": "9a0c107a-cdc9-44a4-a1c5-9253adc88103",
+          "frequencyMeaning": "rx",
+          "observedUTC": "2026-11-04T08:25:22.207+00:00",
+          "source": "operator",
+          "supersedesID": null
+        }
+      }
+    },
+    "sendReplyOK": true,
+    "acknowledgedPass": {
+      "acknowledgedUTC": "2026-11-04T08:25:56.216+00:00",
+      "body": "Synthetic local receive-frequency pass; explicit review required",
+      "call": "DL1ABC",
+      "createdUTC": "2026-11-04T08:25:22.209+00:00",
+      "frequencyHz": 14025000,
+      "frequencyMeaning": "rx",
+      "id": "63de2b4f-f48e-443f-96d1-29d0b486d811",
+      "kind": "pass",
+      "laneID": "laneA",
+      "mode": "CW",
+      "observedUTC": "2026-11-04T08:25:22.207+00:00",
+      "schema": 2,
+      "sender": "TLF-B",
+      "sessionID": "2f64c6e8-7e9d-49c3-8624-3b7c8be98272",
+      "source": "operator",
+      "superseded": false,
+      "supersedesID": null,
+      "target": "TLF-A",
+      "version": 1,
+      "workspaceGeneration": "9a0c107a-cdc9-44a4-a1c5-9253adc88103"
+    },
+    "nativeParkLoad": "BLOCKED: offline CW service error; original draft retained",
+    "nativeTune": "NOT_RUN: station I/O disabled; no positive radio binding"
+  },
+  "candidateProcessesRetiredByOrdinaryQuit": true,
+  "productionAppPID": 77885,
+  "productionWorkerPID": 77958
+}

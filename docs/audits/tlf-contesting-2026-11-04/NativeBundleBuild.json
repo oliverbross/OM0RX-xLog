@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "sourceCommit": "4de56b1aeaa1fad93309b0d9a2cc382c04c994da",
+  "version": "1.5.7",
+  "target": "aarch64-apple-darwin",
+  "customProtocol": true,
+  "executableSHA256": "b9412b3b6ae5aaa0a1750c59873fb0d7edbff948b1e4284d410857c8a13bd573",
+  "inputs": {
+    "MacOS/xlog-prototype": "b9412b3b6ae5aaa0a1750c59873fb0d7edbff948b1e4284d410857c8a13bd573",
+    "MacOS/xlog-prototype-worker": "ba98e816e1adc37f0f82cd80442f2e830c713cfdc0b0120405fae358e9c0e25c",
+    "MacOS/rigctld": "d30cdf3b646bd2a4514bad15147052b6c34de5dd2fbf014ff3b906cd552cdf28",
+    "MacOS/rotctld": "f3ff4e829a2b70025f59efa18f07fa33cf52a225463b89d1c436ecca819372c1",
+    "Resources/icon.icns": "1bc19e108a37b14fc7ccae50b3a636c1a6b7de1bfea7b2e4baee84f9cb471bc9"
+  }
+}

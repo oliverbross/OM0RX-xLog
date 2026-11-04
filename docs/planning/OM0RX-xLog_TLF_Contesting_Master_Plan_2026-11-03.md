@@ -8,7 +8,9 @@
 
 **Planning baseline:** xLog main at f15dbb11eb727419689869f8f4907ed9b4809970, rechecked during preparation; TLF master at b44403bfb2c5d54a2be13ba7aa901c839ea6622d. These are evidence snapshots, not instructions to reset or check out old code.
 
-**Initial delivery status:** Planned. No application implementation or new hardware qualification is claimed by this document.
+**Initial delivery status:** Planned at preparation; superseded by the execution evidence below.
+
+**Delivery checkpoint — 4 November 2026:** All three selected phases have committed software implementations on canonical `main`. Signed macOS arm64 candidate **1.5.7** is built from `4de56b1aeaa1fad93309b0d9a2cc382c04c994da` (product source `1cf9a145a9191be845c159a7ec8cde38169cf0a8`). Software tests and bounded disposable native checks are recorded in section 14. Full native pass park/load/tune, physical adapter/route qualification and installation are not claimed. Flex advanced CW remains unimplemented; the real advanced production adapter is WinKeyer. WPX 2027 has no verified profile because official publication was unavailable. No simulator was added. The installed 1.5.6 app and production data were not changed by this work.
 
 ## 1. Approved scope and sequencing
 
@@ -132,37 +134,37 @@ Status vocabulary: NOT_STARTED, IN_PROGRESS, IMPLEMENTED, VERIFIED_SOFTWARE, VER
 
 Each task update records commit, relevant acceptance IDs, actual command/result or native evidence, and remaining limitations. Preserve failed checks and their resolution. Do not add test counts from overlapping suites.
 
-| Task | Work package | Depends on | Initial status |
+| Task | Work package | Depends on | Current status |
 | --- | --- | --- | --- |
 | F-01 | Reconcile current HEAD, instructions and existing work | None | DONE |
 | F-02 | Freeze capability and owner contracts | F-01 | VERIFIED_SOFTWARE |
 | F-03 | Preserve representative old-session fixtures and migration contracts | F-01 | VERIFIED_SOFTWARE |
-| P1-01 | Qualify the initial CW adapter and operation model | F-02 | NOT_STARTED |
-| P1-02 | Shared typed CW sequence compiler and accurate preview | P1-01 | NOT_STARTED |
-| P1-03 | Native sequence execution, speed restoration and Stop | P1-01, P1-02 | NOT_STARTED |
-| P1-04 | Message editing/import and normal workflow integration | P1-02, P1-03 | NOT_STARTED |
-| P1-05 | Early-start callsign state and plugin ESM integration | P1-01, P1-02 | NOT_STARTED |
-| P1-06 | Real adapter append/cancel and recovery | P1-03, P1-05 | NOT_STARTED |
-| P1-07 | Partial corrected-call policy and conservative fallback | P1-02, P1-05 | NOT_STARTED |
-| P1-08 | OK/OM organiser-rule and reference audit | F-01 | NOT_STARTED |
-| P1-09 | OK/OM definition and independent scoring fixtures | P1-08, F-03 | NOT_STARTED |
-| P1-10 | OK/OM operator setup and export integration | P1-09 | NOT_STARTED |
-| P1-11 | Phase 1 integration, capability presentation and documentation | P1-04, P1-06, P1-07, P1-10 | NOT_STARTED |
-| P2-01 | QTC durable operating/output context | F-03; Phase 1 message contract | NOT_STARTED |
-| P2-02 | Keyboard QTC send/receive desk | P2-01 | NOT_STARTED |
-| P2-03 | Real QTC output dispatcher and mode routing | P2-01, P2-02; shared F-02/P1-02 contract and a qualified existing whole-message path or P1-03 | NOT_STARTED |
-| P2-04 | QTC opportunities in shared band maps | P2-01 | NOT_STARTED |
-| P2-05 | QTC recorder bookmarks and review links | P2-01 | NOT_STARTED |
-| P2-06 | Phase 2 migration, export and operating rehearsal | P2-02, P2-03, P2-04, P2-05 | NOT_STARTED |
-| P3-01 | Versioned complete pass payload and legacy reading | F-03 | NOT_STARTED |
-| P3-02 | Explicit recipient load/tune/acknowledgment actions | P3-01 | NOT_STARTED |
-| P3-03 | Pass lifecycle, retry and authority integration | P3-02 | NOT_STARTED |
-| P3-04 | Freeze additional rule profiles and official sources | F-01 | NOT_STARTED |
-| P3-05 | Edition/category calculators and observation contracts | P3-04 | NOT_STARTED |
-| P3-06 | Operator clocks, counters and explanations | P3-05 | NOT_STARTED |
-| P3-07 | Phase 3 boundary checks and multi-station rehearsal | P3-03, P3-06 | NOT_STARTED |
-| R-01 | Consolidated release evidence and operator instructions | All applicable phase checks | NOT_STARTED |
-| R-02 | Final delivery and any authorised installation verification | R-01 | NOT_STARTED |
+| P1-01 | Qualify the initial CW adapter and operation model | F-02 | VERIFIED_SOFTWARE |
+| P1-02 | Shared typed CW sequence compiler and accurate preview | P1-01 | VERIFIED_SOFTWARE |
+| P1-03 | Native sequence execution, speed restoration and Stop | P1-01, P1-02 | VERIFIED_SOFTWARE |
+| P1-04 | Message editing/import and normal workflow integration | P1-02, P1-03 | VERIFIED_SOFTWARE |
+| P1-05 | Early-start callsign state and plugin ESM integration | P1-01, P1-02 | VERIFIED_SOFTWARE |
+| P1-06 | Real adapter append/cancel and recovery | P1-03, P1-05 | VERIFIED_SOFTWARE |
+| P1-07 | Partial corrected-call policy and conservative fallback | P1-02, P1-05 | VERIFIED_SOFTWARE |
+| P1-08 | OK/OM organiser-rule and reference audit | F-01 | DONE |
+| P1-09 | OK/OM definition and independent scoring fixtures | P1-08, F-03 | VERIFIED_SOFTWARE |
+| P1-10 | OK/OM operator setup and export integration | P1-09 | VERIFIED_SOFTWARE |
+| P1-11 | Phase 1 integration, capability presentation and documentation | P1-04, P1-06, P1-07, P1-10 | VERIFIED_SOFTWARE |
+| P2-01 | QTC durable operating/output context | F-03; Phase 1 message contract | VERIFIED_SOFTWARE |
+| P2-02 | Keyboard QTC send/receive desk | P2-01 | VERIFIED_SOFTWARE |
+| P2-03 | Real QTC output dispatcher and mode routing | P2-01, P2-02; shared F-02/P1-02 contract and a qualified existing whole-message path or P1-03 | VERIFIED_SOFTWARE |
+| P2-04 | QTC opportunities in shared band maps | P2-01 | VERIFIED_SOFTWARE |
+| P2-05 | QTC recorder bookmarks and review links | P2-01 | VERIFIED_SOFTWARE |
+| P2-06 | Phase 2 migration, export and operating rehearsal | P2-02, P2-03, P2-04, P2-05 | VERIFIED_SOFTWARE |
+| P3-01 | Versioned complete pass payload and legacy reading | F-03 | VERIFIED_SOFTWARE |
+| P3-02 | Explicit recipient load/tune/acknowledgment actions | P3-01 | VERIFIED_SOFTWARE |
+| P3-03 | Pass lifecycle, retry and authority integration | P3-02 | VERIFIED_SOFTWARE |
+| P3-04 | Freeze additional rule profiles and official sources | F-01 | VERIFIED_SOFTWARE |
+| P3-05 | Edition/category calculators and observation contracts | P3-04 | VERIFIED_SOFTWARE |
+| P3-06 | Operator clocks, counters and explanations | P3-05 | VERIFIED_SOFTWARE |
+| P3-07 | Phase 3 boundary checks and multi-station rehearsal | P3-03, P3-06 | IMPLEMENTED |
+| R-01 | Consolidated release evidence and operator instructions | All applicable phase checks | DONE |
+| R-02 | Final delivery and any authorised installation verification | R-01 | DONE |
 
 ### F-01 — Reconcile, without restarting completed work
 
@@ -478,7 +480,7 @@ Build, package, sign or install only as required by the current repository workf
 
 ## 9. Shared acceptance — G
 
-Apply these scenarios to the relevant changed owners across all phases. Initial evidence status for every scenario is **NOT_RUN**.
+Apply these scenarios to the relevant changed owners across all phases. Initial evidence status was **NOT_RUN**; current per-scenario evidence is in section 14.5.
 
 | ID | Scenario and required outcome |
 | --- | --- |
@@ -599,12 +601,127 @@ Update the task table in section 4 or add a current-status column there. Keep th
 | P1-01–P1-07 | VERIFIED_SOFTWARE | `c0fed776` | Shared typed compiler; native WinKeyer FIFO/speed/stream tests; previous-serial and provider-evidence fences; real host revisions, explicit ESM logging and original serial tested | Hardware NOT_RUN; advanced Flex/TCI and exact-lane streaming remain unavailable |
 | P3-01, P3-04–P3-06 | VERIFIED_SOFTWARE | `ace87093` | Versioned pass records; source-pinned CQ WW/WAE 2026 profiles; exact-minute role clocks, QTC-only activity and retained WPX 2026 tests | WPX 2027 publication unavailable; physical activity is not inferred from logs |
 | P2-01, P2-03, P2-05 | VERIFIED_SOFTWARE | `27c9894e` | Versioned sibling metadata, original output claims, literal historical payloads, native voice target binding, fldigi generation/Stop fences and captured-sample recorder markers | Route hardware/audio-device qualification NOT_RUN; exact multi-lane QTC output unavailable |
-| Integration / G, CW, OK, QTC, PASS, RULE | IN_PROGRESS | owner/UI integration pending commit | Broad Python 603 passed. Broad Vitest: 5,151 passed and one OK/OM label-shape failure; that source defect was fixed and the failing real-host operator case then passed. Latest affected QTC binding cases and native surface tests passed. Production frontend build passed | Final single-lane directed-tune event binding and final source/build identity being closed; no installed candidate or physical acceptance claimed |
-| Owner/UI integration and native candidate preparation | VERIFIED_SOFTWARE / IN_PROGRESS | `1cf9a145a9191be845c159a7ec8cde38169cf0a8` | Directed single-lane tuning now freezes its original radio before authority awaits; 45 related helper/setup tests and four pass-owner tests passed. Node checks: six passed. Version 1.5.7 prepares one separate signed Mac candidate using the exact-source build recipe | Native GUI rehearsal pending. Existing installed 1.5.6 app/worker remain running from `/Applications`; its retained 1.5.6 archive SHA check passed before any build-output reuse |
+| Integration / G, CW, OK, QTC, PASS, RULE | VERIFIED_SOFTWARE | `1cf9a145` | Broad Python 603 passed. Broad Vitest: 5,151 passed and one OK/OM label-shape failure; that source defect was fixed and the failing real-host operator case then passed. Latest affected QTC binding cases and native surface tests passed. Production frontend build passed | Final single-lane binding tests and signed 1.5.7 build subsequently passed; see sections 14.5–14.7; no installed candidate or physical acceptance claimed |
+| Owner/UI integration and native candidate preparation | VERIFIED_SOFTWARE | `1cf9a145a9191be845c159a7ec8cde38169cf0a8` | Directed single-lane tuning now freezes its original radio before authority awaits; 45 related helper/setup tests and four pass-owner tests passed. Node checks: six passed. Version 1.5.7 prepares one separate signed Mac candidate using the exact-source build recipe | Native rehearsal subsequently recorded below. Existing installed 1.5.6 app/worker remain running from `/Applications`; its retained 1.5.6 archive SHA check passed before any build-output reuse |
 
 Execution owners: native CW adapter/backend and tests; OK/OM first-party definition/reference/setup and tests; pass/rule owners and tests; integration owner for Python host/compiler and renderer CW/QTC. Shared files have one editor. Changes remain additive; QTC supplemental operating metadata uses a versioned sibling of the existing schema-1 accounting journal, so legacy writers cannot erase it. Durable original operation/claim receipts remain the replay boundary. Initial Python 3.9 test invocation lacked the module search path; corrected to the repository's Python 3.12 runner before recording the passing baseline. A lean-ctx environment override was rejected without execution; no repository/permission policy was changed.
 
 Use PASS, FAIL, NOT_RUN, BLOCKED or NOT_APPLICABLE for acceptance evidence. NOT_APPLICABLE needs a concrete reason and cannot remove an approved feature. Record software and physical evidence separately when both matter. A missing primary rule source is BLOCKED, not a passing test with guessed expectations.
+
+### 14.5 Delivered tasks and verification register
+
+Task statuses describe the evidenced delivery level, not universal RF acceptance. F-01–F-03 retain their baseline evidence. P1-01–P1-07/P1-11 are software verified against the compiler, actual host/plugin action flow and real production WinKeyer adapter code; physical WinKeyer acceptance is open. P1-08–P1-10 use the official 2026 OK/OM rules and complete district reference. P2-01–P2-06 are software verified, with physical mode/recorder-route checks open. P3-01–P3-06 are software verified for the finite published profiles and existing owners. P3-07 is IMPLEMENTED with passing owner/boundary tests and a partial native authority/client rehearsal; successful native park/load/tune remains unqualified. R-01/R-02 are DONE for source/candidate/document delivery; production installation was not authorised by this implementation request and was not performed.
+
+| Evidence key | Actual verification and source boundary |
+| --- | --- |
+| SW-MIG | Pre-change populated WAE and active-message stores were created from archived pre-change source and reopened with changed source. Draft, station/settings, references, message workbench, old QTC journal, serials and exact Cabrillo SHA-256 matched. WAE `3e5edceee728c298020809c203303a5a6503ea73b698a87cf15110a0bab90419`; messages `8edc5256b4c2f4eb3b4d6b0e33b94755223034234b5f0e31ea058027a4242efb`. Retained result: `docs/audits/tlf-contesting-2026-11-04/prechange-reopen-result.json`. Existing lane/authority/normal-store fixtures supplemented those populated stores. |
+| SW-PY | Broad Python runner: **603 passed** (archive `b6edd83c521f1611`). Later Python changes received focused rechecks: QTC binding/accounting 11 passed (`eda8b51a703d7cba`); OK/OM 10 passed plus the added score-label regression passed; affected CW cases passed. This is broad-plus-focused evidence, not a claim that a later single 603-test run included every later regression. Runner `/opt/local/bin/python3.12 .build/tlf/run_python.py` supplied the repository path to spawned Python processes. |
+| SW-CW | `python/tests/test_tlf_cw_host.py`, `test_wave2_messages_host.py` and existing CQ WW/WPX ESM cases; renderer `Not1MMContestWorkspace.test.tsx`, `contestCWCorrection.test.ts`, `ContestMessageWorkbench.test.tsx`; native `cw_session` 38 passed, `winkeyer` 24 passed, renderer direct-dispatch guard 1 passed (archive `7825ec411c196a1b`). Actual serial actor admits typed FIFO speed/restore/stream operations. Protocol doubles establish ordering and failures, not physical keyer conformance or RF. |
+| SW-OK | `python/tests/test_okom_host.py`: official snapshot/district hash, domestic/DX/portable arithmetic, multiplier/dupe/edit/reopen and exact Cabrillo/ADIF vectors. Actual React/Python `AllContestsPythonDesk.test.tsx -t okom_dx_cw --maxWorkers=1`: 1 passed, 100 unrelated cases skipped after the label-contract fix (`8fa6b37e45a0ce88`). |
+| SW-QTC | `test_tlf_qtc_operating.py`, `test_wave5_qtc_host.py`, `test_remediation_wae.py`, `ContestQTC.test.tsx`, owner output/Stop tests in `Not1MMContestWorkspace.test.tsx`, `contestQTCOpportunities.test.tsx` and shared map tests. Output tests trace original payload/claim to the native CW, voice or fldigi port, including delayed reply/binding changes. Native surface tests 40 passed; voice 16 plus voice UI 11 passed; `LiveFldigiBridgeTests` 22 passed with compiled worker/support (`b2daada93554f622`). |
+| SW-REC | Existing recorder 31 passed; two new typed-QTC captured-sample/idempotence/reopen/export tests passed; renderer recorder helper 5 passed. Marker creation requires an advancing capture watermark and never starts audio. Real device capture remains unqualified. |
+| SW-PASS | `test_group_coordination.py`, `test_multi_operator_host.py`, `test_lanes_host.py`, `contestDirectedPass.test.ts` and owner pass tests cover immutable payloads, authority/version/recipient, park/load, duplicates and uncertainty. Final original-radio capture changes passed 45 manual-tune/spot-tune/detached-setup tests and four workspace pass tests; TypeScript passed. Tune freezes its original radio before authority awaits and cannot fall back to a newly selected radio. |
+| SW-RULE | `python/tests/test_operating_rules.py` covers retained WPX, independent CQ WW Run/Multiplier whole-minute clocks, unknown roles, WAE QTC-only activity, ordered revisions, boundaries and unsupported editions/categories. Existing Info/time and profile-adoption tests cover presentation/restart. Source snapshots/digests are retained in `docs/contesting/tlf-2026-sources/` and the first-party JSON references. |
+| SW-UI | Broader Vitest run: **5,151 passed, one failed** across 373 files (`b1aeeff115d89bd8`). The one real-host OK/OM failure exposed `labels` as an object where the renderer expects a list; `8694b94e` fixed it and SW-OK re-ran the failed case successfully. The associated unhandled error came from that same failed render. Do not describe this as one all-green 5,152-test run. Earlier affected eight-file UI batch: 274 passed; subsequent changed owner cases passed. Node gate 6 passed. Production frontend and final native build passed in BUILD. Browser-only visual fixture checked QTC at 1280/1000 px; no output APIs were connected. |
+| BUILD | Exact clean release source `4de56b1aeaa1fad93309b0d9a2cc382c04c994da`, version 1.5.7. `bash docs/releases/build-1.5.7-macos-arm64.sh 4de56b1aeaa1fad93309b0d9a2cc382c04c994da` completed exit 0. Developer ID signature, extracted ZIP/version/source/arm64 and payload checks passed. First signed-worker gate **9/9 passed** under unchanged deadline. Archive SHA-256 `ab2f14cecf30c2056d49ed2a1b1891080a09fabdf58143b8881f6f0a1a96ef35`. See `docs/releases/v1.5.7-tlf-software-candidate.md` and retained audit receipts. |
+| NATIVE | Same signed source, disposable `contesting` roots with explicit launch arguments and exact app/direct-worker process checks before binding/input. Native OK/OM rejects unknown district then logs valid contact; preview displays 20 WPM → 5NN → 35 WPM → PRE → restore; WAE keyboard row/save/acknowledgment/completion and Quit/restart pass, preserving normal Entry/serial. Real native loopback authority/peer pass send/arrival/acknowledgment and occupied-entry refusal pass. Park/load is safely blocked by the isolated CW service error; successful native park/load and tune are NOT_RUN. All candidate processes retired by ordinary Quit; installed app/worker remained running. Detailed procedure, PIDs and exact limits are in the candidate receipt. |
+
+The following table accounts for all **72** scenarios. PASS means the stated software boundary passed; it does not turn a protocol double into hardware evidence. Mixed scenarios retain their missing native/physical component explicitly. No scenario is removed as not applicable.
+
+| Scenario | Current evidence | Basis and remaining limit |
+| --- | --- | --- |
+| G-01 | PASS software | SW-MIG; old output history remains unknown. |
+| G-02 | PASS software | SW-PY, SW-UI, SW-CW, SW-QTC; defaults retained. |
+| G-03 | PASS software | SW-CW, SW-QTC, SW-PASS; exact owner/binding fences. |
+| G-04 | PASS software | Durable operation/claim and delayed/lost-reply tests across changed owners; no auto replay. |
+| G-05 | PASS software; physical NOT_RUN | Original-owner Stop despite persistence failure; SW-CW/SW-QTC. |
+| G-06 | PASS software | Existing authority/replica/serial tests and native loopback lease context; no promotion. |
+| G-07 | PASS software | Compiler/parser, bounded QTC and pass validation plus direct-dispatch guard. |
+| G-08 | PASS software | BUILD, this ledger and adapter/operator guides; explicit missing qualifications below. |
+| CW-01 | PASS software | SW-MIG, existing message banks, full-call default and actual ESM regressions. |
+| CW-02 | PASS software; physical NOT_RUN | Shared formatted sequence/dispatch tests and NATIVE two-speed preview; raw exchange retained. |
+| CW-03 | PASS software | Preview/invalid-token/no-mutation tests; native preview creates no output claim. |
+| CW-04 | PASS software | Captured bank/draft/revision/provider checks and old-bank tests; unsupported adapter rejects. |
+| CW-05 | PASS protocol; hardware NOT_RUN | Actual WinKeyer FIFO speed/restore actor tested with delayed writes/status; physical speed/restoration unmeasured. |
+| CW-06 | PASS software | Explicit Flex advanced/direct-TCI unavailability and ordinary whole-message contract. |
+| CW-07 | PASS software; hardware NOT_RUN | Real host monotonic stream/ESM test sends call/exchange once and commits only through ordinary logging. |
+| CW-08 | PASS software | Same-stream revision, duplicate/out-of-order/lost-ack and bounded native queue tests. |
+| CW-09 | PASS software | Local future edits versus immutable submitted prefix; Stop/uncertain history retained. |
+| CW-10 | PASS software | Typing-origin gate excludes paste/hydration/SCP/history/restore; explicit manual start separate. |
+| CW-11 | PASS software | Run/CW/threshold/armed/output-owner admission and ordinary Entry regression tests. |
+| CW-12 | PASS software; hardware NOT_RUN | Serial remains one reservation; slow type/idle-gap/Stop host/native vectors. |
+| CW-13 | PASS software | Component vectors and accepted-complete-call requirement; WinKeyer queue acceptance alone does not qualify, so full fallback retained. |
+| CW-14 | PASS software | Intentional HISCALL/CALL repeats and actual CQ WW/WPX ESM flows remain explicit. |
+| CW-15 | PASS protocol; hardware NOT_RUN | Pending append/speed Stop, original target, late outcome and restoration uncertainty tests. |
+| CW-16 | PASS protocol; hardware NOT_RUN | XOFF/break-in/partial-command parser boundary tests; no retry bytes into uncertain parser. |
+| CW-17 | PASS software; hardware NOT_RUN | Generation/retirement/reconnect/restart tests; no automatic continuation/rearm. |
+| CW-18 | PASS production-path software; hardware NOT_RUN | Real native WinKeyer send/append/Stop/speed code reached by shared owner; advanced detached/exact-lane operation unavailable. Flex advanced path unimplemented. |
+| OK-01 | PASS software | Distinct `okom_dx_cw` registry; OK1WC/SSB retained. |
+| OK-02 | PASS source/software | Official 2026 body and all 165 country-validated districts retained/hash-pinned. |
+| OK-03 | PASS software | Domestic, DX and portable operating-location vectors; declared country checked against actual operating call. |
+| OK-04 | PASS software | Independent domestic 2/3/5-point vectors and DX 10/1/3/5-point branch. |
+| OK-05 | PASS software | Country/district per-band dimensions, repeated contacts and correction/deletion vectors. |
+| OK-06 | PASS software/native | Invalid district/serial/country tests; native XYZ refusal; raw exchanges/snapshots preserved. |
+| OK-07 | PASS software | Dupe/invalid band/unresolved country and maritime-mobile credit vectors. |
+| OK-08 | PASS software | Historical source/version, sent snapshots, correction/reopen and no automatic adoption tests. |
+| OK-09 | PASS software | Actual exact expected Cabrillo/ADIF exports and metadata in SW-OK. |
+| OK-10 | PASS software; physical output NOT_RUN | Domestic/DX host/operator fixtures, real React host case and native manual district/log flow; physical send unqualified. |
+| QTC-01 | PASS software | SW-MIG plus WAE quota/reference/confirmed/pending fixtures; old output unknown. |
+| QTC-02 | PASS software | Every old accounting writer preserves versioned sibling metadata; reopen tests. |
+| QTC-03 | PASS software; physical output NOT_RUN | Keyboard/send series owner tests retain Entry and separate output/ack/accounting. |
+| QTC-04 | PASS software/native | Row validation, keyboard navigation, correction/paste tests; unfinished native W1AW row survives restart. |
+| QTC-05 | PASS dispatcher software; physical output NOT_RUN | Historical literal payload travels through original native claim and real shared CW dispatcher; no Entry serial borrowing. |
+| QTC-06 | PASS software; physical output NOT_RUN | Header/item/time/call/serial and receive-request vectors; distinct repeat operation IDs. |
+| QTC-07 | PASS software/native retention | Captured payload, voice target and fldigi generation tests; native Entry K9KEEP/777/002 unchanged. |
+| QTC-08 | PASS software | Original durable claim/outcome retry and no resend after lost reply/restart. |
+| QTC-09 | PASS software; physical Stop NOT_RUN | Original-owner Stop before journaling, mid-host reply/error/generation changes; no resume/automatic acknowledgment. |
+| QTC-10 | PASS routing software; physical routes NOT_RUN | Native CW, configured managed SSB fragments and existing fldigi routes; absent assets fail before PTT; exact-lane QTC remains manual. |
+| QTC-11 | PASS software | Host quota/eligibility and dupe-opportunity tests; native local Later observation remains separate from accounting. |
+| QTC-12 | PASS software | Shared maps/local annotation tests, review banner preserves edits; no public-spot or Entry/tune mutation. |
+| QTC-13 | PASS captured-sample software; audio device NOT_RUN | SW-REC actual-watermark prerequisite; inactive capture unavailable; no automatic device start. |
+| QTC-14 | PASS software; device gap run NOT_RUN | Recorder gap/missing coverage/archive/reopen/idempotence tests preserve truthful links. |
+| QTC-15 | PASS owner/export software; native rehearsal PARTIAL | Send/repeat/Stop/quota/export/RTTY tests plus native receive/ack/completion/restart; physical transfer not attempted. |
+| PASS-01 | PASS software/native transport | Versioned integer-Hz RX/mode/time/target payload validated by actual loopback native authority. |
+| PASS-02 | PASS software | Legacy incomplete/unknown version fixtures remain readable without fabricated tune values. |
+| PASS-03 | PASS software/native | Arrival and acknowledgment leave Entry/output/accounting unchanged. |
+| PASS-04 | PASS owner software; successful native load NOT_RUN | Original lane/draft binding tests; isolated CW error safely blocks native load. |
+| PASS-05 | PASS owner software; native PARTIAL | Explicit Park preserves raw draft/serial in tests; native occupied load refused and blocked park request preserved original Entry. |
+| PASS-06 | PASS coordinator software; native/physical tune NOT_RUN | Original binding captured before authority await; no fallback, TX or log. Isolated station I/O disabled. |
+| PASS-07 | PASS software | Original observation time/age retained; invalid/missing parameters cannot dispatch. |
+| PASS-08 | PASS software | Requested/owner result distinct; duplicate/lost receipt/restart tests prevent second effect. |
+| PASS-09 | PASS software/native guard | Wrong owner/session/version/lane/generation tests and isolated output-error refusal. |
+| PASS-10 | PASS software | Existing partition/lease/replica/serial constraints plus actual loopback authority context. |
+| PASS-11 | PARTIAL native; PASS owner software | Actual send/ack/occupied refusal/error and ordinary OKOM logging checked; successful native park/load/tune still pending healthy output/radio owner. |
+| RULE-01 | PASS source/software; WPX 2027 BLOCKED | Finite edition/category sources pinned; organiser page still 2026 and named 2027 PDF unavailable. No guessed future profile. |
+| RULE-02 | PASS software | Existing WPX 2026 minute/off-period/hourly/out-and-back fixtures retained. |
+| RULE-03 | PASS software | Independent functional role clocks, first Run/new-multiplier starts and logged whole-minute exact boundaries. |
+| RULE-04 | PASS software | Tuning/receiver labels do not create transmission facts or restart QSO-defined clocks. |
+| RULE-05 | PASS software | Explicit role declaration/fact digest required; absent/stale/changed role remains unknown. |
+| RULE-06 | PASS source/software | Hash-matching official WAE timing snapshot recovered; CW/SSB SO/MS and QTC-only activity vectors passed. |
+| RULE-07 | PASS software | UTC/minute/hour/midnight/start/end/offset/invalid/future boundary vectors. |
+| RULE-08 | PASS software | Edit/delete/import/revision/rebuild equivalence, retained historical source and snapshots. |
+| RULE-09 | PASS software | Existing Info/time UI shows edition/limits/basis/unknown; declared gaps do not certify silence or block Stop. |
+| RULE-10 | PASS software | Explicit profile adoption, category/session/edition mismatch and restart tests; no silent rescore. |
+
+### 14.6 Native evidence and failed-check resolution
+
+The detailed [1.5.7 candidate receipt](../releases/v1.5.7-tlf-software-candidate.md) records signed hashes, UUID roots, session/workspace identities, launch PIDs and ordinary Quit/restart evidence. The sanitized JSON in `docs/audits/tlf-contesting-2026-11-04/candidate-receipt.json` was collected from read-only databases after Quit. It confirms zero output claims in all rehearsed sessions, unchanged WAE Entry/serial, durable unfinished rows/acknowledgments/completion, and the original loopback Entry after refused/blocked load. Private seed, process and peer receipts remain under those disposable roots; authenticated lease tokens are not copied into repository evidence.
+
+The initial path binding exposed a detached Main Logging title rather than the main UUID title. No input was sent until its embedded session/workspace matched the private fixture; opening the main window subsequently showed the expected UUID. Candidate survival was always established through process-only checks, never by app/path observation. Every ordinary Quit was followed by process inspection; no force quit, blind Escape or production fallback was used.
+
+Retained failed checks and resolutions: initial Python 3.9/module-path invocation corrected to Python 3.12 with inherited child-process path; broad Vitest OK/OM label object/list mismatch fixed in `8694b94e` and the failed real-host case passed; initial disposable external Vite fixture import failure corrected by placing the browser-only fixture under `prototype/tests/visual/`, then checking actual styles at 1280/1000 px. Native pass park/load remained blocked by the offline CW-service error and was **not** reclassified as a success or bypassed. One direct private-root read and one shell redirection were refused by lean-ctx; subsequent native read-only evidence collection used an explicit script, without changing permissions or repository policy.
+
+### 14.7 Exact remaining work
+
+| Component / IDs | Current limit and next concrete action | Resolver |
+| --- | --- | --- |
+| WinKeyer / P1-01, P1-03, P1-06, CW-05/07/12/15–18 | Real production software path implemented; physical NOT_RUN. On the actual WK2/WK3 device record firmware, exact binding, two-speed output/restoration, slow typing/ESM once, XOFF/break-in/Stop and disconnect/reconnect under a controlled non-live/dummy setup. Follow `docs/cw/TLF_ADAPTER_PROTOCOL.md`. No purchase assumed. | Station operator with connected device and physical-action authorisation |
+| Flex / CW-06, CW-18 | Ordinary whole-message path retained. Advanced append/indexed progress/buffered-speed semantics remain unimplemented; no claim that WinKeyer qualifies Oliver's Flex. Implement a source-backed Flex contract separately before physical qualification. | Future adapter implementation, then station operator |
+| Detached/exact lanes / CW-18, QTC-10 | Advanced stream and exact-lane QTC output deliberately unavailable with explicit reason; existing ordinary lane operation retained. New route qualification must preserve exact target ownership, not use SO1V fallback. | Future route implementation/qualification |
+| QTC mode/recorder routes / QTC-03/05/06/09/10/13–15 | Native dispatch/captured-sample software tests passed; real CW/managed SSB/fldigi output, Stop and audio capture/review NOT_RUN. Use historical QTC samples, configured assets/bridge, an active recorded sample timeline and controlled station setup; verify no Entry/serial mutation. | Authorised operator with configured devices/routes |
+| Native full directed pass / P3-07, PASS-04–06/11 | Native transport/ack/refusal passed; park/load blocked by the isolated CW error; tune NOT_RUN. Repeat private authority/client procedure with positively healthy/disarmed output and observed radio binding, then park/load, explicit tune, decline/error and ordinary commit. Keep original-radio, output and lease guards. No physical CAT action is authorised by this source task. | Suitable isolated native test environment and authorised operator for physical CAT |
+| WPX 2027 / P3-04, RULE-01 | Official publication was unavailable: organiser page served 2026; named 2027 PDF returned 404. Recheck organiser publication, retain/diff exact source and implement only the published edition. Existing 2026 profiles remain active only for matching sessions. | Official organiser publication, then implementation owner |
+| Package operations / R-02 | Signed local candidate exists. Notarization, production installation, controlled cold startup and connected acceptance NOT_RUN. They require their own actual operational authorisation/evidence; source delivery does not imply them. | Release/station operator |
 
 ### 14.2 Initial risk and dependency register
 

@@ -5,8 +5,14 @@ This advances all five version records for one private macOS arm64 candidate.
 The exact release-preparation commit is supplied to
 `docs/releases/build-1.5.7-macos-arm64.sh`; the recipe verifies that source in
 the extracted signed bundle and retains its build/signature/archive receipts.
-No build, native rehearsal, physical station qualification or installation is
-claimed by this preparation entry.
+The 1.5.7 candidate was built from clean canonical release source
+`4de56b1aeaa1fad93309b0d9a2cc382c04c994da`, Developer ID signed and archive-verified.
+Its first signed-worker gate passed 9/9. Disposable native checks covered OK/OM
+validation/logging, compiled speed preview, QTC editing/accounting and restart,
+plus loopback pass transport/acknowledgment. The isolated CW-service guard
+prevented native park/load; no successful native tune or physical output is claimed.
+See the [candidate receipt](docs/releases/v1.5.7-tlf-software-candidate.md).
+Production installation and notarization were not performed.
 
 The source includes typed CW speed sections and owned WinKeyer callsign streams,
 conservative corrected-call formatting, the organiser-pinned OK/OM DX CW 2026
