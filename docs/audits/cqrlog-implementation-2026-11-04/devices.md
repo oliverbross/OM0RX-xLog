@@ -1,5 +1,10 @@
 # C03 / C04 device implementation evidence
 
+**Final integration:** [1.5.13](../../releases/v1.5.13-cqrlog-candidate.md) records
+the integrated package and full software gates. Native unconnected settings and
+preview scope is distinct from connected TCI/keyer operation. Physical server/
+radio/firmware, pot/paddles/keying and release qualification remain Not run.
+
 Integrator portability follow-up: CI run `41841435824` at `9087b323` failed
 Swift type checking of the large `LiveTCISession.snapshot` dictionary. It is now
 split into explicitly typed PTT/station/capability/TCI dictionaries with the same

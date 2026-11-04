@@ -1,5 +1,11 @@
 # C05 shared CW implementation evidence
 
+**Final integration:** [1.5.13](../../releases/v1.5.13-cqrlog-candidate.md) records
+the full gates, saved native unarmed preview and actual-component four-width
+desk/Stop review. The offline profile deliberately excludes armed native output;
+this source evidence and browser workflow do not qualify a physical CW route.
+Initial integration-pending entries below are historical.
+
 Baseline: clean canonical `main` `db4a9ce2`; imported contract `0dc3c1b3`.
 The shared typed keyer/profile primitive is committed as `f56f23f1`.
 No production application/data, physical serial device, CAT route or RF output

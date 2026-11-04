@@ -1677,3 +1677,50 @@ The additive [CQRLOG C01–C06 master](OM0RX-xLog_CQRLOG_C01-C06_Implementation_
 | EP-08/09 and shared settings/backup preservation | Additive keyer preferences (`f56f23f1`, `a3ee5fa1`) and voice profile metadata remain under existing settings/backup owners; linked device, country and voice audits record their actual coverage. | External voice WAV bytes remain a separate asset boundary. Restoring preferences never restores an armed output job. Portable defaults and source QSO values retain their existing contracts. |
 
 At this bounded handoff, the integrator reports the full native Rust gate **1103 passed** and full Python gate **618 passed**. The first full frontend attempt failed on a malformed VoiceDesk reply fixture and one case using the wrong Python interpreter; recovery Desk **77/77** and voice/command **11/11** passed. Final full frontend and normal/portable Swift integration gates are still pending here. These counts overlap focused owner runs and are not summed. Final exact-source gates and any new candidate provenance belong to the CQRLOG master and its candidate record. No new package, installation, physical output or blanket release pass is claimed by this supplement.
+
+### 8.11 — CQRLOG signed integration closeout, 5 November 2026
+
+The selected QLog tasks and acceptance IDs retain their existing states and
+limits. The additive [CQRLOG final register](OM0RX-xLog_CQRLOG_C01-C06_Implementation_Plan_2026-11-03.md#13-final-software-delivery--5-november-2026-darwin)
+and [1.5.13 candidate](../releases/v1.5.13-cqrlog-candidate.md) supersede the
+then-pending shared-gate checkpoint in section 8.10.
+
+Country compatibility and canonical labels are delivered in `92a36e39`; durable
+recovery discovery after navigation/restart is `d6c1dc52`; Traditional expanded
+message controls remain reachable in `f7dd16b9`. Signed candidate source is
+`75cb1fbe78791b47735e7d81e7e42e3404dc7010`, with initial test-only validation
+`768c0bb78a13964bb28255041dc4edda7de2b169`. All 6,435 other tracked application,
+resource/help, build-recipe, lock and workflow inputs are identical. The original
+candidate provenance and ZIP are retained; no package is reminted from the test
+repair.
+
+The subsequent test-only detached-feedback completion repair is
+`723d852ba3d65f595c27aa8a524abb2cd31b2d54`: 198 affected tests and TypeScript pass,
+without timing/guard/product changes. Its 6,434 other tracked application/build/
+workflow inputs still match the release. The candidate receipt distinguishes
+both validation sources and their actual platform results.
+
+The complete final frontend passed 5,188/378 files plus Node 6; complete portable
+Swift passed all targets (619 reported Swift Testing/85 suites plus 8/2, existing
+conditional skips retained). Full Rust 1,103, Python 618 and normal Swift scopes
+are recorded separately, without summing overlapping methods. Signed-worker
+first execution passed 9/9. The generated 100k changed path measured first/warm
+pages 13.367/3.305 ms and a 0.252 ms health reply during the 58.613 s background
+country scan. OS disk caches were uncontrolled; earlier controlled-cold limits
+remain.
+
+Native private acceptance applied only a selected CQ zone, rediscovered its
+durable receipt across candidate restarts, recovered it through a revision fence
+and reported Already recovered on reread. Post-Quit signed-worker reload verified
+12 synthetic contacts, unchanged other QSO values/settings/filter and only the
+expected undo audit/edit timestamp in the restored QSO payload. Combined real
+BackupManager tests retain QLog and CQR settings/reference/recovery metadata
+without runnable output. External voice WAVs keep the separate-folder backup
+contract.
+
+Native Traditional scrolling and intact draft/footer were checked in the final
+signed app; four-width actual-component browser checks include CW/voice controls
+and Stop. No production store, installation or device/RF activity occurred.
+Connected cross-surface, physical station/audio/keyer and sponsor acceptance
+remain scoped as before. Final remote job outcomes belong to the candidate's
+machine receipt, not a blanket extension of the earlier 1.5.4 acceptance.

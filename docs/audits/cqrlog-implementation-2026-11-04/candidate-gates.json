@@ -1,0 +1,2738 @@
+{
+  "schema": 1,
+  "recordedUTC": "2026-11-04T18:43:05.593985+00:00",
+  "version": "1.5.13",
+  "releaseSourceCommit": "75cb1fbe78791b47735e7d81e7e42e3404dc7010",
+  "functionalSourceCommit": "f7dd16b9ed0b1dbee9940b0ef4a96eddfcd9018f",
+  "recoverySourceCommit": "d6c1dc52cf1a7c83d36bc23f41437801d975137d",
+  "applicationValidationEquivalence": {
+    "releaseSourceCommit": "75cb1fbe78791b47735e7d81e7e42e3404dc7010",
+    "validationSourceCommit": "723d852ba3d65f595c27aa8a524abb2cd31b2d54",
+    "changedTrackedPaths": [
+      "Tests/XLogPrototypeTests/CountryIntegrationTests.swift",
+      "docs/audits/cqrlog-implementation-2026-11-04/test-compatibility.md",
+      "prototype/src/contesting/DetachedContestSurface.test.tsx",
+      "prototype/src/live/CTYCorrectionPreview.test.tsx"
+    ],
+    "excludedTestOnlyPaths": [
+      "Tests/XLogPrototypeTests/CountryIntegrationTests.swift",
+      "prototype/src/contesting/DetachedContestSurface.test.tsx",
+      "prototype/src/live/CTYCorrectionPreview.test.tsx"
+    ],
+    "identicalOtherTrackedEntries": 6434,
+    "inputManifestSHA256": "5b81950887372dea86d5421d1919bffa1eb7a72d6be310932da70dae95dc6a64",
+    "applicationBuildWorkflowInputsIdentical": true,
+    "priorNativeValidationCommit": "768c0bb78a13964bb28255041dc4edda7de2b169",
+    "nativeSwiftRustGeneratorInputsUnchangedSincePriorValidation": true,
+    "scope": "All other tracked mode/type/blob/path entries are identical; audit/planning/release prose and the two test-only repairs excluded. Help content and build recipes remain included.",
+    "artifactPolicy": "Existing 1.5.13 ZIP/host/worker and original source provenance retained; no new package or installation from validation commit."
+  },
+  "qualification": "Software delivery and named signed/private checks; not blanket physical/platform acceptance",
+  "sha256": {
+    "archive": "b21af154b96632159236dda7d4249ff0cc95f377ad9e549f364ac7b2c3867929",
+    "host": "65277e484e4d7db968087b49c7deecdbaa7c56f9ce7f0555364bdda3ee74adf0",
+    "worker": "1399736f57fd2fe5744f0821668563fc9582063f188abcdfa790da090095c6e1"
+  },
+  "manifest": {
+    "schema": 1,
+    "sourceCommit": "75cb1fbe78791b47735e7d81e7e42e3404dc7010",
+    "version": "1.5.13",
+    "target": "aarch64-apple-darwin",
+    "customProtocol": true,
+    "executableSHA256": "2d86c79ec8380056985e2e869320605537b4a2b8190e39311fb49f79d2ec027a",
+    "inputs": {
+      "MacOS/xlog-prototype": "2d86c79ec8380056985e2e869320605537b4a2b8190e39311fb49f79d2ec027a",
+      "MacOS/xlog-prototype-worker": "4373f8850244a9b870d7c1e246c0932184e3f6c862f3d90eb94e955fec7fee3a",
+      "MacOS/rigctld": "d30cdf3b646bd2a4514bad15147052b6c34de5dd2fbf014ff3b906cd552cdf28",
+      "MacOS/rotctld": "f3ff4e829a2b70025f59efa18f07fa33cf52a225463b89d1c436ecca819372c1",
+      "Resources/icon.icns": "1bc19e108a37b14fc7ccae50b3a636c1a6b7de1bfea7b2e4baee84f9cb471bc9"
+    }
+  },
+  "payloadPrivacy": {
+    "passed": true,
+    "filesChecked": 3546,
+    "findings": [],
+    "reportSHA256": "47b5669c00308154212f47e1b5a9ddb03737d8047318dfef80b749b997a0bd3c"
+  },
+  "signedWorker": {
+    "passed": 9,
+    "failed": 0,
+    "unchangedDeadlineSeconds": 5,
+    "totalMilliseconds": 1928.893,
+    "tapSHA256": "f161cb7d28b4e67ce4501b461bb9a5649efd6104a72401febfad8a73683067a9"
+  },
+  "benchmark": {
+    "schema": 1,
+    "root": "/private/tmp/xlog-wave1-country-benchmark-5ei_woe1",
+    "fixture": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/qlog-scale-20261103-1ny_kct7/synthetic-100k.sqlite",
+    "worker": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.13/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+    "workerSHA256": "1399736f57fd2fe5744f0821668563fc9582063f188abcdfa790da090095c6e1",
+    "version": "1.5.13",
+    "scope": "Signed candidate worker, generated QLog fixture; process-cold/OS-cache-unspecified, no GUI/station/hardware",
+    "timingsMs": {
+      "open": 7633.594,
+      "firstPage": 13.367,
+      "warmPage": 3.305,
+      "coldCountrySnapshotAndLookup": 700.197,
+      "healthDuringCountryReview": 0.252,
+      "complete100kCountryReview": 58613.438
+    },
+    "processProofs": [
+      [
+        "17578",
+        "17566",
+        "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.13/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker --offline-contest-acceptance=/private/tmp/xlog-wave1-country-benchmark-5ei_woe1"
+      ],
+      [
+        "17586",
+        "17566",
+        "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.13/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker --offline-contest-acceptance=/private/tmp/xlog-wave1-country-benchmark-5ei_woe1"
+      ]
+    ],
+    "processProof": [
+      "17586",
+      "17566",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.13/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker --offline-contest-acceptance=/private/tmp/xlog-wave1-country-benchmark-5ei_woe1"
+    ],
+    "referenceRevision": "xlog-country-facts-v2:c04689ac8cf530672a98df3d1ecd132a150d13e7583f88037928b75a09ff1731:entity-catalogue:e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d",
+    "warmLookupMs": {
+      "count": 40,
+      "median": 1.25,
+      "maximum": 22.087
+    },
+    "review": {
+      "comparedCount": 100000,
+      "affectedCount": 100000,
+      "unresolvedCount": 28000,
+      "referenceRevision": "xlog-country-facts-v2:c04689ac8cf530672a98df3d1ecd132a150d13e7583f88037928b75a09ff1731:entity-catalogue:e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d"
+    },
+    "healthRepliedBeforeScan": true,
+    "state": "passed"
+  },
+  "native": {
+    "processProof": {
+      "state": "verified",
+      "atUTC": "2026-11-04T18:11:27Z",
+      "app": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.13/native-candidate/OM0RX-xLog.app",
+      "root": "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv",
+      "appProcess": {
+        "pid": 30886,
+        "ppid": 1,
+        "executable": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.13/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+        "command": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.13/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype --offline-contest-acceptance=/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv"
+      },
+      "workerProcess": {
+        "pid": 30916,
+        "ppid": 30886,
+        "executable": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.13/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+        "command": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.13/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker --offline-contest-acceptance=/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv"
+      },
+      "markerID": "8e3053bb-2056-45ab-8973-b33f1e06b73d",
+      "webKitStores": [
+        "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv/home/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/8e3053bb-2056-45ab-8973-b33f1e06b73d"
+      ],
+      "windowTitleContains": "disposable offline acceptance 8e3053bb-2056-45ab-8973-b33f1e06b73d",
+      "production": false
+    },
+    "freshObservationProcessProofs": [
+      {
+        "path": "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv/evidence/strict-process-check-001.json",
+        "sha256": "3cdf00cd9b2d858d9e8afd35f446a7b1fd039344320b37aeff509873c8f3a0fe",
+        "hostPID": 26640,
+        "workerPID": 28185
+      },
+      {
+        "path": "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv/evidence/strict-process-check-002.json",
+        "sha256": "7eb366adc64f422c922dd8b249f1ea11271f79069be24fc917b0e9c170c7a10c",
+        "hostPID": 26640,
+        "workerPID": 28185
+      },
+      {
+        "path": "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv/evidence/strict-process-check-003.json",
+        "sha256": "1b42663746008b948216203979d84a34be4f5f032ff5264c619dfdd5d994979a",
+        "hostPID": 26640,
+        "workerPID": 28185
+      },
+      {
+        "path": "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv/evidence/strict-process-check-004.json",
+        "sha256": "2a6639e0e189780254ff9f1249bcec1145459f3f9e3829be565b8943f0e16f9e",
+        "hostPID": 26640,
+        "workerPID": 28185
+      },
+      {
+        "path": "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv/evidence/strict-process-check-005.json",
+        "sha256": "6cfea4d14bd3e1626368e3865f28d7a0ac133f31a0359c5d3387191ad6c71652",
+        "hostPID": 26640,
+        "workerPID": 28185
+      },
+      {
+        "path": "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv/evidence/strict-process-check-006.json",
+        "sha256": "7b9704cc5ea4436576f0b781636fbb2c2d25888a54d85d2c915ab8844c164109",
+        "hostPID": 26640,
+        "workerPID": 28185
+      },
+      {
+        "path": "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv/evidence/strict-process-check-007.json",
+        "sha256": "fc1b146186d4f625cc34baaa3418be015a4e93b4547abb1943ec9b1281da8a17",
+        "hostPID": 26640,
+        "workerPID": 28185
+      },
+      {
+        "path": "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv/evidence/strict-process-check-008.json",
+        "sha256": "cbdd8b02ca0d37c90b8a3b9ddc4903773cfed550f479011d4f398b2bfeb644ce",
+        "hostPID": 26640,
+        "workerPID": 28185
+      },
+      {
+        "path": "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv/evidence/strict-process-check-009.json",
+        "sha256": "07b528c8b82284e100d39505635864df071a401a5a36139fb2f5d07252a3987f",
+        "hostPID": 26640,
+        "workerPID": 28185
+      },
+      {
+        "path": "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv/evidence/strict-process-check-010.json",
+        "sha256": "07cdcbace976e7cfaf0e66e5a20243b4602037e807103e59e71af3d493afee01",
+        "hostPID": 30886,
+        "workerPID": 30916
+      },
+      {
+        "path": "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv/evidence/strict-process-check-011.json",
+        "sha256": "ed9110f322138f36bf48fe265b3079c5dc852bb9dd35ac2d7e42030774e25bb6",
+        "hostPID": 30886,
+        "workerPID": 30916
+      },
+      {
+        "path": "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv/evidence/strict-process-check-012.json",
+        "sha256": "0f34d4d4faaccbd0164c3812305496563254eafba87bd4233a3bd3ae7da87f0e",
+        "hostPID": 30886,
+        "workerPID": 30916
+      },
+      {
+        "path": "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv/evidence/strict-process-check-013.json",
+        "sha256": "9dbd3a4319d42b5f80fb921110f4d0baddf121d1b7a5a14c6b6ef22e8b98aeae",
+        "hostPID": 30886,
+        "workerPID": 30916
+      },
+      {
+        "path": "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv/evidence/strict-process-check-014.json",
+        "sha256": "e9befd0cfd8b17e65e1d4c77a0bade816ab38fe4142fd2114cf93e66ec431289",
+        "hostPID": 30886,
+        "workerPID": 30916
+      },
+      {
+        "path": "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv/evidence/strict-process-check-015.json",
+        "sha256": "36c4d58c090ba96444b5fb938fcad34f91f947dcdf0d17de24cd8b9eda989cad",
+        "hostPID": 30886,
+        "workerPID": 30916
+      },
+      {
+        "path": "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv/evidence/strict-process-check-016.json",
+        "sha256": "001eedea317637c1845efd7feb8cb6ce52915b8b0bc666f8b0e019f8161be999",
+        "hostPID": 30886,
+        "workerPID": 30916
+      },
+      {
+        "path": "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv/evidence/strict-process-check-017.json",
+        "sha256": "8837d4104aed0ecfa3682fa31cd60239acfe2e182b71585b68e76683d823acaa",
+        "hostPID": 30886,
+        "workerPID": 30916
+      },
+      {
+        "path": "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv/evidence/strict-process-check-018.json",
+        "sha256": "85e81d17ae1dcc15933e68dddf1157474464b1054ab67200707818e221d1b7a9",
+        "hostPID": 30886,
+        "workerPID": 30916
+      },
+      {
+        "path": "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv/evidence/strict-process-check-019.json",
+        "sha256": "2a991101140485241155b9c1ca1b4d489ca71fb8c8202a6c9e6d22b31ed83156",
+        "hostPID": 30886,
+        "workerPID": 30916
+      },
+      {
+        "path": "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv/evidence/strict-process-check-020.json",
+        "sha256": "d87a557d47be872e0c7609503476fa844a265379cd4548b90eddf5b98f993353",
+        "hostPID": 30886,
+        "workerPID": 30916
+      },
+      {
+        "path": "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv/evidence/strict-process-check-021.json",
+        "sha256": "3ca17a8f4b5d2244dcb91b8542d059fe79f6d1b075c3349a1bfbc5b7691c7658",
+        "hostPID": 30886,
+        "workerPID": 30916
+      },
+      {
+        "path": "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv/evidence/strict-process-check-022.json",
+        "sha256": "32eafe28cfd381d697ded23df6da275ba9720dc608e84bc06a8b8c512a98f681",
+        "hostPID": 30886,
+        "workerPID": 30916
+      },
+      {
+        "path": "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv/evidence/strict-process-check-023.json",
+        "sha256": "30bbee5cf94a7537599def6ada4bfe31a0fc331ae9f280519f538d815fd7d89e",
+        "hostPID": 30886,
+        "workerPID": 30916
+      },
+      {
+        "path": "/private/tmp/xlog-wave1-qlog-candidate-fxb4aixv/evidence/strict-process-check-024.json",
+        "sha256": "66e3fdcd50236951369f9236ca53dd71693039d03fef200028b153a067c4de5c",
+        "hostPID": 30886,
+        "workerPID": 30916
+      }
+    ],
+    "observations": {
+      "state": "passed",
+      "recordedUTC": "2026-11-04T18:12:56.205600+00:00",
+      "scope": "Strict private native replay with fresh process-only proof before every GUI binding/AX/screenshot observation",
+      "app": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.13/native-candidate/OM0RX-xLog.app",
+      "hostPID": 30886,
+      "workerPID": 30916,
+      "marker": "8e3053bb-2056-45ab-8973-b33f1e06b73d",
+      "viewport": "1440x940",
+      "launches": [
+        {
+          "hostPID": 26640,
+          "workerPID": 28185
+        },
+        {
+          "hostPID": 30886,
+          "workerPID": 30916
+        }
+      ],
+      "freshProcessBeforeEveryObservation": true,
+      "processChecks": 24,
+      "noObservationAfterQuit": true,
+      "observations": [
+        "Fresh12-contact marked normal_logging fixture; complete host/worker coordinates and marked WebKit verified before both exact-path bindings",
+        "12 compared,12 affected,2 unresolved; no contact or field preselected",
+        "Selected only OM3SYN CQ zone empty\u219215; country and ITU remain unselected; dated AreaOK1RR rule shown",
+        "Canonical apply confirmed1contact; ordinary Quit then process-only shutdown verification",
+        "Explicit same-candidate restart; saved receipt rediscovered without scan or source rewrite",
+        "Recover confirmed through revision-checked edit; reread shows Already recovered and no recovery button",
+        "Pointer wheel reaches final voice trim/gain/Save/Reload/Replace/Record/Import controls within fixed Traditional card",
+        "Closing/up-scroll returns intact Callsign and Log QSO; surrounding desk remains stationary",
+        "Saved radio output/Word mode/Fixture preview/QRL? SYNTHETIC TEST displayed without arming or settings changes",
+        "Final ordinary Quit verified before separate signed-worker read; no AX after either Quit",
+        "Post-read12QSOs/restoredfields/other11contacts/settings/filter retained; only intended undo audit/edit timestamp differs"
+      ],
+      "io": {
+        "productionBound": false,
+        "stationOrRF": false,
+        "microphoneOrAudio": false,
+        "install": false
+      },
+      "notRun": [
+        "Armed native CW/connected TCI or WinKeyer",
+        "Physical microphone/monitor/TX/PTT/electrical/audible/RF qualification"
+      ],
+      "evidence": "strict-process-check-001\u2026024.json; native-1/2-process-verification.json; native-1/2-active-stop-refusal.json; post-ui-1.5.13.json; CUA AX/screenshot transcript"
+    },
+    "postQuitStore": {
+      "state": "passed",
+      "version": "1.5.13",
+      "qsoCount": 12,
+      "changedFieldsByID": {
+        "D0B261AA-1345-4D4F-B3DE-10BE25F82E90": [
+          "extraFields",
+          "updatedAt"
+        ]
+      },
+      "allOtherContactsIdentical": true,
+      "settingsIdentical": true,
+      "savedFilterRetained": true
+    },
+    "postQuitReceiptSHA256": "0a1cdeb8bac45cc4d1b776a4f5d2068d03f1ea14f4911da7b95f5ddb199c70a3",
+    "processOnlyStopped": "Exact bundle stopped; process-only check: /Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.13/native-candidate/OM0RX-xLog.app"
+  },
+  "supplementalEvidence": [
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.13/signature.txt",
+      "sha256": "b3479385ef68bcf29e4d153e624a0888e004bb035f559cd6f3a1cc6cf8c0539b"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.13/build-input.txt",
+      "sha256": "ead68e8f4e66415b7a616e05aea76ee2cd6b2e17f2549d57dae43e74b56244da"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.13/SHA256SUMS",
+      "sha256": "f97d7f0d5fd4930e24336a4f8d709724bbcd22a8f3eb24666c688cdc078d40a1"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.13/native-candidate/OM0RX-xLog.app/Contents/Resources/NativeBundleBuild.json",
+      "sha256": "cad50797454388e4ea9a3b006ec7756c1716558aa6d04c9c533ebcdb4faae8d3"
+    },
+    {
+      "path": "/tmp/xlog-cqrlog-recovery-normal-swift.log",
+      "sha256": "acae53e17aa72f97c395a179b188cfaabd0afd50e2f42d312e2a77d1c56ef1af"
+    },
+    {
+      "path": "/tmp/xlog-cqrlog-recovery-rust.log",
+      "sha256": "49d3cdfed0b7e324c3f380d1e49ffd0334e364145193ab0136377b2e24305c0a"
+    },
+    {
+      "path": "/tmp/xlog-cqrlog-recovery-build.log",
+      "sha256": "e624cb635c99ad8433783d73506915609a3378ea60bebdd6a5f40f4d977dc1a7"
+    },
+    {
+      "path": "/tmp/xlog-cqrlog-traditional-build.log",
+      "sha256": "917b4f14536e36c0acf7e6e4d325f1a43ea7ab8a3b7b407a917004457b33ed95"
+    },
+    {
+      "path": "/tmp/xlog-cqrlog-full-frontend-post-ci.log",
+      "sha256": "9e58428b3e3e3b0e8d06bdae9f486683370b05faa0b490eb620b63bf8b0839da"
+    },
+    {
+      "path": "/tmp/xlog-cqrlog-portable-post-ci.log",
+      "sha256": "bf72e1c161f79d986a5e9e09d1fdecc7f200f8fab0ee35546e4554614af41f65"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/country-recovery-gates.json",
+      "sha256": "03df2c3c084a7693bb3329720bf81b630d8bf94efb527552ee60a989102f74ff"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/country-recovery-native-gate.log",
+      "sha256": "980e95eb9eb4c26d84294dceec444ce0230a0c78b050af90d4c906990c9fb332"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/country-ci-watch-linux-job.log",
+      "sha256": "321772c119f0c359f340be1a44369810dcc52ef3097fa5db1d2c4e8fc296b94e"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/country-ci-watch-contest-mac-failure.log",
+      "sha256": "f6c37d5194b414d97e1fc543498e5bcd58392e3d00b635df13e6b2b45f10fae1"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/detached-feedback-gates.json",
+      "sha256": "0fa6a21955fd6392e0fb6eb60eadda805794a035bddf0006efbcd18622e389b7"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/cqrlog-app-input-equivalence-768c0bb7.json",
+      "sha256": "2582a401cfe694471883b218df3bcabf16c92bb00478a56eddaf78cd2e87ad3e"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/country-ci-watch-768-linux-job.log",
+      "sha256": "77f0547048c2f1bec6cc3973380e91f23ed9b3587cb5875497781d53780209a3"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/country-ci-watch-768-mac-job.log",
+      "sha256": "4af9b69da5dbc9e5a7a2cbc830e24ef3698b2c06e1c2a9140d17b57c58702082"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/country-ci-watch-768-windows-job.log",
+      "sha256": "6c2f549b0811e847da09a80400bdcafb5ad5d56cf6aa6a139a098b66e0da4c15"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/cqrlog-task-preservation.json",
+      "sha256": "5a0b578891e0655cc4d50418ff714541cd3bf408da5e51f405028dda653bb950"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/country-ci-watch-723-mac-job.log",
+      "sha256": "c688fc74db9ee8c79831ebd4804fa57eb737a94c95acb2eb004766d11462a168"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/country-ci-watch-723-linux-job.log",
+      "sha256": "7b0c194282898d8bb68b2a70ee459a879827e62bd8318904de015c882fa22d4e"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/country-ci-watch-723-windows-job.log",
+      "sha256": "119000e68e29b0babfcc8c930391abbfb7dd7083ae354155464a2013222bd838"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/cqrlog-desk-layout-20261105/geometry-accepted.json",
+      "sha256": "00cf98a61dd0e45d19fc3fe59ef0929023759fcc8222d41366d7a4973d235e51"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/cqrlog-programme-preservation.json",
+      "sha256": "e0f9976d6f058bb5640d1070d91aa73580d7c54d01526dc35cf8348cdd8d1658"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/cqrlog-native-fixture.py",
+      "sha256": "91c8b214dfc7a4a71a8f518d5ec0d2c1749d49df826fb569501064559cab0548"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/verify-cqrlog-stopped.py",
+      "sha256": "bd091b98a19f418e9262d3b66d69336a2b8b614a201a14e8012cf0e6d1b2cdb4"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/cqrlog-native-strict.py",
+      "sha256": "fe4204c1e425820e6f936dc50ec7c38d15d05f8a26f8e0a9468ae9dd15c79192"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/verify-cqrlog-strict-live.py",
+      "sha256": "31e06f53462eaabacb3a744d6821fb9e84a71e5f739578999ebe3a5eef307083"
+    },
+    {
+      "path": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/record-cqrlog-strict-acceptance.py",
+      "sha256": "c7bdc579a3cbdda42119b9bf9ee8ace91ad07615b47c20d77baa2d238e804b4c"
+    },
+    {
+      "path": "/private/tmp/xlog-wave1-qlog-candidate-eem_ggzm/evidence/native-acceptance-1.5.13.json",
+      "sha256": "709260ca56e4d518945e5630d5bfb9a95cf48d93e444bf1553d1981ffb3bb601"
+    },
+    {
+      "path": "/private/tmp/xlog-wave1-qlog-candidate-eem_ggzm/evidence/post-ui-1.5.13.json",
+      "sha256": "ff7a3f7938e60699e989fd2fef327f60f476e21e44cd5917460f461d29e68b1a"
+    }
+  ],
+  "remoteCI": {
+    "recordedUTC": "2026-11-04T18:42:09.715736+00:00",
+    "sourceCommit": "723d852ba3d65f595c27aa8a524abb2cd31b2d54",
+    "runs": [
+      {
+        "databaseId": 41879714902,
+        "headSha": "723d852ba3d65f595c27aa8a524abb2cd31b2d54",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41879714902",
+        "createdAt": "2026-11-04T17:42:27Z",
+        "updatedAt": "2026-11-04T18:41:33Z",
+        "jobs": [
+          {
+            "databaseId": 126748750716,
+            "name": "prototype (macos-15)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41879714902/job/126748750716",
+            "startedAt": "2026-11-04T17:42:32Z",
+            "completedAt": "2026-11-04T18:27:21Z",
+            "steps": [
+              {
+                "number": 1,
+                "name": "Set up job",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 2,
+                "name": "Enable Windows checkout long paths",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 3,
+                "name": "Run actions/checkout@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 4,
+                "name": "Select macOS Swift toolchain",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 5,
+                "name": "Run actions/setup-node@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 6,
+                "name": "Install supported contest Python before native tests",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 7,
+                "name": "Restore native dependency/build cache",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 8,
+                "name": "Linux build dependencies",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 9,
+                "name": "Swift toolchain (Linux)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 10,
+                "name": "Swift toolchain (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 11,
+                "name": "Windows SQLite",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 12,
+                "name": "Record native toolchains",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 13,
+                "name": "Install frontend dependencies",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 14,
+                "name": "Release payload guard tests",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 15,
+                "name": "Test atomic pinned contest catalog initialization",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 16,
+                "name": "Parse Windows installer scripts",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 17,
+                "name": "Linux C vault in a private Secret Service session",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 18,
+                "name": "Compile portable native test fixtures early (Unix)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 19,
+                "name": "Compile portable native test fixtures early (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 20,
+                "name": "Frontend tests and build",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 21,
+                "name": "Test FLEX IQ loopback fixture (Mac)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 22,
+                "name": "Test complete portable Swift core (Unix)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 23,
+                "name": "Test portable Swift core (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 24,
+                "name": "Linux credential vault in a private Secret Service session",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 25,
+                "name": "Build Swift worker (Unix)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 26,
+                "name": "Build Swift worker (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 27,
+                "name": "Stage isolated worker",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 28,
+                "name": "Build pinned Hamlib radio and rotor helpers (Mac integration)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 29,
+                "name": "Build pinned Hamlib radio and rotor helpers (Linux integration)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 30,
+                "name": "Stage pinned Hamlib radio and rotor helpers (Windows integration)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 31,
+                "name": "Test worker process framing (Unix)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 32,
+                "name": "Test worker process framing (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 33,
+                "name": "Shell contract tests",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 34,
+                "name": "Bundled Hamlib dummy protocol and lifecycle tests",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 35,
+                "name": "Bundled Hamlib dummy protocol and lifecycle tests (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 36,
+                "name": "Build desktop executable (not an installer acceptance claim)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 37,
+                "name": "Collect resolved dependency inventory and notices",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 38,
+                "name": "Package macOS application",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 39,
+                "name": "Upload macOS package",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 40,
+                "name": "Package Linux runtime and Debian application",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 41,
+                "name": "Package Windows portable runtime",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 42,
+                "name": "Package Windows EXE installer from audited runtime",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 43,
+                "name": "Upload Linux runtime packages",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 44,
+                "name": "Upload Windows runtime package",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 45,
+                "name": "Upload development executables and evidence inputs",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 46,
+                "name": "Upload portable Swift pin verification receipts",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 47,
+                "name": "Save native dependency/build cache",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 92,
+                "name": "Post Install supported contest Python before native tests",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 93,
+                "name": "Post Run actions/setup-node@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 94,
+                "name": "Post Run actions/checkout@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 95,
+                "name": "Complete job",
+                "status": "completed",
+                "conclusion": "success"
+              }
+            ],
+            "stepCounts": {
+              "success": 28,
+              "failure": 0,
+              "skipped": 23,
+              "cancelled": 0
+            },
+            "unfinishedSteps": []
+          },
+          {
+            "databaseId": 126748750934,
+            "name": "prototype (windows-2022)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41879714902/job/126748750934",
+            "startedAt": "2026-11-04T17:42:31Z",
+            "completedAt": "2026-11-04T18:41:32Z",
+            "steps": [
+              {
+                "number": 1,
+                "name": "Set up job",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 2,
+                "name": "Enable Windows checkout long paths",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 3,
+                "name": "Run actions/checkout@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 4,
+                "name": "Select macOS Swift toolchain",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 5,
+                "name": "Run actions/setup-node@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 6,
+                "name": "Install supported contest Python before native tests",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 7,
+                "name": "Restore native dependency/build cache",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 8,
+                "name": "Linux build dependencies",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 9,
+                "name": "Swift toolchain (Linux)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 10,
+                "name": "Swift toolchain (Windows)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 11,
+                "name": "Windows SQLite",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 12,
+                "name": "Record native toolchains",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 13,
+                "name": "Install frontend dependencies",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 14,
+                "name": "Release payload guard tests",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 15,
+                "name": "Test atomic pinned contest catalog initialization",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 16,
+                "name": "Parse Windows installer scripts",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 17,
+                "name": "Linux C vault in a private Secret Service session",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 18,
+                "name": "Compile portable native test fixtures early (Unix)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 19,
+                "name": "Compile portable native test fixtures early (Windows)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 20,
+                "name": "Frontend tests and build",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 21,
+                "name": "Test FLEX IQ loopback fixture (Mac)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 22,
+                "name": "Test complete portable Swift core (Unix)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 23,
+                "name": "Test portable Swift core (Windows)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 24,
+                "name": "Linux credential vault in a private Secret Service session",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 25,
+                "name": "Build Swift worker (Unix)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 26,
+                "name": "Build Swift worker (Windows)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 27,
+                "name": "Stage isolated worker",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 28,
+                "name": "Build pinned Hamlib radio and rotor helpers (Mac integration)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 29,
+                "name": "Build pinned Hamlib radio and rotor helpers (Linux integration)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 30,
+                "name": "Stage pinned Hamlib radio and rotor helpers (Windows integration)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 31,
+                "name": "Test worker process framing (Unix)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 32,
+                "name": "Test worker process framing (Windows)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 33,
+                "name": "Shell contract tests",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 34,
+                "name": "Bundled Hamlib dummy protocol and lifecycle tests",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 35,
+                "name": "Bundled Hamlib dummy protocol and lifecycle tests (Windows)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 36,
+                "name": "Build desktop executable (not an installer acceptance claim)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 37,
+                "name": "Collect resolved dependency inventory and notices",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 38,
+                "name": "Package macOS application",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 39,
+                "name": "Upload macOS package",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 40,
+                "name": "Package Linux runtime and Debian application",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 41,
+                "name": "Package Windows portable runtime",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 42,
+                "name": "Package Windows EXE installer from audited runtime",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 43,
+                "name": "Upload Linux runtime packages",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 44,
+                "name": "Upload Windows runtime package",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 45,
+                "name": "Upload development executables and evidence inputs",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 46,
+                "name": "Upload portable Swift pin verification receipts",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 47,
+                "name": "Save native dependency/build cache",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 92,
+                "name": "Post Install supported contest Python before native tests",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 93,
+                "name": "Post Run actions/setup-node@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 94,
+                "name": "Post Run actions/checkout@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 95,
+                "name": "Complete job",
+                "status": "completed",
+                "conclusion": "success"
+              }
+            ],
+            "stepCounts": {
+              "success": 31,
+              "failure": 0,
+              "skipped": 20,
+              "cancelled": 0
+            },
+            "unfinishedSteps": []
+          },
+          {
+            "databaseId": 126748751062,
+            "name": "prototype (ubuntu-24.04)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41879714902/job/126748751062",
+            "startedAt": "2026-11-04T17:42:31Z",
+            "completedAt": "2026-11-04T18:27:41Z",
+            "steps": [
+              {
+                "number": 1,
+                "name": "Set up job",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 2,
+                "name": "Enable Windows checkout long paths",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 3,
+                "name": "Run actions/checkout@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 4,
+                "name": "Select macOS Swift toolchain",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 5,
+                "name": "Run actions/setup-node@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 6,
+                "name": "Install supported contest Python before native tests",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 7,
+                "name": "Restore native dependency/build cache",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 8,
+                "name": "Linux build dependencies",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 9,
+                "name": "Swift toolchain (Linux)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 10,
+                "name": "Swift toolchain (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 11,
+                "name": "Windows SQLite",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 12,
+                "name": "Record native toolchains",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 13,
+                "name": "Install frontend dependencies",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 14,
+                "name": "Release payload guard tests",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 15,
+                "name": "Test atomic pinned contest catalog initialization",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 16,
+                "name": "Parse Windows installer scripts",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 17,
+                "name": "Linux C vault in a private Secret Service session",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 18,
+                "name": "Compile portable native test fixtures early (Unix)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 19,
+                "name": "Compile portable native test fixtures early (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 20,
+                "name": "Frontend tests and build",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 21,
+                "name": "Test FLEX IQ loopback fixture (Mac)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 22,
+                "name": "Test complete portable Swift core (Unix)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 23,
+                "name": "Test portable Swift core (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 24,
+                "name": "Linux credential vault in a private Secret Service session",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 25,
+                "name": "Build Swift worker (Unix)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 26,
+                "name": "Build Swift worker (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 27,
+                "name": "Stage isolated worker",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 28,
+                "name": "Build pinned Hamlib radio and rotor helpers (Mac integration)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 29,
+                "name": "Build pinned Hamlib radio and rotor helpers (Linux integration)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 30,
+                "name": "Stage pinned Hamlib radio and rotor helpers (Windows integration)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 31,
+                "name": "Test worker process framing (Unix)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 32,
+                "name": "Test worker process framing (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 33,
+                "name": "Shell contract tests",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 34,
+                "name": "Bundled Hamlib dummy protocol and lifecycle tests",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 35,
+                "name": "Bundled Hamlib dummy protocol and lifecycle tests (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 36,
+                "name": "Build desktop executable (not an installer acceptance claim)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 37,
+                "name": "Collect resolved dependency inventory and notices",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 38,
+                "name": "Package macOS application",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 39,
+                "name": "Upload macOS package",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 40,
+                "name": "Package Linux runtime and Debian application",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 41,
+                "name": "Package Windows portable runtime",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 42,
+                "name": "Package Windows EXE installer from audited runtime",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 43,
+                "name": "Upload Linux runtime packages",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 44,
+                "name": "Upload Windows runtime package",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 45,
+                "name": "Upload development executables and evidence inputs",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 46,
+                "name": "Upload portable Swift pin verification receipts",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 47,
+                "name": "Save native dependency/build cache",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 92,
+                "name": "Post Install supported contest Python before native tests",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 93,
+                "name": "Post Run actions/setup-node@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 94,
+                "name": "Post Run actions/checkout@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 95,
+                "name": "Complete job",
+                "status": "completed",
+                "conclusion": "success"
+              }
+            ],
+            "stepCounts": {
+              "success": 31,
+              "failure": 0,
+              "skipped": 20,
+              "cancelled": 0
+            },
+            "unfinishedSteps": []
+          },
+          {
+            "databaseId": 126783277561,
+            "name": "Linux runtime-only container acceptance",
+            "status": "completed",
+            "conclusion": "skipped",
+            "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41879714902/job/126783277561",
+            "startedAt": "2026-11-04T18:41:33Z",
+            "completedAt": "2026-11-04T18:41:33Z",
+            "steps": [],
+            "stepCounts": {
+              "success": 0,
+              "failure": 0,
+              "skipped": 0,
+              "cancelled": 0
+            },
+            "unfinishedSteps": []
+          },
+          {
+            "databaseId": 126783277987,
+            "name": "Windows fresh-runner runtime acceptance",
+            "status": "completed",
+            "conclusion": "skipped",
+            "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41879714902/job/126783277987",
+            "startedAt": "2026-11-04T18:41:33Z",
+            "completedAt": "2026-11-04T18:41:33Z",
+            "steps": [],
+            "stepCounts": {
+              "success": 0,
+              "failure": 0,
+              "skipped": 0,
+              "cancelled": 0
+            },
+            "unfinishedSteps": []
+          }
+        ],
+        "rawSnapshotSHA256": "e775723c843222f34831d3bc7d039fec5abf0d522193e59d2414ae6fab6bb637"
+      },
+      {
+        "databaseId": 41879444183,
+        "headSha": "723d852ba3d65f595c27aa8a524abb2cd31b2d54",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41879444183",
+        "createdAt": "2026-11-04T17:40:40Z",
+        "updatedAt": "2026-11-04T18:26:32Z",
+        "jobs": [
+          {
+            "databaseId": 126747841830,
+            "name": "prototype (macos-15)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41879444183/job/126747841830",
+            "startedAt": "2026-11-04T17:45:44Z",
+            "completedAt": "2026-11-04T18:26:30Z",
+            "steps": [
+              {
+                "number": 1,
+                "name": "Set up job",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 2,
+                "name": "Enable Windows checkout long paths",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 3,
+                "name": "Run actions/checkout@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 4,
+                "name": "Select macOS Swift toolchain",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 5,
+                "name": "Run actions/setup-node@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 6,
+                "name": "Install supported contest Python before native tests",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 7,
+                "name": "Restore native dependency/build cache",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 8,
+                "name": "Linux build dependencies",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 9,
+                "name": "Swift toolchain (Linux)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 10,
+                "name": "Swift toolchain (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 11,
+                "name": "Windows SQLite",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 12,
+                "name": "Record native toolchains",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 13,
+                "name": "Install frontend dependencies",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 14,
+                "name": "Release payload guard tests",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 15,
+                "name": "Test atomic pinned contest catalog initialization",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 16,
+                "name": "Parse Windows installer scripts",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 17,
+                "name": "Linux C vault in a private Secret Service session",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 18,
+                "name": "Compile portable native test fixtures early (Unix)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 19,
+                "name": "Compile portable native test fixtures early (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 20,
+                "name": "Frontend tests and build",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 21,
+                "name": "Test FLEX IQ loopback fixture (Mac)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 22,
+                "name": "Test complete portable Swift core (Unix)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 23,
+                "name": "Test portable Swift core (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 24,
+                "name": "Linux credential vault in a private Secret Service session",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 25,
+                "name": "Build Swift worker (Unix)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 26,
+                "name": "Build Swift worker (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 27,
+                "name": "Stage isolated worker",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 28,
+                "name": "Build pinned Hamlib radio and rotor helpers (Mac integration)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 29,
+                "name": "Build pinned Hamlib radio and rotor helpers (Linux integration)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 30,
+                "name": "Stage pinned Hamlib radio and rotor helpers (Windows integration)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 31,
+                "name": "Test worker process framing (Unix)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 32,
+                "name": "Test worker process framing (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 33,
+                "name": "Shell contract tests",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 34,
+                "name": "Bundled Hamlib dummy protocol and lifecycle tests",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 35,
+                "name": "Bundled Hamlib dummy protocol and lifecycle tests (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 36,
+                "name": "Build desktop executable (not an installer acceptance claim)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 37,
+                "name": "Collect resolved dependency inventory and notices",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 38,
+                "name": "Package macOS application",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 39,
+                "name": "Upload macOS package",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 40,
+                "name": "Package Linux runtime and Debian application",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 41,
+                "name": "Package Windows portable runtime",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 42,
+                "name": "Package Windows EXE installer from audited runtime",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 43,
+                "name": "Upload Linux runtime packages",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 44,
+                "name": "Upload Windows runtime package",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 45,
+                "name": "Upload development executables and evidence inputs",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 46,
+                "name": "Upload portable Swift pin verification receipts",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 47,
+                "name": "Save native dependency/build cache",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 92,
+                "name": "Post Install supported contest Python before native tests",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 93,
+                "name": "Post Run actions/setup-node@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 94,
+                "name": "Post Run actions/checkout@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 95,
+                "name": "Complete job",
+                "status": "completed",
+                "conclusion": "success"
+              }
+            ],
+            "stepCounts": {
+              "success": 28,
+              "failure": 0,
+              "skipped": 23,
+              "cancelled": 0
+            },
+            "unfinishedSteps": []
+          },
+          {
+            "databaseId": 126774661032,
+            "name": "Windows fresh-runner runtime acceptance",
+            "status": "completed",
+            "conclusion": "skipped",
+            "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41879444183/job/126774661032",
+            "startedAt": "2026-11-04T18:26:31Z",
+            "completedAt": "2026-11-04T18:26:30Z",
+            "steps": [],
+            "stepCounts": {
+              "success": 0,
+              "failure": 0,
+              "skipped": 0,
+              "cancelled": 0
+            },
+            "unfinishedSteps": []
+          },
+          {
+            "databaseId": 126774662085,
+            "name": "Linux runtime-only container acceptance",
+            "status": "completed",
+            "conclusion": "skipped",
+            "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41879444183/job/126774662085",
+            "startedAt": "2026-11-04T18:26:31Z",
+            "completedAt": "2026-11-04T18:26:30Z",
+            "steps": [],
+            "stepCounts": {
+              "success": 0,
+              "failure": 0,
+              "skipped": 0,
+              "cancelled": 0
+            },
+            "unfinishedSteps": []
+          }
+        ],
+        "rawSnapshotSHA256": "5df97fb929595ac33a3739846e57f0ff0635f17d0cdc6567f70df1ec5a80488c"
+      },
+      {
+        "databaseId": 41879444170,
+        "headSha": "723d852ba3d65f595c27aa8a524abb2cd31b2d54",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41879444170",
+        "createdAt": "2026-11-04T17:40:40Z",
+        "updatedAt": "2026-11-04T17:52:53Z",
+        "jobs": [
+          {
+            "databaseId": 126747841445,
+            "name": "test-and-build",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41879444170/job/126747841445",
+            "startedAt": "2026-11-04T17:45:44Z",
+            "completedAt": "2026-11-04T17:48:54Z",
+            "steps": [
+              {
+                "number": 1,
+                "name": "Set up job",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 2,
+                "name": "Run actions/checkout@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 3,
+                "name": "Verify toolchain",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 4,
+                "name": "Test",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 5,
+                "name": "Build application targets without minting a release candidate",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 6,
+                "name": "Verify built resources",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 12,
+                "name": "Post Run actions/checkout@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 13,
+                "name": "Complete job",
+                "status": "completed",
+                "conclusion": "success"
+              }
+            ],
+            "stepCounts": {
+              "success": 8,
+              "failure": 0,
+              "skipped": 0,
+              "cancelled": 0
+            },
+            "unfinishedSteps": []
+          }
+        ],
+        "rawSnapshotSHA256": "b378ed3dea34ad853578dc3a079c42e5eac622cbab6ff697094f82b365623b66"
+      },
+      {
+        "databaseId": 41873199611,
+        "headSha": "768c0bb78a13964bb28255041dc4edda7de2b169",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41873199611",
+        "createdAt": "2026-11-04T17:00:23Z",
+        "updatedAt": "2026-11-04T17:18:03Z",
+        "jobs": [
+          {
+            "databaseId": 126725594832,
+            "name": "Contest definition generator",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41873199611/job/126725594832",
+            "startedAt": "2026-11-04T17:00:27Z",
+            "completedAt": "2026-11-04T17:01:20Z",
+            "steps": [
+              {
+                "number": 1,
+                "name": "Set up job",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 2,
+                "name": "Check out xLog source",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 3,
+                "name": "Check out exact pinned contest source",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 4,
+                "name": "Install inventory Python",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 5,
+                "name": "Record Python and pinned source revision",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 6,
+                "name": "Verify complete pinned plugin corpus",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 7,
+                "name": "Test contest definition generator",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 8,
+                "name": "Verify reviewed Rust dependency patch floors",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 9,
+                "name": "Test reviewed Rust dependency policy",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 16,
+                "name": "Post Install inventory Python",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 17,
+                "name": "Post Check out exact pinned contest source",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 18,
+                "name": "Post Check out xLog source",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 19,
+                "name": "Complete job",
+                "status": "completed",
+                "conclusion": "success"
+              }
+            ],
+            "stepCounts": {
+              "success": 13,
+              "failure": 0,
+              "skipped": 0,
+              "cancelled": 0
+            },
+            "unfinishedSteps": []
+          },
+          {
+            "databaseId": 126725595352,
+            "name": "Contest native tests (ubuntu-24.04)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41873199611/job/126725595352",
+            "startedAt": "2026-11-04T17:00:27Z",
+            "completedAt": "2026-11-04T17:02:29Z",
+            "steps": [
+              {
+                "number": 1,
+                "name": "Set up job",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 2,
+                "name": "Enable Windows checkout long paths",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 3,
+                "name": "Run actions/checkout@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 4,
+                "name": "Linux Tauri compile dependencies",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 5,
+                "name": "Restore isolated native test cache",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 6,
+                "name": "Record Rust toolchain and verify Test config override",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 7,
+                "name": "Discover and run bounded native contest tests",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 8,
+                "name": "Discover and run bounded native contest tests (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 15,
+                "name": "Post Restore isolated native test cache",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 16,
+                "name": "Post Run actions/checkout@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 17,
+                "name": "Complete job",
+                "status": "completed",
+                "conclusion": "success"
+              }
+            ],
+            "stepCounts": {
+              "success": 9,
+              "failure": 0,
+              "skipped": 2,
+              "cancelled": 0
+            },
+            "unfinishedSteps": []
+          },
+          {
+            "databaseId": 126725595359,
+            "name": "Contest native tests (windows-2022)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41873199611/job/126725595359",
+            "startedAt": "2026-11-04T17:00:26Z",
+            "completedAt": "2026-11-04T17:04:08Z",
+            "steps": [
+              {
+                "number": 1,
+                "name": "Set up job",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 2,
+                "name": "Enable Windows checkout long paths",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 3,
+                "name": "Run actions/checkout@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 4,
+                "name": "Linux Tauri compile dependencies",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 5,
+                "name": "Restore isolated native test cache",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 6,
+                "name": "Record Rust toolchain and verify Test config override",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 7,
+                "name": "Discover and run bounded native contest tests",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 8,
+                "name": "Discover and run bounded native contest tests (Windows)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 15,
+                "name": "Post Restore isolated native test cache",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 16,
+                "name": "Post Run actions/checkout@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 17,
+                "name": "Complete job",
+                "status": "completed",
+                "conclusion": "success"
+              }
+            ],
+            "stepCounts": {
+              "success": 9,
+              "failure": 0,
+              "skipped": 2,
+              "cancelled": 0
+            },
+            "unfinishedSteps": []
+          },
+          {
+            "databaseId": 126725595512,
+            "name": "Contest tests (macos-15)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41873199611/job/126725595512",
+            "startedAt": "2026-11-04T17:00:30Z",
+            "completedAt": "2026-11-04T17:07:46Z",
+            "steps": [
+              {
+                "number": 1,
+                "name": "Set up job",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 2,
+                "name": "Enable Windows checkout long paths",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 3,
+                "name": "Run actions/checkout@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 4,
+                "name": "Select macOS Swift toolchain",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 5,
+                "name": "Linux SQLite dependency",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 6,
+                "name": "Swift toolchain (Linux)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 7,
+                "name": "Swift toolchain (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 8,
+                "name": "Windows SQLite dependency",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 9,
+                "name": "Record native Swift toolchain",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 10,
+                "name": "Verify non-macOS pure IQ source slice on macOS",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 11,
+                "name": "Verify contest test discovery (macOS and Linux)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 12,
+                "name": "Verify contest test discovery (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 13,
+                "name": "Test portable CW primitives and cluster admission (macOS and Linux)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 14,
+                "name": "Test portable CW primitives and cluster admission (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 15,
+                "name": "Test contest core, store, and export support (macOS and Linux)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 16,
+                "name": "Test contest core, store, and export support (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 17,
+                "name": "Test Windows ConnectionDoctor boolean fallback",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 18,
+                "name": "Test Windows remote backup revision validation",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 36,
+                "name": "Post Run actions/checkout@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 37,
+                "name": "Complete job",
+                "status": "completed",
+                "conclusion": "success"
+              }
+            ],
+            "stepCounts": {
+              "success": 10,
+              "failure": 0,
+              "skipped": 10,
+              "cancelled": 0
+            },
+            "unfinishedSteps": []
+          },
+          {
+            "databaseId": 126725595561,
+            "name": "Contest tests (windows-2022)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41873199611/job/126725595561",
+            "startedAt": "2026-11-04T17:00:26Z",
+            "completedAt": "2026-11-04T17:18:02Z",
+            "steps": [
+              {
+                "number": 1,
+                "name": "Set up job",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 2,
+                "name": "Enable Windows checkout long paths",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 3,
+                "name": "Run actions/checkout@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 4,
+                "name": "Select macOS Swift toolchain",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 5,
+                "name": "Linux SQLite dependency",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 6,
+                "name": "Swift toolchain (Linux)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 7,
+                "name": "Swift toolchain (Windows)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 8,
+                "name": "Windows SQLite dependency",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 9,
+                "name": "Record native Swift toolchain",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 10,
+                "name": "Verify non-macOS pure IQ source slice on macOS",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 11,
+                "name": "Verify contest test discovery (macOS and Linux)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 12,
+                "name": "Verify contest test discovery (Windows)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 13,
+                "name": "Test portable CW primitives and cluster admission (macOS and Linux)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 14,
+                "name": "Test portable CW primitives and cluster admission (Windows)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 15,
+                "name": "Test contest core, store, and export support (macOS and Linux)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 16,
+                "name": "Test contest core, store, and export support (Windows)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 17,
+                "name": "Test Windows ConnectionDoctor boolean fallback",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 18,
+                "name": "Test Windows remote backup revision validation",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 36,
+                "name": "Post Run actions/checkout@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 37,
+                "name": "Complete job",
+                "status": "completed",
+                "conclusion": "success"
+              }
+            ],
+            "stepCounts": {
+              "success": 13,
+              "failure": 0,
+              "skipped": 7,
+              "cancelled": 0
+            },
+            "unfinishedSteps": []
+          },
+          {
+            "databaseId": 126725595789,
+            "name": "Contest native tests (macos-15)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41873199611/job/126725595789",
+            "startedAt": "2026-11-04T17:00:28Z",
+            "completedAt": "2026-11-04T17:06:53Z",
+            "steps": [
+              {
+                "number": 1,
+                "name": "Set up job",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 2,
+                "name": "Enable Windows checkout long paths",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 3,
+                "name": "Run actions/checkout@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 4,
+                "name": "Linux Tauri compile dependencies",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 5,
+                "name": "Restore isolated native test cache",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 6,
+                "name": "Record Rust toolchain and verify Test config override",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 7,
+                "name": "Discover and run bounded native contest tests",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 8,
+                "name": "Discover and run bounded native contest tests (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 15,
+                "name": "Post Restore isolated native test cache",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 16,
+                "name": "Post Run actions/checkout@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 17,
+                "name": "Complete job",
+                "status": "completed",
+                "conclusion": "success"
+              }
+            ],
+            "stepCounts": {
+              "success": 8,
+              "failure": 0,
+              "skipped": 3,
+              "cancelled": 0
+            },
+            "unfinishedSteps": []
+          },
+          {
+            "databaseId": 126725596034,
+            "name": "Contest tests (ubuntu-24.04)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41873199611/job/126725596034",
+            "startedAt": "2026-11-04T17:00:26Z",
+            "completedAt": "2026-11-04T17:06:53Z",
+            "steps": [
+              {
+                "number": 1,
+                "name": "Set up job",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 2,
+                "name": "Enable Windows checkout long paths",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 3,
+                "name": "Run actions/checkout@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 4,
+                "name": "Select macOS Swift toolchain",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 5,
+                "name": "Linux SQLite dependency",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 6,
+                "name": "Swift toolchain (Linux)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 7,
+                "name": "Swift toolchain (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 8,
+                "name": "Windows SQLite dependency",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 9,
+                "name": "Record native Swift toolchain",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 10,
+                "name": "Verify non-macOS pure IQ source slice on macOS",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 11,
+                "name": "Verify contest test discovery (macOS and Linux)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 12,
+                "name": "Verify contest test discovery (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 13,
+                "name": "Test portable CW primitives and cluster admission (macOS and Linux)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 14,
+                "name": "Test portable CW primitives and cluster admission (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 15,
+                "name": "Test contest core, store, and export support (macOS and Linux)",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 16,
+                "name": "Test contest core, store, and export support (Windows)",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 17,
+                "name": "Test Windows ConnectionDoctor boolean fallback",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 18,
+                "name": "Test Windows remote backup revision validation",
+                "status": "completed",
+                "conclusion": "skipped"
+              },
+              {
+                "number": 36,
+                "name": "Post Run actions/checkout@v4",
+                "status": "completed",
+                "conclusion": "success"
+              },
+              {
+                "number": 37,
+                "name": "Complete job",
+                "status": "completed",
+                "conclusion": "success"
+              }
+            ],
+            "stepCounts": {
+              "success": 10,
+              "failure": 0,
+              "skipped": 10,
+              "cancelled": 0
+            },
+            "unfinishedSteps": []
+          }
+        ],
+        "rawSnapshotSHA256": "d6306dbdf6307d77b57ebdf465d9d12f2af005044f12253d63b0e64b2dda0601"
+      }
+    ],
+    "retainedNativeValidationSource": "768c0bb78a13964bb28255041dc4edda7de2b169",
+    "retainedNativeQualification": "Contest Swift/Rust/generator inputs are unchanged; later diff is only DetachedContestSurface.test.tsx and audit prose.",
+    "qualification": "Only completed successful named jobs are passes; queued/cancelled/failed/skipped are not passes."
+  },
+  "productionInstalled": false,
+  "physicalDevicesExercised": false,
+  "notarized": false,
+  "limits": [
+    "ExpertSDR3/TCI physical PTT/CW",
+    "WK2/WK3 electrical keying/pot/paddles",
+    "microphone/monitor/TX/PTT physical routes and audible first/last samples",
+    "normal native voice is macOS-only",
+    "external WAV library requires separate backup",
+    "Windows fresh-runner/Linux runtime-only packaged acceptance skipped; validation emitted no runtime packages",
+    "existing QLog/TLF controlled-cold/sponsor/R03/MO2T boundaries"
+  ]
+}

@@ -49,3 +49,11 @@ src/live/QSOHeader.test.tsx src/live/cwVisibility.test.tsx
 src/live/VoiceDesk.test.tsx --maxWorkers=1`; 40 tests in four files passed.
 `npx tsc --noEmit` exited zero. These do not substitute for the final signed
 native pointer-wheel recheck.
+
+The final signed 1.5.13 native recheck passed at 1440×940: wheel input scrolled
+inside the fixed Active QSO card, visibly reached the final voice editing/import
+controls without moving the surrounding desk, and returned to visible Callsign
+and Log QSO after close/up-scroll. Saved settings and all QSO values outside the
+intended correction/recovery metadata were preserved. Armed CW remains outside
+the offline native profile; its actual component/Stop geometry is the bounded
+browser scope above, not a physical/native-output pass.

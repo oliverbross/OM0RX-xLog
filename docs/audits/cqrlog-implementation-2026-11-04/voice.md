@@ -1,5 +1,11 @@
 # C06 execution evidence — 4 November 2026
 
+**Final integration:** [1.5.13](../../releases/v1.5.13-cqrlog-candidate.md) records
+full software gates and the signed native normal-voice controls/scroll workflow.
+Active microphone/monitor/TX/PTT and audible/device-loss qualification remain
+Not run; normal native routes are macOS-only. Earlier pending entries below are
+the source handoff, with final scope supplied by the release/machine receipt.
+
 Integrator follow-up: the broad frontend run exposed that an unavailable native
 snapshot could crash the newly mounted VoiceDesk and unmount the operator desk.
 The component now rejects a malformed reply, retains the desk and disables audio

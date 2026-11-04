@@ -1,5 +1,10 @@
 # C01/C02 country implementation evidence — 4 November 2026
 
+**Final integration:** the [1.5.13 release record](../../releases/v1.5.13-cqrlog-candidate.md)
+adds signed-worker/100k and native selected-apply/restart/recovery results to this
+source evidence. Earlier pending-candidate statements below are historical.
+The final layer matrix and machine receipt retain connected/disk-cold limits.
+
 Final normal-manifest gate found one fixture error: `ZZ` is allocated to Brazil,
 as the bundled CSV and [ITU allocation table](https://www.itu.int/gladapp/Allocation/CallSigns)
 both establish. The resolver was unchanged. The corpus now positively checks

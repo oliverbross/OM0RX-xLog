@@ -1164,3 +1164,49 @@ Use actual session authorisation for physical station actions, production instal
 
 Deliver logical committed changes following the current repository workflow, an updated master ledger, concise operator documentation, exact source/build provenance and a clear account of completed features, pending physical checks and genuinely blocked work. Do not claim installation or RF acceptance without evidence. Begin F-01 now and proceed into implementation in this session.
 ```
+
+## CQRLOG signed integration closeout — 5 November 2026
+
+The shared CQRLOG software is delivered in the retained signed
+[1.5.13 candidate](../releases/v1.5.13-cqrlog-candidate.md), source
+`75cb1fbe78791b47735e7d81e7e42e3404dc7010`. The [CQRLOG final register](OM0RX-xLog_CQRLOG_C01-C06_Implementation_Plan_2026-11-03.md#13-final-software-delivery--5-november-2026-darwin)
+and [CX layer matrix](../audits/cqrlog-implementation-2026-11-04/acceptance-layers.md)
+replace then-pending integration references without resetting any original TLF
+task, acceptance ID or state. The grouped P1-01–P1-07 execution evidence received
+an additive capability clarification; VERIFIED_SOFTWARE remains its state.
+
+Typed CW compilation/native ownership, staged versus deliberate live composition,
+IME/preedit protection, formatted contest message context, original serial and
+corrected-call admission retain the existing Host and TLF owner. Closed staged
+radio jobs can intentionally repeat after fresh admission without replaying old
+typing. TCI supports only its evidenced ordinary whole-message route; unsupported
+advanced append/speed and exact-lane capabilities remain unavailable.
+
+Shared voice metadata/library/normal native routes and Stop do not create a fake
+normal contest session. F1–F10 WAV reuse preserves contest F11/F12 and the existing
+claim path. Actual native output remains unqualified until the identified device/
+PTT setup is operated. External WAVs still require separate backup. Native
+Traditional layout now scrolls expanded CW/voice controls without shrinking away
+the QSO form; actual-component wheel/focus/Stop checks pass four widths and final
+native voice scrolling/draft preservation passed.
+
+Final complete frontend is 5,188/378 files plus Node 6; complete portable Swift
+passes all targets (619 reported Swift Testing/85 suites plus 8/2, existing skips
+retained). Full Rust 1,103 and other exact scopes are in the integration ledger.
+The initial test-only older-macro/legacy-preview repairs are separately pinned to
+`768c0bb78a13964bb28255041dc4edda7de2b169`, with 6,435 unchanged other tracked
+application/build/workflow inputs. Candidate source/hashes are not relabelled,
+and the remote rerun produces no package.
+
+The subsequent test-only detached-feedback completion repair is
+`723d852ba3d65f595c27aa8a524abb2cd31b2d54`: its 198-case file and TypeScript pass
+without sleeps, longer timeouts, new wakes or changed product/guards. Its 6,434
+other tracked application/build/workflow entries match the original release.
+Swift/Rust/generator inputs remain identical to the successful seven-job Contest
+qualification at `768c0bb7`; latest frontend/platform results remain separately
+pinned. The signed 1.5.13 source and artifact hashes stay unchanged.
+
+No production installation, live radio/keyer/audio or RF action occurred. Existing
+R03/MO2T, physical CW-18 and other operational limits remain open. Source, browser,
+unarmed native UI, signed-worker and physical qualifications are distinct; the
+candidate receipt owns actual final remote job results.

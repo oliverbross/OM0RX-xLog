@@ -42,3 +42,11 @@ One additional named filter in that command matched no tests; the counts above
 are for the actual discovered suite. The focused Rust surface-authority test
 passed. Final UI/typecheck, broader gates and signed restart/undo acceptance are
 recorded by the integrator in the final release record.
+
+Final signed 1.5.13 native acceptance completed that boundary: the original 1.5.11
+CQ-only receipt was rediscovered after candidate restarts, canonical Recover
+returned confirmed success, and a new read displayed Already recovered. Ordinary
+Quit/process verification and separate signed-worker read confirmed restored QSO
+fields, expected undo audit/edit timestamp only, the other 11 contacts, settings
+and QLog filter retained. The [final release](../../releases/v1.5.13-cqrlog-candidate.md)
+records exact host/worker, marker, source and artifact hashes.
