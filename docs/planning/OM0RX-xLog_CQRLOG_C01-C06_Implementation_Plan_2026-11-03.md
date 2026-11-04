@@ -1379,7 +1379,7 @@ it does not authorize production replacement or physical output.
 | Follow-up | Current state and evidence |
 | --- | --- |
 | C06 terminal recording cancellation | Reproduced actual disposable WAV replacement after Stop → same-ID Finish. Native cancellation is now terminal; publication shares Stop/Finish admission. Fifteen native voice and all 1,116 Rust tests pass. Packaged/physical scopes remain separate. |
-| Windows DXpedition two-second read | Run 41901606176 failed Windows; Mac/Linux passed and optional runtime jobs skipped. Focused phase diagnostics/cold-reference investigation and a repeated Windows gate are required. No test skip or timeout increase is permitted. |
+| Windows DXpedition two-second read | Run 41901606176 failed Windows; Mac/Linux passed and optional runtime jobs skipped. Instrumentation locates local delay in cold reply shaping; country rules were validated/compiled twice. Reusing fully validated compiled rules halves the cold focused read (983.4 → 496.3 ms), with the feed held and two-second limit unchanged. Thirteen integration and seven core/oracle methods pass; 21,335 complete Facts remain identical. Instrumented Windows gate pending. |
 
 The [existing review record](../audits/cqrlog-code-review-2026-11-05.md#release-candidate-close-out-follow-ups--5-november-2026)
 retains reproduction logs, corrections and current gate state. Only the missing

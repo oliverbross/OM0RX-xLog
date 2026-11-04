@@ -162,8 +162,7 @@ public final class CTYResolver: @unchecked Sendable {
     /// Bundle, imported bytes and downloaded bytes use this exact validator.
     public init(countryPack data: Data) throws {
         neutralFallback = nil
-        let pack = try CountryReferencePack.decode(data)
-        let compiled = try pack.records.map(CountryReferencePack.CompiledRule.init)
+        let (pack, compiled) = try CountryReferencePack.decodeAndCompile(data)
         countryPack = pack; packedRules = compiled
         // Literal exact exceptions need only their full-call bucket. Keeping
         // thousands of unrelated exceptions in every first-letter scan made
@@ -596,6 +595,12 @@ public struct CountryReferencePack: Codable, Sendable {
         return value
     }
     public static func decode(_ data: Data) throws -> CountryReferencePack {
+        try decodeAndCompile(data).0
+    }
+
+    /// Keep the validated compiled rules instead of constructing them again on
+    /// the first statistics/facts read. Imports still validate the entire pack.
+    fileprivate static func decodeAndCompile(_ data: Data) throws -> (CountryReferencePack, [CompiledRule]) {
         guard (100...32_000_000).contains(data.count) else { throw ValidationError.invalid("size outside bounds") }
         let value = try JSONDecoder().decode(Self.self, from: data)
         guard value.schemaVersion == 1, value.normalizerVersion == "xlog-ok1rr-1", value.conflictPolicy == "reportAmbiguous",
@@ -623,6 +628,8 @@ public struct CountryReferencePack: Codable, Sendable {
                   (item.pattern?.utf8.count ?? 0) <= 256 else { throw ValidationError.invalid("invalid exclusion") }
         }
         var identities = Set<String>()
+        var compiled: [CompiledRule] = []
+        compiled.reserveCapacity(value.records.count)
         for item in value.records {
             let identity = "\(item.component)|\(item.line)|\(item.pattern)|\(item.exact)|\(item.start ?? "")|\(item.end ?? "")"
             guard identities.insert(identity).inserted else { throw ValidationError.invalid("duplicate rule identity") }
@@ -633,11 +640,11 @@ public struct CountryReferencePack: Codable, Sendable {
                   !country.name.isEmpty, country.name.utf8.count <= 512,
                   country.latitude.map({ $0.isFinite && (-90...90).contains($0) }) ?? true,
                   country.longitude.map({ $0.isFinite && (-180...180).contains($0) }) ?? true else { throw ValidationError.invalid("invalid country values") }
-            let start = try date(item.start), end = try date(item.end)
-            guard start == nil || end == nil || start! <= end! else { throw ValidationError.invalid("inverted date window") }
-            _ = try CompiledRule(item)
+            let rule = try CompiledRule(item)
+            guard rule.start == nil || rule.end == nil || rule.start! <= rule.end! else { throw ValidationError.invalid("inverted date window") }
+            compiled.append(rule)
         }
-        return value
+        return (value, compiled)
     }
 
     fileprivate struct CompiledRule: @unchecked Sendable {

@@ -387,6 +387,27 @@ runtime jobs. The failure is retained, not relabeled. Windows logs are saved at
 remains unchanged. Focused phase instrumentation and cold-reference investigation
 are in progress; diagnosis and required repeated Windows gate follow below.
 
+Focused baseline locally passes (1.123 s overall). Phase instrumentation then
+measures workspace/worker setup at 50.6/61.3 ms, feed held at 66.5 ms, read task
+start 67.0 ms, aggregate evaluation finish 69.7 ms and reply 1,050.3 ms
+(`/tmp/xlog-rc14-dx-instrumented.log`). The held feed remains pending when the
+read returns. The demonstrated delay is after aggregate evaluation, not waiting
+for the feed or fixture-start signal. `statisticsJSON` cold-loads the country
+resolver in that phase. Its constructor validated/compiled every rule and then
+compiled all rules again, parsing date windows a third time.
+
+The validator now returns its fully checked compiled rules to the constructor.
+Every manifest/component/country/pattern/date/identity check remains; no partial
+pack is admitted. No renderer, timeout, warmup, test skip or responsiveness
+assertion changes. The same cold focused run now measures evaluation finish
+18.7 ms and reply 513.2 ms (496.3 ms from task start, about half the original
+983.4 ms); the response still completes while the feed is held
+(`/tmp/xlog-rc14-country-dx-after.log`). All 13 integrated country/DX methods
+pass. All 21,335 complete-facts oracle entries still agree and seven core/oracle
+methods pass (`/tmp/xlog-rc14-country-oracle.log`). Windows's original log has no
+phase stamps, so it does not alone separate cold materialization from runner
+scheduling; the instrumented repeated Windows gate must confirm its outcome.
+
 Contest run `41901614866` retained six passing jobs and one native macOS
 runner-acquisition cancellation. Only that missing job was requeued; it is now
 running. Earlier cancellations and successful jobs retain their separate states.

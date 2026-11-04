@@ -1,4 +1,5 @@
 import Foundation
+import Dispatch
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
@@ -10,16 +11,24 @@ import XCTest
 struct DXpeditionConcurrencyTests {
     @Test("A held catalogue download does not block a real worker logbook read")
     func heldFeedAllowsLoggingRead() async throws {
+        let trace = DXpeditionReadTrace()
+        defer { trace.report() }
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
         _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
+        trace.mark("workspaceCreated")
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [HeldDXpeditionFeed.self]
         let session = URLSession(configuration: configuration)
         defer { session.invalidateAndCancel(); HeldDXpeditionFeed.gate.release() }
         let opportunities = LiveOpportunitiesMethods(logbook: logbook, session: session, clusterSpots: { [] })
-        let worker = LiveWorker(logbook: logbook, opportunityMethods: opportunities)
+        let worker = LiveWorker(logbook: logbook, opportunityMethods: opportunities, aggregateEvaluator: { snapshot, cancellation in
+            trace.mark("evaluateStarted")
+            defer { trace.mark("evaluateFinished") }
+            return try snapshot.evaluate(cancellation: cancellation)
+        })
+        trace.mark("workerCreated")
         let refresh = Task {
             await worker.response(to: Data(#"{"id":"slow-dx","method":"opportunities_dxpedition_refresh","params":{"source":"adxo"}}"#.utf8))
         }
@@ -27,14 +36,18 @@ struct DXpeditionConcurrencyTests {
         // suite. The concurrency contract is the two-second logbook read below,
         // measured only after the feed is demonstrably held.
         let started = await XCTWaiter.fulfillment(of: [HeldDXpeditionFeed.gate.started], timeout: 10)
+        trace.mark("feedHeld")
         #expect(started == .completed)
         let readFinished = XCTestExpectation(description: "independent logging read completed")
         let read = Task {
+            trace.mark("readTaskStarted")
             let response = await worker.response(to: Data(#"{"id":"logging-read","method":"logbook_stats","params":{}}"#.utf8))
+            trace.mark("readReply")
             readFinished.fulfill()
             return response
         }
         let readResult = await XCTWaiter.fulfillment(of: [readFinished], timeout: 2)
+        trace.mark("readWaitEnded")
         #expect(readResult == .completed)
         #expect(HeldDXpeditionFeed.gate.isHolding)
         HeldDXpeditionFeed.gate.release()
@@ -44,6 +57,21 @@ struct DXpeditionConcurrencyTests {
         #expect(feedResponse["ok"] as? Bool == true)
         #expect(try logbook.openedDatabase().count() == 0)
         await worker.beginTerminalShutdown()
+    }
+}
+
+private final class DXpeditionReadTrace: @unchecked Sendable {
+    private let started = DispatchTime.now().uptimeNanoseconds
+    private let lock = NSLock()
+    private var events: [String: Double] = [:]
+    func mark(_ event: String) {
+        let elapsed = Double(DispatchTime.now().uptimeNanoseconds - started) / 1_000_000
+        lock.lock(); events[event] = elapsed; lock.unlock()
+    }
+    func report() {
+        lock.lock(); let value = events; lock.unlock()
+        if let data = try? JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]),
+           let text = String(data: data, encoding: .utf8) { print("DXPEDITION_READ_TRACE_MS \(text)") }
     }
 }
 

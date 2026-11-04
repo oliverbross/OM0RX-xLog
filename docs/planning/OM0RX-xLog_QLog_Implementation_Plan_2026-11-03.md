@@ -1737,3 +1737,10 @@ phase diagnostics and its required repeated gate remain in progress. The old
 1.5.13 artifact predates follow-up fixes; installed 1.5.9 and rollback stay intact.
 No QLog acceptance ID is reset, and no physical or packaged acceptance is inferred
 from these source tests. New isolated candidate evidence belongs to that register.
+
+The DXpedition investigation measures cold reply shaping after the real aggregate
+evaluation, with the feed still held. Reusing the country validator's compiled
+rules removes duplicate compilation and halves the local cold read; 13 country/
+DX integration methods, seven core/oracle methods and all 21,335 prior full-Facts
+entries pass unchanged. Windows's original log lacks phase stamps; its repeated
+instrumented gate remains required. The responsiveness limit stays two seconds.
