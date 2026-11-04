@@ -24,6 +24,16 @@ physical CAT action or submission is authorised by this correction pass.
 
 ### Correction evidence (this register remains authoritative)
 
+**R05 native rehearsal prerequisite:** the prior offline park/load failure was
+the blanket external-I/O rejection of `cw_session_request` observations, which
+left the unchanged output guard seeing a service error. Validated offline private
+profiles may now read the actual process owner's snapshot without provider reads,
+client registration, refresh or output admission. All arm/send/contest/release
+actions remain disabled on this path. The owner reports any real armed/pending/
+uncertain state unchanged; the UI guard is preserved. Native boundary test
+`isolated_observation_reports_actual_owner_guard_without_provider_or_output_admission`
+passed. This is observation support, not an output simulator or physical proof.
+
 **TLF-R08 / P2-01/02/06; QTC-02/04/15 — VERIFIED_SOFTWARE:** successful
 `qtc_item` now clears its matching pending editor in the same Host transaction.
 New editors carry a unique identity; retained clearance tokens prevent older

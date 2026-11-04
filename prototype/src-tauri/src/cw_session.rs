@@ -93,6 +93,13 @@ impl Session {
                 "progressEvidence":state.target["progressEvidence"]}})
     }
     pub fn snapshot(&self) -> Result<Value, String> { let state = self.lock()?; Ok(self.snapshot_locked(&state)) }
+    /// Validated offline fixtures may observe this process owner without reading
+    /// a provider, registering a client, refreshing context or admitting output.
+    pub fn isolated_snapshot(&self, label: &str, exiting: bool, action: &str) -> Result<Value, String> {
+        validate_invoker(label, false, exiting, action)?;
+        if action != "snapshot" { return Err("Offline CW permits owner observation only; output remains disabled.".into()); }
+        self.snapshot()
+    }
     fn change(state: &mut State) { state.revision += 1; }
     fn check(state: &State, client: &str, params: &Value, lease: bool) -> Result<(), String> {
         if params["expectedRevision"].as_u64() != Some(state.revision) { return Err("CW observation changed; refresh and explicitly try again.".into()); }
@@ -676,6 +683,21 @@ mod tests {
         assert!(reply["error"].as_str().unwrap().contains("Live CW continuation"));
         assert!(backend.writes.lock().unwrap().is_empty());
         assert!(backend.claims.lock().unwrap().is_empty());
+    }
+    #[test]
+    fn isolated_observation_reports_actual_owner_guard_without_provider_or_output_admission() {
+        let (session, backend, _) = fixture();
+        let idle = session.isolated_snapshot("contest-setup", false, "snapshot").unwrap();
+        assert_eq!(idle["armed"], false); assert_eq!(idle["pending"], false); assert_eq!(idle["error"], "");
+        for action in ["arm", "send", "contest", "stop", "acknowledge", "unregister"] {
+            assert!(session.isolated_snapshot("contest-setup", false, action).is_err());
+        }
+        assert!(session.isolated_snapshot("contest--active-qso", false, "snapshot").is_err());
+        assert!(session.isolated_snapshot("main", true, "snapshot").is_err());
+        { let mut state = session.lock().unwrap(); state.armed_until = 100; state.error = "retained uncertainty".into(); }
+        let guarded = session.isolated_snapshot("contest-setup", false, "snapshot").unwrap();
+        assert_eq!(guarded["armed"], true); assert_eq!(guarded["error"], "retained uncertainty");
+        assert!(backend.writes.lock().unwrap().is_empty()); assert!(backend.claims.lock().unwrap().is_empty());
     }
     #[test]
     fn live_owned_finish_admits_one_exchange_continuation() {

@@ -2751,6 +2751,11 @@ async fn cw_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow,
     client: String, sequence: u64, params: serde_json::Value) -> Result<serde_json::Value, String> {
     let action = params["action"].as_str().unwrap_or("");
     let test_simulation = runtime_profile::CONTESTING_TEST;
+    if runtime_profile::offline_root().is_some() && !test_simulation {
+        // The validated private fixture can positively observe the real owner.
+        // No refresh/provider call or arming/output operation is permitted here.
+        return cw_session_backend::owner(&app).isolated_snapshot(window.label(), APP_EXITING.load(Ordering::Acquire), action);
+    }
     if !test_simulation { runtime_profile::require_external_io_disabled()?; }
     runtime_profile::validate_contesting_test_cw(window.label(), action)?;
     cw_session::validate_invoker(window.label(), runtime_profile::isolated(state.path.is_some()) && !test_simulation, APP_EXITING.load(Ordering::Acquire), action)?;
