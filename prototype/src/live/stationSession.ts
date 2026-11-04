@@ -19,7 +19,7 @@ export type StationSession = {
 };
 export type HamlibConfiguration = { mode: "managed" | "external"; model?: number; path?: string; baud?: number; host?: string; port?: number; serial?: Record<string, string | number> };
 export type FlexConfiguration = { host: string; port: number; station_name: string };
-export type TCIConfiguration = { endpoint: string; trx: number; channel: number };
+export type TCIConfiguration = { endpoint: string; trx: number; channel: number; allow_transmit?: boolean };
 /** Display/desired setup only. The native selection remains the live authority. */
 export type RadioProfile = { manufacturer: string; model: string; nickname: string; provider: "direct_agent" | "direct_flex_lan" | "direct_tci" | "hamlib"; enabled: boolean };
 export const radioLabel = (id: RadioID) => id === "radio1" ? "Radio 1" : "Radio 2";
@@ -34,7 +34,7 @@ export function validTCIConfiguration(configuration: TCIConfiguration): boolean 
   try {
     const endpoint = new URL(configuration.endpoint.trim());
     return new TextEncoder().encode(configuration.endpoint.trim()).length <= 2_048 && new TextEncoder().encode(endpoint.href).length <= 2_048 && ["ws:", "wss:"].includes(endpoint.protocol) && !!endpoint.hostname && endpoint.port !== "0" && !endpoint.username && !endpoint.password && !endpoint.search && !endpoint.hash &&
-      [configuration.trx, configuration.channel].every(value => Number.isInteger(value) && value >= 0 && value <= 15);
+      (configuration.allow_transmit === undefined || typeof configuration.allow_transmit === "boolean") && [configuration.trx, configuration.channel].every(value => Number.isInteger(value) && value >= 0 && value <= 15);
   } catch { return false; }
 }
 export async function stationSessionRequest<T>(radioId: RadioID, params: Record<string, unknown>): Promise<T> {

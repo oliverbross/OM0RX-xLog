@@ -216,7 +216,8 @@ fn flex_configuration(value: &Value) -> Result<Value, String> {
 }
 fn tci_configuration(value: &Value) -> Result<Value, String> {
     let object = value.as_object().ok_or("Invalid TCI configuration.")?;
-    if object.len() != 3 || object.keys().any(|key| !["endpoint", "trx", "channel"].contains(&key.as_str())) {
+    if !(3..=4).contains(&object.len()) || object.keys().any(|key| !["endpoint", "trx", "channel", "allow_transmit"].contains(&key.as_str()))
+        || value.get("allow_transmit").is_some_and(|v|!v.is_boolean()) {
         return Err("Use only a credential-free TCI endpoint, TRX and channel.".into());
     }
     let endpoint = value["endpoint"].as_str().ok_or("Enter a TCI WebSocket endpoint.")?;
@@ -240,9 +241,34 @@ fn tci_configuration(value: &Value) -> Result<Value, String> {
     }
     let trx = value["trx"].as_u64().filter(|number| *number < 16).ok_or("TCI TRX must be an integer from 0 to 15.")?;
     let channel = value["channel"].as_u64().filter(|number| *number < 16).ok_or("TCI channel must be an integer from 0 to 15.")?;
-    Ok(json!({"endpoint":canonical,"trx":trx,"channel":channel}))
+    let mut result=json!({"endpoint":canonical,"trx":trx,"channel":channel});
+    if let Some(permission)=value.get("allow_transmit"){result["allow_transmit"]=permission.clone();}Ok(result)
+}
+fn tci_identity(value:&Value)->Result<String,String>{
+    let mut normalized=tci_configuration(value)?;
+    normalized.as_object_mut().unwrap().remove("allow_transmit");
+    serde_json::to_string(&normalized).map_err(|_|"Invalid TCI identity".into())
 }
 impl Session {
+    /// Narrow passive desired-permission edit for the native emergency-disable
+    /// orchestration. Reuses ordinary revisioned save/receipt persistence.
+    pub(crate) fn disable_tci_transmit(&self,operation_id:&str,generation:&str,revision:u64)->Result<Value,String>{
+        let existing=self.receipt(operation_id)?;
+        if !existing.is_null(){
+            let q=&existing["request"];
+            if q["action"]!="save_tci" || q["generation"]!=generation || q["revision"]!=revision || q["configuration"]["allow_transmit"]!=false{
+                return Err("TCI permission operation identity collision".into());
+            }
+            return Ok(existing);
+        }
+        let current=self.snapshot()?;
+        if current["generation"]!=generation || current["revision"]!=revision{return Err("Saved TCI setup changed; reload before persisting disabled permission".into());}
+        let mut configuration=current["tci"].clone();
+        if !configuration.is_object(){return Err("No saved TCI setup is available for the permission edit".into());}
+        configuration["allow_transmit"]=json!(false);
+        self.apply(&json!({"action":"save_tci","operation_id":operation_id,"generation":generation,"revision":revision,"configuration":configuration,"radio_id":self.radio_id}),
+            |_,_,_|Err("A passive TCI permission save attempted unexpected transport".into()))
+    }
     #[cfg(test)]
     fn new(path: PathBuf) -> Result<Self, String> {
         Self::new_for(path, crate::radio_slots::RADIO1, None)
@@ -974,7 +1000,7 @@ pub fn reject_duplicate_configuration(app: &tauri::AppHandle, radio_id: &str, pa
         "save" => Some(format!("agent:{}", endpoint(params["base_url"].as_str().ok_or("Missing Agent endpoint.")?)?)),
         "save_hamlib" => Some(format!("hamlib:{}", serde_json::to_string(&crate::hamlib::saved_radio_configuration(&params["configuration"])?).map_err(|_| "Invalid Hamlib identity.")?)),
         "save_flex" => Some(format!("flex:{}", serde_json::to_string(&flex_configuration(&params["configuration"])?).map_err(|_| "Invalid FLEX identity.")?)),
-        "save_tci" => Some(format!("tci:{}", serde_json::to_string(&tci_configuration(&params["configuration"])?).map_err(|_| "Invalid TCI identity.")?)),
+        "save_tci" => Some(format!("tci:{}", tci_identity(&params["configuration"])?)),
         _ => None,
     };
     let Some(proposed) = proposed else { return Ok(()); };
@@ -984,7 +1010,7 @@ pub fn reject_duplicate_configuration(app: &tauri::AppHandle, radio_id: &str, pa
         "save" if !other["base_url"].as_str().unwrap_or("").is_empty() => Some(format!("agent:{}", other["base_url"].as_str().unwrap())),
         "save_hamlib" if !other["hamlib"].is_null() => Some(format!("hamlib:{}", serde_json::to_string(&other["hamlib"]).map_err(|_| "Invalid Hamlib identity.")?)),
         "save_flex" if !other["flex"].is_null() => Some(format!("flex:{}", serde_json::to_string(&other["flex"]).map_err(|_| "Invalid FLEX identity.")?)),
-        "save_tci" if !other["tci"].is_null() => Some(format!("tci:{}", serde_json::to_string(&other["tci"]).map_err(|_| "Invalid TCI identity.")?)),
+        "save_tci" if !other["tci"].is_null() => Some(format!("tci:{}", tci_identity(&other["tci"])?)),
         _ => None,
     };
     if existing.as_deref() == Some(&proposed) {
@@ -2152,5 +2178,23 @@ mod tests {
         smuggled.as_object_mut().unwrap().remove("allow_transmit");
         smuggled["token"] = json!("secret");
         assert!(restored.apply(&smuggled, passive).is_err());
+    }
+    #[test]
+    fn tci_transmit_permission_is_passive_optional_and_restored_without_output(){
+        let directory=tempfile::tempdir().unwrap();let path=directory.path().join("session.json");let session=Session::new(path.clone()).unwrap();let initial=session.snapshot().unwrap();
+        let configuration=json!({"endpoint":"ws://127.0.0.1:40001/","trx":0,"channel":0,"allow_transmit":true});
+        let save=json!({"action":"save_tci","operation_id":uuid::Uuid::new_v4().to_string(),"generation":initial["generation"],"revision":0,"configuration":configuration});
+        session.apply(&save,|_,_,_|panic!("Saving transmit permission contacted a station")).unwrap();
+        assert_eq!(Session::new(path.clone()).unwrap().snapshot().unwrap()["tci"],configuration);
+        let mut disabled=configuration.clone();disabled["allow_transmit"]=json!(false);
+        assert_eq!(tci_identity(&configuration).unwrap(),tci_identity(&disabled).unwrap(),"Permission cannot bypass duplicate physical route protection");
+        let old=json!({"endpoint":"ws://127.0.0.1:40001/","trx":0,"channel":0});assert!(tci_configuration(&old).unwrap().get("allow_transmit").is_none());
+        disabled["allow_transmit"]=json!("true");assert!(tci_configuration(&disabled).is_err());
+        let id=uuid::Uuid::new_v4().to_string();let generation=initial["generation"].as_str().unwrap();
+        let receipt=session.disable_tci_transmit(&id,generation,1).unwrap();
+        assert_eq!(receipt["status"],"saved");assert_eq!(receipt["request"]["configuration"]["allow_transmit"],false);
+        assert_eq!(session.disable_tci_transmit(&id,generation,1).unwrap(),receipt,"Lost disable acknowledgement must not save twice");
+        assert!(session.disable_tci_transmit(&uuid::Uuid::new_v4().to_string(),generation,1).is_err(),"A stale revision cannot overwrite a later setup");
+        assert_eq!(Session::new(path).unwrap().snapshot().unwrap()["tci"]["allow_transmit"],false);
     }
 }

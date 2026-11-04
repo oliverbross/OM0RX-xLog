@@ -331,7 +331,7 @@ fn validate_bound_target(bound: &BoundVoiceTarget) -> Result<(), String> {
 fn same_bound_identity(original: &crate::ptt_session::Target, current: &crate::ptt_session::Target) -> Result<(), String> {
     if original.provider != current.provider || original.selection_id != current.selection_id ||
         original.selection_generation != current.selection_generation || original.worker_generation != current.worker_generation ||
-        original.connection_generation != current.connection_generation || original.control_revision != current.control_revision {
+        original.connection_generation != current.connection_generation || original.control_revision != current.control_revision || original.radio_id != current.radio_id || original.tci != current.tci {
         return Err("The captured contest voice radio selection or provider generation changed; no replacement target may be keyed.".into());
     }
     Ok(())
@@ -969,7 +969,7 @@ mod tests {
     fn bound_target() -> BoundVoiceTarget {
         BoundVoiceTarget {schema_version:1,output_intent:OPERATION.into(),target:crate::ptt_session::Target {
             provider:"direct_agent".into(),selection_id:OPERATION.into(),selection_generation:1,worker_generation:2,
-            connection_generation:3,control_revision:4,observation_revision:5,received_at_ms:6}}
+            connection_generation:3,control_revision:4,observation_revision:5,received_at_ms:6,radio_id:None,tci:None}}
     }
     #[test]
     fn captured_voice_target_rejects_switches_across_delayed_host_or_audio_work_without_dispatch() {

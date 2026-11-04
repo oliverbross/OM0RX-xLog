@@ -11,8 +11,8 @@ public enum TCIWebSocketMessage: Equatable, Sendable {
     case binary(Data)
 }
 
-/// Bounded TCI transport surface. The session below exposes only explicit
-/// receive-VFO tuning and TRX filter writes; transport grants no command authority.
+/// Bounded TCI transport surface. Explicit receive controls and finite admitted
+/// TCI 2.1 output share this socket; transport grants no command authority.
 public protocol TCIWebSocketConnection: Sendable {
     func receive() async throws -> TCIWebSocketMessage
     func send(text: String) async throws
@@ -114,6 +114,10 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
     public let filterEvidenceSequence: UInt64
     /// Receipt of an accepted SPLIT_ENABLE report for the configured TRX only.
     public let splitEvidenceReceivedAt: Date?
+    /// Exact configured TRX report receipt, independent of global/VFO telemetry.
+    public let trxEvidenceReceivedAt: Date?
+    public let trxEvidenceSequence: UInt64
+    public let cwMacrosSpeed: Int?
     /// Unattributed server-global telemetry; never configured control evidence.
     public let serverTransmitFrequency: TCIServerTransmitFrequencyObservation?
     /// Latest server click event; never configured evidence or a tuning readback.
@@ -168,6 +172,9 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         evidenceReceivedAt: Date? = nil,
         filterEvidenceSequence: UInt64 = 0,
         splitEvidenceReceivedAt: Date? = nil,
+        trxEvidenceReceivedAt: Date? = nil,
+        trxEvidenceSequence: UInt64 = 0,
+        cwMacrosSpeed: Int? = nil,
         serverTransmitFrequency: TCIServerTransmitFrequencyObservation? = nil,
         lastRXSpotClick: TCIRXSpotClickObservation? = nil,
         serverAppFocus: TCIServerAppFocusObservation? = nil,
@@ -199,6 +206,9 @@ public struct TCIReadOnlySessionObservation: Equatable, Sendable {
         self.evidenceReceivedAt = evidenceReceivedAt
         self.filterEvidenceSequence = filterEvidenceSequence
         self.splitEvidenceReceivedAt = splitEvidenceReceivedAt
+        self.trxEvidenceReceivedAt = trxEvidenceReceivedAt
+        self.trxEvidenceSequence = trxEvidenceSequence
+        self.cwMacrosSpeed = cwMacrosSpeed
         self.serverTransmitFrequency = serverTransmitFrequency
         self.lastRXSpotClick = lastRXSpotClick
         self.serverAppFocus = serverAppFocus
@@ -237,6 +247,10 @@ public actor TCIReadOnlyWebSocketSession {
     private let clock: @Sendable () -> Date
     private var evidenceReceivedAt: Date?
     private var splitEvidenceReceivedAt: Date?
+    private var trxEvidenceReceivedAt: Date?
+    private var trxEvidenceSequence:UInt64=0
+    private var cwMacrosSpeed: Int?
+    private var outputRevision:UInt64=0
     private var decoder: TCITextDecoder
     private var reducer: TCIStateReducer
     private var connection: (any TCIWebSocketConnection)?
@@ -419,6 +433,65 @@ public actor TCIReadOnlyWebSocketSession {
     ) async throws -> TCIReadOnlySessionObservation {
         try await receiveCommand(frequencyHz: frequencyHz, mode: mode, filter: nil,
                                  expectedGeneration: expectedGeneration, timeoutNanoseconds: timeoutNanoseconds)
+    }
+
+    /// Finite TCI 2.1 output vocabulary on the configured existing socket.
+    /// This transport method grants no ownership; the native owner admits it.
+    /// Stop/off retires in-flight output and is never blocked by a readback wait.
+    public func transmit(_ command:TCIOutboundCommand,expectedGeneration:UInt64) async throws -> TCIReadOnlySessionObservation {
+        let release:Bool
+        switch command {case .setTRX(_,false,_),.stopCW:release=true;case .setTRX,.sendCW,.setCWMacrosSpeed:release=false;default:throw TCITuneSessionError.invalidTarget}
+        guard expectedGeneration==generation,observationValue.availability == .available,
+              let snapshot=observationValue.snapshot,snapshot.address==configuredAddress,
+              let active=connection,let id=connectionID else {throw TCITuneSessionError.notReady}
+        guard snapshot.protocolAnnouncement.version=="2.1",snapshot.protocolAnnouncement.program.caseInsensitiveCompare("ExpertSDR3") == .orderedSame,
+              snapshot.receiveOnly==false else {throw TCITuneSessionError.notReady}
+        if !release {
+            guard !commandInFlight,snapshot.transceiver.transmitEnabled==true,snapshot.transceiver.transmitting==false,
+                  clock().timeIntervalSince(trxEvidenceReceivedAt ?? .distantPast)>=(-1),clock().timeIntervalSince(trxEvidenceReceivedAt ?? .distantPast)<=3 else {throw TCITuneSessionError.staleObservation}
+        }
+        if !release{commandInFlight=true}
+        defer{if !release{commandInFlight=false}}
+        switch command {
+        case let .setTRX(trx,_,_):guard trx==configuredAddress.trx else{throw TCITuneSessionError.invalidTarget}
+        case let .sendCW(trx,_):guard trx==configuredAddress.trx,snapshot.trxCount==1, ["CW","CWR"].contains(snapshot.transceiver.modulation ?? "") else{throw TCITuneSessionError.invalidTarget}
+        case .stopCW,.setCWMacrosSpeed:guard snapshot.trxCount==1 else{throw TCITuneSessionError.invalidTarget}
+        default:break
+        }
+        let encoder=try TCICommandEncoder(trxCount:snapshot.trxCount,channelCount:snapshot.channelCount,frequencyRange:Int64(snapshot.vfoLimits.lower.rounded(.up))...Int64(snapshot.vfoLimits.upper.rounded(.down)),supportedModulations:Set(snapshot.supportedModulations),limits:limits)
+        var commands=[command]
+        if case let .setTRX(trx,_,_)=command {commands.append(.readTRX(trx:trx))}
+        if case .stopCW=command {commands.append(.readTRX(trx:configuredAddress.trx))}
+        if case .setCWMacrosSpeed=command {commands.append(.readCWMacrosSpeed)}
+        let frame=try encoder.encodeFrame(commands)
+        if release {outputRevision &+= 1}
+        let revision=outputRevision,baseline=observationValue.trxEvidenceSequence
+        do {try await active.send(text:frame)} catch {throw TCITuneSessionError.transportClosed}
+        guard expectedGeneration==generation,connectionID==id,connection != nil,revision==outputRevision else{throw TCITuneSessionError.connectionChanged}
+        // Transport acceptance is separate from newer addressed readback. The
+        // owner keeps the obligation until an authoritative report is received.
+        let desiredTX:Bool? = {switch command{case let .setTRX(_,enabled,_):return enabled;case .stopCW:return false;default:return nil}}()
+        if let desired=desiredTX {
+            for _ in 0..<60 {
+                guard expectedGeneration==generation,connectionID==id,revision==outputRevision else{throw TCITuneSessionError.connectionChanged}
+                if observationValue.trxEvidenceSequence>baseline,
+                   observationValue.snapshot?.transceiver.transmitting==desired,
+                   observationValue.trxEvidenceReceivedAt != nil{return observationValue}
+                try await Task.sleep(for:.milliseconds(25))
+            }
+            throw TCITuneSessionError.readbackTimedOut
+        }
+        return observationValue
+    }
+    /// Small observation heartbeat for explicitly connected TCI 2.1 stations.
+    /// No setter, CW data, terminal mode, tune or audio command is emitted.
+    public func refreshTransmitObservation(expectedGeneration:UInt64) async throws {
+        guard expectedGeneration==generation,observationValue.availability == .available,
+              let snapshot=observationValue.snapshot,snapshot.protocolAnnouncement.version=="2.1",
+              snapshot.protocolAnnouncement.program.lowercased()=="expertsdr3",let active=connection,let id=connectionID else{throw TCITuneSessionError.notReady}
+        let frame="TRX:\(configuredAddress.trx);TX_ENABLE:\(configuredAddress.trx);MODULATION:\(configuredAddress.trx);"
+        try await active.send(text:frame)
+        guard expectedGeneration==generation,connectionID==id else{throw TCITuneSessionError.connectionChanged}
     }
 
     /// Official TCI b081213f page 20: RX_FILTER_BAND is TRX-wide, not channel-wide.
@@ -714,10 +787,12 @@ public actor TCIReadOnlyWebSocketSession {
             reducer.apply(TCITextDecodeResult(commands: [], diagnostics: result.diagnostics))
             var hasConfiguredEvidence = false
             for command in result.commands {
+                if command.name=="CW_MACROS_SPEED",command.arguments.count==1,let speed=Int(command.arguments[0]),(1...60).contains(speed){cwMacrosSpeed=speed;continue}
                 if reducer.apply(command, receivedAt: receivedAt), isConfiguredEvidence(command) {
                     hasConfiguredEvidence = true
                     if command.name == "RX_FILTER_BAND" { filterEvidenceSequence = sequence + 1 }
                     if command.name == "SPLIT_ENABLE" { splitEvidenceReceivedAt = receivedAt }
+                    if command.name == "TRX" {trxEvidenceReceivedAt=receivedAt;trxEvidenceSequence=sequence+1}
                 }
             }
             refreshIQCaptures()
@@ -777,6 +852,7 @@ public actor TCIReadOnlyWebSocketSession {
         evidenceReceivedAt = nil
         filterEvidenceSequence = 0
         splitEvidenceReceivedAt = nil
+        trxEvidenceReceivedAt=nil;trxEvidenceSequence=0;cwMacrosSpeed=nil;outputRevision &+= 1
     }
 
     private func publish(
@@ -794,6 +870,9 @@ public actor TCIReadOnlyWebSocketSession {
             evidenceReceivedAt: evidenceReceivedAt,
             filterEvidenceSequence: filterEvidenceSequence,
             splitEvidenceReceivedAt: splitEvidenceReceivedAt,
+            trxEvidenceReceivedAt:trxEvidenceReceivedAt,
+            trxEvidenceSequence:trxEvidenceSequence,
+            cwMacrosSpeed:cwMacrosSpeed,
             serverTransmitFrequency: reducer.state.serverTransmitFrequency,
             lastRXSpotClick: reducer.state.lastRXSpotClick,
             serverAppFocus: reducer.state.serverAppFocus,

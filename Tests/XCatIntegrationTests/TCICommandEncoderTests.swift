@@ -35,6 +35,10 @@ final class TCICommandEncoderTests: XCTestCase {
             (.setTune(trx: 0, enabled: true), "TUNE:0,true;"),
             (.setTune(trx: 0, enabled: false), "TUNE:0,false;"),
             (.readTune(trx: 1), "TUNE:1;"),
+            (.sendCW(trx:1,text:"TU OM0RX, 599"),"CW_MACROS:1,TU OM0RX~ 599;"),
+            (.stopCW,"CW_MACROS_STOP;"),
+            (.setCWMacrosSpeed(wpm:24),"CW_MACROS_SPEED:24;"),
+            (.readCWMacrosSpeed,"CW_MACROS_SPEED;"),
             (.spot(callsign: "RN6LHF", mode: "cw", frequencyHz: 7_100_000, colorARGB: 16_711_680, text: "ANY_TEXT"),
              "SPOT:RN6LHF,CW,7100000,16711680,ANY_TEXT;"),
             (.spot(callsign: "OM0RX/P", mode: "FT8", frequencyHz: 7_074_000, colorARGB: .max, text: ""),
@@ -72,6 +76,14 @@ final class TCICommandEncoderTests: XCTestCase {
                 .setModulation(trx: 0, mode: "USB"),
             ])
         }
+    }
+    func testCWLiteralBoundaryRejectsEmbeddedTCIMacroCommandsAndOutOfRangeSpeed() throws {
+        let encoder=try encoder()
+        for text in ["", " ", "CQ;TRX:0,true", "CQ>TEST", "|SK|", "CQ\n", "é",String(repeating:"C",count:129)]{
+            assertError(.invalidArgument){try encoder.encode(.sendCW(trx:0,text:text))}
+        }
+        for speed in [0,61,Int.max]{assertError(.outOfBounds){try encoder.encode(.setCWMacrosSpeed(wpm:speed))}}
+        assertError(.outOfBounds){try encoder.encode(.sendCW(trx:2,text:"CQ"))}
     }
 
     func testFilterSetAndReadFrameIsTRXScopedAndBounded() throws {

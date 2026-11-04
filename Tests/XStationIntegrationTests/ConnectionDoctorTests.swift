@@ -58,6 +58,13 @@ final class ConnectionDoctorTests: XCTestCase {
         value["radio"] = ["connected": true, "observed": true, "received_at": true]
         XCTAssertEqual(ConnectionDoctor.project(retainedSnapshot: value, now: 100).freshness, .unknown)
     }
+    func testTCIOutputDiagnosticsUseActualFiniteCapabilitiesAndRequireStopForCW(){
+        var value=snapshot();value["capabilities"]=["read_only":false,"supported_commands":["station_tune","ptt","send_cw","clear_cw"]]
+        let report=ConnectionDoctor.project(retainedSnapshot:value,now:101)
+        XCTAssertEqual(report.readOnly,false);XCTAssertEqual(report.advertisedCapabilities,[.observe,.tune,.ptt,.cw])
+        value["capabilities"]=["read_only":false,"supported_commands":["station_tune","ptt","send_cw"]]
+        XCTAssertFalse(ConnectionDoctor.project(retainedSnapshot:value,now:101).advertisedCapabilities.contains(.cw))
+    }
 
     func testUnknownDisconnectedAndNonAuthoritativeRemainUnproven() {
         XCTAssertEqual(ConnectionDoctor.project(retainedSnapshot: snapshot("secret-provider"), now: 100).provider, .unknown)

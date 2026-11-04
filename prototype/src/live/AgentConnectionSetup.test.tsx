@@ -46,7 +46,7 @@ it("TCI follows shared selection, saves passively and connects only explicitly w
   state = { ...state, tci: { endpoint: "ws://127.0.0.1:50001", trx: 0, channel: 0 }, selection: { provider: "direct_tci", generation: 12, selection_id: "tci-selection" } };
   render(<AgentConnectionSetup radioId="radio1" connections providers followSelection />); await act(async () => {});
   expect(native.invoke).toHaveBeenCalledExactlyOnceWith("station_session_request", { params: { action: "snapshot", radio_id: "radio1" } });
-  expect(screen.queryByRole("checkbox")).toBeNull(); expect(screen.queryByLabelText("Shared Agent token")).toBeNull();
+  expect((screen.getByRole("checkbox", {name:"Allow supported TCI PTT/CW after explicit reconnect"}) as HTMLInputElement).checked).toBe(false); expect(screen.queryByLabelText("Shared Agent token")).toBeNull();
   expect(screen.queryByRole("button", { name: /Reconnect|receive|PTT|CW|Tune|Operate|Standby/i })).toBeNull();
   fireEvent.change(screen.getByLabelText("Shared TCI endpoint"), { target: { value: " wss://radio.example/tci " } });
   fireEvent.change(screen.getByLabelText("Shared TCI TRX"), { target: { value: "2" } });
@@ -68,6 +68,15 @@ it.each(["https://radio.example", "ws://radio.example:0", "ws://user:secret@radi
   const save = screen.getByRole("button", { name: "Save TCI configuration" });
   expect(save.hasAttribute("disabled")).toBe(true); fireEvent.click(save);
   expect(native.invoke.mock.calls).toHaveLength(1);
+});
+it("TCI transmit consent saves as configuration without connection or output",async()=>{
+  state={...state,tci:{endpoint:"ws://127.0.0.1:50001",trx:0,channel:0},selection:{provider:"direct_tci",generation:12,selection_id:"tci-selection"}};
+  render(<AgentConnectionSetup radioId="radio1" connections providers followSelection />);await act(async()=>{});
+  fireEvent.click(screen.getByRole("checkbox",{name:"Allow supported TCI PTT/CW after explicit reconnect"}));
+  expect(native.invoke.mock.calls).toHaveLength(1);
+  fireEvent.click(screen.getByRole("button",{name:"Save TCI configuration"}));await act(async()=>{});
+  expect(native.invoke.mock.calls[1][1].params).toMatchObject({action:"save_tci",configuration:{allow_transmit:true}});
+  expect(native.invoke.mock.calls.every(([, {params}])=>["snapshot","save_tci"].includes(params.action))).toBe(true);
 });
 it.each(["-1", "16", "1.5", ""])("TCI refuses invalid receiver index %s", async index => {
   state = { ...state, tci: { endpoint: "ws://127.0.0.1:50001", trx: 0, channel: 0 }, selection: { provider: "direct_tci", generation: 12, selection_id: "tci-selection" } };

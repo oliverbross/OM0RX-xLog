@@ -1,0 +1,356 @@
+Building for debugging...
+[Computing dependencies]
+[1 / 26] CClusterSocketTestSupport
+[1 / 47] XContestCoreTests-product
+[2 / 22] XLogCore
+[3 / 24]
+[4 / 24] XLogCore
+[10 / 30] XLogPrototypeSupport
+[11 / 40]
+[19 / 40] XLogPrototypeSupport
+[20 / 40] XLogPrototypeSupport
+/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestSCPService.swift:43:70: [1;33mwarning: [1;39mconverting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races[0;0m
+ [0;36m41 |[0;0m          validatePrivateRoot: @escaping @Sendable () throws -> Void,
+ [0;36m42 |[0;0m          beforeReplacementPublish: @escaping @Sendable () async -> Void = {},
+ [0;36m43 |[0;0m          providerFetch: @escaping ProviderFetch = ContestSCPProvider.fetchLatest,
+    [0;36m|[0;0m                                                                      `- [1;33mwarning: [1;39mconverting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races[0;0m
+ [0;36m44 |[0;0m          writeAtomically: @escaping AtomicWriter = { data, url in try data.write(to: url, options: [.atomic]) },
+ [0;36m45 |[0;0m          validateScope: @escaping ScopeValidator) throws {
+[24 / 41] xlog-prototype-worker-product
+[25 / 42] XLogPrototypeSupport
+[26 / 42] XLogPrototypeSupport
+[26 / 42] XLogCore
+[34 / 50] XLogCore
+[36 / 50] XLogCore
+[36 / 51] XLogCore
+[37 / 51] XLogPrototypeSupport
+[39 / 51] XLogPrototypeSupport
+[41 / 51] xlog-prototype-worker-product
+[42 / 51] xlog-prototype-worker-product
+[43 / 54] XLogPrototypeTests-product
+/Users/oliver/Documents/Projects/OM0RX-xLog/Tests/XLogPrototypeTests/AwardCatalogProjectionTests.swift:31:17: [1;33mwarning: [1;39mno calls to throwing functions occur within 'try' expression[0;0m [#]8;;https://docs.swift.org/compiler/documentation/diagnostics/unnecessary-effect-marker\UnnecessaryEffectMarker]8;;\]
+ [0;36m29 |[0;0m         defer { try? FileManager.default.removeItem(at: root) }
+ [0;36m30 |[0;0m         let db = try LogbookDatabase(url: root.appendingPathComponent("catalog.sqlite"))
+ [0;36m31 |[0;0m         defer { try? db.close() }
+    [0;36m|[0;0m                 `- [1;33mwarning: [1;39mno calls to throwing functions occur within 'try' expression[0;0m [#]8;;https://docs.swift.org/compiler/documentation/diagnostics/unnecessary-effect-marker\UnnecessaryEffectMarker]8;;\]
+ [0;36m32 |[0;0m         let schools = Set(try AwardCatalogEngine.candidateSchoolCalls())
+ [0;36m33 |[0;0m         let entities = Set(AwardCatalogEngine.candidateDXCCs)
+
+/Users/oliver/Documents/Projects/OM0RX-xLog/Tests/XLogPrototypeTests/AwardCatalogProjectionTests.swift:63:17: [1;33mwarning: [1;39mno calls to throwing functions occur within 'try' expression[0;0m [#]8;;https://docs.swift.org/compiler/documentation/diagnostics/unnecessary-effect-marker\UnnecessaryEffectMarker]8;;\]
+ [0;36m61 |[0;0m         defer { try? FileManager.default.removeItem(at: root) }
+ [0;36m62 |[0;0m         let url = root.appendingPathComponent("plan.sqlite"), db = try LogbookDatabase(url: url)
+ [0;36m63 |[0;0m         defer { try? db.close() }
+    [0;36m|[0;0m                 `- [1;33mwarning: [1;39mno calls to throwing functions occur within 'try' expression[0;0m [#]8;;https://docs.swift.org/compiler/documentation/diagnostics/unnecessary-effect-marker\UnnecessaryEffectMarker]8;;\]
+ [0;36m64 |[0;0m         var handle: OpaquePointer?
+ [0;36m65 |[0;0m         guard let path = LocalFilePath.nativeFileSystemPath(for: url),
+
+/Users/oliver/Documents/Projects/OM0RX-xLog/Tests/XLogPrototypeTests/AwardCatalogProjectionTests.swift:95:17: [1;33mwarning: [1;39mno calls to throwing functions occur within 'try' expression[0;0m [#]8;;https://docs.swift.org/compiler/documentation/diagnostics/unnecessary-effect-marker\UnnecessaryEffectMarker]8;;\]
+ [0;36m93 |[0;0m         defer { try? FileManager.default.removeItem(at: root) }
+ [0;36m94 |[0;0m         let url = root.appendingPathComponent("invalid.sqlite"), db = try LogbookDatabase(url: url)
+ [0;36m95 |[0;0m         defer { try? db.close() }
+    [0;36m|[0;0m                 `- [1;33mwarning: [1;39mno calls to throwing functions occur within 'try' expression[0;0m [#]8;;https://docs.swift.org/compiler/documentation/diagnostics/unnecessary-effect-marker\UnnecessaryEffectMarker]8;;\]
+ [0;36m96 |[0;0m         try db.save(QSO(call: "TEST/BY1QH/P", band: "20m", mode: "CW", dxcc: 339))
+ [0;36m97 |[0;0m         try rawSQL(url, "UPDATE qsos SET record_json=json_set(record_json,'$.\(field)',json('\(value)'));")
+
+/Users/oliver/Documents/Projects/OM0RX-xLog/Tests/XLogPrototypeTests/AwardCatalogProjectionTests.swift:107:17: [1;33mwarning: [1;39mno calls to throwing functions occur within 'try' expression[0;0m [#]8;;https://docs.swift.org/compiler/documentation/diagnostics/unnecessary-effect-marker\UnnecessaryEffectMarker]8;;\]
+[0;36m105 |[0;0m         defer { try? FileManager.default.removeItem(at: root) }
+[0;36m106 |[0;0m         let url = root.appendingPathComponent("missing.sqlite"), db = try LogbookDatabase(url: url)
+[0;36m107 |[0;0m         defer { try? db.close() }
+    [0;36m|[0;0m                 `- [1;33mwarning: [1;39mno calls to throwing functions occur within 'try' expression[0;0m [#]8;;https://docs.swift.org/compiler/documentation/diagnostics/unnecessary-effect-marker\UnnecessaryEffectMarker]8;;\]
+[0;36m108 |[0;0m         try db.save(QSO(call: "TEST/BY1QH/P", band: "20m", mode: "CW", dxcc: 339))
+[0;36m109 |[0;0m         try rawSQL(url, "UPDATE qsos SET record_json=json_remove(record_json,'$.\(field)');")
+
+/Users/oliver/Documents/Projects/OM0RX-xLog/Tests/XLogPrototypeTests/AwardCatalogProjectionTests.swift:119:17: [1;33mwarning: [1;39mno calls to throwing functions occur within 'try' expression[0;0m [#]8;;https://docs.swift.org/compiler/documentation/diagnostics/unnecessary-effect-marker\UnnecessaryEffectMarker]8;;\]
+[0;36m117 |[0;0m         defer { try? FileManager.default.removeItem(at: root) }
+[0;36m118 |[0;0m         let url = root.appendingPathComponent("optional.sqlite"), db = try LogbookDatabase(url: url)
+[0;36m119 |[0;0m         defer { try? db.close() }
+    [0;36m|[0;0m                 `- [1;33mwarning: [1;39mno calls to throwing functions occur within 'try' expression[0;0m [#]8;;https://docs.swift.org/compiler/documentation/diagnostics/unnecessary-effect-marker\UnnecessaryEffectMarker]8;;\]
+[0;36m120 |[0;0m         try db.save(QSO(call: "TEST/BY1QH/P", band: "20m", mode: "CW", dxcc: 339))
+[0;36m121 |[0;0m         let expression = value == "absent" ? "json_remove(record_json,'$.dxcc')"
+
+/Users/oliver/Documents/Projects/OM0RX-xLog/Tests/XLogPrototypeTests/AwardCatalogProjectionTests.swift:135:17: [1;33mwarning: [1;39mno calls to throwing functions occur within 'try' expression[0;0m [#]8;;https://docs.swift.org/compiler/documentation/diagnostics/unnecessary-effect-marker\UnnecessaryEffectMarker]8;;\]
+[0;36m133 |[0;0m         defer { try? FileManager.default.removeItem(at: root) }
+[0;36m134 |[0;0m         let db = try LogbookDatabase(url: root.appendingPathComponent("date.sqlite"))
+[0;36m135 |[0;0m         defer { try? db.close() }
+    [0;36m|[0;0m                 `- [1;33mwarning: [1;39mno calls to throwing functions occur within 'try' expression[0;0m [#]8;;https://docs.swift.org/compiler/documentation/diagnostics/unnecessary-effect-marker\UnnecessaryEffectMarker]8;;\]
+[0;36m136 |[0;0m         try db.save(QSO(call: "TEST/BY1QH/P", start: Date(timeIntervalSinceReferenceDate: seconds),
+[0;36m137 |[0;0m                         band: "20m", mode: "CW", dxcc: 339))
+
+/Users/oliver/Documents/Projects/OM0RX-xLog/Tests/XLogPrototypeTests/AwardCatalogProjectionTests.swift:148:17: [1;33mwarning: [1;39mno calls to throwing functions occur within 'try' expression[0;0m [#]8;;https://docs.swift.org/compiler/documentation/diagnostics/unnecessary-effect-marker\UnnecessaryEffectMarker]8;;\]
+[0;36m146 |[0;0m         defer { try? FileManager.default.removeItem(at: root) }
+[0;36m147 |[0;0m         let db = try LogbookDatabase(url: root.appendingPathComponent("embedded-null-fields.sqlite"))
+[0;36m148 |[0;0m         defer { try? db.close() }
+    [0;36m|[0;0m                 `- [1;33mwarning: [1;39mno calls to throwing functions occur within 'try' expression[0;0m [#]8;;https://docs.swift.org/compiler/documentation/diagnostics/unnecessary-effect-marker\UnnecessaryEffectMarker]8;;\]
+[0;36m149 |[0;0m         try db.save(QSO(call: "TEST/BY1QH/P", band: "20m", mode: "CW", submode: "é\0after", dxcc: 339,
+[0;36m150 |[0;0m                         state: "01\0é", county: "0102\0é", propagationMode: "SAT\0é",
+
+[#UnnecessaryEffectMarker]: <https://docs.swift.org/compiler/documentation/diagnostics/unnecessary-effect-marker>
+[52 / 63] XLogPrototypeTests-product
+/Users/oliver/Documents/Projects/OM0RX-xLog/Tests/XLogPrototypeTests/NativeRestoreInterruptionTests.swift:450:18: [1;33mwarning: [1;39mweak variable 'owner' was never mutated; consider changing to 'let' constant[0;0m [#]8;;https://docs.swift.org/compiler/documentation/diagnostics/variable-never-mutated\VariableNeverMutated]8;;\::]8;;https://docs.swift.org/compiler/documentation/diagnostics/weak-mutability\WeakMutability]8;;\]
+[0;36m448 |[0;0m         try FileManager.default.removeItem(at: fixture.preview.packageURL.appendingPathComponent(BackupPackageSeal.filename))
+[0;36m449 |[0;0m         var first: XLogBackupRestoreEnvelope? = try manager.prepareRestoreEnvelope(at: fixture.preview.packageURL)
+[0;36m450 |[0;0m         weak var owner = first?.legacyDatabaseSnapshot
+    [0;36m|[0;0m                  `- [1;33mwarning: [1;39mweak variable 'owner' was never mutated; consider changing to 'let' constant[0;0m [#]8;;https://docs.swift.org/compiler/documentation/diagnostics/variable-never-mutated\VariableNeverMutated]8;;\::]8;;https://docs.swift.org/compiler/documentation/diagnostics/weak-mutability\WeakMutability]8;;\]
+[0;36m451 |[0;0m         let directory = try XCTUnwrap(first?.legacyDatabaseSnapshot?.directory)
+[0;36m452 |[0;0m         XCTAssertTrue(FileManager.default.fileExists(atPath: directory.path))
+
+[#VariableNeverMutated]: <https://docs.swift.org/compiler/documentation/diagnostics/variable-never-mutated>
+[#WeakMutability]: <https://docs.swift.org/compiler/documentation/diagnostics/weak-mutability>
+[56 / 62] XLogPrototypeTests-product
+/Users/oliver/Documents/Projects/OM0RX-xLog/Tests/XLogPrototypeTests/LiveClusterHistoryTests.swift:205:17: [1;33mwarning: [1;39mno calls to throwing functions occur within 'try' expression[0;0m [#]8;;https://docs.swift.org/compiler/documentation/diagnostics/unnecessary-effect-marker\UnnecessaryEffectMarker]8;;\]
+[0;36m203 |[0;0m         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+[0;36m204 |[0;0m         let database = try LogbookDatabase(url: root.appendingPathComponent("history.sqlite"))
+[0;36m205 |[0;0m         defer { try? database.close(); try? FileManager.default.removeItem(at: root) }
+    [0;36m|[0;0m                 `- [1;33mwarning: [1;39mno calls to throwing functions occur within 'try' expression[0;0m [#]8;;https://docs.swift.org/compiler/documentation/diagnostics/unnecessary-effect-marker\UnnecessaryEffectMarker]8;;\]
+[0;36m206 |[0;0m         let contact = QSO(call: "K1ABC" + value, start: Date(timeIntervalSinceReferenceDate: 815_123_456.1234567),
+[0;36m207 |[0;0m             band: "20m" + value, mode: "DATA" + value, submode: value,
+
+[#UnnecessaryEffectMarker]: <https://docs.swift.org/compiler/documentation/diagnostics/unnecessary-effect-marker>
+[58 / 62] XLogPrototypeTests-product
+[59 / 62] XLogPrototypeTests-product
+[60 / 62] XLogPrototypeTests-product
+Build complete! (50.52 sec.)
+Test Suite 'Selected tests' started at 2026-11-04 22:39:14.171.
+Test Suite 'XStationIntegrationTests.xctest' started at 2026-11-04 22:39:14.174.
+Test Suite 'ConnectionDoctorTests' started at 2026-11-04 22:39:14.174.
+Test Case '-[XStationIntegrationTests.ConnectionDoctorTests testConfiguredStateAndAdvertisedCapabilitiesDoNotAuthorizeActions]' started.
+Test Case '-[XStationIntegrationTests.ConnectionDoctorTests testConfiguredStateAndAdvertisedCapabilitiesDoNotAuthorizeActions]' passed (0.002 seconds).
+Test Case '-[XStationIntegrationTests.ConnectionDoctorTests testDeterministicStagedTCIReadOnlyProjection]' started.
+Test Case '-[XStationIntegrationTests.ConnectionDoctorTests testDeterministicStagedTCIReadOnlyProjection]' passed (0.000 seconds).
+Test Case '-[XStationIntegrationTests.ConnectionDoctorTests testFoundationBooleanFallbackUsesIdentityRatherThanNumericEncodingOrEquality]' started.
+Test Case '-[XStationIntegrationTests.ConnectionDoctorTests testFoundationBooleanFallbackUsesIdentityRatherThanNumericEncodingOrEquality]' passed (0.000 seconds).
+Test Case '-[XStationIntegrationTests.ConnectionDoctorTests testFreshnessUsesProducerReceiptAndHonorsStaleEvidence]' started.
+Test Case '-[XStationIntegrationTests.ConnectionDoctorTests testFreshnessUsesProducerReceiptAndHonorsStaleEvidence]' passed (0.000 seconds).
+Test Case '-[XStationIntegrationTests.ConnectionDoctorTests testSupportPreviewIsAnAllowlistNotRecursiveRedaction]' started.
+Test Case '-[XStationIntegrationTests.ConnectionDoctorTests testSupportPreviewIsAnAllowlistNotRecursiveRedaction]' passed (0.000 seconds).
+Test Case '-[XStationIntegrationTests.ConnectionDoctorTests testTCIOutputDiagnosticsUseActualFiniteCapabilitiesAndRequireStopForCW]' started.
+Test Case '-[XStationIntegrationTests.ConnectionDoctorTests testTCIOutputDiagnosticsUseActualFiniteCapabilitiesAndRequireStopForCW]' passed (0.000 seconds).
+Test Case '-[XStationIntegrationTests.ConnectionDoctorTests testUnknownDisconnectedAndNonAuthoritativeRemainUnproven]' started.
+Test Case '-[XStationIntegrationTests.ConnectionDoctorTests testUnknownDisconnectedAndNonAuthoritativeRemainUnproven]' passed (0.000 seconds).
+Test Suite 'ConnectionDoctorTests' passed at 2026-11-04 22:39:14.179.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.004 (0.005) seconds
+Test Suite 'XStationIntegrationTests.xctest' passed at 2026-11-04 22:39:14.179.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.004 (0.005) seconds
+Test Suite 'Selected tests' passed at 2026-11-04 22:39:14.179.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.004 (0.008) seconds
+Test Suite 'Selected tests' started at 2026-11-04 22:39:14.324.
+Test Suite 'XLogPrototypeTests.xctest' started at 2026-11-04 22:39:14.325.
+Test Suite 'LiveTCISessionTests' started at 2026-11-04 22:39:14.325.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testAdapterPreservesProducerTimeInsteadOfRestampingDelivery]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testAdapterPreservesProducerTimeInsteadOfRestampingDelivery]' passed (0.004 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testExplicitConnectRequiresDiscoveryAndReadyAndPollDoesNotRefreshReceiptTime]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testExplicitConnectRequiresDiscoveryAndReadyAndPollDoesNotRefreshReceiptTime]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testExplicitSpotOutputUsesOfficialTCIFrameWithoutClaimingDisplayReadback]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testExplicitSpotOutputUsesOfficialTCIFrameWithoutClaimingDisplayReadback]' passed (0.002 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testExplicitTuneUsesSavedAddressAndReturnsOnlyAfterAuthoritativeReadback]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testExplicitTuneUsesSavedAddressAndReturnsOnlyAfterAuthoritativeReadback]' passed (0.002 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testFilterBridgeRejectsMalformedTargetsAndConfirmsOnlyExactSavedTRXReadback]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testFilterBridgeRejectsMalformedTargetsAndConfirmsOnlyExactSavedTRXReadback]' passed (0.002 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testFlexAndTCIReceiveSlotsStayIndependentAndTCIDisconnectDoesNotReleaseFlex]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testFlexAndTCIReceiveSlotsStayIndependentAndTCIDisconnectDoesNotReleaseFlex]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testNewWrapperGenerationRejectsLateOldConnectionUpdates]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testNewWrapperGenerationRejectsLateOldConnectionUpdates]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testOnlyValidConfiguredOrGlobalEvidenceRefreshesRadioTimestamp]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testOnlyValidConfiguredOrGlobalEvidenceRefreshesRadioTimestamp]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testProviderClaimExcludesBothDirectionsAndReleaseIsLeaseScoped]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testProviderClaimExcludesBothDirectionsAndReleaseIsLeaseScoped]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testShutdownRetiresPendingConnectAndClosesLateConnection]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testShutdownRetiresPendingConnectAndClosesLateConnection]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testSnapshotSaveAndDeniedMethodsNeverConnect]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testSnapshotSaveAndDeniedMethodsNeverConnect]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testSplitReceiptIsIndependentTRXScopedAndClearedAcrossConnections]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testSplitReceiptIsIndependentTRXScopedAndClearedAcrossConnections]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTCI21AddressedPTTDoesNotInventGlobalTXFrequencyOrUseOtherTRXReadback]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTCI21AddressedPTTDoesNotInventGlobalTXFrequencyOrUseOtherTRXReadback]' passed (0.064 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTCI21CWPermissionSingleSessionSendStopAndReportedSpeed]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTCI21CWPermissionSingleSessionSendStopAndReportedSpeed]' passed (0.028 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTCI21MigratesReceiveOnlyAndUnsupportedVersionCannotEmitOutput]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTCI21MigratesReceiveOnlyAndUnsupportedVersionCannotEmitOutput]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTCI21OffRetiresPendingOnAndRequiresFreshRXWithoutReplay]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTCI21OffRetiresPendingOnAndRequiresFreshRXWithoutReplay]' passed (0.036 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTransportFailureNeverReconnectsOrReplays]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTransportFailureNeverReconnectsOrReplays]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTuneRejectsStaleGenerationAndUnknownTransmitStateWithoutWriting]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTuneRejectsStaleGenerationAndUnknownTransmitStateWithoutWriting]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testWorkerRouterRecognizesTCIWithoutFallingThroughToAgentOrLoopback]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testWorkerRouterRecognizesTCIWithoutFallingThroughToAgentOrLoopback]' passed (0.000 seconds).
+Test Suite 'LiveTCISessionTests' passed at 2026-11-04 22:39:14.475.
+	 Executed 19 tests, with 0 failures (0 unexpected) in 0.148 (0.149) seconds
+Test Suite 'XLogPrototypeTests.xctest' passed at 2026-11-04 22:39:14.475.
+	 Executed 19 tests, with 0 failures (0 unexpected) in 0.148 (0.150) seconds
+Test Suite 'Selected tests' passed at 2026-11-04 22:39:14.475.
+	 Executed 19 tests, with 0 failures (0 unexpected) in 0.148 (0.151) seconds
+Test Suite 'Selected tests' started at 2026-11-04 22:39:14.601.
+Test Suite 'XContestStoreTests.xctest' started at 2026-11-04 22:39:14.603.
+Test Suite 'XContestStoreTests.xctest' passed at 2026-11-04 22:39:14.603.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-04 22:39:14.603.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.002) seconds
+Test Suite 'Selected tests' started at 2026-11-04 22:39:14.729.
+Test Suite 'XContestCoreTests.xctest' started at 2026-11-04 22:39:14.731.
+Test Suite 'XContestCoreTests.xctest' passed at 2026-11-04 22:39:14.731.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-04 22:39:14.731.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.002) seconds
+Test Suite 'Selected tests' started at 2026-11-04 22:39:14.852.
+Test Suite 'XClusterIntegrationTests.xctest' started at 2026-11-04 22:39:14.853.
+Test Suite 'XClusterIntegrationTests.xctest' passed at 2026-11-04 22:39:14.853.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-04 22:39:14.853.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.002) seconds
+Test Suite 'Selected tests' started at 2026-11-04 22:39:14.968.
+Test Suite 'XCatIntegrationTests.xctest' started at 2026-11-04 22:39:14.970.
+Test Suite 'TCICommandEncoderTests' started at 2026-11-04 22:39:14.970.
+Test Case '-[XCatIntegrationTests.TCICommandEncoderTests testAllOfficialPTTSignalSourcesAndNoArbitrarySourceEscapeHatch]' started.
+Test Case '-[XCatIntegrationTests.TCICommandEncoderTests testAllOfficialPTTSignalSourcesAndNoArbitrarySourceEscapeHatch]' passed (0.002 seconds).
+Test Case '-[XCatIntegrationTests.TCICommandEncoderTests testAllReceiverCommandsRejectNegativeAndUndiscoveredReceivers]' started.
+Test Case '-[XCatIntegrationTests.TCICommandEncoderTests testAllReceiverCommandsRejectNegativeAndUndiscoveredReceivers]' passed (0.000 seconds).
+Test Case '-[XCatIntegrationTests.TCICommandEncoderTests testChannelBoundsAndOnlyChannelBCanBeControlled]' started.
+Test Case '-[XCatIntegrationTests.TCICommandEncoderTests testChannelBoundsAndOnlyChannelBCanBeControlled]' passed (0.000 seconds).
+Test Case '-[XCatIntegrationTests.TCICommandEncoderTests testConfiguredWireBoundsAreEnforcedAtTheirExactBoundaries]' started.
+Test Case '-[XCatIntegrationTests.TCICommandEncoderTests testConfiguredWireBoundsAreEnforcedAtTheirExactBoundaries]' passed (0.000 seconds).
+Test Case '-[XCatIntegrationTests.TCICommandEncoderTests testCWLiteralBoundaryRejectsEmbeddedTCIMacroCommandsAndOutOfRangeSpeed]' started.
+Test Case '-[XCatIntegrationTests.TCICommandEncoderTests testCWLiteralBoundaryRejectsEmbeddedTCIMacroCommandsAndOutOfRangeSpeed]' passed (0.000 seconds).
+Test Case '-[XCatIntegrationTests.TCICommandEncoderTests testEveryTypedCommandHasDeterministicOfficialWireGrammar]' started.
+Test Case '-[XCatIntegrationTests.TCICommandEncoderTests testEveryTypedCommandHasDeterministicOfficialWireGrammar]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCICommandEncoderTests testFilterSetAndReadFrameIsTRXScopedAndBounded]' started.
+Test Case '-[XCatIntegrationTests.TCICommandEncoderTests testFilterSetAndReadFrameIsTRXScopedAndBounded]' passed (0.000 seconds).
+Test Case '-[XCatIntegrationTests.TCICommandEncoderTests testFrequencyAndFilterBoundsIncludingIntegerExtremes]' started.
+Test Case '-[XCatIntegrationTests.TCICommandEncoderTests testFrequencyAndFilterBoundsIncludingIntegerExtremes]' passed (0.000 seconds).
+Test Case '-[XCatIntegrationTests.TCICommandEncoderTests testInvalidDiscoveryConfigurationCannotConstructEncoder]' started.
+Test Case '-[XCatIntegrationTests.TCICommandEncoderTests testInvalidDiscoveryConfigurationCannotConstructEncoder]' passed (0.000 seconds).
+Test Case '-[XCatIntegrationTests.TCICommandEncoderTests testReceiveTuneFrameCombinesOnlyBoundedTypedCommands]' started.
+Test Case '-[XCatIntegrationTests.TCICommandEncoderTests testReceiveTuneFrameCombinesOnlyBoundedTypedCommands]' passed (0.000 seconds).
+Test Case '-[XCatIntegrationTests.TCICommandEncoderTests testTextFieldsRejectInjectionNonASCIIControlsAndEmptyTokens]' started.
+Test Case '-[XCatIntegrationTests.TCICommandEncoderTests testTextFieldsRejectInjectionNonASCIIControlsAndEmptyTokens]' passed (0.000 seconds).
+Test Suite 'TCICommandEncoderTests' passed at 2026-11-04 22:39:14.976.
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.005 (0.006) seconds
+Test Suite 'TCIWebSocketSessionTests' started at 2026-11-04 22:39:14.976.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testAGCGainBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testAGCGainBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt]' passed (0.006 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testAGCGainPublishesIndependentReceiptsWithoutAGCModeAudioOrConfiguredSideEffects]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testAGCGainPublishesIndependentReceiptsWithoutAGCModeAudioOrConfiguredSideEffects]' passed (0.004 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testAGCModeBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testAGCModeBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testAGCModePublishesIndependentReceiptsWithoutModulationAudioOrConfiguredSideEffects]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testAGCModePublishesIndependentReceiptsWithoutModulationAudioOrConfiguredSideEffects]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testAppFocusBeforeDiscoveryGrantsNoAuthorityAndReconnectClearsIt]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testAppFocusBeforeDiscoveryGrantsNoAuthorityAndReconnectClearsIt]' passed (0.002 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testAppFocusPublishesProducerReceiptWithoutRefreshingConfiguredEvidence]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testAppFocusPublishesProducerReceiptWithoutRefreshingConfiguredEvidence]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testBinauralEnableBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testBinauralEnableBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testBinauralEnablePublishesIndependentReceiptsWithoutNBOrConfiguredRadioSideEffects]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testBinauralEnablePublishesIndependentReceiptsWithoutNBOrConfiguredRadioSideEffects]' passed (0.002 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testBoundedBinaryIsIgnoredWithoutPublishingAndTextReductionContinues]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testBoundedBinaryIsIgnoredWithoutPublishingAndTextReductionContinues]' passed (0.003 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testCallsignSendBeforeDiscoveryGrantsNoAuthorityAndReconnectClearsIt]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testCallsignSendBeforeDiscoveryGrantsNoAuthorityAndReconnectClearsIt]' passed (0.006 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testCallsignSendPublishesIndependentProducerReceiptWithoutTRXOrConfiguredSideEffects]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testCallsignSendPublishesIndependentProducerReceiptWithoutTRXOrConfiguredSideEffects]' passed (0.002 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testConnectionOpenFailurePublishesUnavailableWithoutAutomaticRetry]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testConnectionOpenFailurePublishesUnavailableWithoutAutomaticRetry]' passed (0.002 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testCWMacrosEmptyBeforeDiscoveryGrantsNoAuthorityAndReconnectClearsIt]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testCWMacrosEmptyBeforeDiscoveryGrantsNoAuthorityAndReconnectClearsIt]' passed (0.006 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testCWMacrosEmptyPublishesOwnProducerReceiptWithoutConfiguredOrTransmissionSideEffects]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testCWMacrosEmptyPublishesOwnProducerReceiptWithoutConfiguredOrTransmissionSideEffects]' passed (0.002 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testDroppingLastSessionReferenceClosesPendingConnection]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testDroppingLastSessionReferenceClosesPendingConnection]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testEndpointAndDuplicateConnectAdmissionAreFailClosed]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testEndpointAndDuplicateConnectAdmissionAreFailClosed]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testExplicitReceiveTuneUsesExactAddressAndRequiresNewerMatchingReadback]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testExplicitReceiveTuneUsesExactAddressAndRequiresNewerMatchingReadback]' passed (0.003 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testExplicitReconnectIncrementsGenerationAndRequiresFreshState]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testExplicitReconnectIncrementsGenerationAndRequiresFreshState]' passed (0.002 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testFatalProtocolFrameAndOversizedBinaryFailClosed]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testFatalProtocolFrameAndOversizedBinaryFailClosed]' passed (0.000 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testFilterAdmissionAndDisconnectNeverReconnectOrReplay]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testFilterAdmissionAndDisconnectNeverReconnectOrReplay]' passed (0.002 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testFilterNeedsNewSameTRXFilterEvidenceAndUsesOneExactFrame]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testFilterNeedsNewSameTRXFilterEvidenceAndUsesOneExactFrame]' passed (0.108 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testFreshDiscoveryAndReadyAreRequiredBeforePublishingSnapshot]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testFreshDiscoveryAndReadyAreRequiredBeforePublishingSnapshot]' passed (0.003 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testLateTextFromOldConnectionCannotMutateNewGeneration]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testLateTextFromOldConnectionCannotMutateNewGeneration]' passed (0.003 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testLegacyRXSensorsBeforeDiscoveryGrantNoReadinessAndReconnectClearsEvidence]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testLegacyRXSensorsBeforeDiscoveryGrantNoReadinessAndReconnectClearsEvidence]' passed (0.002 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testLegacyRXSensorsPublishIndependentReceiverOnlyRawReceiptsWithoutChannelOrConfiguredSideEffects]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testLegacyRXSensorsPublishIndependentReceiverOnlyRawReceiptsWithoutChannelOrConfiguredSideEffects]' passed (0.003 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testLegacySpotClickBeforeDiscoveryDoesNotEstablishAuthorityAndReconnectClearsIt]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testLegacySpotClickBeforeDiscoveryDoesNotEstablishAuthorityAndReconnectClearsIt]' passed (0.004 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testLegacySpotClickPublishesIndependentProducerReceiptWithoutConfiguredAuthority]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testLegacySpotClickPublishesIndependentProducerReceiptWithoutConfiguredAuthority]' passed (0.003 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testMainMuteBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testMainMuteBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt]' passed (0.003 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testMainMutePublishesOwnProducerReceiptWithoutConfiguredTuneOrTXSideEffects]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testMainMutePublishesOwnProducerReceiptWithoutConfiguredTuneOrTXSideEffects]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testMainVolumeBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testMainVolumeBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt]' passed (0.002 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testMainVolumePublishesOwnReceiptWithoutMuteAudibilityOrConfiguredRadioSideEffects]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testMainVolumePublishesOwnReceiptWithoutMuteAudibilityOrConfiguredRadioSideEffects]' passed (0.003 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testMonitorEnableBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testMonitorEnableBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testMonitorEnablePublishesOwnReceiptWithoutVolumeAudioOrConfiguredRadioSideEffects]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testMonitorEnablePublishesOwnReceiptWithoutVolumeAudioOrConfiguredRadioSideEffects]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testMonitorVolumeBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testMonitorVolumeBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testMonitorVolumePublishesOwnReceiptWithoutOtherAudioOrConfiguredRadioSideEffects]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testMonitorVolumePublishesOwnReceiptWithoutOtherAudioOrConfiguredRadioSideEffects]' passed (0.002 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testNoiseBlankerEnableBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testNoiseBlankerEnableBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt]' passed (0.002 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testNoiseBlankerEnablePublishesIndependentReceiptsWithoutAGCOrConfiguredRadioSideEffects]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testNoiseBlankerEnablePublishesIndependentReceiptsWithoutAGCOrConfiguredRadioSideEffects]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testNoiseReductionEnableBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testNoiseReductionEnableBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testNoiseReductionEnablePublishesIndependentReceiptsWithoutBINNBOrConfiguredSideEffects]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testNoiseReductionEnablePublishesIndependentReceiptsWithoutBINNBOrConfiguredSideEffects]' passed (0.002 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testProducerEvidenceTimeSurvivesQueuedStreamConsumptionAndResetsOnDisconnect]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testProducerEvidenceTimeSurvivesQueuedStreamConsumptionAndResetsOnDisconnect]' passed (0.002 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testReceiverChannelBalanceBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testReceiverChannelBalanceBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt]' passed (0.002 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testReceiverChannelBalancePublishesIndependentReceiptsWithoutAudioOrConfiguredSideEffects]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testReceiverChannelBalancePublishesIndependentReceiptsWithoutAudioOrConfiguredSideEffects]' passed (0.002 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testReceiverChannelVolumeBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testReceiverChannelVolumeBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testReceiverChannelVolumePublishesIndependentReceiptsWithoutGlobalMuteOrConfiguredSideEffects]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testReceiverChannelVolumePublishesIndependentReceiptsWithoutGlobalMuteOrConfiguredSideEffects]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testReceiverMuteBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testReceiverMuteBeforeDiscoveryGrantsNoReadinessAndReconnectClearsIt]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testReceiverMutePublishesIndependentReceiptsWithoutGlobalMuteOrConfiguredRadioSideEffects]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testReceiverMutePublishesIndependentReceiptsWithoutGlobalMuteOrConfiguredRadioSideEffects]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testRXChannelSensorsBeforeDiscoveryGrantNoReadinessAndReconnectClearsEvidence]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testRXChannelSensorsBeforeDiscoveryGrantNoReadinessAndReconnectClearsEvidence]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testRXChannelSensorsPublishIndependentRawTokensAndReceiptsWithoutConfiguredSideEffects]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testRXChannelSensorsPublishIndependentRawTokensAndReceiptsWithoutConfiguredSideEffects]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testRXSpotClickBeforeDiscoveryDoesNotEstablishAuthorityAndReconnectClearsIt]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testRXSpotClickBeforeDiscoveryDoesNotEstablishAuthorityAndReconnectClearsIt]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testRXSpotClickPublishesIndependentProducerReceiptWithoutChangingConfiguredEvidence]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testRXSpotClickPublishesIndependentProducerReceiptWithoutChangingConfiguredEvidence]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testTransportFailureFailsClosedAndDoesNotReconnectAutomatically]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testTransportFailureFailsClosedAndDoesNotReconnectAutomatically]' passed (0.002 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testTuneDisconnectIsUnknownWithoutReconnectOrReplay]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testTuneDisconnectIsUnknownWithoutReconnectOrReplay]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testTuneTimeoutDoesNotReplayWhenMatchingTelemetryArrivesLate]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testTuneTimeoutDoesNotReplayWhenMatchingTelemetryArrivesLate]' passed (0.003 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testTXFrequencyPublishesOwnProducerReceiptWithoutRefreshingConfiguredEvidence]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testTXFrequencyPublishesOwnProducerReceiptWithoutRefreshingConfiguredEvidence]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testTXSensorsBeforeDiscoveryGrantNoReadinessOrAuthorityAndReconnectClearsEvidence]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testTXSensorsBeforeDiscoveryGrantNoReadinessOrAuthorityAndReconnectClearsEvidence]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testTXSensorsPublishIndependentRawReceiptsWithoutTXOrConfiguredSideEffects]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testTXSensorsPublishIndependentRawReceiptsWithoutTXOrConfiguredSideEffects]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testVFOLockBeforeDiscoveryGrantsNoAuthorityAndReconnectClearsIt]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testVFOLockBeforeDiscoveryGrantsNoAuthorityAndReconnectClearsIt]' passed (0.001 seconds).
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testVFOLockPublishesIndependentAddressedReceiptsWithoutConfiguredSideEffects]' started.
+Test Case '-[XCatIntegrationTests.TCIWebSocketSessionTests testVFOLockPublishesIndependentAddressedReceiptsWithoutConfiguredSideEffects]' passed (0.001 seconds).
+Test Suite 'TCIWebSocketSessionTests' passed at 2026-11-04 22:39:15.200.
+	 Executed 58 tests, with 0 failures (0 unexpected) in 0.214 (0.224) seconds
+Test Suite 'XCatIntegrationTests.xctest' passed at 2026-11-04 22:39:15.200.
+	 Executed 69 tests, with 0 failures (0 unexpected) in 0.219 (0.230) seconds
+Test Suite 'Selected tests' passed at 2026-11-04 22:39:15.200.
+	 Executed 69 tests, with 0 failures (0 unexpected) in 0.219 (0.231) seconds
+Test Suite 'Selected tests' started at 2026-11-04 22:39:15.379.
+Test Suite 'XCWCoreTests.xctest' started at 2026-11-04 22:39:15.380.
+Test Suite 'XCWCoreTests.xctest' passed at 2026-11-04 22:39:15.380.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-04 22:39:15.380.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.002) seconds

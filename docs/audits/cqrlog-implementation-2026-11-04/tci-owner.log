@@ -1,0 +1,109 @@
+Building for debugging...
+[Computing dependencies]
+[3 / 60] XCatIntegrationCore
+[4 / 16] XLogPrototypeSupport
+[6 / 20]
+[8 / 20] XLogPrototypeSupport
+/Users/oliver/Documents/Projects/OM0RX-xLog/Sources/XLogPrototypeSupport/Contesting/ContestSCPService.swift:43:70: [1;33mwarning: [1;39mconverting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races[0;0m
+ [0;36m41 |[0;0m          validatePrivateRoot: @escaping @Sendable () throws -> Void,
+ [0;36m42 |[0;0m          beforeReplacementPublish: @escaping @Sendable () async -> Void = {},
+ [0;36m43 |[0;0m          providerFetch: @escaping ProviderFetch = ContestSCPProvider.fetchLatest,
+    [0;36m|[0;0m                                                                      `- [1;33mwarning: [1;39mconverting non-Sendable function value to '@Sendable (String?) async throws -> ContestSCPProviderResult' may introduce data races[0;0m
+ [0;36m44 |[0;0m          writeAtomically: @escaping AtomicWriter = { data, url in try data.write(to: url, options: [.atomic]) },
+ [0;36m45 |[0;0m          validateScope: @escaping ScopeValidator) throws {
+[18 / 28] xlog-prototype-worker-product
+[20 / 29] XLogPrototypeSupport
+[21 / 31] XLogPrototypeSupport
+[23 / 31] XLogPrototypeSupport
+[25 / 31] xlog-prototype-worker-product
+[26 / 31] xlog-prototype-worker-product
+[27 / 32] XLogPrototypeTests-product
+[34 / 39] XLogPrototypeTests-product
+[40 / 44] XLogPrototypeTests-product
+[42 / 44] XLogPrototypeTests-product
+Build complete! (14.20 sec.)
+Test Suite 'Selected tests' started at 2026-11-04 22:56:28.005.
+Test Suite 'XStationIntegrationTests.xctest' started at 2026-11-04 22:56:28.008.
+Test Suite 'XStationIntegrationTests.xctest' passed at 2026-11-04 22:56:28.008.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-04 22:56:28.008.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.003) seconds
+Test Suite 'Selected tests' started at 2026-11-04 22:56:28.093.
+Test Suite 'XLogPrototypeTests.xctest' started at 2026-11-04 22:56:28.094.
+Test Suite 'LiveTCISessionTests' started at 2026-11-04 22:56:28.094.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testAdapterPreservesProducerTimeInsteadOfRestampingDelivery]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testAdapterPreservesProducerTimeInsteadOfRestampingDelivery]' passed (0.004 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testExplicitConnectRequiresDiscoveryAndReadyAndPollDoesNotRefreshReceiptTime]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testExplicitConnectRequiresDiscoveryAndReadyAndPollDoesNotRefreshReceiptTime]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testExplicitSpotOutputUsesOfficialTCIFrameWithoutClaimingDisplayReadback]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testExplicitSpotOutputUsesOfficialTCIFrameWithoutClaimingDisplayReadback]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testExplicitTuneUsesSavedAddressAndReturnsOnlyAfterAuthoritativeReadback]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testExplicitTuneUsesSavedAddressAndReturnsOnlyAfterAuthoritativeReadback]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testFilterBridgeRejectsMalformedTargetsAndConfirmsOnlyExactSavedTRXReadback]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testFilterBridgeRejectsMalformedTargetsAndConfirmsOnlyExactSavedTRXReadback]' passed (0.002 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testFlexAndTCIReceiveSlotsStayIndependentAndTCIDisconnectDoesNotReleaseFlex]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testFlexAndTCIReceiveSlotsStayIndependentAndTCIDisconnectDoesNotReleaseFlex]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testNewWrapperGenerationRejectsLateOldConnectionUpdates]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testNewWrapperGenerationRejectsLateOldConnectionUpdates]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testOnlyValidConfiguredOrGlobalEvidenceRefreshesRadioTimestamp]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testOnlyValidConfiguredOrGlobalEvidenceRefreshesRadioTimestamp]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testProviderClaimExcludesBothDirectionsAndReleaseIsLeaseScoped]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testProviderClaimExcludesBothDirectionsAndReleaseIsLeaseScoped]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testShutdownRetiresPendingConnectAndClosesLateConnection]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testShutdownRetiresPendingConnectAndClosesLateConnection]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testSnapshotSaveAndDeniedMethodsNeverConnect]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testSnapshotSaveAndDeniedMethodsNeverConnect]' passed (0.000 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testSplitReceiptIsIndependentTRXScopedAndClearedAcrossConnections]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testSplitReceiptIsIndependentTRXScopedAndClearedAcrossConnections]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTCI21AddressedPTTDoesNotInventGlobalTXFrequencyOrUseOtherTRXReadback]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTCI21AddressedPTTDoesNotInventGlobalTXFrequencyOrUseOtherTRXReadback]' passed (0.068 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTCI21CWPermissionSingleSessionSendStopAndReportedSpeed]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTCI21CWPermissionSingleSessionSendStopAndReportedSpeed]' passed (0.033 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTCI21MigratesReceiveOnlyAndUnsupportedVersionCannotEmitOutput]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTCI21MigratesReceiveOnlyAndUnsupportedVersionCannotEmitOutput]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTCI21OffDeliveredBeforeOnRetiresIntentWithoutReleasingUnownedTransmitter]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTCI21OffDeliveredBeforeOnRetiresIntentWithoutReleasingUnownedTransmitter]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTCI21OffRetiresPendingOnAndRequiresFreshRXWithoutReplay]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTCI21OffRetiresPendingOnAndRequiresFreshRXWithoutReplay]' passed (0.031 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTransportFailureNeverReconnectsOrReplays]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTransportFailureNeverReconnectsOrReplays]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTuneRejectsStaleGenerationAndUnknownTransmitStateWithoutWriting]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testTuneRejectsStaleGenerationAndUnknownTransmitStateWithoutWriting]' passed (0.001 seconds).
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testWorkerRouterRecognizesTCIWithoutFallingThroughToAgentOrLoopback]' started.
+Test Case '-[XLogPrototypeTests.LiveTCISessionTests testWorkerRouterRecognizesTCIWithoutFallingThroughToAgentOrLoopback]' passed (0.001 seconds).
+Test Suite 'LiveTCISessionTests' passed at 2026-11-04 22:56:28.246.
+	 Executed 20 tests, with 0 failures (0 unexpected) in 0.150 (0.152) seconds
+Test Suite 'XLogPrototypeTests.xctest' passed at 2026-11-04 22:56:28.246.
+	 Executed 20 tests, with 0 failures (0 unexpected) in 0.150 (0.152) seconds
+Test Suite 'Selected tests' passed at 2026-11-04 22:56:28.246.
+	 Executed 20 tests, with 0 failures (0 unexpected) in 0.150 (0.153) seconds
+Test Suite 'Selected tests' started at 2026-11-04 22:56:28.349.
+Test Suite 'XContestStoreTests.xctest' started at 2026-11-04 22:56:28.350.
+Test Suite 'XContestStoreTests.xctest' passed at 2026-11-04 22:56:28.350.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-04 22:56:28.350.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-11-04 22:56:28.452.
+Test Suite 'XContestCoreTests.xctest' started at 2026-11-04 22:56:28.453.
+Test Suite 'XContestCoreTests.xctest' passed at 2026-11-04 22:56:28.453.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-04 22:56:28.453.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-11-04 22:56:28.550.
+Test Suite 'XClusterIntegrationTests.xctest' started at 2026-11-04 22:56:28.551.
+Test Suite 'XClusterIntegrationTests.xctest' passed at 2026-11-04 22:56:28.551.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-04 22:56:28.552.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-11-04 22:56:28.650.
+Test Suite 'XCatIntegrationTests.xctest' started at 2026-11-04 22:56:28.651.
+Test Suite 'XCatIntegrationTests.xctest' passed at 2026-11-04 22:56:28.651.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-04 22:56:28.651.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'Selected tests' started at 2026-11-04 22:56:28.748.
+Test Suite 'XCWCoreTests.xctest' started at 2026-11-04 22:56:28.749.
+Test Suite 'XCWCoreTests.xctest' passed at 2026-11-04 22:56:28.749.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-04 22:56:28.749.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds

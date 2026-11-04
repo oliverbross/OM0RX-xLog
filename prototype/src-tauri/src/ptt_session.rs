@@ -8,7 +8,37 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 use tauri::Manager;
-pub type Target = crate::carrier_tune::Target;
+/// PTT route evidence is provider-specific. TCI reports addressed TRX state,
+/// without proving a Flex-style TX VFO or per-TRX TX_FREQUENCY.
+#[derive(Clone,Debug,PartialEq,Serialize,Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Target {
+    pub(crate) provider:String,
+    pub(crate) selection_generation:u64,
+    pub(crate) selection_id:String,
+    pub(crate) worker_generation:u64,
+    pub(crate) connection_generation:u64,
+    pub(crate) control_revision:u64,
+    pub(crate) observation_revision:u64,
+    pub(crate) received_at_ms:u64,
+    #[serde(default,skip_serializing_if="Option::is_none")]
+    pub(crate) radio_id:Option<String>,
+    #[serde(default,skip_serializing_if="Option::is_none")]
+    pub(crate) tci:Option<TCITarget>,
+}
+#[derive(Clone,Debug,PartialEq,Serialize,Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct TCITarget {trx:u8,channel:u8}
+impl Target {
+    pub(crate) fn validate(&self)->Result<(),String>{
+        if !matches!(self.provider.as_str(),"direct_agent"|"direct_flex_lan"|"direct_tci") || !uuid(&self.selection_id)
+            || self.worker_generation==0 || [self.selection_generation,self.worker_generation,self.connection_generation,self.control_revision,self.observation_revision,self.received_at_ms].iter().any(|v|*v>9_007_199_254_740_991)
+            || self.radio_id.as_deref().is_some_and(|v|!matches!(v,"radio1"|"radio2"))
+            || if self.provider=="direct_tci" {self.radio_id.is_none() || self.tci.as_ref().is_none_or(|v|v.trx>=16||v.channel>=16)}else{self.tci.is_some()} {
+            return Err("Invalid provider-specific PTT target".into());
+        }Ok(())
+    }
+}
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Receipt {
@@ -62,6 +92,7 @@ fn same_session(a: &Target, b: &Target) -> bool {
         && a.selection_id == b.selection_id
         && a.worker_generation == b.worker_generation
         && a.connection_generation == b.connection_generation
+        && a.radio_id==b.radio_id && a.tci==b.tci
 }
 fn unresolved(r: &Receipt) -> bool {
     matches!(r.status.as_str(), "pending" | "unknown")
@@ -181,6 +212,9 @@ impl Session {
             );
         }
         Ok(())
+    }
+    pub fn retained_target(&self)->Result<Option<Target>,String>{
+        Ok(self.state.lock().map_err(|_|"PTT journal unavailable")?.release_required.as_ref().map(|o|o.target.clone()))
     }
     pub fn receipt(&self, id: &str) -> Result<Value, String> {
         let s = self.state.lock().map_err(|_| "PTT journal unavailable")?;
@@ -433,8 +467,10 @@ impl Session {
             self.persist(&next)?;
             *s = next;
         }
+        let mut request=json!({"id":id,"method":"station_radio_control","params":{"provider":target.provider,"control":"ptt","enabled":on,"source":"gui","ptt_owner_id":owner_id,"expected_generation":target.connection_generation}});
+        if let Some(radio_id)=&target.radio_id{request["params"]["radio_id"]=json!(radio_id);}
         let result = dispatch(
-            json!({"id":id,"method":"station_radio_control","params":{"provider":target.provider,"control":"ptt","enabled":on,"source":"gui","ptt_owner_id":owner_id,"expected_generation":target.connection_generation}}),
+            request,
             &target,
         );
         let mut s = self.state.lock().map_err(|_| "PTT outcome unknown")?;
@@ -490,7 +526,7 @@ fn outcome(
     {
         return "unknown";
     }
-    if t.provider == "direct_flex_lan"
+    if matches!(t.provider.as_str(),"direct_flex_lan"|"direct_tci")
         && r["confirmed"] == true
         && s["ptt"]["source"] == "gui"
         && s["ptt"]["owner_id"] == owner
@@ -521,6 +557,7 @@ fn admission(
     let station = &s["station"];
     let r = &s["radio"];
     let exact = selection["provider"] == t.provider
+        && t.radio_id.as_ref().is_none_or(|id|s["radio_id"]==*id)
         && selection["generation"] == t.selection_generation
         && selection["selection_id"] == t.selection_id
         && selection["control_revision"] == t.control_revision
@@ -533,9 +570,7 @@ fn admission(
     if !exact {
         return Err("PTT exact native session changed".into());
     }
-    if !on {
-        return Ok(());
-    }
+    if !on{return Ok(());}
     let recent = |v: &Value, k: f64| {
         v.as_f64()
             .is_some_and(|v| v.is_finite() && (-1000.0..=3000.0).contains(&(now as f64 - v * k)))
@@ -550,6 +585,12 @@ fn admission(
             && station["inhibitors"]
                 .as_array()
                 .is_some_and(|v| v.is_empty())
+    } else if t.provider=="direct_tci" {
+        let address=t.tci.as_ref().ok_or("TCI PTT address unavailable")?;
+        s["capabilities"]["supported_commands"].as_array().is_some_and(|v|v.contains(&json!("ptt")))
+            && s["tci"]["trx"]==address.trx && s["tci"]["channel"]==address.channel
+            && s["tci"]["transmit_enabled"]==true
+            && recent(&s["tci"]["trx_observed_at"],1000.0)
     } else {
         s["capabilities"]["supported_commands"]
             .as_array()
@@ -597,6 +638,8 @@ fn cw_for_acquisition(
 }
 pub fn preflight(app: &tauri::AppHandle, t: &Target, on: bool, intent: &str) -> Result<(), String> {
     crate::worker::require_existing_generation(t.worker_generation)?;
+    if !on{return Ok(());}
+    if t.provider=="direct_tci"{crate::station_selection::owner_for(app,t.radio_id.as_deref().ok_or("TCI slot unavailable")?)?.require_tci_transmit_enabled(t.worker_generation,t.connection_generation)?;}
     if on {
         crate::carrier_tune::require_output_intent(intent)?;
         crate::carrier_tune::require_cw_ready(app)?;
@@ -616,7 +659,13 @@ pub fn preflight(app: &tauri::AppHandle, t: &Target, on: bool, intent: &str) -> 
     admission(&selected, &radio, t, on, now, &cw)
 }
 pub fn context(app: &tauri::AppHandle) -> Result<Value, String> {
-    crate::carrier_tune::context(app)
+    let selection=crate::station_selection::owner(app)?.snapshot()?;
+    let radio=crate::station_telemetry::owner(app)?.snapshot()?;
+    let mut value=json!({"provider":selection["provider"],"selection_generation":selection["generation"],"selection_id":selection["selection_id"],"control_revision":selection["control_revision"],
+        "worker_generation":radio["worker_generation"],"connection_generation":radio["snapshot"]["generation"],"observation_revision":radio["revision"],"received_at_ms":radio["received_at_ms"],
+        "radio_id":crate::radio_slots::active(app)?});
+    if selection["provider"]=="direct_tci"{value["tci"]=json!({"trx":radio["snapshot"]["tci"]["trx"],"channel":radio["snapshot"]["tci"]["channel"]});}
+    let target=serde_json::from_value::<Target>(value).ok().filter(|t|t.validate().is_ok());Ok(json!({"target":target}))
 }
 fn recovery_proof(
     old: &Target,
@@ -630,6 +679,8 @@ fn recovery_proof(
     if old.provider != current.provider
         || old.selection_id != current.selection_id
         || old.selection_generation != current.selection_generation
+        || old.tci!=current.tci
+        || old.radio_id.as_ref().is_some_and(|id|current.radio_id.as_ref()!=Some(id))
     {
         return Err("Select the original PTT station before retired-owner recovery".into());
     }
@@ -691,11 +742,34 @@ pub fn recover(
 }
 pub fn execute(
     app: &tauri::AppHandle,
-    request: Value,
+    mut request: Value,
     t: &Target,
     intent: &str,
 ) -> Result<Value, String> {
     let on = request["params"]["enabled"] == true;
+    if on&&t.provider=="direct_tci"{crate::station_selection::owner_for(app,t.radio_id.as_deref().ok_or("TCI slot unavailable")?)?.require_tci_transmit_enabled(t.worker_generation,t.connection_generation)?;}
+    if !on {
+        // Release the retained native route even after visible radio selection
+        // changes. The worker checks the original owner and connection generation.
+        // Never start/reconnect a worker or substitute a replacement connection.
+        crate::worker::require_existing_generation(t.worker_generation)?;
+        let radio_id=if let Some(id)=&t.radio_id{id.clone()}else{
+            // Old journals did not retain a slot. Resolve its existing native
+            // selection identity; never guess Radio 1 from a missing field.
+            let mut matches=Vec::new();
+            for id in ["radio1","radio2"]{
+                let selected=crate::station_selection::owner_for(app,id)?.snapshot()?;
+                if selected["provider"]==t.provider && selected["generation"]==t.selection_generation && selected["selection_id"]==t.selection_id{matches.push(id.to_owned());}
+            }
+            if matches.len()!=1{return Err("The legacy PTT original slot cannot be identified; retain its obligation for explicit recovery".into());}
+            matches.remove(0)
+        };
+        let native_intent=crate::station_selection::owner_for(app,&radio_id)?.retained_release_intent()?;
+        request["params"]["radio_id"]=json!(radio_id);request["params"]["expected_native_intent"]=json!(native_intent);
+        let response=crate::worker::request_existing_generation(request,t.worker_generation)?;
+        crate::worker::require_existing_generation(t.worker_generation)?;
+        return Ok(response);
+    }
     if on {
         crate::carrier_tune::require_output_intent(intent)?;
         crate::carrier_tune::require_cw_ready(app)?;
@@ -802,6 +876,7 @@ mod tests {
             control_revision: 3,
             observation_revision: 8,
             received_at_ms: 10000,
+            radio_id:None,tci:None,
         }
     }
     fn fixture() -> (tempfile::TempDir, Session) {
@@ -1205,5 +1280,35 @@ mod tests {
             assert!(validate(label, false, false, "on").is_err());
             assert!(validate(label, false, false, "off").is_err());
         }
+    }
+    #[test]
+    fn tci_ptt_uses_addressed_route_evidence_without_fabricated_vfo_or_global_frequency(){
+        let mut t=target();t.provider="direct_tci".into();t.radio_id=Some("radio2".into());t.tci=Some(TCITarget{trx:1,channel:1});t.validate().unwrap();
+        let selected=json!({"provider":t.provider,"generation":t.selection_generation,"selection_id":t.selection_id,"control_revision":t.control_revision});
+        let cw=json!({"armed":false,"pending":false,"owner":null,"lease":null});
+        let radio=json!({"provider":t.provider,"selection_generation":t.selection_generation,"selection_id":t.selection_id,"worker_generation":t.worker_generation,"revision":t.observation_revision,"received_at_ms":t.received_at_ms,"available":true,
+            "snapshot":{"source":t.provider,"radio_id":"radio2","generation":t.connection_generation,"generated_at":10.0,"allow_transmit":true,
+                "radio":{"connected":true,"observed":true,"observed_at":10.0,"transmitting":false,"transmit_vfo":null,"receive_vfo":null,"transmit_frequency_hz":null,"vfos":[]},
+                "capabilities":{"supported_commands":["ptt"]},"tci":{"trx":1,"channel":1,"transmit_enabled":true,"trx_observed_at":10.0},
+                "carrier_tune":{"pending":false,"release_required":false},"ptt":{"release_required":false}}});
+        assert!(admission(&selected,&radio,&t,true,10000,&cw).is_ok());
+        for (field,value) in [("trx",json!(0)),("channel",json!(0)),("transmit_enabled",json!(false)),("trx_observed_at",json!(1.0))]{
+            let mut bad=radio.clone();bad["snapshot"]["tci"][field]=value;assert!(admission(&selected,&bad,&t,true,10000,&cw).is_err());
+        }
+        let mut bad=radio.clone();bad["snapshot"]["radio_id"]=json!("radio1");assert!(admission(&selected,&bad,&t,true,10000,&cw).is_err());
+        let old=json!({"provider":"direct_agent","selection_generation":2,"selection_id":t.selection_id,"worker_generation":4,"connection_generation":7,"control_revision":3,"observation_revision":8,"received_at_ms":10000});
+        let legacy:Target=serde_json::from_value(old).unwrap();legacy.validate().unwrap();assert!(legacy.tci.is_none());
+    }
+    #[test]
+    fn tci_ptt_retains_exact_slot_and_address_for_release_and_never_replays(){
+        let _serial=crate::carrier_tune::OUTPUT_TEST.lock().unwrap();let (_d,s)=fixture();let mut t=target();t.provider="direct_tci".into();t.radio_id=Some("radio2".into());t.tci=Some(TCITarget{trx:1,channel:0});
+        let id=uuid::Uuid::new_v4().to_string();let intent=crate::carrier_tune::output_intent().unwrap();
+        let on=s.apply(&id,true,t.clone(),&intent,|q,target|{assert_eq!(q["params"]["radio_id"],"radio2");Ok(reply(&q,target,true))}).unwrap();assert_eq!(on["status"],"confirmed");
+        let retained=s.retained_target().unwrap().unwrap();assert_eq!(retained,t);
+        let mut replacement=t.clone();replacement.connection_generation+=1;
+        assert!(s.apply(&uuid::Uuid::new_v4().to_string(),false,replacement,"",|_,_|panic!("replacement received stale off")).is_err());
+        let off_id=uuid::Uuid::new_v4().to_string();let off=s.apply(&off_id,false,retained.clone(),"",|q,target|{assert_eq!(q["params"]["radio_id"],"radio2");Ok(reply(&q,target,true))}).unwrap();
+        assert_eq!(off["status"],"confirmed");assert!(s.require_idle().is_ok());
+        s.apply(&off_id,false,retained,"",|_,_|panic!("duplicate off replayed")).unwrap();
     }
 }

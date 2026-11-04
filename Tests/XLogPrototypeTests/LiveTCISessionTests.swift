@@ -73,13 +73,13 @@ final class LiveTCISessionTests: XCTestCase {
         let initial = try await session.handle("station_snapshot", params: minimal)
         XCTAssertEqual(initial["available"] as? Bool, false)
         XCTAssertTrue(initial["generated_at"] is NSNull)
-        for method in ["station_configuration_save", "station_reconnect", "station_action", "station_radio_control", "station_cat_servers"] {
+        for method in ["station_configuration_save", "station_reconnect", "station_action", "station_cat_servers"] {
             do { _ = try await session.handle(method, params: minimal); XCTFail("Read-only adapter admitted \(method)") }
             catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "method_not_allowed") }
         }
         do { _ = try await session.handle("station_tune", params: minimal); XCTFail("Incomplete TCI tune admitted") }
         catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "invalid_params") }
-        for change in [["trx": true], ["channel": 16], ["endpoint": "ws://user:secret@localhost:40001"], ["endpoint": "ws://localhost:40001/?token=secret"], ["endpoint": "http://localhost:40001"], ["allow_transmit": true]] as [[String: Any]] {
+        for change in [["trx": true], ["channel": 16], ["endpoint": "ws://user:secret@localhost:40001"], ["endpoint": "ws://localhost:40001/?token=secret"], ["endpoint": "http://localhost:40001"], ["allow_transmit": "yes"]] as [[String: Any]] {
             do { _ = try await session.handle("station_connect", params: connect.merging(change) { _, new in new }); XCTFail("Invalid TCI config admitted") }
             catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "invalid_params") }
         }
@@ -93,12 +93,14 @@ final class LiveTCISessionTests: XCTestCase {
         XCTAssertEqual(snapshot["source"] as? String, "direct_tci")
         XCTAssertEqual(snapshot["allow_transmit"] as? Bool, false)
         XCTAssertEqual(snapshot["radio_id"] as? String, "radio1")
-        for method in ["station_reconnect", "station_action", "station_radio_control", "station_configuration_save", "station_cat_servers"] {
+        for method in ["station_reconnect", "station_action", "station_configuration_save", "station_cat_servers"] {
             do { _ = try await LiveStationMethods.handle(method, params: routed); XCTFail("Router admitted TCI mutation") }
             catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "method_not_allowed") }
         }
         do { _ = try await LiveStationMethods.handle("station_tune", params: routed); XCTFail("Incomplete TCI tune admitted") }
         catch let failure as WorkerFailure { XCTAssertEqual(failure.code, "invalid_params") }
+        do { _ = try await LiveStationMethods.handle("station_transmit_permission", params:routed); XCTFail("Incomplete TCI permission route admitted") }
+        catch let failure as WorkerFailure { XCTAssertEqual(failure.code,"invalid_params") }
     }
 
     func testExplicitTuneUsesSavedAddressAndReturnsOnlyAfterAuthoritativeReadback() async throws {
@@ -361,6 +363,102 @@ final class LiveTCISessionTests: XCTestCase {
 
     private func fixture(_ connector: TCIFixtureConnector, claim: StationProviderClaim = StationProviderClaim(), clock: @escaping @Sendable () -> Date = { Date() }) -> LiveTCISession {
         LiveTCISession(claim: claim, clock: clock, factory: { TCIReadOnlyWebSocketSession(endpoint: $0.endpoint, configuredAddress: $0.address, connector: connector, clock: clock) })
+    }
+    func testTCI21CWPermissionSingleSessionSendStopAndReportedSpeed() async throws {
+        let socket=TCIFixtureSocket(),session=fixture(TCIFixtureConnector([socket]))
+        _=try await session.handle("station_connect",params:connect.merging(["allow_transmit":true]){_,new in new})
+        let discovery=Self.discovery.replacingOccurrences(of:"1.8",with:"2.1").replacingOccurrences(of:"trx_count:2",with:"trx_count:1")
+        await socket.enqueue(.text(discovery+"tx_enable:0,true;trx:0,false;ready;"))
+        let ready=try await wait(session){$0["available"] as? Bool==true}
+        XCTAssertEqual(ready["allow_transmit"] as? Bool,true)
+        XCTAssertTrue(((ready["capabilities"] as? [String:Any])?["supported_commands"] as? [String] ?? []).contains("send_cw"))
+        let initialWrites=await socket.sentTexts();XCTAssertTrue(initialWrites.isEmpty,"Connect must never key or set speed")
+        _=try await session.handle("station_radio_control",params:["provider":"direct_tci","control":"set_cw_speed","words_per_minute":24,"expected_generation":1])
+        await socket.enqueue(.text("cw_macros_speed:24;"))
+        _=try await wait(session){($0["tci"] as? [String:Any])?["cw_macros_speed"] as? Int==24}
+        let result=try await session.handle("station_radio_control",params:["provider":"direct_tci","control":"send_cw","text":"TU OM0RX, 599","expected_generation":1])
+        XCTAssertEqual(result["accepted"] as? Bool,true);XCTAssertEqual(result["confirmed"] as? Bool,false)
+        do{_=try await session.handle("station_radio_control",params:["provider":"direct_tci","control":"send_cw","text":"TU","expected_generation":1]);XCTFail("Second output overtook owned CW")}catch{}
+        let stopping=Task{try await session.handle("station_radio_control",params:["provider":"direct_tci","control":"clear_cw","expected_generation":1])}
+        for _ in 0..<2000 {if await socket.sentTexts().count==3{break};await Task.yield()}
+        let frames=await socket.sentTexts();XCTAssertEqual(frames,["CW_MACROS_SPEED:24;CW_MACROS_SPEED;","CW_MACROS:0,TU OM0RX~ 599;","CW_MACROS_STOP;TRX:0;"])
+        await socket.enqueue(.text("tx_frequency:7100000;cw_macros_empty:0;"))
+        let retained=try await session.handle("station_snapshot",params:minimal)
+        XCTAssertEqual((retained["tci"] as? [String:Any])?["cw_owned"] as? Bool,true)
+        await socket.enqueue(.text("trx:0,false;"));_=try await stopping.value
+        let idle=try await session.handle("station_snapshot",params:minimal)
+        XCTAssertEqual((idle["tci"] as? [String:Any])?["cw_owned"] as? Bool,false)
+        await session.terminate()
+    }
+    func testTCI21AddressedPTTDoesNotInventGlobalTXFrequencyOrUseOtherTRXReadback() async throws {
+        let socket=TCIFixtureSocket(),session=fixture(TCIFixtureConnector([socket]))
+        _=try await session.handle("station_connect",params:connect.merging(["trx":1,"channel":1,"allow_transmit":true]){_,new in new})
+        await socket.enqueue(.text(Self.discovery.replacingOccurrences(of:"1.8",with:"2.1")+"vfo:1,1,7100000;modulation:1,USB;tx_enable:1,true;trx:1,false;tx_frequency:14250000;ready;"))
+        let ready=try await wait(session){$0["available"] as? Bool==true}
+        XCTAssertTrue((ready["radio"] as? [String:Any])?["transmit_frequency_hz"] is NSNull)
+        XCTAssertTrue((ready["radio"] as? [String:Any])?["transmit_vfo"] is NSNull)
+        XCTAssertFalse(((ready["capabilities"] as? [String:Any])?["supported_commands"] as? [String] ?? []).contains("send_cw"),"Global CW Stop is not qualified for multi-TRX")
+        let owner=UUID().uuidString
+        let params:[String:Any]=["provider":"direct_tci","control":"ptt","enabled":true,"source":"gui","ptt_owner_id":owner,"expected_generation":1,"expected_native_intent":3]
+        let on=Task{try await session.handle("station_radio_control",params:params)}
+        for _ in 0..<2000{if await socket.sentTexts().count==1{break};await Task.yield()}
+        await socket.enqueue(.text("trx:0,true;tx_frequency:7100000;"))
+        await socket.enqueue(.text("trx:1,true;"))
+        let confirmed=try await on.value;XCTAssertEqual(confirmed["confirmed"] as? Bool,true);XCTAssertEqual(confirmed["owner_id"] as? String,owner)
+        XCTAssertEqual(confirmed["accepted"] as? Bool,true);XCTAssertEqual(confirmed["control"] as? String,"ptt","Native durable receipt requires the actual PTT response contract")
+        let disabled=try await session.handle("station_transmit_permission",params:["provider":"direct_tci","allow_transmit":false,"expected_generation":1])
+        XCTAssertEqual((disabled["state"] as? [String:Any])?["allow_transmit"] as? Bool,false)
+        do{_=try await session.handle("station_transmit_permission",params:["provider":"direct_tci","allow_transmit":true,"expected_generation":1]);XCTFail("Runtime command re-enabled output")}catch{}
+        let off=Task{try await session.handle("station_radio_control",params:["provider":"direct_tci","control":"ptt","enabled":false,"source":"gui","ptt_owner_id":owner,"expected_generation":1,"expected_native_intent":4])}
+        for _ in 0..<2000{if await socket.sentTexts().count==2{break};await Task.yield()}
+        await socket.enqueue(.text("trx:1,false;"));let released=try await off.value
+        XCTAssertEqual(released["confirmed"] as? Bool,true)
+        let frames=await socket.sentTexts();XCTAssertEqual(frames,["TRX:1,true;TRX:1;","TRX:1,false;TRX:1;"])
+        await session.terminate()
+    }
+    func testTCI21MigratesReceiveOnlyAndUnsupportedVersionCannotEmitOutput() async throws {
+        for version in ["2.1","2.9"] {
+            let socket=TCIFixtureSocket(),session=fixture(TCIFixtureConnector([socket]))
+            _=try await session.handle("station_connect",params:connect)
+            await socket.enqueue(.text(Self.discovery.replacingOccurrences(of:"1.8",with:version).replacingOccurrences(of:"trx_count:2",with:"trx_count:1")+"tx_enable:0,true;trx:0,false;ready;"))
+            let state=try await wait(session){$0["available"] as? Bool==true}
+            XCTAssertEqual(state["allow_transmit"] as? Bool,false)
+            if version=="2.9"{XCTAssertEqual((state["tci"] as? [String:Any])?["output_supported"] as? Bool,false)}
+            for text in ["CQ","CQ;TRX:0,true","CQ>TEST"]{
+                do{_=try await session.handle("station_radio_control",params:["provider":"direct_tci","control":"send_cw","text":text,"expected_generation":1]);XCTFail("Unadmitted output accepted")}catch{}
+            }
+            let frames=await socket.sentTexts();XCTAssertTrue(frames.isEmpty)
+            await session.terminate()
+        }
+    }
+    func testTCI21OffRetiresPendingOnAndRequiresFreshRXWithoutReplay() async throws {
+        let socket=TCIFixtureSocket(),session=fixture(TCIFixtureConnector([socket]))
+        _=try await session.handle("station_connect",params:connect.merging(["allow_transmit":true]){_,new in new})
+        await socket.enqueue(.text(Self.discovery.replacingOccurrences(of:"1.8",with:"2.1")+"tx_enable:0,true;trx:0,false;ready;"))
+        _=try await wait(session){$0["available"] as? Bool==true}
+        let owner=UUID().uuidString
+        let on=Task{try await session.handle("station_radio_control",params:["provider":"direct_tci","control":"ptt","enabled":true,"source":"gui","ptt_owner_id":owner,"expected_generation":1,"expected_native_intent":1])}
+        for _ in 0..<2000{if await socket.sentTexts().count==1{break};await Task.yield()}
+        let off=Task{try await session.handle("station_radio_control",params:["provider":"direct_tci","control":"ptt","enabled":false,"source":"gui","ptt_owner_id":owner,"expected_generation":1,"expected_native_intent":2])}
+        for _ in 0..<2000{if await socket.sentTexts().count==2{break};await Task.yield()}
+        await socket.enqueue(.text("trx:0,false;"));_=try await off.value
+        do{_=try await on.value;XCTFail("Retired on completion accepted")}catch{}
+        let state=try await session.handle("station_snapshot",params:minimal)
+        XCTAssertEqual((state["ptt"] as? [String:Any])?["release_required"] as? Bool,false)
+        let frames=await socket.sentTexts();XCTAssertEqual(frames,["TRX:0,true;TRX:0;","TRX:0,false;TRX:0;"])
+        await session.terminate()
+    }
+    func testTCI21OffDeliveredBeforeOnRetiresIntentWithoutReleasingUnownedTransmitter() async throws {
+        let socket=TCIFixtureSocket(),session=fixture(TCIFixtureConnector([socket]))
+        _=try await session.handle("station_connect",params:connect.merging(["allow_transmit":true]){_,new in new})
+        await socket.enqueue(.text(Self.discovery.replacingOccurrences(of:"1.8",with:"2.1")+"tx_enable:0,true;trx:0,false;ready;"))
+        _=try await wait(session){$0["available"] as? Bool==true}
+        let owner=UUID().uuidString
+        let retired=try await session.handle("station_radio_control",params:["provider":"direct_tci","control":"ptt","enabled":false,"source":"gui","ptt_owner_id":owner,"expected_generation":1,"expected_native_intent":2])
+        XCTAssertEqual(retired["accepted"] as? Bool,true);XCTAssertEqual(retired["confirmed"] as? Bool,false)
+        do{_=try await session.handle("station_radio_control",params:["provider":"direct_tci","control":"ptt","enabled":true,"source":"gui","ptt_owner_id":owner,"expected_generation":1,"expected_native_intent":1]);XCTFail("Older acquisition survived newer Off")}catch{}
+        let frames=await socket.sentTexts();XCTAssertEqual(frames,["TRX:0;TX_ENABLE:0;MODULATION:0;"])
+        await session.terminate()
     }
     private func wait(_ session: LiveTCISession, predicate: ([String: Any]) -> Bool) async throws -> [String: Any] {
         for _ in 0..<2000 { let value = try await session.handle("station_snapshot", params: minimal); if predicate(value) { return value }; await Task.yield() }

@@ -33,6 +33,7 @@ struct State {
     control_revision: u64,
     activation_tune: bool,
     qsy_fence: bool,
+    disabled_tci_connection:Option<(u64,u64)>,
 }
 pub struct Selection {
     radio_id: Option<String>,
@@ -123,6 +124,7 @@ impl Selection {
                 control_revision: 0,
                 activation_tune: false,
                 qsy_fence: false,
+                disabled_tci_connection:None,
             }),
             activity: AtomicUsize::new(0),
             path,
@@ -646,7 +648,8 @@ impl Selection {
         }
         let method = request["method"].as_str();
         let provider = if carrier && (method == Some("station_radio_control") && request["params"]["control"]=="ptt" && request["params"]["enabled"]==true && request["params"]["source"]=="gui" || method == Some("station_action") && (request["params"]["action"] == "tune" || request["params"]["action"] == "operate" && request["params"]["provider"] == "direct_agent"))
-            && matches!(request["params"]["provider"].as_str(), Some("direct_agent" | "direct_flex_lan")) { request["params"]["provider"].as_str() }
+            && (matches!(request["params"]["provider"].as_str(), Some("direct_agent" | "direct_flex_lan"))
+                || request["params"]["provider"]=="direct_tci" && method==Some("station_radio_control") && request["params"]["control"]=="ptt") { request["params"]["provider"].as_str() }
             else if !carrier && method == Some("hamlib_control") && request["params"]["device"] == "radio"
             && request["params"]["action"] == "tune_simplex" { Some("hamlib") }
             else if !carrier && method == Some("station_tune") { request["params"]["provider"].as_str() } else { None };
@@ -679,6 +682,26 @@ impl Selection {
     pub(crate) fn ptt_control<G>(&self,request:Value,expected:&Value,admit:impl FnOnce()->Result<G,String>,dispatch:impl FnOnce(Value)->Result<Value,String>)->Result<Value,String>{
         if request["method"]!="station_radio_control"||request["params"]["control"]!="ptt"||request["params"]["source"]!="gui"||!request["params"]["enabled"].is_boolean(){return Err("Invalid native PTT route".into());}
         if request["params"]["enabled"]==true {self.exclusive_tune(request,expected,true,admit,dispatch)}else{self.control_scoped_dispatch(request,Some((expected["generation"].as_u64().ok_or("Invalid PTT generation")?,expected["selection_id"].as_str().ok_or("Invalid PTT selection")?,Some(expected["control_revision"].as_u64().ok_or("Invalid PTT revision")?))),admit,dispatch)}
+    }
+    /// Retire queued native acquisitions on the original slot without requiring
+    /// that slot to remain visible/active. This allocates no output authority.
+    pub(crate) fn retained_release_intent(&self)->Result<u64,String>{
+        let mut state=self.state.lock().map_err(|_|"Radio release intent unavailable")?;
+        state.control_revision=state.control_revision.checked_add(1).filter(|v|*v<=9_007_199_254_740_991).ok_or("Radio release intent exhausted")?;
+        Ok(state.control_revision)
+    }
+    /// A disable remains authoritative locally even if its worker reply is lost.
+    /// Only a deliberately replaced connection has a different native identity.
+    pub(crate) fn disable_tci_connection(&self,worker:u64,connection:u64)->Result<(),String>{
+        let mut state=self.state.lock().map_err(|_|"Native TCI permission state unavailable")?;
+        // Worker/connection generations increase in this process. A delayed
+        // disable for a retired route cannot overwrite the newer tombstone.
+        state.disabled_tci_connection=Some(state.disabled_tci_connection.map_or((worker,connection),|old|old.max((worker,connection))));Ok(())
+    }
+    pub(crate) fn require_tci_transmit_enabled(&self,worker:u64,connection:u64)->Result<(),String>{
+        if self.state.lock().map_err(|_|"Native TCI permission state unavailable")?.disabled_tci_connection==Some((worker,connection)){
+            return Err("TCI transmit was disabled for this connection. Save reviewed permission and reconnect explicitly before re-arming.".into());
+        }Ok(())
     }
     /// CW retains its worker identity: a restarted worker must never receive a
     /// delayed macro through the ordinary reconnecting transport.
@@ -2157,6 +2180,17 @@ mod tests {
             owner.monitor_action(action(), 2, id, || Ok(())).unwrap();
             assert_eq!(calls.lock().unwrap().iter().filter(|request| request["method"] == method).count(), before + 1);
         }
+    }
+    #[test]
+    fn tci_disable_tombstone_blocks_acquisition_before_worker_ack_and_release_intent_retires_old_on(){
+        let (_directory,owner,calls)=fixture();let initial=initialized(&owner,Some("direct_tci"));
+        let before=calls.lock().unwrap().len();
+        owner.disable_tci_connection(4,7).unwrap();assert!(owner.require_tci_transmit_enabled(4,7).is_err());
+        assert!(owner.require_tci_transmit_enabled(4,8).is_ok());
+        owner.disable_tci_connection(4,8).unwrap();owner.disable_tci_connection(4,7).unwrap();assert!(owner.require_tci_transmit_enabled(4,8).is_err());
+        assert!(owner.require_tci_transmit_enabled(5,1).is_ok());
+        let token=owner.retained_release_intent().unwrap();assert_eq!(token,initial["control_revision"].as_u64().unwrap()+1);
+        assert_eq!(calls.lock().unwrap().len(),before,"Permission tombstone and release ordinal are native metadata, not output or transport");
     }
     #[test]
     fn child_receive_control_checks_selection_identity_and_control_revision_before_admission() {

@@ -9,7 +9,7 @@ import type { MonitorContext } from "./monitorContext";
 import { stationReceiveAvailable } from "./stationReceive";
 import { useSettingsSaveToast } from "./SettingsSaveToast";
 
-const providerLabels: Record<StationProvider, string> = { direct_agent: "Remote Station Agent", direct_flex_lan: "Direct FLEX LAN", direct_tci: "Direct TCI · receive control", hamlib: "Local Hamlib" };
+const providerLabels: Record<StationProvider, string> = { direct_agent: "Remote Station Agent", direct_flex_lan: "Direct FLEX LAN", direct_tci: "Direct TCI", hamlib: "Local Hamlib" };
 const receiveModes = ["USB", "LSB", "CW", "CWR", "AM", "FM", "RTTY", "RTTYR", "DIGU", "DIGL"];
 const notice = (receipt: StationReceipt) => receipt.request.action === "select"
   ? receipt.status === "acknowledged" ? "Radio selection acknowledged. Connect the selected radio explicitly."
@@ -184,7 +184,7 @@ export function AgentConnectionSetup({ radioId, connections = false, legacyEndpo
       const next = current.current;
       if (!next?.profile || !Object.entries(profile).every(([key, value]) => next.profile?.[key as keyof RadioProfile] === value)) return false;
       if (profile.provider === "direct_flex_lan") return next.flex?.host === flexConfig.host.trim() && next.flex?.port === flexConfig.port && next.flex?.station_name === flexConfig.station_name.trim();
-      if (profile.provider === "direct_tci") return next.tci?.endpoint === new URL(tciConfig.endpoint.trim()).href && next.tci?.trx === tciConfig.trx && next.tci?.channel === tciConfig.channel;
+      if (profile.provider === "direct_tci") return next.tci?.endpoint === new URL(tciConfig.endpoint.trim()).href && next.tci?.trx === tciConfig.trx && next.tci?.channel === tciConfig.channel && (next.tci?.allow_transmit ?? false)===(tciConfig.allow_transmit ?? false);
       if (profile.provider === "hamlib") return Object.entries(config).every(([key, value]) => key === "serial"
         ? Object.entries(value ?? {}).every(([name, setting]) => next.hamlib?.serial?.[name] === setting) && Object.keys(next.hamlib?.serial ?? {}).length === Object.keys(value ?? {}).length
         : next.hamlib?.[key as keyof HamlibConfiguration] === value);
@@ -211,12 +211,13 @@ export function AgentConnectionSetup({ radioId, connections = false, legacyEndpo
     transmit={transmit} setTransmit={setTransmit} dirty={dirty.current} busy={busy || sequenceBusy} pending={pending} conflict={conflict} message={message} error={error}
     onAction={action => void setupAction(action)} onRevert={() => void refresh(true)} onCheck={() => void (pending ? check() : refresh())} onReview={() => void review()} />;
   return <div className={`live-station-connect${onlySelection ? " is-selection-only" : ""}`} aria-label={onlySelection ? "Shared radio selection" : tci ? "Shared TCI connection setup" : flex ? "Shared FLEX connection setup" : hamlib ? "Shared Hamlib connection setup" : "Shared Agent connection setup"}>
-    {tci && !onlySelection && <><h3>Direct TCI connection · read only</h3>
-      <p>Save a credential-free ws/wss endpoint and receiver selection, then connect explicitly. TCI permits explicit receive-frequency and mode tuning only. Saving does not connect; interrupted connections require an explicit new connection.</p>
+    {tci && !onlySelection && <><h3>Direct TCI connection</h3>
+      <p>Save a credential-free endpoint and receiver selection, then connect explicitly. ExpertSDR3 TCI 2.1 supports admitted PTT; CW requires one TRX because Stop is server-global. Saving does not connect or transmit. Native TCI transmit audio and carrier Tune are unavailable.</p>
       <fieldset disabled={!state || busy}>
         <label>TCI WebSocket endpoint<input aria-label="Shared TCI endpoint" type="url" autoComplete="off" placeholder="ws://127.0.0.1:50001" value={tciConfig.endpoint} onChange={event => { dirty.current = true; setTCIConfig({ ...tciConfig, endpoint: event.target.value }); }} /></label>
         <label>TCI TRX<input aria-label="Shared TCI TRX" type="number" min="0" max="15" value={Number.isNaN(tciConfig.trx) ? "" : tciConfig.trx} onChange={event => { dirty.current = true; setTCIConfig({ ...tciConfig, trx: event.target.value === "" ? NaN : Number(event.target.value) }); }} /></label>
         <label>TCI channel<input aria-label="Shared TCI channel" type="number" min="0" max="15" value={Number.isNaN(tciConfig.channel) ? "" : tciConfig.channel} onChange={event => { dirty.current = true; setTCIConfig({ ...tciConfig, channel: event.target.value === "" ? NaN : Number(event.target.value) }); }} /></label>
+        <label><input type="checkbox" checked={tciConfig.allow_transmit ?? false} onChange={event => {dirty.current=true;setTCIConfig({...tciConfig,allow_transmit:event.target.checked});}} />Allow supported TCI PTT/CW after explicit reconnect</label>
       </fieldset>
       <div className="live-station-actionrow"><button type="button" disabled={!state || busy || !!pending || conflict || !validTCIConfiguration(tciConfig)} onClick={() => void execute("save")}>Save TCI configuration</button>
         <button type="button" disabled={busy} onClick={() => void refresh(true)}>Reload saved TCI configuration</button></div>

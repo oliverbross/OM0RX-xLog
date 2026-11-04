@@ -461,6 +461,17 @@ impl Session {
         if let Some(target) = target { self.finish_release(&target)?; }
         Ok(())
     }
+    /// Permission retirement can cancel only this exact original radio route.
+    /// It must not disarm an unrelated independent keyer or replacement slot.
+    pub fn stop_route(&self, provider:&str, radio:&str, connection:u64)->Result<(),String>{
+        let target={let mut state=self.lock()?;
+            let target=if !state.owner.is_null(){&state.owner}else{&state.target};
+            if target["provider"]!=provider || target["radio_id"]!=radio || target["generation"]!=connection {return Ok(());}
+            Self::begin_stop(&mut state)
+        };
+        if let Some(target)=target{self.finish_release(&target)?;}
+        Ok(())
+    }
     fn begin_stop(state: &mut State) -> Option<Value> {
         let simulated = state.target["output"] == "test-simulation";
         state.epoch += 1; state.armed_until = 0; state.lease = None;
@@ -792,6 +803,19 @@ mod tests {
         let snapshot=client.call(&session,"snapshot").unwrap();assert_eq!(snapshot["armed"],false);assert!(snapshot["lease"].is_null());
         let writes=backend.writes.lock().unwrap();assert_eq!(writes.iter().filter(|(a,_,_)|a=="stop").count(),1);
         assert!(!writes.iter().any(|(a,_,_)|a=="send"));
+    }
+    #[test]
+    fn permission_retirement_stops_only_its_exact_original_provider_radio_and_connection(){
+        let(session,backend,_)=fixture();{
+            let mut target=backend.target.lock().unwrap();target["provider"]=json!("direct_tci");target["radio_id"]=json!("radio1");
+        }
+        let mut client=Client::new();ready(&mut client,&session);
+        client.call(&session,"send").unwrap();
+        session.stop_route("direct_tci","radio2",7).unwrap();session.stop_route("direct_tci","radio1",8).unwrap();
+        session.stop_route("winkeyer","radio1",7).unwrap();assert_eq!(session.snapshot().unwrap()["armed"],true);
+        assert_eq!(backend.writes.lock().unwrap().iter().filter(|(a,_,_)|a=="stop").count(),0);
+        session.stop_route("direct_tci","radio1",7).unwrap();assert_eq!(session.snapshot().unwrap()["armed"],false);
+        assert_eq!(backend.writes.lock().unwrap().iter().filter(|(a,_,_)|a=="stop").count(),1);
     }
     #[test]
     fn open_workbench_cannot_mutate_a_contest_draft_through_esm(){

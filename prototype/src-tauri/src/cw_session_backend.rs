@@ -54,7 +54,7 @@ fn output_selection(profile: &Value, read: impl FnOnce() -> Result<Value, String
     if profile["output"] != "radio" { return Err("CW output unavailable".into()); }
     let selection = read()?;
     let provider = selection["provider"].as_str()
-        .filter(|provider| matches!(*provider, "direct_agent" | "direct_flex_lan" | "hamlib"))
+        .filter(|provider| matches!(*provider, "direct_agent" | "direct_flex_lan" | "direct_tci" | "hamlib"))
         .ok_or("Choose a CW-capable radio before using CW.")?;
     let mut identity=json!({"generation":selection["generation"],"id":selection["selection_id"]});
     if selection["radio_id"].is_string(){identity["radio_id"]=selection["radio_id"].clone();}
@@ -203,7 +203,9 @@ impl Backend for Native {
             let timestamp = value["radio"]["observed_at"].as_f64().or_else(|| value["radio"]["received_at"].as_f64());
             if value["source"] != provider || value["radio"]["connected"] != true || value["radio"]["observed"] != true || value["allow_transmit"] != true || !commands.is_some_and(|commands| commands.contains(&json!("send_cw")) && commands.contains(&json!("clear_cw"))) { return Err("Connect a CW-capable radio with transmit controls enabled first.".into()); }
             if !matches!(value["radio"]["mode"].as_str(), Some("CW" | "CWR")) || !timestamp.is_some_and(|time| fresh(now() - time * 1_000.0, 5_000.0)) { return Err("Set the radio to CW and wait for fresh readback.".into()); }
-            (generation(&value["generation"])?, 128, 0)
+            let connection=generation(&value["generation"])?;
+            if provider=="direct_tci"{crate::station_selection::owner(&self.app)?.require_tci_transmit_enabled(worker,connection)?;}
+            (connection, 128, 0)
         };
         let mut target=json!({"output":output,"provider":if output == "winkeyer" { "winkeyer" } else { provider },"generation":identity,"limit":limit,"last_intent":intent,"worker":worker,"selection":canonical["selection"],
             "speedSegments":speed_segments, "streaming":output == "winkeyer", "composition":output == "winkeyer", "prosigns":output == "winkeyer", "progressEvidence":if output == "winkeyer" {"host-queue-and-device-status"} else {"command-acceptance-only"}});
@@ -265,7 +267,10 @@ impl Backend for Native {
         let provider = target["provider"].as_str().ok_or("CW target unavailable")?;
         let request = radio_request(target, action, text)?;
         let worker = target["worker"].as_u64().ok_or("CW worker unavailable")?;
-        let dispatch = |request: Value| if provider == "hamlib" { crate::hamlib::request(request) } else { crate::worker::request_existing_generation(request, worker) };
+        let dispatch = |request: Value| {
+            if action!="stop"&&provider=="direct_tci"{crate::station_selection::owner_for(&self.app,target["radio_id"].as_str().ok_or("TCI slot unavailable")?)?.require_tci_transmit_enabled(worker,generation)?;}
+            if provider == "hamlib" { crate::hamlib::request(request) } else { crate::worker::request_existing_generation(request, worker) }
+        };
         // Urgent Stop is pinned to the original provider/connection even after
         // handover; Send must additionally enter selected-radio arbitration.
         let response = if action == "stop" { dispatch(request.clone())? } else {
@@ -301,7 +306,7 @@ mod tests {
         assert!(output_selection(&json!({"output":"radio"}), || Err("Selection unavailable".into())).is_err());
         let (provider, selection) = output_selection(&json!({"output":"radio"}), || Ok(json!({"provider":"direct_agent","generation":17,"selection_id":"exact-radio-choice"}))).unwrap();
         assert_eq!(provider, "direct_agent"); assert_eq!(selection, json!({"generation":17,"id":"exact-radio-choice"}));
-        assert!(output_selection(&json!({"output":"radio"}), || Ok(json!({"provider":"direct_tci","generation":18,"selection_id":"tci-choice"}))).is_err());
+        assert_eq!(output_selection(&json!({"output":"radio"}), || Ok(json!({"provider":"direct_tci","generation":18,"selection_id":"tci-choice"}))).unwrap().0,"direct_tci");
     }
     #[test]
     fn radio_release_preserves_strict_flex_schema_and_exact_target_identity() {

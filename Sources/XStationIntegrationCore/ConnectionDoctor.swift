@@ -74,7 +74,7 @@ public enum ConnectionDoctor {
         let radio = snapshot["radio"] as? [String: Any] ?? [:]
         let station = snapshot["station"] as? [String: Any] ?? [:]
         let capabilities = snapshot["capabilities"] as? [String: Any] ?? [:]
-        let readOnly = provider == .directTCI ? true : boolean(capabilities["read_only"])
+        let readOnly = boolean(capabilities["read_only"]) ?? (provider == .directTCI ? true : nil)
         let connected = transport == .ready && boolean(snapshot["available"]) == true
             && boolean(radio["connected"]) == true
         let authoritative = boolean(radio["observed"]) == true
@@ -100,7 +100,7 @@ public enum ConnectionDoctor {
         if readOnly != true, let commands {
             if commands.contains("station_tune") { advertised.append(.tune) }
             if commands.contains("ptt") { advertised.append(.ptt) }
-            if commands.contains("send_cw") { advertised.append(.cw) }
+            if commands.contains("send_cw"), provider != .directTCI || commands.contains("clear_cw") { advertised.append(.cw) }
             if commands.contains("set_rf_power") { advertised.append(.rfPower) }
         }
         let configCheck: Check = switch configuration {

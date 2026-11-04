@@ -2,13 +2,14 @@ import Foundation
 #if os(macOS)
 import XCatIntegrationCore
 
-/// Worker-owned TCI adapter. Receive tuning and TRX filter adjustments require
-/// generation-bound admission and authoritative telemetry readback.
+/// Worker-owned TCI adapter. Receive controls and finite TCI 2.1 PTT/CW share
+/// one configured session, native admission and authoritative TRX readback.
 actor LiveTCISession {
     private static let receiveFrequencyRange = 100_000...1_000_000_000
     struct Configuration: Sendable {
         let endpoint: URL
         let address: TCIReceiverAddress
+        let allowTransmit: Bool
     }
     typealias Factory = @Sendable (Configuration) -> TCIReadOnlyWebSocketSession
     static let shared = LiveTCISession()
@@ -22,7 +23,20 @@ actor LiveTCISession {
     private var observation: TCIReadOnlySessionObservation?
     private var receivedAt: Date?
     private var updates: Task<Void, Never>?
+    private var observationHeartbeat:Task<Void,Never>?
     private var terminal = false
+    private var allowTransmit=false
+    private var pttOwner:String?
+    private var pttPending=false
+    private var pttReleaseRequired=false
+    private var pttConfirmed=false
+    private var cwOwned=false
+    private var outputRevision:UInt64=0
+    private var nativeIntent:Int=0
+    private var outputTRXBaseline:UInt64=0
+    private var cwSawTX=false
+    private var outputConnectionGeneration:UInt64=0
+    private var pendingOutputRevision:UInt64?
 
     init(claim: StationProviderClaim = .shared, clock: @escaping @Sendable () -> Date = { Date() },
          factory: @escaping Factory = { TCIReadOnlyWebSocketSession(endpoint: $0.endpoint, configuredAddress: $0.address) }) {
@@ -45,6 +59,7 @@ actor LiveTCISession {
                 try await claim.reserve("direct_tci", lease: id)
                 guard !terminal, connectionID == id else { throw cancelled() }
                 let active = factory(configuration); session = active
+                allowTransmit=configuration.allowTransmit
                 let stream = await active.observations()
                 guard !terminal, connectionID == id else { await active.disconnect(); throw cancelled() }
                 updates = Task { [weak self] in
@@ -58,6 +73,13 @@ actor LiveTCISession {
                 let value = await active.currentObservation()
                 guard !terminal, connectionID == id else { await active.disconnect(); throw cancelled() }
                 record(value, connectionID: id)
+                observationHeartbeat=Task{[weak self] in
+                    while !Task.isCancelled {
+                        do{try await Task.sleep(for:.seconds(1))}catch{return}
+                        guard !Task.isCancelled else{return}
+                        await self?.refreshOutputObservation(connectionID:id)
+                    }
+                }
                 return snapshot()
             } catch {
                 if connectionID == id {
@@ -125,6 +147,16 @@ actor LiveTCISession {
                       (state["radio"] as? [String: Any])?["transmitting"] as? Bool == false else { throw cancelled() }
                 return ["accepted": true, "confirmed": true, "state": state]
             } catch let failure as TCITuneSessionError { throw Self.tuneFailure(failure) }
+        case "station_radio_control":
+            return try await radioControl(params)
+        case "station_transmit_permission":
+            // Disable only. Re-enabling is an explicit new saved connection.
+            // Native orchestration invokes the canonical CW Stop / durable PTT
+            // release after this barrier; obligations remain retained here.
+            guard Set(params.keys)==["provider","expected_generation","allow_transmit"],params["allow_transmit"] as? Bool==false,
+                  let expected=Self.integer(params["expected_generation"]),expected>=0,UInt64(expected)==generation,!terminal,session != nil else{throw invalid()}
+            allowTransmit=false;outputRevision &+= 1;pendingOutputRevision=nil
+            return ["disabled":true,"state":snapshot()]
         case "station_add_spot":
             guard Set(params.keys) == ["provider", "spot"], !terminal,
                   let active = session, let id = connectionID,
@@ -164,7 +196,7 @@ actor LiveTCISession {
                 return ["accepted": true, "confirmed": false, "state": snapshot()]
             } catch let failure as TCITuneSessionError { throw Self.tuneFailure(failure) }
         default:
-            throw WorkerFailure("method_not_allowed", "TCI permits only explicit connection, observation, bounded receive controls and spot output.")
+            throw WorkerFailure("method_not_allowed", "TCI permits explicit connection, receive controls, spots and admitted TCI 2.1 PTT/CW.")
         }
     }
 
@@ -188,7 +220,11 @@ actor LiveTCISession {
     private func disconnect() async {
         let closing = session, id = connectionID
         connectionID = nil; session = nil; updates?.cancel(); updates = nil
+        observationHeartbeat?.cancel();observationHeartbeat=nil
         observation = nil; receivedAt = nil; sequence = 0
+        allowTransmit=false;outputRevision &+= 1
+        // Do not erase a physical release obligation on a disconnected socket.
+        if pttReleaseRequired || cwOwned {pttConfirmed=false;pttPending=false}
         await closing?.disconnect()
         if let id { await claim.release("direct_tci", lease: id) }
     }
@@ -199,12 +235,112 @@ actor LiveTCISession {
     private func record(_ value: TCIReadOnlySessionObservation, connectionID id: UUID) {
         guard !terminal, connectionID == id, value.sequence > sequence else { return }
         sequence = value.sequence; observation = value; receivedAt = value.evidenceReceivedAt
+        if let transmitting=value.snapshot?.transceiver.transmitting,value.trxEvidenceSequence>outputTRXBaseline,!pttPending,outputConnectionGeneration==generation {
+            if pttOwner != nil {pttConfirmed = transmitting == pttReleaseRequired}
+            if cwOwned && transmitting{cwSawTX=true}
+            if cwOwned && cwSawTX && !transmitting {cwOwned=false;cwSawTX=false}
+        }
     }
+    private func refreshOutputObservation(connectionID id:UUID)async {
+        guard !terminal,connectionID==id,let active=session else{return}
+        let transportGeneration=await active.currentObservation().generation
+        try? await active.refreshTransmitObservation(expectedGeneration:transportGeneration)
+    }
+    private func radioControl(_ params:[String:Any]) async throws->[String:Any]{
+        guard let control=params["control"] as? String,let expected=Self.integer(params["expected_generation"]),expected>=0,UInt64(expected)==generation,
+              !terminal,let active=session,let id=connectionID else{throw invalid()}
+        let release=control=="clear_cw" || control=="ptt" && params["enabled"] as? Bool==false
+        var keys:Set<String>=["provider","control","expected_generation"]
+        let command:TCIOutboundCommand
+        let owner:String?
+        var retiredBeforeAcquisition=false
+        switch control {
+        case "ptt":
+            keys.formUnion(["enabled","source","ptt_owner_id","expected_native_intent"])
+            guard params["source"] as? String=="gui",let enabled=params["enabled"] as? Bool,
+                  let owned=params["ptt_owner_id"] as? String,UUID(uuidString:owned) != nil,
+                  let state=observation?.snapshot,
+                  let intent=Self.integer(params["expected_native_intent"]),(1...9_007_199_254_740_991).contains(intent),intent>nativeIntent else{throw invalid()}
+            owner=owned
+            if enabled {
+                guard !pttReleaseRequired,!cwOwned else{throw blocked("An earlier output/release obligation must be resolved.")}
+            }else if pttReleaseRequired && pttOwner != owned{throw blocked("PTT off must address the retained original owner.")}
+            else if !pttReleaseRequired{retiredBeforeAcquisition=true}
+            nativeIntent=intent
+            command = .setTRX(trx:state.address.trx,enabled:enabled)
+        case "send_cw":
+            keys.insert("text");guard let text=params["text"] as? String,let state=observation?.snapshot else{throw invalid()}
+            guard !pttReleaseRequired,!cwOwned else{throw blocked("Wait for current CW or use Stop.")}
+            owner=nil;command = .sendCW(trx:state.address.trx,text:text)
+        case "clear_cw":
+            owner=nil;command = .stopCW
+        case "set_cw_speed":
+            keys.insert("words_per_minute");guard let wpm=Self.integer(params["words_per_minute"]),!pttReleaseRequired,!cwOwned else{throw invalid()}
+            owner=nil;command = .setCWMacrosSpeed(wpm:wpm)
+        default:throw WorkerFailure("method_not_allowed","This TCI output operation is unsupported.")
+        }
+        guard Set(params.keys)==keys else{throw invalid()}
+        guard let state=observation?.snapshot,state.protocolAnnouncement.version=="2.1",
+              state.protocolAnnouncement.program.lowercased()=="expertsdr3",state.receiveOnly==false else{throw blocked("This TCI server version has no qualified output contract.")}
+        if control != "ptt",state.trxCount != 1{throw blocked("CW Stop and macro speed are global; select a one-TRX TCI server configuration.")}
+        if !release {
+            guard state.transceiver.transmitEnabled==true,state.transceiver.transmitting==false,
+                  let stamp=observation?.trxEvidenceReceivedAt,(-1...3).contains(clock().timeIntervalSince(stamp)) else{throw blocked("Output requires fresh addressed RX and server TX_ENABLE.")}
+        }
+        if case let .sendCW(_,text)=command {
+            guard !text.trimmingCharacters(in:.whitespaces).isEmpty,text.utf8.count<=128,
+                  text.utf8.allSatisfy({(65...90).contains($0)||(48...57).contains($0)||Array(" /?=+.,-".utf8).contains($0)}),
+                  ["CW","CWR"].contains(state.transceiver.modulation ?? "") else{throw invalid()}
+        }
+        if case let .setCWMacrosSpeed(wpm)=command,!(1...60).contains(wpm){throw invalid()}
+        guard release || allowTransmit else{throw blocked("Enable TCI transmit permission in saved radio setup and reconnect deliberately.")}
+        guard release || pendingOutputRevision==nil else{throw blocked("A TCI output command is still pending; Stop remains available.")}
+        outputRevision &+= 1
+        let revision=outputRevision
+        if release {pendingOutputRevision=nil}else{pendingOutputRevision=revision}
+        defer{if pendingOutputRevision==revision{pendingOutputRevision=nil}}
+        outputTRXBaseline=observation?.trxEvidenceSequence ?? 0
+        outputConnectionGeneration=generation
+        if control=="ptt"{if !release{pttOwner=owner;pttReleaseRequired=true};pttPending=true;pttConfirmed=false}
+        if control=="send_cw"{cwOwned=true;cwSawTX=false}
+        let transportGeneration=await active.currentObservation().generation
+        guard connectionID==id,outputRevision==revision else{throw cancelled()}
+        if retiredBeforeAcquisition {
+            // Off overtook its queued On: retire the ordinal and request RX
+            // evidence, without switching an unrelated CAT/CW transmitter off.
+            pttOwner=owner;pttPending=false;pttConfirmed=false
+            try? await active.refreshTransmitObservation(expectedGeneration:transportGeneration)
+            return ["accepted":true,"control":"ptt","enabled":false,"owner_id":owner as Any,"confirmed":false,"state":snapshot()]
+        }
+        do {
+            let confirmed=try await active.transmit(command,expectedGeneration:transportGeneration)
+            guard connectionID==id,session===active,outputRevision==revision else{throw cancelled()}
+            record(confirmed,connectionID:id)
+            if control=="ptt"{pttPending=false;pttConfirmed=true;pttReleaseRequired = !release}
+            if control=="clear_cw" {
+                // Socket acknowledgement alone cannot establish idle. Retain
+                // native CW ownership until a newer addressed RX report.
+                cwOwned=confirmed.snapshot?.transceiver.transmitting != false
+            }
+            let state=snapshot()
+            if control=="ptt"{return ["accepted":true,"control":"ptt","enabled":!release,"owner_id":owner as Any,"confirmed":true,"state":state]}
+            return ["accepted":true,"control":control,"confirmed":control=="clear_cw","state":state]
+        }catch{
+            if connectionID==id,outputRevision==revision{pttPending=false;pttConfirmed=false}
+            if let failure=error as? WorkerFailure{throw failure}
+            if let failure=error as? TCITuneSessionError{throw Self.tuneFailure(failure)}
+            throw WorkerFailure("station_unknown","TCI output outcome is unknown; use Stop, do not replay.")
+        }
+    }
+    private func blocked(_ message:String)->WorkerFailure{WorkerFailure("station_action_blocked",message)}
     private func snapshot() -> [String: Any] {
         let state = observation?.availability == .available ? observation?.snapshot : nil
         let fresh = receivedAt.map { (-1...5).contains(clock().timeIntervalSince($0)) } ?? false
-        let commands = state == nil ? [String]() : ["station_tune", "station_add_spot", "station_remove_spot"]
+        let protocolSupported=state?.protocolAnnouncement.version=="2.1" && state?.protocolAnnouncement.program.lowercased()=="expertsdr3" && state?.receiveOnly==false
+        let cwSupported=protocolSupported && state?.trxCount==1
+        let commands = (state == nil ? [String]() : ["station_tune", "station_add_spot", "station_remove_spot"]
             + (state?.transceiver.receiveFilter == nil ? [] : ["station_receive_filter"])
+            ) + (protocolSupported ? ["ptt"]:[]) + (cwSupported ? ["send_cw","clear_cw","set_cw_speed"]:[])
         let radio: Any = state.map { s in
             ["connected": true, "observed": true, "frequency_hz": s.frequencyHz,
              "receive_frequency_hz": s.frequencyHz, "mode": s.transceiver.modulation as Any? ?? NSNull(),
@@ -223,15 +359,22 @@ actor LiveTCISession {
         }
         return ["source": "direct_tci", "available": state != nil, "generation": generation,
                 "transport_state": transport, "generated_at": receivedAt?.timeIntervalSince1970 as Any? ?? NSNull(),
-                "radio": radio, "allow_transmit": false,
+                "radio": radio, "allow_transmit": allowTransmit,
+                "carrier_tune":["pending":false,"release_required":false],
+                "ptt":["source":"gui","owner_id":pttOwner as Any? ?? NSNull(),"pending":pttPending,"confirmed":pttConfirmed,"release_required":pttReleaseRequired,"transmitting":state?.transceiver.transmitting as Any? ?? NSNull()],
                 "station": ["available": false, "commissioned": false, "radio_known": state != nil,
                             "radio_stale": !fresh || state == nil, "allowed_actions": [String](),
                             "supported_commands": commands],
-                "capabilities": ["read_only": false, "receive_control_only": true,
+                "capabilities": ["read_only": false, "receive_control_only": !protocolSupported,
                                  "supported_commands": commands,
-                                 "requires_transmit_opt_in": false],
+                                 "requires_transmit_opt_in": true],
                 "rotor": NSNull(), "propagation": NSNull(),
-                "tci": ["read_only": false, "receive_control_only": true,
+                "tci": ["read_only": false, "receive_control_only": !protocolSupported,
+                        "transmit_enabled":state?.transceiver.transmitEnabled as Any? ?? NSNull(),
+                        "trx_observed_at":observation?.trxEvidenceReceivedAt?.timeIntervalSince1970 as Any? ?? NSNull(),
+                        "cw_macros_speed":observation?.cwMacrosSpeed as Any? ?? NSNull(),
+                        "cw_owned":cwOwned,"output_supported":protocolSupported,"cw_supported":cwSupported,
+                        "output_reason":!protocolSupported ? "Requires ExpertSDR3 TCI 2.1 transceiver." : !allowTransmit ? "Transmit permission is off." : !cwSupported ? "CW requires one TRX because Stop and speed are server-global." : "Requires fresh addressed RX and server TX_ENABLE; RF is unverified.",
                         "observation_sequence": sequence,
                         "filter_lower_hz": state?.transceiver.receiveFilter?.lowHz as Any? ?? NSNull(),
                         "filter_upper_hz": state?.transceiver.receiveFilter?.highHz as Any? ?? NSNull(),
@@ -255,7 +398,8 @@ actor LiveTCISession {
         }
     }
     private static func configuration(_ params: [String: Any]) throws -> Configuration {
-        guard Set(params.keys) == ["provider", "endpoint", "trx", "channel"],
+        guard Set(params.keys).subtracting(["allow_transmit"]) == ["provider", "endpoint", "trx", "channel"],
+              params["allow_transmit"] == nil || params["allow_transmit"] is Bool,
               let text = params["endpoint"] as? String, text.utf8.count <= 2048,
               text == text.trimmingCharacters(in: .whitespacesAndNewlines), text.rangeOfCharacter(from: .controlCharacters) == nil,
               let parts = URLComponents(string: text), let url = parts.url,
@@ -265,7 +409,7 @@ actor LiveTCISession {
               let trx = integer(params["trx"]), let channel = integer(params["channel"]),
               (0..<TCIProtocolLimits.default.maximumTRXCount).contains(trx),
               (0..<TCIProtocolLimits.default.maximumChannelCount).contains(channel) else { throw invalid() }
-        return Configuration(endpoint: url, address: TCIReceiverAddress(trx: trx, channel: channel))
+        return Configuration(endpoint: url, address: TCIReceiverAddress(trx: trx, channel: channel),allowTransmit:params["allow_transmit"] as? Bool ?? false)
     }
     private static func integer(_ raw: Any?) -> Int? {
         guard let raw, let bytes = try? JSONSerialization.data(withJSONObject: [raw]),

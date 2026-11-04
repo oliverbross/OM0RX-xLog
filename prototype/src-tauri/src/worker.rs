@@ -20,6 +20,7 @@ const PASSIVE_READ_TIMEOUT: Duration = Duration::from_secs(5);
 pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     let label = crate::workspace_windows::surface_role(label);
     validate_request(request)?;
+    if request["method"]=="station_transmit_permission" {return Err("Use the native TCI permission/Stop coordinator.".into());}
     if label == "about" { return Err("About OM0RX-xLog has no worker access.".into()); }
     if label == "hm-control" { return Err("HM Control can only use its non-secret read-only display projection.".into()); }
     if request["method"].as_str().is_some_and(|method| method.starts_with("cw_decode_")) {
@@ -444,6 +445,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "station_reconnect",
         "station_forget",
         "station_radio_control",
+        "station_transmit_permission",
         "station_rotor_connect",
         "station_rotor_snapshot",
         "station_rotor_disconnect",
@@ -1270,7 +1272,7 @@ fn request_in_session(
 
 fn request_can_change_station_state(request: &Value) -> bool {
     matches!(request["method"].as_str(), Some(
-        "station_action" | "station_tune" | "station_radio_control" | "station_power_selection" |
+        "station_action" | "station_tune" | "station_radio_control" | "station_transmit_permission" | "station_power_selection" |
         "station_rotor_goto" | "station_rotor_stop" | "rotor_goto" | "rotor_stop" | "rotor_park" |
         "hamlib_control" | "winkeyer_control" | "winkeyer_stop"
     ))

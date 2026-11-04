@@ -111,6 +111,10 @@ public enum TCIOutboundCommand: Equatable, Sendable {
     case readTRX(trx: Int)
     case setTune(trx: Int, enabled: Bool)
     case readTune(trx: Int)
+    case sendCW(trx: Int, text: String)
+    case stopCW
+    case setCWMacrosSpeed(wpm: Int)
+    case readCWMacrosSpeed
     case spot(callsign: String, mode: String, frequencyHz: Int64, colorARGB: UInt32, text: String)
     case deleteSpot(callsign: String)
     case clearSpots
@@ -221,6 +225,20 @@ public struct TCICommandEncoder: Sendable {
         case let .readTune(trx):
             try validateTRX(trx)
             name = "TUNE"; arguments = [String(trx)]
+        case let .sendCW(trx,text):
+            try validateTRX(trx)
+            // Only literal supported CW is accepted here. TCI's embedded <,>,|
+            // macro grammar must never be smuggled in through imported text.
+            guard !text.trimmingCharacters(in:.whitespaces).isEmpty,text.utf8.count<=128,
+                  text.utf8.allSatisfy({(65...90).contains($0)||(48...57).contains($0)||Array(" /?=+.,-".utf8).contains($0)}) else {throw TCICommandEncodingError.invalidArgument}
+            name="CW_MACROS";arguments=[String(trx),text.replacingOccurrences(of:",",with:"~")]
+        case .stopCW:
+            name="CW_MACROS_STOP";arguments=[]
+        case let .setCWMacrosSpeed(wpm):
+            guard (1...60).contains(wpm) else {throw TCICommandEncodingError.outOfBounds}
+            name="CW_MACROS_SPEED";arguments=[String(wpm)]
+        case .readCWMacrosSpeed:
+            name="CW_MACROS_SPEED";arguments=[]
         case let .spot(callsign, mode, frequencyHz, colorARGB, text):
             try Self.validateArgument(callsign, token: true, limits: limits)
             try Self.validateArgument(mode, token: true, limits: limits)

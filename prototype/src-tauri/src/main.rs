@@ -51,6 +51,7 @@ mod winkeyer;
 mod cw_session;
 mod cw_message;
 mod cw_session_backend;
+mod tci_permission;
 mod cluster_session;
 mod workspace_navigation;
 mod logbook_events;
@@ -2434,14 +2435,17 @@ async fn ptt_session_request(app:tauri::AppHandle,window:tauri::WebviewWindow,st
     ptt_session::validate(window.label(),runtime_profile::isolated(state.path.is_some()),APP_EXITING.load(Ordering::Acquire),action)?;
     let keys:&[&str]=match action{"snapshot"=>&["action"],"prepare"=>&["action","enabled"],"recover"=>&["action","operation_id","owner_id","target"],"on"|"off"=>&["action","operation_id","target","intent"],_=>&["action","operation_id"]};
     if params.as_object().is_none_or(|p|p.len()!=keys.len()||p.keys().any(|k|!keys.contains(&k.as_str()))){return Err("Invalid PTT request".into());}
-    let owner=ptt_session::owner(&app)?;owner.reconcile(&station_telemetry::owner(&app)?.snapshot()?)?;
+    let owner=ptt_session::owner(&app)?;
+    if matches!(action,"snapshot"|"prepare"|"on") {owner.reconcile(&station_telemetry::owner(&app)?.snapshot()?)?;}
     if action=="snapshot"||action=="prepare" {let mut s=owner.snapshot()?;
         if action=="prepare"{let enabled=params["enabled"].as_bool().ok_or("Missing PTT preparation direction")?;if !enabled{carrier_tune::revoke_output_intent()?;}s["intent"]=serde_json::json!(carrier_tune::output_intent()?);}
-        s["target"]=ptt_session::context(&app)?["target"].clone();return Ok(s);}
+        s["target"]=if let Some(target)=owner.retained_target()?{serde_json::to_value(target).map_err(|_|"PTT target unavailable")?}else{ptt_session::context(&app)?["target"].clone()};return Ok(s);}
     let id=params["operation_id"].as_str().ok_or("Missing PTT identity")?.to_owned();
     if action=="receipt"{return owner.receipt(&id);}if action=="review"{return owner.review(&id);}
     if action=="recover"{let target=serde_json::from_value::<ptt_session::Target>(params["target"].clone()).map_err(|_|"Invalid PTT recovery target")?;let owner_id=params["owner_id"].as_str().ok_or("Missing retained PTT owner")?;let result=ptt_session::recover(&app,&owner,&id,owner_id,target);let _=app.emit_to("main","xlog:ptt-session",());return result;}
-    let target=serde_json::from_value::<ptt_session::Target>(params["target"].clone()).map_err(|_|"Invalid PTT target")?;let intent=params["intent"].as_str().ok_or("Missing native PTT preparation")?.to_owned();let on=action=="on";let changed=app.clone();
+    let supplied=serde_json::from_value::<ptt_session::Target>(params["target"].clone()).map_err(|_|"Invalid PTT target")?;
+    let on=action=="on";let target=if on{supplied}else{owner.retained_target()?.unwrap_or(supplied)};
+    let intent=params["intent"].as_str().ok_or("Missing native PTT preparation")?.to_owned();let changed=app.clone();
     let result=tauri::async_runtime::spawn_blocking(move||{let _module_admission=_module_admission;owner.apply_admitted(&id,on,target,&intent,|t|ptt_session::preflight(&app,t,on,&intent),|q,t|ptt_session::execute(&app,q,t,&intent))}).await.map_err(|_|"PTT task ended; inspect its retained receipt; never replay".to_string())?;
     let _=changed.emit_to("main","xlog:ptt-session",());result
 }
@@ -2797,6 +2801,20 @@ async fn cw_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow,
         owner.request(&label, &client, sequence, focused, &params)
     })
         .await.map_err(|_| "CW session task failed; use Stop before retrying.".to_string())?
+}
+
+#[tauri::command(rename_all="snake_case")]
+async fn tci_transmit_disable(app:tauri::AppHandle,window:tauri::WebviewWindow,state:tauri::State<'_,acceptance::Acceptance>,
+    radio_id:String,connection_generation:u64,generation:String,revision:u64,operation_id:String)->Result<serde_json::Value,String>{
+    runtime_profile::require_external_io_disabled()?;
+    if window.label()!="main" || runtime_profile::isolated(state.path.is_some()) || APP_EXITING.load(Ordering::Acquire){
+        return Err("Disable TCI transmit from the live station controls. Existing Stop/release remains available.".into());
+    }
+    let changed=app.clone();let changed_radio=radio_id.clone();
+    let result=tauri::async_runtime::spawn_blocking(move||tci_permission::disable(&app,&radio_id,connection_generation,&generation,revision,&operation_id))
+        .await.map_err(|_|"TCI disable outcome is uncertain. Inspect permission and original output guards; do not retry an acquisition.".to_string())?;
+    for label in ["main","station-control","contest--station-control"] {let _=changed.emit_to(label,"xlog:station-session",serde_json::json!({"radio_id":changed_radio}));}
+    let _=changed.emit_to("main","xlog:ptt-session",());result
 }
 
 fn contest_setup_digital_worker_module(label: &str, method: &str) -> Option<operating_module::OperatingModule> {
@@ -4838,7 +4856,7 @@ fn main() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![hide_prepared_contest_owner, close_learning_window, operating_module_status, operating_module_switch, operating_module_transition_ack, operating_module_transition_pending, worker_request, cw_session_request, contest_cw_speed_request, station_session_request, band_map_marker_tune, radio_release_request, carrier_tune_request, ptt_session_request, amplifier_transition_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
+        .invoke_handler(tauri::generate_handler![hide_prepared_contest_owner, close_learning_window, operating_module_status, operating_module_switch, operating_module_transition_ack, operating_module_transition_pending, worker_request, cw_session_request, tci_transmit_disable, contest_cw_speed_request, station_session_request, band_map_marker_tune, radio_release_request, carrier_tune_request, ptt_session_request, amplifier_transition_request, manual_rotor_request, pick_backup_package, open_monitor, open_detached_map,
             spot_editor_register, spot_editor_unregister, spot_editor_ack, spot_editor_state,
             spot_activation_snapshot, spot_activation_status, spot_activation_reconcile, activate_spot, activate_opportunity, supersede_spot_rotor, cw_callsign_request, cw_tune_request, cw_contest_callsign_resolve,
             operator_draft_read_radio,

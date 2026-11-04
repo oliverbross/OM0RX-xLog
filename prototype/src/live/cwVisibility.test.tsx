@@ -10,8 +10,8 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 const idle: CWState & { lease?: string | null } = { armed: false, pending: false, owner: null, message: "", error: "", winkeyer: null };
 const radioOwner = { output: "radio" as const, provider: "direct_agent", generation: 1, limit: 128 };
 const controller = () => ({ arm: vi.fn(async () => {}), send: vi.fn(async () => {}), stop: vi.fn(async () => {}), acknowledgeStopped: vi.fn() });
-it("TCI hides idle radio CW, not independent WinKeyer", () => {
-  expect(providerAllowsCWDesk("direct_tci", "radio", idle)).toBe(false);
+it("TCI keeps native CW readiness and independent WinKeyer visible", () => {
+  expect(providerAllowsCWDesk("direct_tci", "radio", idle)).toBe(true);
   expect(providerAllowsCWDesk("direct_tci", "winkeyer", idle)).toBe(true);
   expect(providerAllowsCWDesk("direct_agent", "radio", idle)).toBe(true);
   const actions = controller();
