@@ -20,6 +20,13 @@ The mailing-address Country field does not select the scoring branch.
   exchanges can complete through the same pinned WPX ESM callback with its finite
   OK/OM exchange-admission overlay. Logging stays an explicit ordinary action.
 
+SO and MOST use the existing chronological serial authority. **MO2T submission is
+unavailable**: the current owner does not capture actual per-QSO transmitter IDs
+or implement its required per-band/per-transmitter serial scope (§5.1.2). New TWO
+setup is refused; retained TWO sessions preserve contacts and exchanges but show
+an incomplete claim and block Cabrillo. No default lane/Run1Run2 value is treated
+as transmitter proof. Completing MO2T remains an open implementation requirement.
+
 The 2026 rules allow everyone to work everyone on 160, 80, 40, 20, 15 and 10 metres,
 CW only. For OK/OM entrants, own-country, other-country/same-continent and
 other-continent contacts are worth 2, 3 and 5 points. For DX entrants, contacts
@@ -32,6 +39,15 @@ Each OK/OM district and each DXCC/WAE country counts separately on each band.
 The first valid contact with a callsign on a band scores; keep duplicates in the
 log with zero additional points. An invalid first contact does not consume the
 later valid contact's credit. Multiplier views read the same scoring records.
+
+The selected 2026 credit period is 14 November 12:00 UTC through 15 November
+11:59:59 UTC (12:00 end exclusive). Outside-period rows retain their raw times
+and receive zero credit; they cannot consume a later valid duplicate key. A
+single-band claim includes only that band's points/multipliers, while other-band
+rows remain in the log/export for checking (§3.2). Switching category changes the
+claim without deleting contacts. For a retained pre-correction contest, explicitly
+use its existing Recalculate action to refresh stored points/multiplier flags;
+there is no automatic database-wide rescore or change of edition/sent history.
 
 Saved contacts retain their sent exchange and operating-location/definition
 snapshot. Changing setup does not rewrite those historical values. Cabrillo uses

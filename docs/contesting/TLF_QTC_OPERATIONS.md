@@ -12,6 +12,9 @@ The desk autosaves after a short pause; **Save unfinished QTC editor** and
 save errors remain visible. Reopening restores saved rows and the selected
 series/item/field. A pending item correction also survives closing its editor;
 save or explicitly discard it before acknowledging that item.
+Saving a valid correction also clears its matching durable editor in the same
+transaction, so immediate acknowledgement is available. An older autosave cannot
+reopen that saved editor; a different genuinely unsaved correction stays guarded.
 
 For send operation, choose eligible source contacts supplied by the contest
 authority. Create the pending series and select **Operate series** or an item.
@@ -62,6 +65,10 @@ Unavailable/refused with an observation time. It does not confirm an item,
 deduct quota, reserve sources or publish a spot. Eligibility and remaining
 capacity come from the WAE authority; a QSO duplicate can still have a QTC
 opportunity.
+RTTY displays sending and receiving separately: either legal direction with
+capacity can be an opportunity. Both directions use the same combined ten-item
+quota per counterpart. CW/SSB retain their one-way continent rules. Map display
+does not allocate sources, reserve quota or send anything.
 
 Bookmark controls mark series start/end/interruption or an item only against an
 already captured recorder timeline. They never start a device. **Review captured

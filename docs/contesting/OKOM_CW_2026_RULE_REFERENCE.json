@@ -195,7 +195,7 @@
     "location": "Explicit OperatingCountryPrefix agrees with pinned CTY facts for the station operating callsign; mailing Country is not used.",
     "countryKeys": "Pinned CTY DXCC+WAE primary-prefix identity, retaining WAE entities; no prefix-based guesses.",
     "districts": "86 OK and 79 OM codes embedded in the official CW page; country must match the district list.",
-    "serials": "DX chronological authority-owned serials. Domestic sent district, no allocated serial. Optional MOST/MO2T separate sequences not introduced.",
+    "serials": "DX chronological authority-owned serials support SO/MOST. Domestic sent district has no allocated serial. MO2T is unavailable pending mandatory per-band/per-transmitter serial scope and actual per-QSO transmitter identity under 5.1.2; historical sent exchanges are never renumbered.",
     "dupes": "First valid contact per callsign/band scores; retained later contacts score zero. An invalid first contact does not consume the credit.",
     "annulledCountries": "Russia (European, Asiatic, Kaliningrad) and Belarus contacts retained but zero points and no multiplier under clause 14.",
     "exports": "OK-OM-DX Cabrillo identity with actual saved sent/received exchange; ADIF uses OK-OM-DX. Sponsor acceptance unverified."
