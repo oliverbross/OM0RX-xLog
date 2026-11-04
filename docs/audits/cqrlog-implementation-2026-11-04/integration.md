@@ -17,12 +17,19 @@ static browser, signed package and physical evidence.
 | Final country Settings load change | 37 passed | `/tmp/xlog-cqrlog-lazy-country-controls.log`; ServiceSettings and CountryCorrectionReview. These overlap the full suite and are not additional unique test totals. |
 | Frontend production build | Passed, all existing budgets unchanged | `/tmp/xlog-cqrlog-frontend-build-ready.log`; `npm run build`; Settings 407,858 bytes against 408,000. Country controls load on first reference-tab opening and stay mounted to retain input. Both new style modules use the existing eager stylesheet owner. |
 | Normal Swift | Exit 0 | `/tmp/xlog-cqrlog-normal-swift-final.log`; `XLOG_CONTEST_PYTHON=/opt/homebrew/bin/python3.12 swift test --no-parallel`; 227 reported XCTest, 389 reported core Swift Testing and 8 reported contest-rate Swift Testing methods. Existing conditional skips are retained; reported methods are not all executed passes. |
-| Full portable Swift slice | Pending final result | Fresh scratch `.build/cqrlog-portable-final`; final results and skip counts will be recorded before candidate qualification. |
+| Full portable Swift slice | All targets exit 0 | Final working source committed as `92a36e39`; `XLOG_PORTABLE_ONLY=1 XLOG_CONTEST_PYTHON=/opt/homebrew/bin/python3.12 swift test --scratch-path .build/cqrlog-portable-final --jobs 2 --no-parallel`; all XCTest targets, 617 reported Swift Testing methods/85 suites and another 8/2 pass. Existing optional/conditional skips remain. [Complete log](country-compatibility-portable-gate.txt). |
+| Final country core / UI delta | 13 core and 5 UI, TypeScript exit 0 | [Core log](country-compatibility-core-gate.txt) and country evidence; canonical names, original area descriptions and shared unknown-only XML fallback now agree across consumers. |
 
 The Rust/Python source did not change after those full gates. The later Settings
 loading change has its focused regression and complete production-graph gate
 above. The [country](country.md), [devices](devices.md), [CW](cw.md) and
 [voice](voice.md) records identify the focused integration cases and sources.
+
+The final UI metadata delta was followed by another production build, exit 0:
+`/tmp/xlog-cqrlog-frontend-build-candidate.log`, unchanged Settings size/budgets.
+The full normal run precedes that last country-only compatibility delta; its
+13-case normal core repeat and complete portable run above qualify that delta.
+Exact-source remote CI and package results remain separate candidate gates.
 
 ## Failed checks and corrections
 
@@ -47,6 +54,16 @@ top-level bundle. Its run failed and one old assertion subsequently trapped.
 That scratch is preserved. A fresh named scratch is used for the full repeat;
 no resolver fallback to source/production resources or guard weakening was added.
 The explicit non-macOS source slice also now includes `VoiceProfile.swift`.
+
+The fresh run exposed real PJ, declared-location and partial-XML compatibility
+regressions, plus misleading AreaOK1RR descriptions in the country field. They
+are corrected in `92a36e39`, without weakening the original QRZ/map/PJ assertions.
+Canonical names and explicit winning-description/source facts now share v2
+snapshot identity. The original 16-issue log is retained as
+`.build/country-portable-original16issues.log`. A later run omitted the Python
+environment and repository concurrency option; its failure is preserved in
+`.build/country-portable-missing-env-parallel-failed.log`. The proper full run
+above passes unchanged concurrency deadlines.
 
 CI at `9087b323` exposed a portable Swift type-check timeout; the TCI snapshot
 now uses typed subdictionaries. The new country stylesheet initially violated

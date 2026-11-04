@@ -1,0 +1,107 @@
+{
+  "schema": 1,
+  "testedProductSource": "92a36e39d23415fb20a70fac8a01dfcddd4599fa",
+  "testedVersion": "1.5.9",
+  "plannedUniqueCandidateVersion": "1.5.10",
+  "scope": "Software gates; no package, installation, physical device or RF proof",
+  "gates": [
+    {
+      "name": "python",
+      "state": "passed",
+      "scope": "Unchanged Python scope",
+      "log": "/tmp/xlog-cqrlog-full-python-312.log",
+      "logSHA256": "768060c613979c8400054ca0fe4d568878d76c98c63dd34baab23e976bb8de76",
+      "summaries": [
+        "Ran 618 tests in 43.673s"
+      ],
+      "reportedSwiftTestingSkips": 0
+    },
+    {
+      "name": "rust",
+      "state": "passed",
+      "scope": "Unchanged native Rust scope",
+      "log": "/tmp/xlog-cqrlog-full-rust.log",
+      "logSHA256": "2b79199b11a9f41d3ae496ad3089b646eb515ce12f9d4f99c59c8a9591885f30",
+      "summaries": [
+        "test result: ok. 1103 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 24.03s"
+      ],
+      "reportedSwiftTestingSkips": 0
+    },
+    {
+      "name": "native-test-admission",
+      "state": "passed",
+      "scope": "Unchanged native Rust scope",
+      "log": "/tmp/xlog-cqrlog-contest-admission.log",
+      "logSHA256": "8edb267d24ca3e0b1123ad471c01ccaa0f68dbaf8aa29d7281d4d218bdf30e5b",
+      "summaries": [
+        "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 1103 filtered out; finished in 0.00s"
+      ],
+      "reportedSwiftTestingSkips": 0
+    },
+    {
+      "name": "hamlib-dummy",
+      "state": "passed",
+      "scope": "Explicit pinned loopback dummy only",
+      "log": "/tmp/xlog-cqrlog-hamlib-dummy.log",
+      "logSHA256": "838f766f8eafbccca251e07dc6730669d93a1575a48cb529e18609303b078714",
+      "summaries": [
+        "test result: ok. 31 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.36s"
+      ],
+      "reportedSwiftTestingSkips": 0
+    },
+    {
+      "name": "frontend",
+      "state": "passed",
+      "scope": "Later Settings load delta: 37 focused; final metadata delta: 5 focused and tsc",
+      "log": "/tmp/xlog-cqrlog-full-frontend-final.log",
+      "logSHA256": "cde4fdd67cfe60f27ad9c7cdb9910683192573cb01e47f094123fa3eed9315d4",
+      "summaries": [
+        " Test Files  378 passed (378)",
+        "      Tests  5183 passed (5183)"
+      ],
+      "reportedSwiftTestingSkips": 0
+    },
+    {
+      "name": "normal-swift",
+      "state": "passed",
+      "scope": "Before last country-only delta; final normal core 13 and full portable qualify that delta",
+      "log": "/tmp/xlog-cqrlog-normal-swift-final.log",
+      "logSHA256": "ce1aea8287ab0a9ab0d44919bbf950bf765ae7969048bac43637a9e867779ba2",
+      "summaries": [
+        "\u2714 Test run with 389 tests in 52 suites passed after 61.010 seconds.",
+        "\u2714 Test run with 0 tests in 0 suites passed after 0.001 seconds.",
+        "\u2714 Test run with 8 tests in 2 suites passed after 0.014 seconds."
+      ],
+      "reportedSwiftTestingSkips": 12
+    },
+    {
+      "name": "portable-swift",
+      "state": "passed",
+      "scope": "Final product source; preserve optional skips",
+      "log": "/tmp/xlog-cqrlog-portable-swift-final.log",
+      "logSHA256": "4f35d3ec4cf2872927624df170697602163c3e62c7e1f8272a47f63480b50bf4",
+      "summaries": [
+        "\u2714 Test run with 0 tests in 0 suites passed after 0.001 seconds.",
+        "\u2714 Test run with 617 tests in 85 suites passed after 89.926 seconds.",
+        "\u2714 Test run with 0 tests in 0 suites passed after 0.001 seconds.",
+        "\u2714 Test run with 8 tests in 2 suites passed after 0.015 seconds.",
+        "\u2714 Test run with 0 tests in 0 suites passed after 0.001 seconds.",
+        "\u2714 Test run with 0 tests in 0 suites passed after 0.001 seconds.",
+        "\u2714 Test run with 0 tests in 0 suites passed after 0.001 seconds."
+      ],
+      "reportedSwiftTestingSkips": 8
+    },
+    {
+      "name": "production-frontend",
+      "state": "passed",
+      "scope": "Final frontend source; all existing graph/style/byte budgets",
+      "log": "/tmp/xlog-cqrlog-frontend-build-candidate.log",
+      "logSHA256": "bfe1425a5f6fb786861d190fc43f0e2ad0ef72fe870d28ff2424e47a00fb6c95",
+      "summaries": [],
+      "reportedSwiftTestingSkips": 0
+    }
+  ],
+  "countryFactsPolicy": "xlog-country-facts-v2",
+  "countryPackSHA256": "c04689ac8cf530672a98df3d1ecd132a150d13e7583f88037928b75a09ff1731",
+  "entityCatalogueSHA256": "e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d"
+}
