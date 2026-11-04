@@ -26,6 +26,18 @@ RF transmission, physical CAT action or submission was performed.
 
 ### Correction evidence (this register remains authoritative)
 
+**Focused 1.5.8 follow-up — 4 November 2026:** clean canonical `main` starts at
+`120c31b01445d128e77ff5680b68bb6f3d4f82a5`, unchanged after fast-forward-only
+update. The retained [follow-up review](../reviews/OM0RX-xLog_TLF_1.5.8_Follow_Up_2026-11-04.txt)
+reopens only two subcases: R09 live default-macro Host-to-native continuation
+(P1-05/06; CW-07/08/12/17; G-04), and R02 retained pre-correction credit readiness
+(P1-09/10; OK-07/08/09). These subcases are IN_PROGRESS; earlier R09 restart
+recovery and current-log R02 period boundaries remain passing evidence. R01 and
+R04–R08 remain closed within their recorded boundaries. R03 stays OPEN / contained.
+No automatic rescore, production installation, station output or wider audit is
+authorized by this software follow-up. Earlier dispositions below are historical
+until the new specific evidence is recorded here.
+
 **Final correction disposition and commits:** all completed commits were pushed
 immediately to canonical `main`; starting SHA is above. Final documentation is a
 later documentation-only commit; the executable remains exact release source

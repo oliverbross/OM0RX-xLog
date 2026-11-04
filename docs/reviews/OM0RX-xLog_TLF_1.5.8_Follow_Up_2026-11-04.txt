@@ -1,0 +1,192 @@
+OM0RX-xLog — Focused 1.5.8 follow-up
+Review date: 4 November 2026
+Reviewed main: 120c31b01445d128e77ff5680b68bb6f3d4f82a5
+Candidate build source: a7cddff95cd45040ff98710927e32714c5fad186
+Previous source used for retained-log reproduction: 5016751a03f2adc6eea27def34ed4675e6bdc67a
+
+COPY-READY CODEX INSTRUCTIONS
+
+Complete two narrowly scoped corrections in the TLF work: the live early-CW continuation contract under R09, and the retained OK/OM scoring-readiness gate under R02. Keep R03 explicitly open and contained. Preserve the six verified closures below. Do not restart the roadmap, add a simulator or launch another full-application audit.
+
+1. CURRENT ACCEPTANCE AND EVIDENCE
+
+An independent read-only review at the SHA above supports these closures:
+
+- R01: actual Host 20M score 6 / ALL score 18, both QSO rows retained, edit/rebuild/reopen parity.
+- R04: actual Host duplicate remains non-credit; Multiplier eligibility remains 14:12; valid same-country zero-point multiplier remains supported.
+- R05: actual production CallStack connected to the actual Host passes lost park reply, operation replay, incoming commit, restart, original draft resume and original commit. Original 589/001 and received 579/007 survive; incoming DL1ABC uses 002. Local-authority parking is verified; replica parking remains explicitly unavailable.
+- R06: real Host exposes RTTY send/receive over a single shared quota; no-source receiving works and mixed-direction quota exhaustion is enforced.
+- R07: real Host guidance attributes a 40M attempt from a 20M series to 40M with prepared/unknown RF evidence. Missing legacy frequency becomes unknown; immutable series data survives.
+- R08: real Host correction save -> immediate acknowledgement -> stale workspace autosave -> restart preserves the saved row and clears its matching editor. Legacy editors and unrelated unsaved edits are handled correctly.
+
+R02 is corrected for new or explicitly recalculated contacts, but the retained-log claim gate below remains open.
+R09 fixes the original stale-receipt restart suppression, but its live continuation integration below remains open.
+R03 remains OPEN / contained: actual MO2T transmitter attribution and supported serial ownership are still absent. New TWO setup and historical TWO valid Cabrillo claims are blocked; SO/MOST remain usable.
+
+The reported 14-commit series and final GitHub main SHA were verified. The exact-head CI run completed successfully:
+https://github.com/oliverbross/OM0RX-xLog/actions/runs/41815044646
+
+That CI workflow runs Swift tests/build/resource verification. It does not establish an all-green frontend suite. Keep the release report's accurate broad-plus-focused frontend description: the original broad run failed an outdated mock, then the affected workspace suite passed after its correction.
+
+The native evidence already retained is useful and remains valid within its stated boundaries. Sub-400-ms native keyboard acknowledgement, explicit tune, physical routes, advanced Flex/exact-lane capability, WPX 2027 publication, notarization and installation are not established by this review.
+
+2. START AND PRESERVATION
+
+Read current AGENTS.md, docs/DEVELOPMENT_WORKFLOW.md, and:
+- docs/planning/OM0RX-xLog_TLF_Contesting_Master_Plan_2026-11-03.md
+- docs/releases/v1.5.8-tlf-correction-candidate.md
+- docs/cw/TLF_ADAPTER_PROTOCOL.md
+- docs/contesting/OKOM_DX_CW.md
+- docs/contesting/OKOM_CW_2026_RULE_REFERENCE.json
+
+Use current canonical main and fast-forward-only updating. The reviewed SHA is an evidence baseline, not a reset target. Preserve unrelated work. Reconcile any later fixes before editing.
+
+Keep one master ledger. Reopen only the relevant R02 and R09 subcases; do not erase earlier passing/failing evidence or weaken the acceptance language. Keep R03 open/contained and leave its gate intact.
+
+Preserve Host authority over draft/serial/scoring and native authority over physical output. Keep exact owner/epoch/provider/generation/lane checks, durable operation identities, Stop, replay rejection and unknown outcomes. No automatic output replay, bulk rescoring, renumbering, fabricated historical transmitter IDs or production-data copying.
+
+Complete the independent fixes without repeated permission questions. Commit coherent changes and push according to current repository instructions. A blocker in one path does not stop independent work.
+
+3. R09 — LOST SUPPRESSION DECISION AT THE HOST/NATIVE BOUNDARY
+
+Priority: Medium; complete this before accepting ordinary early-start ESM.
+
+The original stale restart receipt is fixed. This is a different, directly related regression in the valid live continuation case.
+
+Reproduce with the actual updated TLFCWHostTests fixture, pinned CQ WPX CW plugin and ordinary default macros:
+- Enable Run.
+- Start early call OM0, append OM0R, finish OM0RX.
+- Claim the finish operation and record accepted WinKeyer native-queue evidence.
+- Supply the valid current native owner/provider/Host admission and execute callsign ESM.
+- Do not put a synthetic suppression marker on a fabricated exchange.
+
+The actual Host returns one action:
+  key: F3
+  template: {RST} {SENTNR}
+  text: 5NN TT1
+  earlyCallSuppressed: absent
+
+Meanwhile earlyCW.esmConsumed is true. Reserved serial remains 1 and no QSO is logged.
+
+Confirmed production cause:
+- python/contest_host/host.py:765–771 sets earlyCallSuppressed=true on the HISCALL action and empties CALL after valid admission.
+- host.py:779–782 drops that action because the default {CALL} macro is now empty.
+- prototype/src-tauri/src/cw_session.rs:285–286 looks only for the marker in returned actions, so suppressed=false.
+- cw_session.rs:328–334 takes the live continuation but selects ordinary sequence rather than continue_sequence.
+- cw_session_backend.rs:204–206 invokes winkeyer_sequence without continuationStreamID; the correct continuation route at 216–218 supplies it.
+- winkeyer.rs:231–239 and 248–267 reject ordinary send while the keyer still owns the queued/keying call. Finishing the stream does not itself release that ownership.
+
+This can make a fast normal Enter flow fail to append its exchange and discard the live continuation. If the call has already drained, ordinary sending may work; do not describe every ESM send as broken.
+
+The new native test misses the real contract: cw_session.rs:589–592 puts earlyCallSuppressed directly on a nonempty synthetic exchange. The live test at 703–716 uses that fabricated shape.
+
+Required correction:
+Carry the Host's fresh, operation-scoped suppression/continuation decision across the boundary even when its HISCALL text action becomes empty. Use that authoritative decision together with the existing live owner/epoch, provider identity/generation, Host epoch, draft/stream and one-use admission checks to choose the existing continuation route.
+
+An operation-level decision or another explicit owner-issued contract can work; choose the smallest robust fit. Do not infer permission solely from persisted esmConsumed, merely from the presence of some old continuation, or from renderer-supplied data. Do not restore the old unsafe restart behavior.
+
+Meaningful regression:
+- Use actual Host-generated default-macro output in the native-boundary test.
+- Keep the WinKeyer call still owned/pending when ESM occurs.
+- Prove the existing continue_sequence path appends exactly one exchange with the correct word boundary.
+- Prove retry/replay does not append again and the continuation is consumed once.
+- Retain the passing restart/same-generation-old-admission and missing/changed-live-admission full-call recovery cases.
+- Verify serial and ordinary logging semantics are unchanged.
+
+A self-contained contract fixture is acceptable if it is generated by or checked against the actual Host response. A mock that manually adds the missing marker does not establish the contract.
+
+Ledger: R09, P1-05/P1-06, CW-07/CW-08/CW-12/CW-17 and relevant G-04 evidence. Preserve the already passing restart subcase while reopening live Host-to-native continuation integration.
+
+No radio or RF is required to establish this software fix. Physical WinKeyer qualification remains separate.
+
+4. R02 — RETAINED LOG CAN EXPORT A WRONG SCORE AS COMPLETE
+
+Priority: Medium; retain explicit per-contest Recalculate.
+
+The 1.5.8 report correctly says old OK/OM records may need deliberate Recalculate. The remaining problem is that the application does not flag that requirement or withhold a verified claim.
+
+Reproduce using a disposable database created by the actual 1.5.7 Host, then reopened by the actual 1.5.8 Host:
+- OK/OM DX CW 2026, OM0RX, operating country OM, sent PRE, SINGLE-OP/ALL/ONE.
+- Use the pinned matching country/district evidence.
+- Log OK1ABC/APA on 14025000 Hz at 2026-11-14 11:59:59 UTC.
+- Log the same contact at 2026-11-14 12:00:00 UTC.
+
+The old Host retains:
+- outside-period row: Points=3
+- valid in-period row: Points=0, due to the old duplicate decision
+
+Ordinary open under 1.5.8, without Recalculate:
+- The new period filter excludes the first row.
+- The valid row retains stale Points=0.
+- Score total is 0, scoringComplete=true, scoringLimitations=[].
+- Cabrillo export is permitted with CLAIMED-SCORE: 0.
+
+Explicit per-contest Recalculate correctly changes the credits to [0,3] and the claim to 6, preserving both records and sent exchanges.
+
+Cause:
+python/contest_host/okom.py:132–155 filters current eligibility but trusts stored derived points without detecting old eligibility/duplicate calculations. The export guard at 200–203 only rejects an incomplete score, which this stale projection is not marked as.
+
+Required correction:
+Make affected retained scoring visibly require deliberate per-contest Recalculate and withhold a complete submission claim until that action succeeds. Reuse existing readiness/adoption mechanisms where available. A separate derived-calculation revision or reliable stale-credit detection is appropriate; do not pretend the official rule source changed when the correction is to the implementation.
+
+Keep the old contacts, source identity, raw times and sent exchanges intact. Do not automatically bulk-rescore on app/session open. Preserve browsing and ordinary logging where possible. Do not clear readiness merely because one new QSO or unrelated setting was changed.
+
+Meaningful regression:
+- Create or retain a genuine pre-correction fixture with the two rows above.
+- Open it with the new code: show the recalculation-needed reason and no verified Cabrillo claim.
+- Ordinary reads must not rewrite raw contact history or silently recalculate.
+- Explicitly Recalculate that contest: exact points [0,3], total 6, complete claim and correct export.
+- Reopen again: corrected readiness and score survive.
+- Keep the passing current-log period-boundary/duplicate fixtures and R01 selected-band behavior.
+
+The corrected projection could instead derive all eligible credit consistently without mutating history if that fits the existing architecture. It must never mix new eligibility with stale duplicate credit and label the result complete. Prefer the smallest change consistent with the documented explicit-recalculation policy.
+
+Ledger: R02, P1-09/P1-10; OK-07/OK-08/OK-09 and applicable migration evidence.
+
+5. PROPORTIONATE VERIFICATION AND DELIVERY
+
+Run the small actual-owner regressions for these two defects first, then the relevant existing Host/native-boundary/type checks. Reuse the passing R01/R04–R08 evidence. Broaden only for a concrete affected behavior or required repository gate.
+
+Do not repeat a complete UI/hardware campaign to establish these software contracts. Do not chase sub-400-ms native keyboard timing as a prerequisite to the already verified R08 transaction fix. Do not reopen unrelated physical qualifications or implement MO2T as an incidental expansion.
+
+After both fixes are integrated:
+- Update the current master ledger and operator guidance, retaining exact failure and resolution evidence.
+- Use the required canonical integration/release gates and record their actual scope honestly.
+- Build/sign one new macOS candidate from the final source, with the next unused user-visible version (1.5.9 if still unused). Do not reuse 1.5.8 for changed executable code.
+- Record product/build SHA, recipe, archive and signed binary digests, required worker check and remaining limits.
+- Use native verification only where it resolves an affected boundary. Follow AGENTS.md isolated launch/PID/worker/WebKit checks exactly. A failed or unverified isolated launch stops that UI sequence; no production fallback or weakened output guard.
+- Keep installed 1.5.6 and production data unchanged. This prompt does not authorize installation, RF, physical CAT, recording, log submission or external messages.
+- Push completed logical commits as the repository requires.
+
+Final report:
+- starting and final SHA and pushed commits;
+- the two reproduction results before/after, with exact source/test evidence;
+- preserved R01/R04–R08 closures;
+- R03 still OPEN/contained unless a separately authorized task has actually completed it;
+- candidate version/build provenance;
+- precise native/physical/test limits.
+
+Do not claim all nine findings closed. Once these two are verified, the expected status is eight software corrections closed, with R03 explicitly open/contained.
+
+SOURCE LINKS
+
+Release evidence:
+https://github.com/oliverbross/OM0RX-xLog/blob/120c31b01445d128e77ff5680b68bb6f3d4f82a5/docs/releases/v1.5.8-tlf-correction-candidate.md
+
+Host suppression:
+https://github.com/oliverbross/OM0RX-xLog/blob/120c31b01445d128e77ff5680b68bb6f3d4f82a5/python/contest_host/host.py#L759-L782
+
+Native dispatch:
+https://github.com/oliverbross/OM0RX-xLog/blob/120c31b01445d128e77ff5680b68bb6f3d4f82a5/prototype/src-tauri/src/cw_session.rs#L285-L334
+
+WinKeyer owner:
+https://github.com/oliverbross/OM0RX-xLog/blob/120c31b01445d128e77ff5680b68bb6f3d4f82a5/prototype/src-tauri/src/winkeyer.rs#L231-L267
+
+OK/OM score readiness:
+https://github.com/oliverbross/OM0RX-xLog/blob/120c31b01445d128e77ff5680b68bb6f3d4f82a5/python/contest_host/okom.py#L132-L155
+
+OK/OM export:
+https://github.com/oliverbross/OM0RX-xLog/blob/120c31b01445d128e77ff5680b68bb6f3d4f82a5/python/contest_host/okom.py#L200-L211
+
+Master ledger:
+https://github.com/oliverbross/OM0RX-xLog/blob/120c31b01445d128e77ff5680b68bb6f3d4f82a5/docs/planning/OM0RX-xLog_TLF_Contesting_Master_Plan_2026-11-03.md
