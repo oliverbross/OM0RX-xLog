@@ -6,7 +6,6 @@ import CWSettings from "./CWSettings";
 import { validateCWProfile, type CWContext } from "./cwMacros";
 import type { CWState } from "./cwController";
 import ReferenceScheduleControl from "./ReferenceScheduleControl";
-import CountryReferenceControl from "./CountryReferenceControl";
 import { useSettingsSaveToast } from "./SettingsSaveToast";
 import "./ServiceSettings.css";
 
@@ -18,6 +17,7 @@ const RadioSpotSettings = lazy(() => import("./RadioSpotSettings"));
 const SpotBridgePanel = lazy(() => import("./SpotBridgePanel"));
 const WSJTXPanel = lazy(() => import("./WSJTXPanel"));
 const DataManagementPanel = lazy(() => import("./DataManagementPanel"));
+const CountryReferenceControl = lazy(() => import("./CountryReferenceControl"));
 export type ServiceSettingsProps = { values: Data; savedValues?: Data; request: Request; onChanged: (value: Data) => void; onSave: (value: Data) => Promise<void>;
   saving?: boolean; pending?: boolean; conflict?: boolean; workspaceChanged?: boolean; dirty?: boolean; sessionError?: string;
   onReconcile?: () => Promise<void>; onRetry?: () => Promise<void>; onUseSaved?: () => void;
@@ -182,6 +182,8 @@ export default function ServiceSettings({ values, savedValues, request, onChange
   const visibleTabs = useMemo(() => availableTabs?.filter((value, index, values) => tabs.includes(value) && values.indexOf(value) === index) ?? tabs, [availableTabs]);
   const initialTab = requestedTab && visibleTabs.includes(requestedTab) ? requestedTab : visibleTabs[0] ?? "Station";
   const [tab, setTab] = useState<Tab>(initialTab);
+  const [countryRequested, setCountryRequested] = useState(initialTab === "Reference data");
+  useEffect(() => { if (tab === "Reference data") setCountryRequested(true); }, [tab]);
   useEffect(() => { if (requestedTab && visibleTabs.includes(requestedTab)) setTab(requestedTab); }, [requestedTab, requestedTabRevision, visibleTabs]);
   useEffect(() => { if (!visibleTabs.includes(tab)) setTab(visibleTabs[0] ?? "Station"); }, [tab, visibleTabs]);
   const showAccountHelp = ["Station", "Wavelog", "QRZ", "Reference data", "Rotator", "Backups"].includes(tab);
@@ -242,7 +244,7 @@ export default function ServiceSettings({ values, savedValues, request, onChange
     </Suspense>}
     {tab === "Integrations" && <Suspense fallback={<p role="status">Loading WSJT-X settings…</p>}><WSJTXPanel request={request} onImported={onExternalContact} /></Suspense>}
     <ReferenceScheduleControl request={request} visible={tab === "Reference data"} />
-    <CountryReferenceControl request={request} visible={tab === "Reference data"} />
+    {countryRequested && <Suspense fallback={tab === "Reference data" ? <p role="status">Loading country controls…</p> : null}><CountryReferenceControl request={request} visible={tab === "Reference data"} /></Suspense>}
     {(sessionError || pending || conflict || workspaceChanged) && <div className="service-settings-recovery" role="status">
       {sessionError && <p>{sessionError}</p>}
       {pending && <><button type="button" disabled={saving} onClick={() => void onReconcile?.()}>Check saved Settings</button>
