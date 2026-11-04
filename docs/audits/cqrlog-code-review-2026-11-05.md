@@ -3,8 +3,9 @@
 Review baseline: clean canonical main `68d7b02846c94d904cdf3c9452f4c931e7167b48`,
 fast-forward fetched/pulled before work. Scope is the complete C01–C06 source
 delta from `db4a9ce2739fc8b96371cd432d3b8787e950a45e`, its callers and shared
-country/output/storage boundaries. Review is in progress; the entries below
-record confirmed defects and completed fixes, not blanket acceptance.
+country/output/storage boundaries. Source review is complete. The entries below
+record confirmed defects, completed fixes and bounded validation, not blanket
+acceptance of all legacy code or physical devices.
 
 ## Country exact-search precedence
 
@@ -217,3 +218,100 @@ Operator-entered file/URL drafts remain intact. All 19 correction/reference UI
 tests pass (`/tmp/xlog-cqrlog-review-reference-scope-after.log`). Native reference
 publication still owns admission and validation; UI retirement does not cancel
 an already admitted import or download.
+
+## Voice edits during settings Save
+
+Voice fields remain editable during Save. Its acknowledgement previously cleared
+the dirty flag unconditionally, letting the following snapshot replace newer
+unsaved edits. A deferred-acknowledgement regression reproduced the lost label
+(`/tmp/xlog-cqrlog-review-voice-save-before.log`). Save now captures the edit
+sequence and clears only that sequence. Newer edits retain their dirty state and
+audio remains disabled. Their base advances only from the original Save's
+verified same-workspace revision; an intervening external revision still conflicts.
+All 11 VoiceDesk tests pass, including a second-save conflict retaining the newer
+text (`/tmp/xlog-cqrlog-review-voice-save-after.log`).
+
+## Coverage and source lineage
+
+Reviewed the C01–C06 application delta, owning types, integration callers and
+tests across Swift, Rust, TypeScript and Python:
+
+* Country rule parsing, dates, qualifiers, whole-pack validation, fallback and
+  shared facts consumers; reference publication/download/304/rollback; cluster
+  reclassification, alert baselines, map uncertainty and activation revocation.
+* Country scan cancellation/workspace retirement, field selection and SQL
+  correction/undo transactions, provenance, durable receipts, read projections,
+  backup/restore, native surface authority and bounded payload admission.
+* TCI command capability/permission, one-TRX CW restrictions, retained original
+  PTT/CW release targets and permission-disable coordination; finite WinKeyer
+  preferences, typed speed/prosign plans, composition and existing shortcuts.
+* Normal/contest native voice admission, immutable PCM preparation, WAV parsing,
+  route/profile validation, callback/error/drain boundaries, recording/import
+  publication, Stop/Finish ownership, target binding and renderer request lifetime.
+* Settings/Logbook/CW/voice integration, detached surfaces and new layout rules;
+  public payload guards and pinned country normalization. Existing generated
+  visual/100k evidence was inspected for scope, not repeated against an old bundle
+  and presented as acceptance of these new source changes.
+
+All confirmed findings from this review are fixed. This does not certify that
+the entire pre-existing repository is defect-free. Changes were kept in eleven
+logical commits, each tested and immediately pushed:
+
+| Commit | Change |
+| --- | --- |
+| `5101a2bd` | Country exact-search precedence |
+| `5e1637df` | Correction UI epochs and unused review cancellation |
+| `4977a210` | Immutable country lookup indexes |
+| `fad00172` | Voice intent and reviewed-settings admission |
+| `3f8f77bd` | Recording Finish and final publication |
+| `d196e8e8` | Contest voice preflight/Stop/target equality |
+| `d08be273` | Atomic contest voice batch publication |
+| `de8775d7` | Voice snapshot backpressure/retirement |
+| `078a80c7` | Pinned Git object normalization |
+| `982b289a` | Reference UI transport retirement |
+| This change (`fix: retain newer voice edits after Save acknowledgement`) | Voice Save edit-sequence ownership |
+
+The remote all-platform dispatch uses `982b289a34a0b639570afd7b63bb4b01bb3e2a72`;
+the final Save UI fix above follows that dispatch.
+Full Rust/normal Swift/portable Swift gates ran with inputs through `de8775d7`;
+their application inputs are unchanged by the final two Python/UI fixes.
+Python's final tool/test inputs match `078a80c7`; final frontend/build inputs
+include the Save UI fix. Tests run immediately before a fix commit use those
+same committed bytes, rather than implying that every command began at that HEAD.
+
+## Full local validation
+
+| Gate | Result |
+| --- | --- |
+| Native Rust | 1,112 passed, zero failures |
+| Python 3.12 | 620 passed |
+| Normal Swift | All suites passed: XCTest executables report 26 / 83 / 227; Swift Testing reports 392 / 8, retaining conditional skips |
+| Portable Swift | All suites passed: XCTest executables report 24 / 664 / 83 / 227 / 79 / 217 / 66; Swift Testing reports 619 / 8, retaining conditional skips |
+| Final frontend | Final full repeat in progress; prior full run passed 5,207 tests in 378 files plus Node 6; final correction/reference filter passed 19 |
+| Production frontend build | Passed TypeScript, Vite and existing payload/chunk budgets |
+| Pinned data reproduction | Byte-identical pack; 21,335-facts optimization oracle agrees |
+
+Swift counts are the test runner's reported totals, include existing conditional
+skips, and overlap between profiles; they are not summed as unique passing tests.
+Commands use Python `/opt/homebrew/bin/python3.12`, Swift `--jobs 2 --no-parallel`,
+portable `XLOG_PORTABLE_ONLY=1 --scratch-path .build/cqrlog-portable-final`,
+`cargo test --locked --bin xlog-prototype`, `npm test`, and `npm run build`.
+Full logs have the prefix `/tmp/xlog-cqrlog-review-full-`, with the final frontend
+repeat at `/tmp/xlog-cqrlog-review-final-frontend.log` and build at
+`/tmp/xlog-cqrlog-review-build.log`. The normalizer/reproduction and before/after
+regressions are named in the findings above. No timeouts, safety admission,
+payload budgets or substantive existing tests were relaxed to get a pass.
+
+## Release boundary
+
+No package was built or installed in this review. Read-only verification still
+finds installed version **1.5.9**. The retained **1.5.13** ZIP remains SHA-256
+`b21af154b96632159236dda7d4249ff0cc95f377ad9e549f364ac7b2c3867929`, matching its
+original release record. It predates these review fixes, including private
+voice IPC changes; its prior private acceptance cannot qualify the new source.
+A new packaged candidate must use a new version and exact provenance.
+
+No native GUI binding, microphone/speaker/serial/radio output, PTT acquisition,
+production data/settings mutation, notarization or installation was performed.
+Fake stream/IPC/state tests qualify software behavior only. Physical device,
+connected-operation and new signed-package acceptance remain separate work.

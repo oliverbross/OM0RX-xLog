@@ -17,6 +17,23 @@ function fixture(){
   });return{request,calls,advance:()=>{revision++;},complete:()=>complete?.()};
 }
 describe("normal voice controls retain native admission",()=>{
+  it("retains edits made while a settings save acknowledgement is pending",async()=>{
+    const f=fixture();let finish!:(value:unknown)=>void;
+    const request=vi.fn(async(params:Record<string,unknown>)=>params.action==="save"?new Promise(resolve=>{finish=resolve;}):f.request(params));
+    render(<VoiceDesk request={request}/>);await screen.findByText(/0.20 s/);
+    fireEvent.click(screen.getByText("Voice memories · normal SSB"));fireEvent.click(screen.getByText("Library, recording and audio routes"));
+    fireEvent.change(screen.getByLabelText("Memory label"),{target:{value:"Earlier edit"}});
+    fireEvent.click(screen.getByRole("button",{name:"Save voice settings"}));
+    fireEvent.change(screen.getByLabelText("Memory label"),{target:{value:"Newer unsaved edit"}});
+    await act(async()=>finish({status:"applied",revision:5,generation:"10000000-0000-4000-8000-000000000001"}));
+    expect((screen.getByLabelText("Memory label") as HTMLInputElement).value).toBe("Newer unsaved edit");
+    expect((screen.getByRole("button",{name:"Save voice settings"}) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole("button",{name:"Send memory"}) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button",{name:"Save voice settings"}));
+    expect(request.mock.calls.filter(([params])=>params.action==="save").at(-1)?.[0]).toMatchObject({expectedRevision:5,profile:{labels:expect.arrayContaining(["Newer unsaved edit"])}});
+    await act(async()=>finish({status:"conflict"}));
+    expect((screen.getByLabelText("Memory label") as HTMLInputElement).value).toBe("Newer unsaved edit");
+  });
   it("coalesces slow native snapshots while a voice operation is pending",async()=>{
     vi.useFakeTimers();const f=fixture();let hold=false;
     const pending:((value:unknown)=>void)[]=[];

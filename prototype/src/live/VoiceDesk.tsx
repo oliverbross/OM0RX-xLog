@@ -16,7 +16,7 @@ const defaultProfile=():Profile=>({version:1,profilePath:"",labels:Array.from({l
 const same=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b);
 
 export default function VoiceDesk({request=native}:{request?:Request}){
-  const root=useRef<HTMLDivElement>(null),mounted=useRef(true),running=useRef(false),dirty=useRef(false),snapshotRef=useRef<Snapshot|null>(null),editBase=useRef<{revision:number;generation:string}|null>(null);
+  const root=useRef<HTMLDivElement>(null),mounted=useRef(true),running=useRef(false),dirty=useRef(false),editVersion=useRef(0),snapshotRef=useRef<Snapshot|null>(null),editBase=useRef<{revision:number;generation:string}|null>(null);
   const activeRequest=useRef(request),refreshFlight=useRef<{request:Request;promise:Promise<void>}|null>(null);activeRequest.current=request;
   const [snapshot,setSnapshot]=useState<Snapshot|null>(null),[profile,setProfile]=useState<Profile>(defaultProfile),[selected,setSelected]=useState(1),[busy,setBusy]=useState(false),[message,setMessage]=useState("Load a shared WAV folder and review native audio routes before sending."),[error,setError]=useState(""),[analysis,setAnalysis]=useState<Analysis|null>(null),[replace,setReplace]=useState(false);
   const refresh=useCallback(()=>{
@@ -34,7 +34,7 @@ export default function VoiceDesk({request=native}:{request?:Request}){
   useEffect(()=>{mounted.current=true;void refresh().catch(cause=>setError(String(cause)));const timer=window.setInterval(()=>{if(running.current||snapshotRef.current?.job)void refresh().catch(cause=>setError(String(cause)));},250);
     return()=>{mounted.current=false;window.clearInterval(timer);};},[refresh]);
   const run=async(action:()=>Promise<void>)=>{if(running.current)return;running.current=true;setBusy(true);setError("");try{await action();}catch(cause){if(mounted.current)setError(cause instanceof Error?cause.message:String(cause));}finally{running.current=false;if(mounted.current){setBusy(false);await refresh().catch(cause=>setError(String(cause)));}}};
-  const edit=(next:Profile)=>{if(!dirty.current&&snapshotRef.current)editBase.current={revision:snapshotRef.current.revision,generation:snapshotRef.current.generation};dirty.current=true;setProfile(next);setAnalysis(null);};
+  const edit=(next:Profile)=>{if(!dirty.current&&snapshotRef.current)editBase.current={revision:snapshotRef.current.revision,generation:snapshotRef.current.generation};editVersion.current++;dirty.current=true;setProfile(next);setAnalysis(null);};
   const stop=useCallback(async()=>{try{await request({action:"stop"});if(mounted.current){setMessage("Stop requested. The native owner cancels remaining audio and retains any uncertain PTT release.");await refresh();}}catch(cause){if(mounted.current)setError(String(cause));}},[request,refresh]);
   const reviewedScope=()=>{if(!snapshot)throw Error("Reload and review native voice settings first.");return{expectedRevision:snapshot.revision,generation:snapshot.generation};};
   const send=async()=>{
@@ -49,9 +49,15 @@ export default function VoiceDesk({request=native}:{request?:Request}){
   useEffect(()=>{const sendEvent=()=>{if(root.current?.contains(document.activeElement))void sendRef.current();};const stopEvent=()=>void stop();
     window.addEventListener("xlog:voice-send",sendEvent);window.addEventListener("xlog:voice-stop",stopEvent);return()=>{window.removeEventListener("xlog:voice-send",sendEvent);window.removeEventListener("xlog:voice-stop",stopEvent);};},[stop]);
   useEffect(()=>{let current=true;setAnalysis(null);if(!dirty.current&&snapshot?.profile.profilePath)void request({action:"analyze",slot:selected}).then(value=>{if(mounted.current&&current)setAnalysis(value);}).catch(()=>{});return()=>{current=false;};},[selected,snapshot?.revision,request]);
-  const save=()=>run(async()=>{const base=editBase.current;if(!base)throw Error("Load current workspace settings first.");
+  const save=()=>run(async()=>{const base=editBase.current,version=editVersion.current;if(!base)throw Error("Load current workspace settings first.");
     const result=await request({action:"save",profile,expectedRevision:base.revision,generation:base.generation,operationID:crypto.randomUUID()});
-    if(result.status!=="applied")throw Error("Voice settings changed in another window. Reload and review your retained edits.");dirty.current=false;editBase.current=null;setMessage("Voice library and route intent saved. Saving starts no audio or PTT.");});
+    if(result.status!=="applied")throw Error("Voice settings changed in another window. Reload and review your retained edits.");
+    if(version!==editVersion.current){
+      if(editBase.current===base&&result.generation===base.generation&&Number.isSafeInteger(result.revision)&&result.revision>=base.revision)
+        editBase.current={revision:result.revision,generation:base.generation};
+      setMessage("Earlier voice settings saved. Newer edits remain unsaved.");return;
+    }
+    dirty.current=false;editBase.current=null;setMessage("Voice library and route intent saved. Saving starts no audio or PTT.");});
   const changeRoute=(role:keyof Profile["routes"],patch:Partial<Route>|null)=>{
     const current=profile.routes[role];const next=patch===null?null:{deviceId:"",channels:[0],sampleRate:48000,...current,...patch};edit({...profile,routes:{...profile.routes,[role]:next}});
   };
