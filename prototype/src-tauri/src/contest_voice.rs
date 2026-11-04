@@ -355,6 +355,18 @@ fn publish_prepared_batch(
     if retained_bytes.saturating_add(budget.decoded_bytes)>MAX_BATCH_WAV_BYTES {
         return Err("The native prepared voice journal exceeds its 32 MiB limit; Stop clears old preparations.".into());
     }
+    if state.prepared.len().saturating_add(prepared.len()) > 256 {
+        return Err("Contest voice preparation journal is full; Stop clears existing preparations before a new request.".into());
+    }
+    // Validate the complete batch before publishing any row. A concurrent
+    // preparation can have claimed a later key while PCM was decoded.
+    let mut incoming = HashSet::new();
+    for value in prepared {
+        let key = (value.session_id.clone(), value.workspace_generation.clone(), value.action_id.clone());
+        if !incoming.insert(key.clone()) || state.prepared.contains_key(&key) || state.consumed.contains(&key) {
+            return Err("The contest voice action was concurrently prepared or consumed; replay denied.".into());
+        }
+    }
     for value in prepared {
         let admission = VoiceAdmission {
             session_id: value.session_id.clone(),
@@ -366,16 +378,8 @@ fn publish_prepared_batch(
             bound_target: value.bound_target.clone(),
         };
         let key = admission_key(&admission);
-        if state.prepared.contains_key(&key) || state.consumed.contains(&key) {
-            return Err("The contest voice action was concurrently prepared or consumed; replay denied.".into());
-        }
         state.prepared_audio.insert(key.clone(), value.segments.clone());
         state.prepared.insert(key, admission);
-    }
-    if state.prepared.len() > 256 {
-        state.prepared.clear();
-        state.prepared_audio.clear();
-        return Err("Contest voice preparation journal is full; prepare the message again.".into());
     }
     Ok(())
 }
@@ -1132,6 +1136,43 @@ mod tests {
     const WORKSPACE: &str = "20000000-0000-4000-8000-000000000002";
     const DRAFT: &str = "30000000-0000-4000-8000-000000000003";
     const OPERATION: &str = "40000000-0000-4000-8000-000000000004";
+    fn journal_entry(operation: u128) -> PreparedVoice {
+        PreparedVoice {
+            session_id: SESSION.into(), workspace_generation: WORKSPACE.into(), draft_id: DRAFT.into(),
+            action_id: format!("{}:0", uuid::Uuid::from_u128(operation)), payload_sha256: "0".repeat(64),
+            manifest_sha256: "1".repeat(64), segments: vec![PreparedSegment {
+                name: "f1".into(), wav_base64: "AA==".into(), duration_ms: 1, sha256: "2".repeat(64), decoded_bytes: 1 }],
+            total_duration_ms: 1, total_decoded_bytes: 1, bound_target: None,
+        }
+    }
+    #[test]
+    fn publication_collision_preserves_the_complete_previous_journal() {
+        let mut state = VoiceRuntime::default(); enter_scope(&mut state, SESSION, WORKSPACE);
+        let generation = native::native_generation();
+        let budget = |n| BatchBudget { segments: n, decoded_bytes: n, base64_bytes: n * 4, duration_ms: n as u64 };
+        let existing = journal_entry(2);
+        publish_prepared_batch(&mut state, std::slice::from_ref(&existing), &budget(1), SESSION, WORKSPACE, generation, generation).unwrap();
+        let before = state.prepared.clone();
+        // Both keys were free at read admission; another request published the
+        // second key while this batch's PCM was decoded outside the lock.
+        assert!(publish_prepared_batch(&mut state, &[journal_entry(1), existing], &budget(2), SESSION, WORKSPACE, generation, generation).is_err());
+        assert_eq!(state.prepared, before);
+        assert_eq!(state.prepared_audio.len(), 1);
+    }
+    #[test]
+    fn publication_capacity_failure_retains_other_prepared_actions() {
+        let mut state = VoiceRuntime::default(); enter_scope(&mut state, SESSION, WORKSPACE);
+        let generation = native::native_generation();
+        let one = BatchBudget { segments: 1, decoded_bytes: 1, base64_bytes: 4, duration_ms: 1 };
+        for operation in 1..=255 {
+            publish_prepared_batch(&mut state, &[journal_entry(operation)], &one, SESSION, WORKSPACE, generation, generation).unwrap();
+        }
+        let before = state.prepared.clone();
+        let two = BatchBudget { segments: 2, decoded_bytes: 2, base64_bytes: 8, duration_ms: 2 };
+        assert!(publish_prepared_batch(&mut state, &[journal_entry(256), journal_entry(257)], &two, SESSION, WORKSPACE, generation, generation).is_err());
+        assert_eq!(state.prepared, before);
+        assert_eq!(state.prepared_audio.len(), 255);
+    }
     #[test]
     fn stop_during_preparation_cannot_republish_old_audio_or_admissions() {
         let mut state = VoiceRuntime::default();

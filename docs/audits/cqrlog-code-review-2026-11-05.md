@@ -161,3 +161,16 @@ case; TypeScript passes. Logs:
 `/tmp/xlog-cqrlog-review-contest-voice-after.log` and
 `/tmp/xlog-cqrlog-review-contest-voice-tsc.log`. Tests mock native IPC/audio/PTT;
 they do not claim connected playback or physical release acceptance.
+
+## Atomic contest voice preparation publication
+
+A concurrent collision on a later batch member left earlier members published
+even though the request failed. Exceeding the 256-entry cap also cleared all
+other valid preparations. Both regressions reproduced against the old code:
+one new row survived a two-row collision, and a capacity failure erased 255
+existing preparations (`/tmp/xlog-cqrlog-review-voice-batch-before.log`).
+
+Publication now checks the complete incoming key set, replay state and journal
+capacity before inserting any member. Failure preserves the prior journal;
+Stop remains the explicit way to retire preparations. The full voice filter
+passes **39 native tests** (`/tmp/xlog-cqrlog-review-voice-batch-after.log`).
