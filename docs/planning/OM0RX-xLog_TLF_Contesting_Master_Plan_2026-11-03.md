@@ -10,6 +10,18 @@
 
 **Initial delivery status:** Planned at preparation; superseded by the execution evidence below.
 
+**Correction pass — 4 November 2026:** Started from clean canonical `main` at
+`5016751a03f2adc6eea27def34ed4675e6bdc67a`, current after fast-forward-only pull.
+The retained [independent review](../reviews/OM0RX-xLog_TLF_1.5.7_Review_2026-11-04.md)
+reopens TLF-R01–R09 and their affected software claims below. Earlier successful
+evidence remains historical evidence; it does not close these failed subcases.
+P1-05/06/09/10, P2-01/02/04/06, P3-02/03/05/06/07 and R-01/02 are IN_PROGRESS
+for this correction. Affected scenarios: OK-02/05/07/08/09; CW-04/07/12/17;
+PASS-05/08/11; QTC-02/04/11/15; RULE-03/04/05/06/08; G-04/06.
+Their earlier VERIFIED_SOFTWARE/PASS labels are reopened for these subcases until
+specific corrective evidence is recorded here. No installation, RF transmission,
+physical CAT action or submission is authorised by this correction pass.
+
 **Delivery checkpoint — 4 November 2026:** All three selected phases have committed software implementations on canonical `main`. Signed macOS arm64 candidate **1.5.7** is built from `4de56b1aeaa1fad93309b0d9a2cc382c04c994da` (product source `1cf9a145a9191be845c159a7ec8cde38169cf0a8`). Software tests and bounded disposable native checks are recorded in section 14. Full native pass park/load/tune, physical adapter/route qualification and installation are not claimed. Flex advanced CW remains unimplemented; the real advanced production adapter is WinKeyer. WPX 2027 has no verified profile because official publication was unavailable. No simulator was added. The installed 1.5.6 app and production data were not changed by this work.
 
 ## 1. Approved scope and sequencing
