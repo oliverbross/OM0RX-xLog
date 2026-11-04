@@ -24,6 +24,17 @@ physical CAT action or submission is authorised by this correction pass.
 
 ### Correction evidence (this register remains authoritative)
 
+**TLF-R07 / P2-01/P3-05/06; RULE-04/05/06/08 — VERIFIED_SOFTWARE:** a 40M
+attempt from a 20M series previously used 20M for timing. `_qtc_activity` now
+uses validated captured attempt frequency, retaining prepared/submitted/outcome
+evidence; later ledger actions capture current Entry frequency with an explicit
+declaration basis. Missing legacy frequency/basis is unknown, never a guessed
+series band; its valid timestamp still interrupts inferred silence. The actual
+Host in-period 09:05 prepared 40M request starts the conservative 09:15 boundary;
+removing legacy frequency leaves the 20M 09:10 boundary and incomplete band
+evidence. Series header remains unchanged; 09:07 acknowledgement captures 40M.
+`test_tlf_qtc_operating test_operating_rules` passed (22); no RF/native output.
+
 **TLF-R06 / P2-04; QTC-11/15 — VERIFIED_SOFTWARE:** RTTY no-source K1ABC
 previously hid valid receiving. The additive schema-1 `capabilities.send/receive`
 projection now exposes independent eligibility/source capacity; overall opportunity

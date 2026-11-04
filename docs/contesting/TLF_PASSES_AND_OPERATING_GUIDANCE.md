@@ -73,6 +73,15 @@ the earlier reported QSO and is never used as the transfer time. Missing/future
 metadata is shown as incomplete; recording or output failure does not establish
 an off period.
 
+Each output attempt uses its own captured Entry frequency, separate from the
+immutable series header. Prepared/submitted/provider outcomes remain visible as
+evidence states and never prove RF. Later operator ledger actions capture the
+Entry frequency at that action's timestamp and remain declarations. Legacy
+attempts without frequency and ledger actions without a captured-frequency basis
+retain unknown bands; the series frequency is never silently substituted. Their
+known timestamps still conservatively interrupt off-time, but cannot start a
+known-band clock. Expand QTC activity evidence to review the basis.
+
 Profiles require the matching contest, saved category, power where applicable,
 and exact edition start UTC. Overlays and unlisted categories remain unverified.
 The WPX 2027 candidate was checked on 4 November 2026: the official current rules

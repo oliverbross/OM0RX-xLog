@@ -124,6 +124,7 @@ def mutate(desk, params, require):
         data["attempts"].append({"operationID": params["operationID"], **context["qtc"], "payload": payload,
             "payloadSHA256": digest, "requestedUTC": datetime.now(UTC).isoformat(), "mode": mode,
             "frequencyHz": state["draft"]["frequencyHz"],
+            "frequencyBasis": "captured-entry-frequency",
             "laneContext": attribution(state), "state": "prepared", "outcome": None})
     else:
         require(False, "Unsupported QTC operating action")

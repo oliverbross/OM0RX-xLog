@@ -21,6 +21,7 @@ export type OperatingInfo = {
     events:{id:string;role:string;atUTC:string;status:string}[]} | null;
   roleCandidates?:{id:string;callsign:string;atUTC:string;band:string|null;sourceDigest:string;role:string|null}[];
   qtcActivityCount?:number;invalidQTCActivity?:number;
+  qtcActivityEvidence?:{id:string;atUTC:string;band:string|null;evidence:string;frequencyBasis:string}[];
   publicationCandidates?:{id:string;status:string;checkedUTC:string;sourceURL:string;reason:string}[];
 };
 
@@ -99,7 +100,10 @@ export function ContestOperatingInfo({ request, scope, onPlanSave }: {
           <dd>{clock.eligibleUTC?`Next band eligibility ${clock.eligibleUTC} · ${durationText(clock.remainingSeconds??0)} remaining` : "No attributed start event"} · {clock.basis.replaceAll("-"," ")}</dd></div>)}</dl>
         {data.bandDwell.events.some(event=>event.status!=="clock-start")&&<ul>{data.bandDwell.events.filter(event=>event.status!=="clock-start").map((event,index)=><li key={`${event.id}/${index}`}>{event.atUTC} · {event.role}: {event.status.replaceAll("-"," ")} · record retained</li>)}</ul>}
       </section>}
-      {!!data.qtcActivityCount&&<p>WAE timeline includes {data.qtcActivityCount} declared QTC transfer(s), including pending/cancelled series. QTC item times describe historical QSOs.</p>}
+      {!!data.qtcActivityCount&&<p>WAE timeline includes {data.qtcActivityCount} QTC activity record(s), including prepared attempts and operator declarations. RF activity remains unverified. QTC item times describe historical QSOs.</p>}
+      {!!data.qtcActivityEvidence?.length&&<details><summary>QTC activity evidence</summary><ul>{data.qtcActivityEvidence.map(row=><li key={row.id}>
+        {row.atUTC} · {row.band??"Unknown band"} · {row.evidence} · {row.frequencyBasis.replaceAll("-"," ")}
+      </li>)}</ul></details>}
       {!!data.invalidQTCActivity&&<p role="status">{data.invalidQTCActivity} QTC transfer timestamp(s) are unknown; off-time evidence is incomplete.</p>}
       {data.offTime && data.offTime.gaps.length > 0 && <details><summary>Contributing QSO gaps</summary><ul>{data.offTime.gaps.map(gap => <li key={gap.startUTC}>{gap.startUTC} – {gap.endUTCExclusive}: {gap.emptyMinutes} empty minutes · {gap.qualifiesLogCriterion ? "qualifies log criterion" : "below minimum"}</li>)}</ul></details>}
       {onPlanSave && <fieldset disabled={saving}><legend>Operator plan</legend>

@@ -196,6 +196,7 @@ def _qtc_activity(state, now, start, end):
     if any(not isinstance(batch, dict) for batch in journal.get("batches", [])):
         return [], 1
     records = [({"timestamp": batch.get("timestamp"), "frequencyHz": batch.get("frequencyHz"),
+                 "evidence": "operator-declared-transfer-header", "frequencyBasis": "series-header-declaration",
                  "id": "header:" + str(batch.get("id", ""))}) for batch in journal.get("batches", [])]
     if not isinstance(supplemental, dict) or supplemental and supplemental.get("schema") != 1 or \
             isinstance(supplemental, dict) and any(not isinstance(supplemental.get(key, []), list) for key in ("attempts", "activities")):
@@ -203,20 +204,26 @@ def _qtc_activity(state, now, start, end):
     else:
         if supplemental.get("activityCoverageComplete") is False:
             invalid += 1
-        batches = {batch.get("id"): batch for batch in journal.get("batches", [])}
         for attempt in supplemental.get("attempts", []):
             if not isinstance(attempt, dict):
                 invalid += 1
                 continue
-            batch = batches.get(attempt.get("batchID"), {})
-            records.append({"timestamp": attempt.get("requestedUTC"), "frequencyHz": batch.get("frequencyHz"),
+            outcome = attempt.get("outcome")
+            evidence = attempt.get("state", "unknown")
+            if isinstance(outcome, dict):
+                evidence += "; " + str(outcome.get("outcome", "unknown")) + " (" + str(outcome.get("acceptanceLevel", "unknown")) + ")"
+            records.append({"timestamp": attempt.get("requestedUTC"), "frequencyHz": attempt.get("frequencyHz"),
+                            "evidence": evidence,
+                            "frequencyBasis": "captured-attempt-entry-frequency" if "frequencyHz" in attempt else "legacy-frequency-unknown",
                             "id": "attempt:" + str(attempt.get("operationID", ""))})
         for event in supplemental.get("activities", []):
             if not isinstance(event, dict):
                 invalid += 1
                 continue
-            batch = batches.get(event.get("batchID"), {})
-            records.append({"timestamp": event.get("atUTC"), "frequencyHz": event.get("frequencyHz", batch.get("frequencyHz")),
+            records.append({"timestamp": event.get("atUTC"),
+                            "frequencyHz": event.get("frequencyHz") if event.get("frequencyBasis") == "captured-entry-frequency" else None,
+                            "evidence": "operator-declared-ledger-action",
+                            "frequencyBasis": event.get("frequencyBasis", "legacy-frequency-unknown"),
                             "id": "activity:" + str(event.get("operationID", ""))})
     for batch in records:
         stamp = _utc(batch.get("timestamp"))
@@ -228,7 +235,8 @@ def _qtc_activity(state, now, start, end):
                           (14000000, 14350000, "20M"), (21000000, 21450000, "15M"), (28000000, 29700000, "10M"))
                          if type(frequency) is int and lower <= frequency <= upper), None)
             result.append((stamp, {"ID": "qtc:" + str(batch.get("id", "")), "Band": band,
-                                   "activityKind": "qtc", "declaredRole": "main"}))
+                                   "activityKind": "qtc", "declaredRole": "main",
+                                   "activityEvidence": batch["evidence"], "frequencyBasis": batch["frequencyBasis"]}))
     return result, invalid
 
 
@@ -251,6 +259,10 @@ def _dwell(rows, now, family, declarations):
             zones.setdefault(band, set()).add(int(zone))
         if not band or role not in {*names, "multiplier"}:
             unknown.append(str(row.get("ID", "")))
+            if row.get("activityKind") == "qtc":
+                events.append({"id": str(row.get("ID", "")), "role": role, "atUTC": _iso(stamp),
+                               "status": "activity-band-unknown", "activityEvidence": row["activityEvidence"],
+                               "frequencyBasis": row["frequencyBasis"]})
             continue
         if family == "wae" and role == "multiplier":
             # A declaration cannot establish the multiplier exception's validity.
@@ -269,6 +281,7 @@ def _dwell(rows, now, family, declarations):
             continue
         previous_eligibility = _utc(clock["eligibleUTC"])
         events.append({"id": str(row.get("ID", "")), "role": role, "atUTC": _iso(at),
+                       **({"activityEvidence": row["activityEvidence"], "frequencyBasis": row["frequencyBasis"]} if row.get("activityKind") == "qtc" else {}),
                        "fromBand": clock["band"], "toBand": band,
                        "status": "early-band-change" if previous_eligibility and at < previous_eligibility else "clock-start",
                        "previousEligibleUTC": clock["eligibleUTC"]})
@@ -341,6 +354,8 @@ def calculate(desk, params):
         activity.extend(qtc_rows)
         activity.sort(key=lambda item: (item[0], str(item[1].get("ID", ""))))
         result.update(qtcActivityCount=len(qtc_rows), invalidQTCActivity=invalid_qtc)
+        result["qtcActivityEvidence"] = [{"id": row["ID"], "atUTC": _iso(stamp), "band": row["Band"],
+            "evidence": row["activityEvidence"], "frequencyBasis": row["frequencyBasis"]} for stamp, row in qtc_rows[-100:]]
         result["durationNote"] += " WAE includes declared QTC headers, prepared/submitted output attempts and operator activity records, even pending/cancelled series; these conservatively interrupt alleged off-time without establishing transmission. Historical item HHMM is not transfer time. Unlogged activity remains unknown."
     if profile and profile_id.endswith("single-op"):
         off = _off_time(activity)

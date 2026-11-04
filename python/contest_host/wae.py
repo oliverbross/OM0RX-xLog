@@ -293,10 +293,10 @@ def mutate(desk, params, require):
     metadata = operating(state)
     activities = metadata.setdefault("activities", [])
     if len(activities) < 5000:
-        saved = next((row for row in journal if row["id"] == params.get("batchID")), None)
         activities.append({"operationID": params["operationID"], "batchID": params.get("batchID"),
             "action": action, "atUTC": datetime.now(UTC).isoformat(),
-            "frequencyHz": saved["frequencyHz"] if saved else state["draft"]["frequencyHz"], "basis": "operator declaration; RF unverified"})
+            "frequencyHz": state["draft"]["frequencyHz"], "frequencyBasis": "captured-entry-frequency",
+            "basis": "operator ledger action at current Entry context; RF unverified"})
     else:
         metadata["activityCoverageComplete"] = False
     state["qtcOperating"] = metadata

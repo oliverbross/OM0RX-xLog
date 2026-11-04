@@ -1,6 +1,8 @@
 """Durable QTC desk metadata and literal output at the existing host owner."""
 from copy import deepcopy
+from datetime import datetime, UTC
 import unittest
+from unittest.mock import patch
 from contest_host.host import Host, HostError
 import test_wave5_qtc_host as fixtures
 from test_host import uid
@@ -78,6 +80,44 @@ class QTCOperatingTests(unittest.TestCase):
         with self.assertRaises((ValueError, HostError)):
             self.qtc("qtc_confirm", batchID="receive-1", index=0)
         self.assertEqual(store.state(self.session)["qtcOperating"], {"schema": 99, "keep": "future"})
+
+    def test_in_period_attempt_uses_its_own_band_and_prepared_evidence_with_legacy_unknown(self):
+        self.create_wae()
+        setup = self.read("setup_get")["setup"]
+        setup["settings"].update(StartDate="2026-08-08 00:00:00", OperatorCategory="MULTI-OP", TransmitterCategory="ONE")
+        self.mutate("setup_save", setup=setup)
+        self.mutate("operating_plan_save", workspaceGeneration=self.workspace,
+                    plan={"ruleProfileID": "wae-2026-multi-one", "note": ""})
+        with patch("contest_host.wae.datetime", wraps=datetime) as clock:
+            clock.now.return_value = datetime(2026, 8, 8, 9, 0, tzinfo=UTC)
+            self.receive()
+        original = deepcopy(self.view()["batches"][0])
+        self.mutate("draft_apply", frequencyHz=7025000)
+        with patch("contest_host.qtc_operating.datetime", wraps=datetime) as clock:
+            clock.now.return_value = datetime(2026, 8, 8, 9, 5, tzinfo=UTC)
+            prepared = self.qtc("qtc_output", batchID="receive-1", index=0, qtcField="time")
+        self.assertEqual(prepared["actions"][0]["payload"], "AGN TIME")
+        params = {"workspaceGeneration": self.workspace, "expectedRevision": self.revision, "now": "2026-08-08T09:06:00Z"}
+        info = self.read("operating_info", **params)
+        self.assertEqual(info["bandDwell"]["clocks"][0]["eligibleUTC"], "2026-08-08T09:15:00Z")
+        event = info["bandDwell"]["events"][-1]
+        self.assertEqual((event["toBand"], event["status"], event["activityEvidence"]), ("40M", "early-band-change", "prepared"))
+        self.assertEqual(info["transmissionEvidence"], "unknown")
+        self.assertEqual(self.view()["batches"][0], original)
+        store = self.host.database(self.session)
+        state = store.state(self.session)
+        state["qtcOperating"]["attempts"][0].pop("frequencyHz")
+        state["qtcOperating"]["attempts"][0].pop("frequencyBasis")
+        store.save_state(state); store.conn.commit()
+        legacy = self.read("operating_info", **params)
+        self.assertEqual(legacy["bandDwell"]["clocks"][0]["eligibleUTC"], "2026-08-08T09:10:00Z")
+        self.assertFalse(legacy["bandDwell"]["complete"])
+        self.assertEqual(legacy["bandDwell"]["events"][-1]["frequencyBasis"], "legacy-frequency-unknown")
+        with patch("contest_host.wae.datetime", wraps=datetime) as clock:
+            clock.now.return_value = datetime(2026, 8, 8, 9, 7, tzinfo=UTC)
+            self.qtc("qtc_confirm", batchID="receive-1", index=0)
+        activity = self.view()["operating"]["activities"][-1]
+        self.assertEqual((activity["frequencyHz"], activity["frequencyBasis"]), (7025000, "captured-entry-frequency"))
 
     def test_opportunity_is_host_derived_and_qso_dupe_can_have_capacity(self):
         self.create_wae()
