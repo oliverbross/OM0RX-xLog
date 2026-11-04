@@ -126,7 +126,7 @@ fn native_only_worker_method(method: &str) -> bool {
 }
 fn requires_shared_output_acquisition(method: &str) -> bool { method == "fldigi_send" }
 fn is_raw_cw_output(request:&serde_json::Value)->bool {
-    matches!(request["method"].as_str(),Some("winkeyer_arm"|"winkeyer_send"|"winkeyer_sequence"|"winkeyer_stream"|"winkeyer_stop"))
+    matches!(request["method"].as_str(),Some("winkeyer_arm"|"winkeyer_send"|"winkeyer_sequence"|"winkeyer_stream"|"winkeyer_compose"|"winkeyer_stop"))
         || request["method"]=="station_radio_control"&&matches!(request["params"]["control"].as_str(),Some("send_cw"|"clear_cw"))
         || request["method"]=="hamlib_control"&&matches!(request["params"]["action"].as_str(),Some("cw"|"cw_stop"))
 }
@@ -5727,7 +5727,7 @@ mod workspace_layout_tests {
     }
     #[test]
     fn advanced_cw_adapter_routes_are_reachable_only_through_the_shared_native_owner() {
-        for method in ["winkeyer_arm","winkeyer_send","winkeyer_sequence","winkeyer_stream","winkeyer_stop"] {
+        for method in ["winkeyer_arm","winkeyer_send","winkeyer_sequence","winkeyer_stream","winkeyer_compose","winkeyer_stop"] {
             assert!(super::is_raw_cw_output(&serde_json::json!({"method":method,"params":{"generation":7,"intent":1}})));
         }
         for method in ["winkeyer_ports","winkeyer_snapshot","winkeyer_speed","winkeyer_connect","winkeyer_disconnect"] {

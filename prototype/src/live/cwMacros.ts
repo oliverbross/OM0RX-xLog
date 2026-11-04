@@ -1,3 +1,4 @@
+import { compileCWMessage, describeCWPlan } from "./cwMessagePlan";
 /** Pure CW configuration and preview rules. This module never keys a device. */
 export const cwColors = ["cyan", "green", "amber", "orange", "pink", "neutral"] as const;
 export const cwShortcuts = Array.from({ length: 24 }, (_, index) => `${index >= 12 ? "Shift+" : ""}F${index % 12 + 1}`);
@@ -5,7 +6,8 @@ export const cwTokens = ["MYCALL", "CALL", "RST", "NAME", "GRID", "SERIAL", "EXC
 export type CWToken = typeof cwTokens[number];
 export type CWContext = Partial<Record<CWToken, string>>;
 export type CWMacro = { id: number; label: string; text: string; color: typeof cwColors[number]; shortcut: string; enabled: boolean; onDesk: boolean };
-export type CWProfile = { version: 1; output: "radio" | "winkeyer"; showOnDesk: boolean; macros: CWMacro[]; winkeyer?: { port: string; wpm: number } };
+export type WinKeyerPreferences = { speedSource?: "software" | "pot"; potMinimum?: number; potRange?: number; weighting?: number; ratio?: number; pttLead?: number; pttTail?: number };
+export type CWProfile = { version: 1; output: "radio" | "winkeyer"; showOnDesk: boolean; macros: CWMacro[]; winkeyer?: { port: string; wpm: number; preferences?: WinKeyerPreferences }; composition?: { mode: "character" | "word" | "hybrid" } };
 export const cwOutputLimit = (output: CWProfile["output"], radioProvider: string) => output === "radio" && radioProvider === "hamlib" ? 80 : 128;
 export const defaultCWProfile: CWProfile = { version: 1, output: "radio", showOnDesk: false, winkeyer: { port: "", wpm: 20 }, macros: [
   { id: 1, label: "CQ", text: "CQ CQ DE {MYCALL} {MYCALL} K", color: "cyan", shortcut: "", enabled: true, onDesk: true },
@@ -18,8 +20,8 @@ export const defaultCWProfile: CWProfile = { version: 1, output: "radio", showOn
 function templateError(text: string): string | null {
   if (!text.trim()) return "Enter CW text.";
   if (text.length > 512) return "Keep the template within 512 characters.";
-  const stripped = text.replace(/\{([A-Z]+)\}/g, (_, token: string) => {
-    if (!cwTokens.includes(token as CWToken)) throw new Error(`Unknown CW placeholder: {${token}}.`);
+  const stripped = text.replace(/\{([^{}]+)\}/g, (_, token: string) => {
+    if (!cwTokens.includes(token as CWToken) && token !== "WPM:BASE" && !/^WPM:(?:[5-9]|[1-9][0-9])$/.test(token) && !/^PROSIGN:(?:AR|AS|BT|SK|KN)$/.test(token)) throw new Error(`Unknown CW placeholder: {${token}}.`);
     return "";
   });
   return /^[a-zA-Z0-9 /?=+.,\-]*$/.test(stripped) ? null : "Use letters, numbers, spaces, / ? = + . , - and the listed placeholders. Raw keyer commands and control characters are not allowed.";
@@ -50,23 +52,30 @@ export function validateCWProfile(value: unknown): CWProfile {
   const winkeyer = profile.winkeyer ?? { port: "", wpm: 20 };
   if (typeof winkeyer.port !== "string" || winkeyer.port.length > 512 || /[\x00-\x1f\x7f]/.test(winkeyer.port) || !Number.isInteger(winkeyer.wpm) || winkeyer.wpm < 5 || winkeyer.wpm > 99)
     throw new Error("Use a valid WinKeyer port and a speed of 5–99 WPM.");
-  return { version: 1, output: profile.output, showOnDesk: profile.showOnDesk, macros, winkeyer: { port: winkeyer.port.trim(), wpm: winkeyer.wpm } };
+  const preferences = validateWinKeyerPreferences(winkeyer.preferences);
+  if (profile.composition && !["character", "word", "hybrid"].includes(profile.composition.mode)) throw new Error("Choose character, word or hybrid CW composition.");
+  return { version: 1, output: profile.output, showOnDesk: profile.showOnDesk, macros, winkeyer: { port: winkeyer.port.trim(), wpm: winkeyer.wpm, ...(preferences ? { preferences } : {}) }, ...(profile.composition ? { composition: { mode: profile.composition.mode } } : {}) };
+}
+
+export function validateWinKeyerPreferences(value: unknown): WinKeyerPreferences | undefined {
+  if (value == null) return undefined;
+  if (typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid WinKeyer preferences.");
+  const p = value as WinKeyerPreferences;
+  const keys = ["speedSource", "potMinimum", "potRange", "weighting", "ratio", "pttLead", "pttTail"];
+  if (Object.keys(p).some(key => !keys.includes(key))) throw new Error("Unsupported WinKeyer preference.");
+  const inRange = (number: number | undefined, min: number, max: number) => number === undefined || Number.isInteger(number) && number >= min && number <= max;
+  if (p.speedSource !== undefined && !["software", "pot"].includes(p.speedSource)
+    || (p.potMinimum === undefined) !== (p.potRange === undefined) || (p.pttLead === undefined) !== (p.pttTail === undefined)
+    || !inRange(p.potMinimum, 5, 94) || !inRange(p.potRange, 5, 94) || (p.potMinimum ?? 0) + (p.potRange ?? 0) > 99
+    || !inRange(p.weighting, 10, 90) || !inRange(p.ratio, 33, 66) || !inRange(p.pttLead, 0, 250) || !inRange(p.pttTail, 0, 250))
+    throw new Error("Use valid paired pot/PTT ranges, weighting 10–90 and ratio 33–66.");
+  return Object.fromEntries(Object.entries(p).filter(([, v]) => v !== undefined)) as WinKeyerPreferences;
 }
 
 export function expandCWMacro(template: string, context: CWContext, maxLength = 80): string {
   const error = templateError(template);
   if (error) throw new Error(error);
-  if (!Number.isInteger(maxLength) || maxLength < 1 || maxLength > 128) throw new Error("Invalid CW output length limit.");
-  const text = template.replace(/\{([A-Z]+)\}/g, (_, token: CWToken) => {
-    const value = context[token]?.trim();
-    if (!value) throw new Error(`Fill ${token} before sending this macro.`);
-    // Validate replacements too: a callsign/name cannot inject raw device bytes
-    // or a second template, and non-ASCII characters are not silently dropped.
-    if (!/^[a-zA-Z0-9 /?=+.,\-]+$/.test(value)) throw new Error(`${token} contains characters this CW output cannot send.`);
-    return value;
-  }).trim().replace(/ +/g, " ").toUpperCase();
-  if (text.length > maxLength) throw new Error(`Expanded CW is ${text.length} characters; this output allows ${maxLength}. Shorten the macro.`);
-  return text;
+  return describeCWPlan(compileCWMessage(template, context, maxLength));
 }
 
 export function macroForKey(event: KeyboardEvent, profile: CWProfile): CWMacro | undefined {

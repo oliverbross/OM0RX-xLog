@@ -29,4 +29,16 @@ struct CWProfileTests {
         var unknown = macro; unknown["text"] = "{PTT} CQ"
         #expect(throws: (any Error).self) { try decode(["version": 1, "output": "radio", "showOnDesk": false, "macros": [unknown]]) }
     }
+    @Test func optionalKeyerPreferencesTypedMessagesAndCompositionRoundTrip() throws {
+        var typed=macro;typed["text"]="{CALL} {WPM:18}{RST}{WPM:BASE} {PROSIGN:AR}"
+        let profile=try decode(["version":1,"output":"winkeyer","showOnDesk":true,"macros":[typed],
+            "winkeyer":["port":"/dev/disposable","wpm":24,"preferences":["speedSource":"pot","potMinimum":10,"potRange":30,"weighting":55,"ratio":50,"pttLead":1,"pttTail":7]],
+            "composition":["mode":"word","armed":true]])
+        let data=try JSONEncoder().encode(profile), restored=try JSONDecoder().decode(CWProfile.self,from:data)
+        #expect(restored==profile);#expect(restored.winkeyer.wpm==24);#expect(restored.winkeyer.preferences?.speedSource=="pot");#expect(restored.composition?.mode=="word")
+        #expect(!String(decoding:data,as:UTF8.self).contains("armed"))
+        for preferences:[String:Any] in [["speedSource":"auto"],["potMinimum":10],["potMinimum":90,"potRange":20],["weighting":99],["ratio":20],["pttTail":2]] {
+            #expect(throws:(any Error).self){try decode(["version":1,"output":"winkeyer","showOnDesk":false,"macros":[macro],"winkeyer":["port":"","wpm":20,"preferences":preferences]])}
+        }
+    }
 }

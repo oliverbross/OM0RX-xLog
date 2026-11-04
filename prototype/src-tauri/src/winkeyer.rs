@@ -59,6 +59,59 @@ struct Snapshot {
     stream_id: Option<String>,
     accepted_text: String,
     restoration_requested: bool,
+    speed_source: String,
+    requested_wpm: Option<u8>,
+    pot_position: Option<u8>,
+    pot_wpm: Option<u8>,
+    pot_age_ms: Option<u64>,
+    reported_echo: String,
+    echo_evidence: &'static str,
+    applied_preferences: Option<Preferences>,
+    applied_commands: Vec<String>,
+    configuration_uncertain: bool,
+    compose_id: Option<String>,
+    compose_revision: u64,
+}
+
+/// Volatile host preferences only; absent fields inherit device settings.
+/// Mode/pin registers are deliberately absent: their unrelated bits cannot be
+/// read back through the supported host contract and must not be guessed.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct Preferences {
+    pub speed_source: Option<String>,
+    pub pot_minimum: Option<u8>,
+    pub pot_range: Option<u8>,
+    pub weighting: Option<u8>,
+    pub ratio: Option<u8>,
+    pub ptt_lead: Option<u8>,
+    pub ptt_tail: Option<u8>,
+}
+impl Preferences {
+    fn validate(&self) -> Result<(), String> {
+        if self.speed_source.as_ref().is_some_and(|s| !matches!(s.as_str(), "software" | "pot"))
+            || self.pot_minimum.is_some() != self.pot_range.is_some()
+            || self.pot_minimum.zip(self.pot_range).is_some_and(|(min,range)| min < 5 || range < 5 || u16::from(min)+u16::from(range)>99)
+            || self.weighting.is_some_and(|v| !(10..=90).contains(&v))
+            || self.ratio.is_some_and(|v| !(33..=66).contains(&v))
+            || self.ptt_lead.is_some() != self.ptt_tail.is_some()
+            || self.ptt_lead.is_some_and(|v| v>250) || self.ptt_tail.is_some_and(|v| v>250) {
+            return Err("Invalid WinKeyer volatile preferences; nothing was applied".into());
+        }
+        Ok(())
+    }
+    fn commands(&self, wpm:u8) -> Result<Vec<(&'static str, Vec<u8>)>,String> {
+        self.validate()?;
+        if !(5..=99).contains(&wpm) {return Err("Software speed must be 5–99 WPM".into());}
+        let mut result=Vec::new();
+        if let Some((min,range))=self.pot_minimum.zip(self.pot_range){result.push(("pot range",vec![5,min,range,0]));}
+        if let Some(v)=self.weighting{result.push(("weighting",vec![3,v]));}
+        if let Some(v)=self.ratio{result.push(("dit/dah ratio",vec![0x17,v]));}
+        if let Some((lead,tail))=self.ptt_lead.zip(self.ptt_tail){result.push(("PTT lead/tail",vec![4,lead,tail]));}
+        if let Some(source)=self.speed_source.as_deref(){result.push(("speed source",vec![2,if source=="pot"{0}else{wpm}]));}
+        if self.speed_source.as_deref()==Some("pot"){result.push(("pot observation request",vec![7]));}
+        Ok(result)
+    }
 }
 
 /// Provider-independent compiler output. Only these typed operations may become
@@ -69,6 +122,7 @@ pub(crate) enum Segment {
     Text { text: String },
     Speed { wpm: u8 },
     Restore,
+    Prosign { value: String },
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -79,8 +133,11 @@ impl Sequence {
         sequence.bytes()?;
         Ok(sequence)
     }
-    pub fn text(&self) -> String { self.segments.iter().filter_map(|s| match s { Segment::Text { text } => Some(text.as_str()), _ => None }).collect() }
-    pub fn variable_speed(&self) -> bool { self.segments.iter().any(|s| !matches!(s, Segment::Text { .. })) }
+    pub fn text(&self) -> String { self.segments.iter().map(|s| match s { Segment::Text { text } => text.clone(), Segment::Prosign {value}=>format!("<{value}>"), _ => String::new() }).collect() }
+    pub fn variable_speed(&self) -> bool { self.segments.iter().any(|s| matches!(s, Segment::Speed { .. } | Segment::Restore)) }
+    pub fn has_prosigns(&self) -> bool {self.segments.iter().any(|s|matches!(s,Segment::Prosign{..}))}
+    pub fn prosigns(&self) -> bool {self.has_prosigns()}
+    fn keying_text(&self)->String{self.segments.iter().map(|s|match s{Segment::Text{text}=>text.as_str(),Segment::Prosign{value}=>value.as_str(),_=>""}).collect()}
     fn bytes(&self) -> Result<VecDeque<Vec<u8>>, String> {
         if self.schema != 1 || self.segments.is_empty() || self.segments.len() > 64 { return Err("Unsupported or oversized CW sequence".into()); }
         let mut bytes = VecDeque::new(); let mut changed = false; let mut count = 0;
@@ -92,10 +149,14 @@ impl Sequence {
                 }
                 Segment::Speed { wpm } => { if !(5..=99).contains(wpm) { return Err("CW speed must be 5–99 WPM".into()); } changed = true; bytes.push_back(vec![0x1c, *wpm]); }
                 Segment::Restore => { changed = false; bytes.push_back(vec![0x1e]); }
+                Segment::Prosign {value} => {
+                    if !matches!(value.as_str(),"AR"|"AS"|"BT"|"SK"|"KN"){return Err("Unsupported typed CW prosign".into());}
+                    count+=2;bytes.push_back(vec![0x1b,value.as_bytes()[0],value.as_bytes()[1]]);
+                }
             }
         }
         if changed { return Err("CW sequence must restore base speed".into()); }
-        if count == 0 || count > 128 || self.text().trim().is_empty() { return Err("CW must contain 1–128 supported characters".into()); }
+        if count == 0 || count > 128 { return Err("CW must contain 1–128 supported characters".into()); }
         Ok(bytes)
     }
 }
@@ -116,6 +177,10 @@ struct Core {
     stream_revision: u64,
     speed_changed: bool,
     finished_stream: Option<String>,
+    last_pot: Option<u64>,
+    compose_receipts: Vec<(u64, Vec<u8>)>,
+    compose_finished: bool,
+    compose_count: usize,
 }
 impl Core {
     fn new(generation: u64, port: String) -> Self {
@@ -135,6 +200,9 @@ impl Core {
                 stream_id: None,
                 accepted_text: String::new(),
                 restoration_requested: false,
+                speed_source: "inherited".into(),requested_wpm:None,pot_position:None,pot_wpm:None,pot_age_ms:None,
+                reported_echo:String::new(),echo_evidence:"uncorrelated-device-report",applied_preferences:None,
+                applied_commands:vec![],configuration_uncertain:false,compose_id:None,compose_revision:0,
             },
             queue: VecDeque::new(),
             last_status: None,
@@ -148,6 +216,7 @@ impl Core {
             stream_revision: 0,
             speed_changed: false,
             finished_stream: None,
+            last_pot:None,compose_receipts:vec![],compose_finished:false,compose_count:0,
         }
     }
     fn view(&self, now: u64) -> Snapshot {
@@ -155,6 +224,7 @@ impl Core {
         value.status_age_ms = self.last_status.map(|then| now.saturating_sub(then));
         value.armed_remaining_ms = self.arm_until.saturating_sub(now);
         value.pending_characters = self.queue.iter().map(Vec::len).sum();
+        value.pot_age_ms=self.last_pot.map(|then|now.saturating_sub(then));
         value
     }
     fn fresh(&self, now: u64) -> bool {
@@ -162,7 +232,18 @@ impl Core {
             .is_some_and(|then| now.saturating_sub(then) <= FRESH_MS)
     }
     fn receive(&mut self, byte: u8, now: u64) {
-        // Ignore character echoes and speed-pot updates. Neither proves RF.
+        // WK status (11), pot (10), and ASCII echoes are disjoint events.
+        // Pot/echo never refresh authoritative status or finish a native job.
+        if byte & 0xc0 == 0x80 {
+            self.snapshot.pot_position=Some(byte & 0x3f);self.last_pot=Some(now);
+            self.snapshot.pot_wpm=self.snapshot.applied_preferences.as_ref().and_then(|p|p.pot_minimum)
+                .and_then(|min|min.checked_add(byte & 0x3f)).filter(|v|*v<=99);
+            return;
+        }
+        if (0x20..=0x7e).contains(&byte) {
+            if self.snapshot.reported_echo.len()>=128 {self.snapshot.reported_echo.remove(0);}
+            self.snapshot.reported_echo.push(byte as char);return;
+        }
         let Some(status) = Status::parse(byte) else {
             return;
         };
@@ -174,6 +255,7 @@ impl Core {
             self.queue.clear();
             self.snapshot.stream_id = None;
             self.finished_stream = None;
+            self.retire_composition();
             self.arm_until = 0;
             self.snapshot.owns_output = false;
             self.settling = false;
@@ -184,7 +266,7 @@ impl Core {
             if self.snapshot.owns_output && status.busy {
                 self.saw_busy = true;
             }
-            if self.queue.is_empty() && self.snapshot.stream_id.is_none()
+            if self.queue.is_empty() && self.snapshot.stream_id.is_none() && (self.snapshot.compose_id.is_none() || self.compose_finished)
                 && status.idle()
                 && (self.settling || self.saw_busy)
                 && now.saturating_sub(self.last_output) >= SETTLE_MS
@@ -197,6 +279,7 @@ impl Core {
         }
     }
     fn arm(&mut self, now: u64) -> Result<(), String> {
+        if self.snapshot.configuration_uncertain {return Err("WinKeyer configuration is uncertain; reconnect after checking the device".into());}
         if self.speed_changed && !self.snapshot.owns_output {
             return Err("Speed restoration is unknown after interruption. Set a base speed with fresh idle status before re-arming.".into());
         }
@@ -240,6 +323,7 @@ impl Core {
             );
         }
         self.queue.extend(text.bytes().map(|b| vec![b]));
+        self.retire_composition();
         self.finished_stream = None;
         self.snapshot.owns_output = true; // before any serial write
         self.saw_busy = false;
@@ -249,6 +333,7 @@ impl Core {
         self.sequence_continuation(intent,sequence,None,now)
     }
     fn sequence_continuation(&mut self, intent: u64, sequence: &Sequence, stream: Option<&str>, now: u64) -> Result<(), String> {
+        if sequence.variable_speed() && self.snapshot.speed_source=="pot" {return Err("Temporary message speeds are unavailable while the physical pot controls speed".into());}
         let mut bytes = sequence.bytes()?;
         if let Some(id)=stream {
             if self.finished_stream.as_deref()!=Some(id) { return Err("The completed CW stream is no longer owned.".into()); }
@@ -263,9 +348,58 @@ impl Core {
                     return Err("CW continuation is unavailable or full; Stop and inspect its outcome.".into());
                 }
                 self.queue.extend(bytes);self.finished_stream=None;
-            } else {self.send(intent,&sequence.text(),now)?;self.queue=bytes;}
-        } else {self.send(intent, &sequence.text(), now)?;self.queue = bytes;}
+            } else {self.send(intent,&sequence.keying_text(),now)?;self.queue=bytes;}
+        } else {self.send(intent, &sequence.keying_text(), now)?;self.queue = bytes;}
         self.snapshot.restoration_requested = sequence.variable_speed();
+        Ok(())
+    }
+    fn retire_composition(&mut self){
+        self.snapshot.compose_id=None;self.snapshot.compose_revision=0;self.compose_receipts.clear();self.compose_finished=false;self.compose_count=0;
+    }
+    fn compose(&mut self,intent:u64,id:&str,revision:u64,sequence:&Sequence,finish:bool,now:u64)->Result<(),String>{
+        if uuid::Uuid::parse_str(id).is_err() || revision==0{return Err("Invalid CW composition identity".into());}
+        if self.snapshot.compose_id.as_deref()!=Some(id) && self.compose_finished && !self.snapshot.owns_output {self.retire_composition();}
+        let mut fingerprint=serde_json::to_vec(sequence).map_err(|_|"Invalid composition sequence")?;fingerprint.push(u8::from(finish));
+        if self.snapshot.compose_id.as_deref()==Some(id) {
+            if let Some((_,old))=self.compose_receipts.iter().find(|(r,_)|*r==revision){
+                return if old==&fingerprint{Ok(())}else{Err("CW append identity collision".into())};
+            }
+        }
+        let bytes=if sequence.segments.is_empty() && finish && sequence.schema==1 {VecDeque::new()}else{sequence.bytes()?};
+        if sequence.variable_speed() && self.snapshot.speed_source=="pot"{return Err("Temporary message speed is unavailable in pot mode".into());}
+        let count=sequence.text().len();
+        if self.snapshot.compose_id.is_none(){
+            if revision!=1 || self.snapshot.owns_output || self.snapshot.stream_id.is_some() || sequence.text().trim().is_empty(){return Err("Start a new idle CW composition at append 1 with nonblank text".into());}
+        }else if self.snapshot.compose_id.as_deref()!=Some(id) || self.compose_finished || revision!=self.snapshot.compose_revision+1{
+            return Err("CW composition is retired or append order changed".into());
+        }
+        if self.snapshot.phase!="ready" || self.arm_until<=now || !self.fresh(now) || self.snapshot.status.is_some_and(|s|s.break_in)
+            || self.snapshot.configuration_uncertain || self.compose_count+count>2048
+            || self.queue.iter().map(Vec::len).sum::<usize>()+bytes.iter().map(Vec::len).sum::<usize>()>256 {
+            return Err("CW composition is unavailable or full; retained text was not appended".into());
+        }
+        if self.snapshot.compose_id.is_none() && !self.snapshot.status.is_some_and(Status::idle){return Err("Fresh idle WinKeyer required to start composition".into());}
+        if intent==0 || intent<=self.snapshot.last_intent{return Err("Stale or repeated CW composition intent".into());}
+        self.snapshot.last_intent=intent;self.snapshot.compose_id=Some(id.into());self.snapshot.compose_revision=revision;
+        self.compose_receipts.push((revision,fingerprint));self.compose_count+=count;self.compose_finished=finish;
+        self.queue.extend(bytes);self.snapshot.owns_output=true;self.saw_busy=false;
+        self.snapshot.restoration_requested|=sequence.variable_speed();
+        Ok(())
+    }
+    fn apply_preferences<P:Write+?Sized>(&mut self,port:&mut P,preferences:Preferences,wpm:u8,now:u64,cancelled:impl Fn()->bool)->Result<(),String>{
+        let commands=preferences.commands(wpm)?;
+        if !matches!(self.snapshot.firmware,Some(23|30|31)) || self.snapshot.phase!="ready" || self.snapshot.owns_output
+            || !self.fresh(now) || !self.snapshot.status.is_some_and(Status::idle) || self.speed_changed {
+            return Err("Apply preferences only to a recognized, freshly idle keyer with no output obligation".into());
+        }
+        self.arm_until=0;self.snapshot.applied_commands.clear();
+        for (name,bytes) in commands {
+            if cancelled(){self.snapshot.configuration_uncertain=!self.snapshot.applied_commands.is_empty();return Err("Preference application cancelled by Stop; no remaining settings were sent".into());}
+            if let Err(error)=self.write(port,&bytes,now){self.snapshot.configuration_uncertain=true;return Err(error);}
+            self.snapshot.applied_commands.push(name.into());
+        }
+        if let Some(source)=&preferences.speed_source {self.snapshot.speed_source=source.clone();if source=="software"{self.snapshot.requested_wpm=Some(wpm);}}
+        self.snapshot.applied_preferences=Some(preferences);self.snapshot.configuration_uncertain=false;
         Ok(())
     }
     fn stream(&mut self, intent: u64, id: &str, revision: u64, text: &str, finish: bool, now: u64) -> Result<(), String> {
@@ -322,6 +456,7 @@ impl Core {
         self.queue.clear();
         self.snapshot.stream_id = None;
         self.finished_stream = None;
+        self.retire_composition();
         self.arm_until = 0;
         self.snapshot.phase = "uncertain";
         self.snapshot.error = Some(message.into());
@@ -331,6 +466,7 @@ impl Core {
         self.queue.clear();
         self.snapshot.stream_id = None;
         self.finished_stream = None;
+        self.retire_composition();
         self.arm_until = 0;
         if self.snapshot.owns_output {
             self.write(port, CLEAR, now)?;
@@ -453,6 +589,8 @@ enum Command {
     Sequence { intent: u64, sequence: Sequence, stream: Option<String> },
     Stream { intent: u64, id: String, revision: u64, text: String, finish: bool },
     Speed(u8),
+    Configure {preferences:Preferences,wpm:u8},
+    Compose {intent:u64,id:String,revision:u64,sequence:Sequence,finish:bool},
 }
 struct Pending {
     command: Command,
@@ -605,6 +743,8 @@ fn run_actor_with_open(
                         Command::Send { intent, text } => core.send(intent, &text, now()),
                         Command::Sequence { intent, sequence, stream } => core.sequence_continuation(intent, &sequence, stream.as_deref(), now()),
                         Command::Stream { intent, id, revision, text, finish } => core.stream(intent, &id, revision, &text, finish, now()),
+                        Command::Compose {intent,id,revision,sequence,finish}=>core.compose(intent,&id,revision,&sequence,finish,now()),
+                        Command::Configure {preferences,wpm}=>core.apply_preferences(port.as_mut(),preferences,wpm,now(),||stop.load(Ordering::Acquire)||close.load(Ordering::Acquire)||pending.cancelled.load(Ordering::Acquire)),
                         Command::Speed(wpm) => {
                             if core.snapshot.owns_output
                                 || !core.fresh(now())
@@ -613,7 +753,7 @@ fn run_actor_with_open(
                                 Err("Change speed only while WinKeyer has fresh idle status".into())
                             } else {
                                 core.write(port.as_mut(), &[2, wpm], now()).map(|()| {
-                                    core.speed_changed=false;core.snapshot.restoration_requested=false;
+                                    core.speed_changed=false;core.snapshot.restoration_requested=false;core.snapshot.speed_source="software".into();core.snapshot.requested_wpm=Some(wpm);
                                 })
                             }
                         }
@@ -780,6 +920,15 @@ fn dispatch(method: &str, params: &Value) -> Result<Value, String> {
                 .filter(|v| (5..=99).contains(v))
                 .ok_or("CW speed must be 5–99 WPM")? as u8,
         ),
+        "winkeyer_preferences" => Command::Configure {
+            preferences:serde_json::from_value(params["preferences"].clone()).map_err(|_|"Invalid WinKeyer preferences")?,
+            wpm:params["wpm"].as_u64().filter(|v|(5..=99).contains(v)).ok_or("Software speed must be 5–99 WPM")? as u8,
+        },
+        "winkeyer_compose"=>Command::Compose {
+            intent:params["intent"].as_u64().ok_or("CW intent required")?,id:params["job"].as_str().ok_or("CW composition job required")?.into(),
+            revision:params["append"].as_u64().ok_or("CW append required")?,
+            sequence:serde_json::from_value(params["sequence"].clone()).map_err(|_|"Invalid typed CW sequence")?,finish:params["finish"].as_bool().ok_or("CW finish required")?,
+        },
         _ => {
             return Err(
                 "Unsupported WinKeyer operation or missing explicit transmit consent".into(),
@@ -915,6 +1064,48 @@ mod tests {
         core.snapshot.phase = "ready";
         core.receive(0xc0, 1);
         core
+    }
+    #[test]
+    fn pot_and_echo_are_bounded_observations_and_never_refresh_status_or_finish_output(){
+        let mut c=ready();c.snapshot.applied_preferences=Some(Preferences{pot_minimum:Some(10),pot_range:Some(30),..Preferences::default()});
+        c.arm(2).unwrap();c.send(1,"CQ",3).unwrap();
+        c.receive(0x85,2500);for _ in 0..140{c.receive(b'C',2501);}
+        assert_eq!(c.last_status,Some(1));assert!(!c.fresh(2500));assert_eq!(c.snapshot.pot_position,Some(5));assert_eq!(c.snapshot.pot_wpm,Some(15));
+        assert_eq!(c.snapshot.reported_echo.len(),128);assert!(c.snapshot.owns_output);assert_eq!(c.snapshot.echo_evidence,"uncorrelated-device-report");
+    }
+    #[test]
+    fn volatile_preferences_emit_only_supported_idle_bundle_and_partial_failure_disarms(){
+        let preferences=Preferences{speed_source:Some("pot".into()),pot_minimum:Some(10),pot_range:Some(30),weighting:Some(55),ratio:Some(50),ptt_lead:Some(1),ptt_tail:Some(7)};
+        let mut c=ready();c.snapshot.firmware=Some(31);let mut p=Fake::default();
+        c.apply_preferences(&mut p,preferences.clone(),20,2,||false).unwrap();
+        assert_eq!(p.bytes,[5,10,30,0,3,55,0x17,50,4,1,7,2,0,7]);assert_eq!(c.snapshot.speed_source,"pot");assert_eq!(c.arm_until,0);
+        let bytes=p.bytes.clone();c.receive(0xc4,3);assert!(c.apply_preferences(&mut p,preferences.clone(),20,4,||false).is_err());assert_eq!(p.bytes,bytes);
+        let mut c=ready();c.snapshot.firmware=Some(23);c.arm(2).unwrap();let mut p=Fake{partial:true,..Fake::default()};
+        assert!(c.apply_preferences(&mut p,preferences,20,3,||false).is_err());assert_eq!(c.arm_until,0);assert!(c.snapshot.configuration_uncertain);assert!(c.arm(4).is_err());
+        assert!(Preferences{pot_minimum:Some(90),pot_range:Some(20),..Preferences::default()}.commands(20).is_err());
+    }
+    #[test]
+    fn composition_appends_immutable_deltas_once_and_stop_retires_authority(){
+        let mut c=ready();let mut p=Fake::default();c.arm(2).unwrap();let id=uuid::Uuid::new_v4().to_string();
+        let text=|value:&str|Sequence::parse(&json!({"schema":1,"segments":[{"kind":"text","text":value}]})).unwrap();
+        c.compose(1,&id,1,&text("CQ"),false,3).unwrap();c.compose(1,&id,1,&text("CQ"),false,4).unwrap();
+        assert_eq!(c.queue.iter().flatten().copied().collect::<Vec<_>>(),b"CQ");
+        assert!(c.compose(2,&id,1,&text("TU"),false,5).is_err());c.compose(2,&id,2,&text(" "),false,6).unwrap();
+        c.compose(3,&id,3,&text("OM0RX"),false,7).unwrap();let end=Sequence{schema:1,segments:vec![]};
+        c.compose(4,&id,4,&end,true,8).unwrap();assert_eq!(c.queue.iter().flatten().copied().collect::<Vec<_>>(),b"CQ OM0RX");
+        assert!(c.compose(5,&id,5,&text("TU"),false,9).is_err());c.stop(&mut p,10).unwrap();
+        assert!(c.compose(5,&id,5,&text("TU"),false,11).is_err());assert!(c.queue.is_empty());
+        assert_eq!(p.bytes,[0x0a,0x15]);
+    }
+    #[test]
+    fn typed_prosign_emits_merge_command_and_pot_rejects_temporary_speed_before_output(){
+        let sequence=Sequence::parse(&json!({"schema":1,"segments":[{"kind":"text","text":"TU "},{"kind":"prosign","value":"AR"}]})).unwrap();
+        assert_eq!(sequence.text(),"TU <AR>");assert!(!sequence.variable_speed());assert!(sequence.has_prosigns());
+        let mut c=ready();let mut p=Fake::default();c.snapshot.speed_source="pot".into();c.arm(2).unwrap();c.sequence(1,&sequence,3).unwrap();
+        for now in [40,80,120,160]{c.receive(0xc4,now);c.tick(&mut p,now).unwrap();}
+        assert_eq!(p.bytes,b"TU \x1bAR");
+        let speed=Sequence::parse(&json!({"schema":1,"segments":[{"kind":"speed","wpm":18},{"kind":"text","text":"CQ"},{"kind":"restore"}]})).unwrap();
+        let before=p.bytes.clone();assert!(c.sequence(2,&speed,200).is_err());assert_eq!(p.bytes,before);
     }
     #[test]
     fn status_tags_and_all_wk1_bits() {

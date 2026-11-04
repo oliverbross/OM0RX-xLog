@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import { cwColors, cwOutputLimit, cwShortcuts, cwTokens, defaultCWProfile, expandCWMacro, type CWContext, type CWMacro, type CWProfile } from "./cwMacros";
+import { cwColors, cwOutputLimit, cwShortcuts, cwTokens, defaultCWProfile, expandCWMacro, type CWContext, type CWMacro, type CWProfile, type WinKeyerPreferences } from "./cwMacros";
 import type { CWRequest, CWState } from "./cwController";
 import "./CW.css";
 
@@ -13,12 +13,14 @@ export default function CWSettings({ value, saved, onChange, context = {}, reque
   const [ports, setPorts] = useState<string[]>([]);
   const macro = profile.macros.find(item => item.id === selected) ?? profile.macros[0];
   const keyer = profile.winkeyer ?? { port: "", wpm: 20 };
+  const preferences = keyer.preferences ?? {};
   const dirty = JSON.stringify(profile) !== JSON.stringify(saved ?? defaultCWProfile);
   const live = state?.winkeyer, ownsConnection = Number(live?.generation) > 0;
   useEffect(() => { setConsent(false); }, [keyer.port]);
   useEffect(() => { setCheckedStopped(false); }, [live?.generation, live?.phase, live?.owns_output]);
   const update = (patch: Partial<CWProfile>) => onChange({ ...profile, ...patch });
   const edit = (patch: Partial<CWMacro>) => update({ macros: profile.macros.map(item => item.id === macro?.id ? { ...item, ...patch } : item) });
+  const editPreferences = (patch: Partial<WinKeyerPreferences>) => update({ winkeyer: { ...keyer, preferences: { ...preferences, ...patch } } });
   let preview = "", previewError = "";
   if (macro) { try { preview = expandCWMacro(macro.text, context, cwOutputLimit(profile.output, radioProvider)); } catch (error) { previewError = error instanceof Error ? error.message : "Preview unavailable."; } }
   const act = async (method: string, params: Record<string, unknown> = {}) => {
@@ -27,7 +29,7 @@ export default function CWSettings({ value, saved, onChange, context = {}, reque
     try {
       const result = await request(method, params);
       if (method === "winkeyer_ports") setPorts(Array.isArray(result.ports) ? result.ports : []);
-      setMessage(method === "winkeyer_connect" ? "Connecting without sending CW. Watch connection status below." : method === "winkeyer_disconnect" ? result.phase === "closing" ? "Stopping and closing. When finished, release the closed session." : "WinKeyer session released." : method === "winkeyer_speed" ? "Speed command accepted; no text sent." : "Port list refreshed; no port was opened.");
+      setMessage(method === "winkeyer_preferences" ? "Volatile preference commands accepted. Settings have no readback; device behavior is unconfirmed." : method === "winkeyer_connect" ? "Connecting without sending CW. Watch connection status below." : method === "winkeyer_disconnect" ? result.phase === "closing" ? "Stopping and closing. When finished, release the closed session." : "WinKeyer session released." : method === "winkeyer_speed" ? "Speed command accepted; no text sent." : "Port list refreshed; no port was opened.");
       await refresh?.();
     } catch (error) { setMessage(error instanceof Error ? error.message : "WinKeyer operation failed."); }
     finally { setBusy(false); }
@@ -36,11 +38,26 @@ export default function CWSettings({ value, saved, onChange, context = {}, reque
     <h2>CW macros</h2><p>Prepare up to 20 messages. Preview and Save never transmit; arm from the Operator Desk when ready.</p>
     <div className="service-fields"><label>CW output<select aria-label="CW output" value={profile.output} onChange={event => update({ output: event.target.value as CWProfile["output"] })}><option value="radio">Active radio · supported CW command</option><option value="winkeyer">Independent WinKeyer</option></select></label>
       <label className="cw-check"><input type="checkbox" checked={profile.showOnDesk} onChange={event => update({ showOnDesk: event.target.checked })} />Show selected macro buttons on Operator Desk</label></div>
+    <label>Default CW workbench mode<select aria-label="Default CW workbench mode" value={profile.composition?.mode ?? "word"} onChange={event=>update({composition:{mode:event.target.value as "character"|"word"|"hybrid"}})}>
+      <option value="character">Character</option><option value="word">Word</option><option value="hybrid">First word live, then words</option>
+    </select></label>
+    <p>Typed messages support {"{WPM:18}"}, {"{WPM:BASE}"} and {"{PROSIGN:AR}"} (AR, AS, BT, SK, KN). Temporary speed restores to base. Unsupported adapters reject these operations before output.</p>
     {profile.output === "radio" && <p>Uses only the active radio, with its existing transmit permission and CW capability. No automatic fallback to WinKeyer. Hamlib messages are limited to 80 characters; other supported radios allow 128.</p>}
     {profile.output === "winkeyer" && <div className="cw-connection">
       <div className="service-fields"><label>WinKeyer serial port<input aria-label="WinKeyer serial port" list="cw-ports" value={keyer.port} onChange={event => update({ winkeyer: { ...keyer, port: event.target.value } })} placeholder="/dev/cu.usbserial… or COM3" /><datalist id="cw-ports">{ports.map(port => <option key={port} value={port} />)}</datalist></label>
         <label>WinKeyer speed · WPM<input aria-label="WinKeyer speed WPM" type="number" min={5} max={99} value={keyer.wpm} onChange={event => update({ winkeyer: { ...keyer, wpm: Number(event.target.value) } })} /></label></div>
       <p>WK2 revision 23 / WK3 revisions 30–31 · 1200 baud, 8N2. Connect asserts DTR and clears RTS; driver line changes can affect attached equipment. Original WK1 and other firmware are not enabled.</p>
+      <fieldset><legend>Volatile keyer preferences</legend><p>Unset values inherit the device. Save stores your choices; Apply sends only the chosen options while idle and disarms CW. Device mode, paddle and sidetone registers remain unchanged because their existing bits cannot be read back.</p>
+        <div className="service-fields"><label>Speed source<select aria-label="WinKeyer speed source" value={preferences.speedSource ?? ""} onChange={event => editPreferences({ speedSource: event.target.value === "" ? undefined : event.target.value as "software" | "pot" })}><option value="">Inherit device</option><option value="software">Saved software WPM</option><option value="pot">Physical speed pot</option></select></label>
+          <label>Pot minimum WPM<input aria-label="WinKeyer pot minimum" type="number" min={5} max={94} placeholder="Inherit" value={preferences.potMinimum ?? ""} onChange={event => editPreferences({ potMinimum: event.target.value === "" ? undefined : Number(event.target.value) })} /></label>
+          <label>Pot range WPM<input aria-label="WinKeyer pot range" type="number" min={5} max={94} placeholder="Inherit" value={preferences.potRange ?? ""} onChange={event => editPreferences({ potRange: event.target.value === "" ? undefined : Number(event.target.value) })} /></label>
+          <label>Weighting %<input aria-label="WinKeyer weighting" type="number" min={10} max={90} placeholder="Inherit" value={preferences.weighting ?? ""} onChange={event => editPreferences({ weighting: event.target.value === "" ? undefined : Number(event.target.value) })} /></label>
+          <label>Dit/dah ratio setting<input aria-label="WinKeyer ratio" type="number" min={33} max={66} placeholder="Inherit" value={preferences.ratio ?? ""} onChange={event => editPreferences({ ratio: event.target.value === "" ? undefined : Number(event.target.value) })} /></label>
+          <label>PTT lead · 10 ms units<input aria-label="WinKeyer PTT lead" type="number" min={0} max={250} placeholder="Inherit" value={preferences.pttLead ?? ""} onChange={event => editPreferences({ pttLead: event.target.value === "" ? undefined : Number(event.target.value) })} /></label>
+          <label>PTT tail · 10 ms units<input aria-label="WinKeyer PTT tail" type="number" min={0} max={250} placeholder="Inherit" value={preferences.pttTail ?? ""} onChange={event => editPreferences({ pttTail: event.target.value === "" ? undefined : Number(event.target.value) })} /></label></div>
+        <p>Enter both pot limits or both PTT delays when changing that pair. Pot maximum is minimum plus range, at most 99 WPM. Tail adds three dit times. Temporary message speeds are unavailable in pot mode.</p>
+        <button type="button" disabled={busy || dirty || live?.phase !== "ready" || live?.owns_output || !request} onClick={() => void act("winkeyer_preferences", { generation: live?.generation, preferences, wpm: keyer.wpm })}>Apply saved keyer preferences</button>
+      </fieldset>
       <label className="cw-check"><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />I have checked the port and understand the control-line changes</label>
       <div className="cw-actions"><button type="button" disabled={busy || !request} onClick={() => void act("winkeyer_ports")}>List ports</button><button type="button" disabled={busy || dirty || !consent || !keyer.port.trim() || ownsConnection || !request} onClick={() => void act("winkeyer_connect", { port: keyer.port, confirm_serial_control: true })}>Connect WinKeyer</button>
         <button type="button" disabled={busy || !ownsConnection || !request} onClick={() => void act("winkeyer_disconnect", { generation: live?.generation, confirm_output_stopped: checkedStopped })}>{live?.phase === "disconnected" || live?.phase === "uncertain" ? "Release closed session" : "Disconnect WinKeyer"}</button>
@@ -48,6 +65,7 @@ export default function CWSettings({ value, saved, onChange, context = {}, reque
       </div>
       {dirty && <p>Save settings before connecting or applying speed.</p>}
       <p role="status">WinKeyer: {live?.phase ?? "disconnected"}{live?.firmware ? ` · firmware ${live.firmware}` : ""}{live?.error ? ` · ${live.error}` : ""}</p>
+      {live && <div role="status"><p>Applied speed source: {live.speed_source ?? "inherited"}{live.requested_wpm ? ` · requested ${live.requested_wpm} WPM` : ""}. Pot report: {live.pot_wpm != null ? `${live.pot_wpm} WPM` : live.pot_position != null ? `position ${live.pot_position}; range not known` : "unavailable"}{live.pot_age_ms != null && live.pot_age_ms > 2000 ? " · stale" : ""}.</p><p>Device echo · uncorrelated, no RF confirmation: {live.reported_echo || "none"}</p><p>{live.configuration_uncertain ? "Configuration uncertain; reconnect after checking the keyer." : live.applied_commands?.length ? `Commands accepted: ${live.applied_commands.join(", ")}. No option readback.` : "No preferences applied this connection."}</p></div>}
       {live?.phase === "uncertain" && live?.owns_output && <label className="cw-check"><input type="checkbox" checked={checkedStopped} onChange={event => setCheckedStopped(event.target.checked)} />I physically checked that the keyer output has stopped</label>}
       {message && <p role="status">{message}</p>}
     </div>}
