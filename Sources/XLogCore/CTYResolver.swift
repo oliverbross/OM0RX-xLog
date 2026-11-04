@@ -386,7 +386,9 @@ public final class CTYResolver: @unchecked Sendable {
                     && (rule.end == nil || date <= rule.end!) && rule.matches(key)
             }.sorted(by: CountryReferencePack.CompiledRule.precedes)
             guard let best = candidates.first else {
-                return pack.ambiguousPrefixes.contains(where: { key.hasPrefix($0) }) ? output(.ambiguous) : nil
+                // An absent exact exception is not a geographic decision.
+                // Qualifiers and finer area rules still need their normal turn.
+                return !exact && pack.ambiguousPrefixes.contains(where: { key.hasPrefix($0) }) ? output(.ambiguous) : nil
             }
             let peers = candidates.prefix { $0.rank == best.rank }
             guard Set(peers.map { $0.record.country }).count == 1 else { return output(.ambiguous) }

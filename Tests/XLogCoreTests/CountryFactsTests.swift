@@ -96,6 +96,21 @@ struct CountryFactsTests {
         #expect(expedition.matchedRule?.contains("CallResolution.tbl") == true)
     }
 
+    @Test("A missing exact exception still permits finer area rules and mobile qualifiers")
+    func ambiguousPrefixDoesNotEndExactSearch() {
+        let resolver = Self.packed
+        for (call, adif) in [("FT4XZZZ", 131), ("R1ANZZZ", 13)] {
+            let value = resolver.facts(call, at: day)
+            #expect(value.status == .resolved, "\(call): \(value)")
+            #expect(value.country?.adif == adif)
+        }
+        for call in ["VK2ZZZ/MM", "3Y0ZZZ/AM"] {
+            #expect(resolver.facts(call, at: day).status == .knownNoEntity)
+            #expect(resolver.facts(call, at: day).country == nil)
+        }
+        #expect(resolver.facts("3Y0ZZZ", at: day).status == .ambiguous)
+    }
+
     @Test("One validator rejects invalid packs and imported bytes preserve snapshot identity")
     func validation() throws {
         let data = try CTYResolver.bundledCountryPackBytes()
