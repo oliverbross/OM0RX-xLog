@@ -1,0 +1,20 @@
+
+> om0rx-xlog-p1-prototype@1.5.9 test:vitest
+> vitest run --maxWorkers=1 src/live/useSharedCW.test.tsx src/live/sharedCWSession.test.ts src/live/CWComposition.test.tsx src/live/cwMessagePlan.test.ts src/live/cwMacros.test.ts
+
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.3 [39m[90m/Users/oliver/Documents/Projects/OM0RX-xLog/prototype[39m
+
+ [32m✓[39m src/live/CWComposition.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 120[2mms[22m[39m
+ [32m✓[39m src/live/useSharedCW.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 110[2mms[22m[39m
+ [32m✓[39m src/live/cwMacros.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+ [32m✓[39m src/live/sharedCWSession.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/live/cwMessagePlan.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m5 passed[39m[22m[90m (5)[39m
+[2m      Tests [22m [1m[32m20 passed[39m[22m[90m (20)[39m
+[2m   Start at [22m 23:22:40
+[2m   Duration [22m 2.58s[2m (environment 67%, tests 13%, import 12%, transform 7%, worker 1%)[22m
+
+[2m    Isolate [22m [33m5 workers spawned[39m[2m · ~374ms startup each (spawn + environment, per file)[22m
+[2m            [22m [2mat least ~1.50s faster with [22m[33misolate: false[39m[2m — reuses workers across files instead of one per file[22m

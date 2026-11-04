@@ -90,10 +90,12 @@ impl Session {
     }
     fn lock(&self) -> Result<std::sync::MutexGuard<'_, State>, String> { self.state.lock().map_err(|_| "CW session unavailable".into()) }
     fn snapshot_locked(&self, state: &State) -> Value {
+        let message_context=message_context(&state.canonical);
         json!({"revision":state.revision,"armed":state.armed_until > (self.clock)(),"pending":state.pending || state.stopping,
             "owner":state.owner,"message":state.message,"error":state.error,"winkeyer":state.winkeyer,
             "client":state.holder,"lease":state.lease,"canonical":state.canonical,"contestResult":state.contest_result,"stream":state.stream,"controlSurface":state.control_surface,
             "composition":state.composition,
+            "messageContext":message_context.as_ref().ok(),"messageContextError":message_context.as_ref().err(),
             "capabilities":{"speedSegments":state.target["speedSegments"] == true,"streaming":state.target["streaming"] == true,
                 "composition":state.target["composition"] == true,"prosigns":state.target["prosigns"] == true,
                 "progressEvidence":state.target["progressEvidence"]}})
@@ -212,7 +214,7 @@ impl Session {
             let id = params["macroID"].as_u64().ok_or("Choose a saved CW macro")?;
             let source = state.canonical["profile"]["macros"].as_array().and_then(|items| items.iter().find(|item| item["id"] == id && item["enabled"] == true))
                 .and_then(|item| item["text"].as_str()).ok_or("This macro is disabled or is not saved.")?;
-            let plan = crate::cw_message::compile(source, &state.canonical["context"], state.target["limit"].as_u64().unwrap_or(80) as usize, false)?;
+            let plan = crate::cw_message::compile(source, &message_context(&state.canonical)?, state.target["limit"].as_u64().unwrap_or(80) as usize, false)?;
             validate_plan(&plan, &state.target)?;
             state.pending = true; state.error.clear(); Self::change(&mut state);
             (state.canonical.clone(), state.target.clone(), state.epoch, plan)
@@ -253,13 +255,18 @@ impl Session {
             }
             let previous = &state.composition;
             let same = previous["jobID"] == job;
+            // Whole-message radio adapters retain their original owner until Stop.
+            // A finished staged job may reuse that exact route, with fresh admission
+            // below, just as a saved memory can; an open/live/keyer job may not.
+            let reuse_staged_radio=!same && !live && finish && previous["closed"]==true
+                && state.target["output"]=="radio" && same_target(&state.owner,&state.target);
             // An identical acknowledged append is idempotent. A lost IPC
             // acknowledgement still makes the renderer require Stop.
             if same && previous["appendSequence"] == append && previous["template"] == source && previous["finish"] == finish && previous["live"] == live {
                 return Ok(());
             }
             if same && (previous["closed"] == true || previous["appendSequence"].as_u64().unwrap_or(0) + 1 != append)
-                || !same && (append != 1 || !state.owner.is_null() || !previous.is_null() && previous["closed"] != true) {
+                || !same && (append != 1 || !state.owner.is_null() && !reuse_staged_radio || !previous.is_null() && previous["closed"] != true) {
                 return Err("CW composition was changed or retired. Stop before starting another job.".into());
             }
             if live && state.target["composition"] != true || !live && (!finish || append != 1) {
@@ -270,7 +277,7 @@ impl Session {
             }
             let plan = if source.is_empty() && same && finish {
                 crate::winkeyer::Sequence { schema: 1, segments: vec![] }
-            } else { crate::cw_message::compile(source, &state.canonical["context"], state.target["limit"].as_u64().unwrap_or(80) as usize, live)? };
+            } else { crate::cw_message::compile(source, &message_context(&state.canonical)?, state.target["limit"].as_u64().unwrap_or(80) as usize, live)? };
             validate_plan(&plan, &state.target)?;
             let count = if same { previous["characters"].as_u64().unwrap_or(0) } else { 0 } + plan.text().len() as u64;
             if count > 2048 { return Err("Finish this composition within 2,048 characters, then start a new job.".into()); }
@@ -602,6 +609,20 @@ fn validate_plan(plan: &crate::winkeyer::Sequence, target: &Value) -> Result<(),
     Ok(())
 }
 fn allowed(byte: u8) -> bool { byte.is_ascii_alphanumeric() || b" /?=+.,-".contains(&byte) }
+/// Presentation/compiler token projection only. The authoritative draft and its
+/// raw reports/exchange/serial remain unchanged and continue to fence admission.
+fn message_context(canonical:&Value)->Result<Value,String>{
+    let mut context=canonical["context"].as_object().cloned().map(Value::Object).ok_or("CW message context is unavailable")?;
+    if !canonical["contestSessionID"].is_string(){return Ok(context);}
+    let formatting=&canonical["cwFormatting"];
+    context["RST"]=json!(format_contest_rst(context["RST"].as_str().unwrap_or(""),formatting)?);
+    let format_serial=|value:&str|if value.bytes().all(|byte|byte.is_ascii_digit()) {format_contest_serial(value,formatting)}else{Ok(value.to_owned())};
+    let serial=format_serial(context["SERIAL"].as_str().or_else(||context["SENTNR"].as_str()).unwrap_or(""))?;
+    let sentnr=format_serial(context["SENTNR"].as_str().or_else(||context["SERIAL"].as_str()).unwrap_or(""))?;
+    context["SERIAL"]=json!(serial);context["SENTNR"]=json!(sentnr);
+    if let Some(exchange)=context["EXCHANGE"].as_str(){context["EXCHANGE"]=json!(exchange.replace('#',context["SERIAL"].as_str().unwrap_or("")));}
+    Ok(context)
+}
 fn cw_formatting<'a>(formatting: &'a Value, key: &str) -> Result<&'a str, String> {
     formatting[key].as_str().ok_or_else(|| format!("Invalid contest CW formatting preference: {key}"))
 }
@@ -794,6 +815,53 @@ mod tests {
         session.stop().unwrap();
         assert!(compose_call(&mut client,&session,&job,3," LATE",true,false,"typing").is_err());
         assert_eq!(backend.writes.lock().unwrap().iter().filter(|(a,_,_)|a=="send").count(),2);
+    }
+    #[test]
+    fn staged_radio_jobs_reuse_the_same_owned_route_with_fresh_admission(){
+        let(session,backend,_)=fixture();let mut client=Client::new();ready(&mut client,&session);
+        let lease=session.snapshot().unwrap()["lease"].clone();
+        for text in ["CQ DE OM0RX","K1ABC 599"] {
+            compose_call(&mut client,&session,&uuid::Uuid::new_v4().to_string(),1,text,false,true,"explicit-send").unwrap();
+            assert_eq!(session.snapshot().unwrap()["lease"],lease);
+        }
+        backend.target.lock().unwrap()["generation"]=json!(8);
+        assert!(compose_call(&mut client,&session,&uuid::Uuid::new_v4().to_string(),1,"WRONG ROUTE",false,true,"explicit-send").is_err());
+        let sent:Vec<_>=backend.writes.lock().unwrap().iter().filter(|(a,_,_)|a=="send").map(|(_,s,_)|s.clone().unwrap()).collect();
+        assert_eq!(sent,vec!["CQ DE OM0RX","K1ABC 599"]);
+        assert_eq!(session.snapshot().unwrap()["owner"]["generation"],7);
+    }
+    #[test]
+    fn a_closed_but_busy_keyer_job_is_not_reused_as_a_new_staged_radio_job(){
+        let(session,backend,_)=fixture();backend.target.lock().unwrap()["output"]=json!("winkeyer");
+        let mut client=Client::new();ready(&mut client,&session);
+        compose_call(&mut client,&session,&uuid::Uuid::new_v4().to_string(),1,"FIRST",false,true,"explicit-send").unwrap();
+        assert!(compose_call(&mut client,&session,&uuid::Uuid::new_v4().to_string(),1,"BUSY",false,true,"explicit-send").is_err());
+        assert_eq!(backend.writes.lock().unwrap().iter().filter(|(a,_,_)|a=="send").count(),1);
+    }
+    #[test]
+    fn contest_workbench_preview_and_native_output_use_formatted_tokens_without_changing_raw_draft(){
+        let(session,backend,_)=fixture();{
+            let mut canonical=backend.canonical.lock().unwrap();canonical["contestSessionID"]=json!("contest-1");
+            canonical["context"]=json!({"MYCALL":"OM0RX","CALL":"EA8/OM0RX/P","RST":"599","SERIAL":"1","SENTNR":"1","EXCHANGE":"#"});
+        }
+        let original=backend.canonical.lock().unwrap().clone();let mut client=Client::new();ready(&mut client,&session);
+        let snapshot=session.snapshot().unwrap();
+        assert_eq!(snapshot["messageContext"]["RST"],"5NN");assert_eq!(snapshot["messageContext"]["SERIAL"],"TT1");
+        let source="{CALL} {RST} {SERIAL} {EXCHANGE}";let expected="EA8/OM0RX/P 5NN TT1 TT1";
+        assert_eq!(crate::cw_message::compile(source,&snapshot["messageContext"],128,false).unwrap().text(),expected);
+        compose_call(&mut client,&session,&uuid::Uuid::new_v4().to_string(),1,source,false,true,"explicit-send").unwrap();
+        let writes=backend.writes.lock().unwrap();assert_eq!(writes.last().unwrap().1.as_deref(),Some(expected));
+        assert_eq!(*backend.canonical.lock().unwrap(),original);
+    }
+    #[test]
+    fn invalid_contest_formatting_is_not_replaced_with_raw_preview_or_output(){
+        let(session,backend,_)=fixture();{
+            let mut canonical=backend.canonical.lock().unwrap();canonical["contestSessionID"]=json!("contest-1");canonical["cwFormatting"]["cwRSTFormat"]=json!("unsupported");
+        }
+        let mut client=Client::new();ready(&mut client,&session);let snapshot=session.snapshot().unwrap();
+        assert!(snapshot["messageContext"].is_null());assert!(snapshot["messageContextError"].as_str().unwrap().contains("RST format"));
+        assert!(compose_call(&mut client,&session,&uuid::Uuid::new_v4().to_string(),1,"{RST}",false,true,"explicit-send").is_err());
+        assert!(backend.writes.lock().unwrap().is_empty());
     }
     #[test]
     fn keyer_preference_apply_or_paddle_disarm_retires_native_arm_without_a_send(){

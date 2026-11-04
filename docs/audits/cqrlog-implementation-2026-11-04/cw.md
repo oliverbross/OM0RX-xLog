@@ -72,3 +72,58 @@ compositionend. The unchanged input test now attempts both button and semantic
 Send during ASCII preedit (zero output) and deliberate Send after commit. All
 3 workbench tests pass (`d1209ed9da5ec371`). No output owner or device admission
 guard was weakened.
+
+### Independent review follow-ups — staged radio jobs and contest token projection
+
+The review found that a second distinct staged composition was always refused
+on whole-message radio adapters: successful dispatch retains the original radio
+owner, while the workbench deliberately creates a new job after Finish. A closed
+non-live radio composition can now reuse that exact owner after the ordinary
+fresh canonical/connection admission. Open/live jobs and a still-owned keyer do
+not receive this exception. A positive native case sends two different staged
+messages under one lease, then changes the observed connection and proves that a
+third message emits nothing and retains the old owner. A separate busy-keyer case
+proves that this did not turn radio reuse into a general ownership bypass.
+
+The native owner also publishes a separate `messageContext` projection. Contest
+report and serial tokens use the selected RST/cut-number/padding preferences;
+an exchange's serial marker uses that same formatted reserved serial. Both the
+native normal/workbench compiler and the renderer preview consume this projection.
+The authoritative `canonical.context` retains raw callsign/report/exchange/serial
+and continues to fence admission. An absent/invalid contest projection never
+falls back to raw contest values in the renderer. Normal-logging literal/token
+semantics remain unchanged, and literal typed text is not reformatted.
+
+The hand-checked native/operator oracle is `{CALL} {RST} {SERIAL} {EXCHANGE}`
+with portable call `EA8/OM0RX/P`, raw `599`, serial `1`, exchange `#`, and the
+existing 5NN/T-padding preferences: preview and admitted text are exactly
+`EA8/OM0RX/P 5NN TT1 TT1`. The native test checks that the raw canonical document
+is unchanged. The hook/UI test independently checks the displayed preview and
+that the renderer still submits the original template rather than expanded text.
+An invalid-format case observes zero backend writes.
+
+Actual focused gates after these changes:
+
+* `cargo test --manifest-path prototype/src-tauri/Cargo.toml --bin xlog-prototype cw_session::tests::`
+  — **46 passed**, exit 0; [raw result](cw-review-rust.txt).
+* `npm run test:vitest -- src/live/useSharedCW.test.tsx src/live/sharedCWSession.test.ts src/live/CWComposition.test.tsx src/live/cwMessagePlan.test.ts src/live/cwMacros.test.ts`
+  from `prototype` — **20 passed** in five files, exit 0; [raw result](cw-review-frontend.txt).
+* `npx tsc --noEmit` from `prototype` — exit 0, no diagnostics;
+  [raw output](cw-review-typecheck.txt).
+
+These counts overlap earlier gates and are not added together. An initial
+lean-ctx MCP Rust job remained queued without a cargo/rustc/test process or log;
+it and the stalled process-inspection request were cancelled. The documented
+lean-ctx CLI fallback executed the actual successful Rust gate (exec session
+36405). This was a tool execution stall, not a failing or passing product test.
+
+Source-file hashes at this focused boundary; the integrator records the exact
+final commit and retains the separate integrated/native/package/physical gates:
+
+```text
+3189f58d0bb343fe90001cfc9c904a919efade5bae6d375e857a009180a31f77  prototype/src-tauri/src/cw_session.rs
+a5b1c1cf6b68b150aa7002c76fba5f42e5e171991557fdbd54fe7eb9ccf0d5bf  prototype/src/live/sharedCWSession.ts
+e7e4e5b13293eacb0d1787804bea2d4095b89ef7bfb5f9cd751da91ffe12c8b4  prototype/src/live/useSharedCW.ts
+e054a79f1476322062e88b688f49f9ea53ac78f99c49b58dd361c594f6a7a05d  prototype/src/live/sharedCWSession.test.ts
+ec5f5ea0e929250b7095898a18d6d01b46cb38e8318998e2c16302f52a8d0b6d  prototype/src/live/useSharedCW.test.tsx
+```

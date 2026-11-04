@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { SharedCWSession, sharedCWProfile } from "./sharedCWSession";
+import { SharedCWSession, sharedCWContext, sharedCWProfile } from "./sharedCWSession";
 import { macroForKey } from "./cwMacros";
 
 export function useSharedCW(contextKey: string, suspended = false, nativeFocusOwner = false) {
@@ -26,5 +26,5 @@ export function useSharedCW(contextKey: string, suspended = false, nativeFocusOw
     window.addEventListener("keydown", keydown); window.addEventListener("blur", disarm); document.addEventListener("visibilitychange", visibility);
     return () => { clearInterval(timer); window.removeEventListener("keydown", keydown); window.removeEventListener("blur", disarm); document.removeEventListener("visibilitychange", visibility); controller.dispose(); };
   }, [controller]);
-  return { controller, state, profile: sharedCWProfile(state), context: state.canonical?.context ?? {}, provider: state.canonical?.provider ?? "direct_agent" };
+  return { controller, state, profile: sharedCWProfile(state), context: sharedCWContext(state), provider: state.canonical?.provider ?? "direct_agent" };
 }

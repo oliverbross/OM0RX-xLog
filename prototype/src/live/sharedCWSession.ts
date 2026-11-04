@@ -4,6 +4,7 @@ import { defaultCWProfile, validateCWProfile, type CWContext, type CWMacro, type
 
 type Data = Record<string, any>;
 export type SharedCWState = CWState & { revision: number; lease: string | null; client: string | null; canonical: Data | null;
+  messageContext?: CWContext | null; messageContextError?: string | null;
   composition?: {jobID: string; appendSequence: number; accepted: string; closed: boolean; evidence: string} | null;
   capabilities?: { speedSegments?: boolean; streaming?: boolean; composition?: boolean; prosigns?: boolean; progressEvidence?: string } };
 export type CWComposeRequest = {jobID: string; appendSequence: number; template: string; live: boolean; finish: boolean; inputOrigin: "typing" | "explicit-send"};
@@ -66,3 +67,7 @@ export class SharedCWSession {
   dispose = () => { this.disposed = true; void this.action("unregister"); };
 }
 export const sharedCWProfile = (state: SharedCWState): CWProfile => state.canonical?.profile ?? defaultCWProfile;
+/** Native applies the contest's report/cut-number policy once for both preview
+ * and dispatch. Missing contest projection never silently falls back to raw fields. */
+export const sharedCWContext=(state:SharedCWState):CWContext=>state.messageContext??
+  (state.canonical?.contestSessionID?{}:state.canonical?.context??{});

@@ -3,9 +3,28 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, expect, it, vi } from "vitest";
 import { useSharedCW } from "./useSharedCW";
 import { defaultCWProfile } from "./cwMacros";
+import CWComposition from "./CWComposition";
 const invoke = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
 afterEach(() => { cleanup(); vi.restoreAllMocks(); invoke.mockReset(); });
+it("uses the native formatted contest context for workbench preview while retaining raw fields",async()=>{
+  const raw={CALL:"EA8/OM0RX/P",MYCALL:"OM0RX",RST:"599",SERIAL:"1",EXCHANGE:"#"};
+  const formatted={...raw,RST:"5NN",SERIAL:"TT1",EXCHANGE:"TT1"};
+  const expected="EA8/OM0RX/P 5NN TT1 TT1";
+  invoke.mockImplementation(async(_command,{client,params})=>({revision:1,armed:true,pending:false,owner:null,client,lease:"native-lease",error:"",message:"CW",
+    canonical:{profile:defaultCWProfile,contestSessionID:"contest-1",context:raw},messageContext:formatted,
+    composition:params.action==="compose"?{jobID:params.jobID,appendSequence:params.appendSequence,accepted:expected,closed:true}:null}));
+  function Harness(){const{context,state,controller}=useSharedCW("contest");return <>
+    <CWComposition context={context} state={state} compose={controller.compose} stop={controller.stop}/>
+    <output aria-label="Raw contest fields">{JSON.stringify(state.canonical?.context)}</output></>;}
+  render(<Harness/>);await waitFor(()=>expect(screen.getByLabelText("Raw contest fields").textContent).toContain('"RST":"599"'));
+  fireEvent.click(screen.getByText("CW workbench"));
+  fireEvent.input(screen.getByLabelText("Editable text"),{target:{value:"{CALL} {RST} {SERIAL} {EXCHANGE}"},inputType:"insertFromPaste"});
+  await screen.findByText(expected);fireEvent.click(screen.getByText("Send / finish"));
+  await waitFor(()=>expect(invoke.mock.calls.some(call=>call[1].params.action==="compose")).toBe(true));
+  expect(invoke.mock.calls.find(call=>call[1].params.action==="compose")?.[1].params).toMatchObject({template:"{CALL} {RST} {SERIAL} {EXCHANGE}"});
+  expect(screen.getByLabelText("Raw contest fields").textContent).toBe(JSON.stringify(raw));
+});
 it("main Desk shared shortcuts preserve typing/modal/focus exclusions and unregister on cleanup", async () => {
   vi.spyOn(document, "hasFocus").mockReturnValue(true);
   const profile = structuredClone(defaultCWProfile); profile.macros[0].shortcut = "F1";

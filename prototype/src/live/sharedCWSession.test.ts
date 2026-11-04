@@ -1,9 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
-import { SharedCWSession, type CWTransport } from "./sharedCWSession";
+import { SharedCWSession, sharedCWContext, type CWTransport } from "./sharedCWSession";
 import { defaultCWProfile } from "./cwMacros";
 const snapshot = (client: string, revision = 1) => ({ revision, armed: false, pending: false, owner: null, lease: "lease", client,
   message: "CW disarmed", error: "", winkeyer: null, canonical: { profile: defaultCWProfile, context: { CALL: "K1ABC" }, provider: "direct_agent" } });
 describe("native shared CW renderer adapter", () => {
+  it("never substitutes a missing contest message projection with raw report and serial fields",async()=>{
+    const transport=vi.fn<CWTransport>(async client=>({...snapshot(client),canonical:{profile:defaultCWProfile,contestSessionID:"contest-1",context:{RST:"599",SERIAL:"1"}}}));
+    const session=new SharedCWSession(transport);await session.refresh();
+    expect(sharedCWContext(session.getSnapshot())).toEqual({});
+    expect(session.getSnapshot().canonical?.context).toEqual({RST:"599",SERIAL:"1"});
+  });
   it("sends only saved macro identity and revisions, never renderer text/context", async () => {
     const transport = vi.fn<CWTransport>(async client => ({ ...snapshot(client), armed: true }));
     const session = new SharedCWSession(transport); await session.refresh();

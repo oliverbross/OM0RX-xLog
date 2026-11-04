@@ -17,6 +17,9 @@ a mode for its current unsent composition:
 
 Live composition currently requires the existing WinKeyer append adapter.
 Other supported radio adapters accept staged Send with their existing limits.
+After a staged message finishes, another explicit message can use the same armed
+radio route after fresh admission. A new message cannot take over an open live
+job, a busy keyer or a changed output connection.
 Each append has one native job/connection/lease and a monotonic identity. The UI
 submits new segments only. A repeated append cannot repeat an accepted prefix;
 Stop retires the job before releasing its output. Reconnect, focus/context change,
@@ -40,8 +43,11 @@ Preferences cannot apply while a native job owns the keyer.
 
 The preview shows substituted portable calls, report/exchange/serial, typed
 prosigns and speed sections. Native dispatch compiles against the actual current
-draft and settings and fences its connection. Preview consumes no serial. TLF
-early-start and corrected-call workflows retain their existing native/Host
+draft and settings and fences its connection. Preview consumes no serial.
+Contest report and serial tokens follow the selected cut-number and padding
+preferences in both preview and output; the underlying draft retains its raw
+report, exchange and serial. Literal typed text is unchanged by those preferences.
+TLF early-start and corrected-call workflows retain their existing native/Host
 admission and original exchange/serial; the workbench does not log a contact or
 reserve another serial. Finish or Stop a workbench job before a contest message
 or ESM action. Auto CQ, early-start and exact dual lanes keep their existing

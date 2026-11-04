@@ -1,0 +1,78 @@
+    Blocking waiting for file lock on build directory
+   Compiling xlog-prototype v1.5.9 (/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri)
+warning: method `prosigns` is never used
+   --> src/winkeyer.rs:139:12
+    |
+130 | impl Sequence {
+    | ------------- method in this implementation
+...
+139 |     pub fn prosigns(&self) -> bool {self.has_prosigns()}
+    |            ^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `open` is never used
+   --> src/workspace_window_runtime.rs:421:8
+    |
+421 | pub fn open(app: &AppHandle, label: &str) -> Result<(), String> {
+    |        ^^^^
+
+warning: function `contest_toggle` is never used
+   --> src/workspace_window_runtime.rs:449:8
+    |
+449 | pub fn contest_toggle(app: &AppHandle, context: crate::contest_window_context::ContestWindowContext,
+    |        ^^^^^^^^^^^^^^
+
+warning: `xlog-prototype` (bin "xlog-prototype" test) generated 3 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 49.66s
+     Running unittests src/main.rs (prototype/src-tauri/target/debug/deps/xlog_prototype-f41ae57153c659ff)
+
+running 46 tests
+test cw_session::tests::canvas_idle_reservation_rejects_armed_cw_without_stop_and_blocks_new_admission ... ok
+test cw_session::tests::canonical_revision_change_disarms_and_uses_only_new_qso_context ... ok
+test cw_session::tests::absent_native_continuation_cannot_send_a_host_suppressed_callsign ... ok
+test cw_session::tests::a_closed_but_busy_keyer_job_is_not_reused_as_a_new_staged_radio_job ... ok
+test cw_session::tests::composition_appends_deltas_once_and_stop_retires_the_job ... ok
+test cw_session::tests::contest_controller_routes_only_to_entry_and_requires_the_active_contest ... ok
+test cw_session::tests::child_close_retains_unknown_output_and_late_old_window_cleanup_cannot_revoke_replacement ... ok
+test cw_session::tests::child_transition_cannot_hide_a_pending_send_or_admit_duplicate_close ... ok
+test cw_session::tests::contest_cw_formatting_matches_original_not1mm_without_changing_raw_values ... ok
+test cw_session::tests::composition_requires_deliberate_origin_and_capabilities_before_output ... ok
+test cw_session::tests::contest_entry_focus_retirement_and_sequencing_remain_native ... ok
+test cw_session::tests::contest_entry_executes_one_esm_with_its_own_native_lease ... ok
+test cw_session::tests::contest_esm_uses_frozen_host_call_after_log_clears_draft_and_keeps_validated_lease ... ok
+test cw_session::tests::composition_draft_or_route_change_invalidates_old_append_and_lost_reply_never_replays ... ok
+test cw_session::tests::contest_output_formats_the_frozen_rst_and_serial_only_at_native_expansion ... ok
+test cw_session::tests::contest_replay_and_authority_change_never_send ... ok
+test cw_session::tests::contest_output_claim_survives_lost_send_and_rearming_cannot_replay_it ... ok
+test cw_session::tests::contest_text_uses_the_armed_contest_lease_without_a_host_macro_mutation ... ok
+test cw_session::tests::cw_admission_is_closed_to_other_surfaces_isolation_shutdown_and_raw_actions ... ok
+test cw_session::tests::cw_observer_snapshot_and_focus_retirement_never_stop_another_windows_lease ... ok
+test cw_session::tests::delayed_focus_cleanup_cannot_retire_a_new_registration_of_the_same_renderer_client ... ok
+test cw_session::tests::contest_workbench_preview_and_native_output_use_formatted_tokens_without_changing_raw_draft ... ok
+test cw_session::tests::focus_loss_window_destruction_and_missing_heartbeat_revoke_leases ... ok
+test cw_session::tests::expiry_and_exact_connection_generation_block_send ... ok
+test cw_session::tests::invalid_contest_formatting_is_not_replaced_with_raw_preview_or_output ... ok
+test cw_session::tests::contest_polling_does_not_cancel_owned_transition_but_stop_revokes_inflight_output ... ok
+test cw_session::tests::isolated_observation_reports_actual_owner_guard_without_provider_or_output_admission ... ok
+test cw_session::tests::keyer_preference_apply_or_paddle_disarm_retires_native_arm_without_a_send ... ok
+test cw_session::tests::host_admitted_stream_revisions_preserve_the_same_owner_and_stop_on_foreign_updates ... ok
+test cw_session::tests::macro_validation_rejects_injection_missing_tokens_and_output_limits ... ok
+test cw_session::tests::lost_ack_retains_guard_and_never_replays_text ... ok
+test cw_session::tests::permission_retirement_stops_only_its_exact_original_provider_radio_and_connection ... ok
+test cw_session::tests::setup_entry_and_qtc_focus_requires_an_explicit_retained_arm_scope ... ok
+test cw_session::tests::late_winkeyer_arm_is_released_after_stop_and_cannot_restore_a_lease ... ok
+test cw_session::tests::stale_observations_and_duplicate_requests_never_dispatch ... ok
+test cw_session::tests::provider_context_is_authored_from_the_native_target_even_if_the_renderer_supplies_another ... ok
+test cw_session::tests::open_workbench_cannot_mutate_a_contest_draft_through_esm ... ok
+test cw_session::tests::stop_reaches_the_original_output_even_when_its_ancillary_outcome_journal_fails ... ok
+test cw_session::tests::staged_radio_jobs_reuse_the_same_owned_route_with_fresh_admission ... ok
+test cw_session::tests::typed_compiler_payload_is_used_without_expanding_the_mutable_entry ... ok
+test cw_session::tests::two_clients_cannot_share_or_steal_an_arm_lease ... ok
+test cw_session::tests::stop_is_immediate_and_releases_again_after_late_send ... ok
+test cw_session::tests::unsupported_speed_segments_are_never_silently_flattened ... ok
+test cw_session::tests::winkeyer_intents_continue_from_backend_and_unregister_releases_arm ... ok
+test cw_session::tests::failed_stop_does_not_leak_destroyed_or_unregistered_clients_or_release_the_guard ... ok
+test cw_session::tests::actual_host_default_macros_continue_pending_keyer_once_and_reject_replay ... ok
+
+test result: ok. 46 passed; 0 failed; 0 ignored; 0 measured; 1057 filtered out; finished in 0.67s
