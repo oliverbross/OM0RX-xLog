@@ -33,13 +33,19 @@ Re-enable only through reviewed saved permission and an explicit replacement
 connection. Restoring preferences never resumes output.
 
 For CW, select **Active radio** in CW settings and use the existing CW desk's
-Arm, message Send and Stop. TCI supplies **whole messages up to 128 supported
+Arm, message Send and Stop. TCI supplies **whole literal messages, maximum 128
 characters**. CW requires a server announcing exactly one TRX because the
 official CW Stop and macro-speed commands are server-global. Character/word
 live append and typed segmented-speed/prosign plans are unavailable on this
 adapter. **Apply TCI CW macro speed** sets the global macro speed, 1–60 WPM,
 only while idle; it is separate from the paddle-keyer speed. A reported value
 and command acceptance remain distinct.
+
+For later SunSDR qualification, first record the real server program/version,
+advertised TRX count and selected TRX/channel. Selecting one receiver in xLog
+does not prove the server advertises exactly one TRX. Do not claim native TCI CW
+is available until that advertised count is observed as one; TCI PTT capability
+alone does not establish CW availability.
 
 The new execution path does not provide native TCI transmit-audio injection,
 carrier Tune, a new socket, reconnect retry or automatic replay. Receive tuning,

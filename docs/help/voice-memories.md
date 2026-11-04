@@ -24,6 +24,8 @@ Save settings before using the new routes or edits. Save performs no recording,
 playback or PTT. Another window's newer settings cause a conflict; your unsaved
 text is retained until you reload/review it. Old workspaces start with no native
 route selected, and restoring settings never restores a runnable voice action.
+Edits made while Save is awaiting acknowledgement stay unsaved and visible;
+the acknowledgement cannot clear newer text.
 
 **Record microphone** uses the selected native input, with no automatic gain,
 echo cancellation or noise suppression. **Finish recording** saves bounded PCM
@@ -32,6 +34,9 @@ limited to 60 seconds and 8 MiB, whichever is reached first. Select **Replace
 selected slot** before replacing an existing file. **Import PCM WAV** uses the
 same native WAV validation. Supported source WAVs are frame-aligned mono/stereo
 integer PCM, 8–192 kHz, with 8/16/24/32-bit samples.
+Cancellation is terminal for that recording: a delayed Finish for the same job
+cannot reverse Stop or replace the retained slot. Start a new recording deliberately
+when another take is wanted.
 
 Set start/end trim and gain, then save. A blank end means the end of the source.
 Duration, peak and clipped-sample feedback describe the derived audio. Lower gain
@@ -58,7 +63,7 @@ and context changes cancel remaining samples and release the original PTT owner.
 An uncertain release stays visible and prevents another acquisition. Reconnect
 does not resume a memory.
 
-The native route implementation is macOS CPAL/CoreAudio. Existing contest WAV
+**Normal native voice is currently macOS-only**, using CPAL/CoreAudio. Existing contest WAV
 assets and Host action claims are shared; on macOS contest playback uses the same
 native output path. The existing Windows/Linux contest WebView path is retained,
 with native route capability explicitly unavailable. TCI PTT capability does not

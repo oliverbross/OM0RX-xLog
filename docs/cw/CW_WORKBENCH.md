@@ -15,7 +15,10 @@ a mode for its current unsent composition:
 * **First word live, then words:** characters through the first word boundary
   stream; later words use word mode. A new job resets the first-word boundary.
 
-Live composition currently requires the existing WinKeyer append adapter.
+Live composition and typed speed/prosign segments currently require WinKeyer.
+TCI supports whole literal staged messages only, up to 128 characters, with
+ExpertSDR3/TCI 2.1 and exactly one advertised TRX; it has no live append or typed
+segment support.
 Other supported radio adapters accept staged Send with their existing limits.
 After a staged message finishes, another explicit message can use the same armed
 radio route after fresh admission. A new message cannot take over an open live
