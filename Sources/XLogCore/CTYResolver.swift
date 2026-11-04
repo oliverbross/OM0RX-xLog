@@ -72,13 +72,14 @@ public final class CTYResolver: @unchecked Sendable {
     private let endpointIndex: [Character: [Rule]]
     public let countryPack: CountryReferencePack?
     private let packedRules: [CountryReferencePack.CompiledRule]
-    private let packedIndex: [Character: [CountryReferencePack.CompiledRule]]
+    private let packedExactIndex: [String: [CountryReferencePack.CompiledRule]]
+    private let packedIndex: [String: [CountryReferencePack.CompiledRule]]
     private let packedWildcards: [CountryReferencePack.CompiledRule]
     private let neutralFallback: CTYResolver?
 
     public init(csvURL: URL) throws {
         neutralFallback = nil
-        countryPack = nil; packedRules = []; packedIndex = [:]; packedWildcards = []
+        countryPack = nil; packedRules = []; packedExactIndex = [:]; packedIndex = [:]; packedWildcards = []
         let text = try String(contentsOf: csvURL, encoding: .utf8)
         var parsed: [Rule] = []
         for line in text.split(whereSeparator: \ .isNewline) {
@@ -151,7 +152,7 @@ public final class CTYResolver: @unchecked Sendable {
 
     private init(rules: [Rule], content: Data) {
         neutralFallback = nil
-        countryPack = nil; packedRules = []; packedIndex = [:]; packedWildcards = []
+        countryPack = nil; packedRules = []; packedExactIndex = [:]; packedIndex = [:]; packedWildcards = []
         self.rules = Self.sortedRules(rules, by: \.token)
         endpointRules = Self.sortedRules(rules, by: \.endpointToken)
         endpointIndex = Dictionary(grouping: endpointRules, by: { $0.endpointToken.first! })
@@ -164,8 +165,13 @@ public final class CTYResolver: @unchecked Sendable {
         let pack = try CountryReferencePack.decode(data)
         let compiled = try pack.records.map(CountryReferencePack.CompiledRule.init)
         countryPack = pack; packedRules = compiled
-        packedIndex = Dictionary(grouping: compiled.filter { $0.firstLiteral != nil }, by: { $0.firstLiteral! })
-        packedWildcards = compiled.filter { $0.firstLiteral == nil }
+        // Literal exact exceptions need only their full-call bucket. Keeping
+        // thousands of unrelated exceptions in every first-letter scan made
+        // ordinary lookups and complete-log reviews repeat regex work.
+        packedExactIndex = Dictionary(grouping: compiled.filter { $0.record.exact && $0.literalPattern != nil }, by: { $0.record.pattern })
+        let patterns = compiled.filter { !$0.record.exact || $0.literalPattern == nil }
+        packedIndex = Dictionary(grouping: patterns.filter { !$0.leadingLiteral.isEmpty }, by: { $0.leadingLiteral })
+        packedWildcards = patterns.filter { $0.leadingLiteral.isEmpty }
         rules = []; endpointRules = []; endpointIndex = [:]
         contentDigest = Self.digest(data)
     }
@@ -181,6 +187,7 @@ public final class CTYResolver: @unchecked Sendable {
     private init(primary: CTYResolver, fallback: CTYResolver?) {
         rules = primary.rules; endpointRules = primary.endpointRules; endpointIndex = primary.endpointIndex
         countryPack = primary.countryPack; packedRules = primary.packedRules
+        packedExactIndex = primary.packedExactIndex
         packedIndex = primary.packedIndex; packedWildcards = primary.packedWildcards
         contentDigest = primary.contentDigest; neutralFallback = fallback
     }
@@ -380,8 +387,15 @@ public final class CTYResolver: @unchecked Sendable {
                 policy: Self.factsPolicy, locationPrecision: status == .resolved ? "entityApproximation" : "unavailable")
         }
         func choose(_ key: String, exact: Bool = false) -> Facts? {
-            guard let first = key.first else { return nil }
-            let candidates = ((packedIndex[first] ?? []) + packedWildcards).filter { rule in
+            guard !key.isEmpty else { return nil }
+            var indexed = packedExactIndex[key] ?? []
+            var prefix = ""
+            for character in key {
+                prefix.append(character)
+                if let rules = packedIndex[prefix] { indexed.append(contentsOf: rules) }
+            }
+            indexed.append(contentsOf: packedWildcards)
+            let candidates = indexed.filter { rule in
                 (!exact || rule.record.exact) && (rule.start == nil || date >= rule.start!)
                     && (rule.end == nil || date <= rule.end!) && rule.matches(key)
             }.sorted(by: CountryReferencePack.CompiledRule.precedes)
@@ -633,7 +647,10 @@ public struct CountryReferencePack: Codable, Sendable {
         let end: Date?
         let positions: Int
         let specificity: [Int]
-        let firstLiteral: Character?
+        let leadingLiteral: String
+        var literalPattern: String? {
+            record.pattern.utf8.allSatisfy { $0 >= 65 && $0 <= 90 || $0 >= 48 && $0 <= 57 || $0 == 47 } ? record.pattern : nil
+        }
         private var authority: Int { record.component == "CallResolution.tbl" ? 2 : record.component == "AreaOK1RR.tbl" ? 1 : 0 }
         struct Rank: Equatable { let deleted: Bool; let exact: Bool; let positions: Int; let specificity: [Int]; let authority: Int }
         var rank: Rank { Rank(deleted: record.deleted, exact: record.exact, positions: positions, specificity: specificity, authority: authority) }
@@ -661,7 +678,7 @@ public struct CountryReferencePack: Codable, Sendable {
             if record.exact { expression += "$" }
             self.expression = try NSRegularExpression(pattern: expression)
             positions = scores.count; specificity = scores
-            firstLiteral = chars.first.flatMap { ($0.isASCII && ($0.isUppercase || $0.isNumber)) ? $0 : nil }
+            leadingLiteral = String(chars.prefix { $0.isASCII && ($0.isUppercase || $0.isNumber || $0 == "/") })
         }
         func matches(_ key: String) -> Bool { expression.firstMatch(in: key, range: NSRange(key.startIndex..., in: key)) != nil }
         static func precedes(_ lhs: Self, _ rhs: Self) -> Bool {

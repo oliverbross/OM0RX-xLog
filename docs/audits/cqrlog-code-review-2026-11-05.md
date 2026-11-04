@@ -53,3 +53,31 @@ rejected-reference cleanup; TypeScript exits zero. Logs:
 `/tmp/xlog-cqrlog-review-ui-after.log` and
 `/tmp/xlog-cqrlog-review-ui-tsc.log`. No timers, sleeps, timeout limits, native
 mutation checks or workspace generation guards were weakened.
+
+## Immutable country lookup indexes
+
+Every lookup previously scanned all rules sharing its first letter, including
+unrelated exact calls. Literal exact exceptions now use full-call buckets;
+other rules use their leading literal prefix. Lookup enumerates all prefixes
+of the bounded input and retains wildcard-leading rules. Matching, date windows,
+ranking, equal-rank ambiguity, provenance and source identities are unchanged.
+
+The opt-in `CountryLookupIndexTests` writes a baseline oracle before the index
+change, with representative calls derived from every real rule plus portable
+and historical probes. After deduplication/date expansion it retains **21,335
+complete Facts results**, all equal after the optimization. Oracle:
+`/tmp/xlog-country-index-oracle-20261105.json`, SHA-256
+`bd73cdc3a373a33c1cb17a0527ce69c787ebfa466cf2f45cbc326267e912fac0`.
+This verifies preservation, independently of the semantic country regressions.
+
+The same 10,000-lookup warm debug corpus took **12,501.937 ms before** and
+**5,391.716 ms after** (about 2.32× faster, 56.9% less elapsed time); checksum
+2,322,232 agrees. Logs: `/tmp/xlog-cqrlog-review-country-index-before.log` and
+`/tmp/xlog-cqrlog-review-country-index-final.log`. Both use explicit Python 3.12
+and `swift test --jobs 2 --no-parallel`; the opt-in oracle environment variables
+are recorded in `CountryLookupIndexTests`. Seven core/oracle methods pass;
+the later portable country filter also exits zero, including twelve prototype
+methods (`/tmp/xlog-cqrlog-review-country-index-integration.log`). This is a
+controlled source-level lookup comparison, not a new signed-package, 100k UI,
+disk-cold or RF latency measurement. The expensive oracle is disabled in ordinary
+test runs unless explicitly requested by environment.
