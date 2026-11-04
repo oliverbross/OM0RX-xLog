@@ -1724,3 +1724,16 @@ and Stop. No production store, installation or device/RF activity occurred.
 Connected cross-surface, physical station/audio/keyer and sponsor acceptance
 remain scoped as before. Final remote job outcomes belong to the candidate's
 machine receipt, not a blanket extension of the earlier 1.5.4 acceptance.
+
+### 8.12 — CQRLOG focused candidate close-out, 5 November 2026
+
+All selected QLog/TLF integrations and existing acceptance limits are retained.
+The [CQRLOG section 14](OM0RX-xLog_CQRLOG_C01-C06_Implementation_Plan_2026-11-03.md#14-focused-release-candidate-close-out--5-november-2026-darwin)
+tracks two additive follow-ups: terminal cancellation of the same native voice
+recording and the specific Windows DXpedition two-second logbook read failure.
+The recording regression reproduced an actual disposable WAV replacement and is
+corrected natively; 15 focused voice and 1,116 complete Rust tests pass. Windows
+phase diagnostics and its required repeated gate remain in progress. The old
+1.5.13 artifact predates follow-up fixes; installed 1.5.9 and rollback stay intact.
+No QLog acceptance ID is reset, and no physical or packaged acceptance is inferred
+from these source tests. New isolated candidate evidence belongs to that register.

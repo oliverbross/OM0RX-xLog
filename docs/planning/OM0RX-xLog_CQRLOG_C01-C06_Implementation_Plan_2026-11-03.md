@@ -1368,3 +1368,21 @@ guard. Record first/last audible audio, pot/paddles/Stop and original-target TX/
 release separately from source/device-reported progress. Normal native voice is
 macOS-only; legacy non-macOS contest playback remains capability-selected. TCI TX
 audio and unsupported advanced adapter output remain outside this tranche.
+
+## 14. Focused release-candidate close-out — 5 November 2026 (Darwin)
+
+Refreshed clean main is `d39c2ec0`, latest application baseline `9db3d3c0`.
+This pass preserves all completed QLog/TLF work, the CW-skimmer worktree, signed
+1.5.13 evidence and installed 1.5.9/rollback. It prepares an isolated successor;
+it does not authorize production replacement or physical output.
+
+| Follow-up | Current state and evidence |
+| --- | --- |
+| C06 terminal recording cancellation | Reproduced actual disposable WAV replacement after Stop → same-ID Finish. Native cancellation is now terminal; publication shares Stop/Finish admission. Fifteen native voice and all 1,116 Rust tests pass. Packaged/physical scopes remain separate. |
+| Windows DXpedition two-second read | Run 41901606176 failed Windows; Mac/Linux passed and optional runtime jobs skipped. Focused phase diagnostics/cold-reference investigation and a repeated Windows gate are required. No test skip or timeout increase is permitted. |
+
+The [existing review record](../audits/cqrlog-code-review-2026-11-05.md#release-candidate-close-out-follow-ups--5-november-2026)
+retains reproduction logs, corrections and current gate state. Only the missing
+native macOS job from contest run 41901614866 was requeued. Candidate provenance,
+unchanged-input reuse, new signed-worker checks and bounded native acceptance
+will be appended to this register and the new candidate record.

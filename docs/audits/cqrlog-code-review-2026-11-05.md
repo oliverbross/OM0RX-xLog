@@ -349,3 +349,44 @@ No native GUI binding, microphone/speaker/serial/radio output, PTT acquisition,
 production data/settings mutation, notarization or installation was performed.
 Fake stream/IPC/state tests qualify software behavior only. Physical device,
 connected-operation and new signed-package acceptance remain separate work.
+
+## Release-candidate close-out follow-ups — 5 November 2026
+
+Refreshed clean canonical main remains `d39c2ec0`; application baseline is
+`9db3d3c0`. The retained 1.5.13 artifact and installed 1.5.9 are preserved.
+
+### C06: explicit recording cancellation is terminal
+
+The prior same-job Finish admission still allowed Stop's `cancel=true,
+save_recording=false` to become `save_recording=true` before the worker retired.
+A deterministic native regression actually replaced a disposable existing WAV
+after Stop → same-ID Finish, reproducing the issue
+(`/tmp/xlog-rc14-voice-before.log`). Identity checks alone were insufficient.
+
+Cancelled jobs now reject Finish, and cancellation cannot be reversed by another
+save request. Final job-ID/workspace/profile validation and atomic WAV publication
+share the same native state lock as Stop/Finish. Thus a Stop admitted before
+publication retains the old file; publication already committed before Stop is
+not retrospectively undone. Existing output-intent revocation, queue-generation,
+PTT/release paths and normal recording Finish remain intact.
+
+The real native admission/publication helpers are exercised with synthetic PCM
+and disposable files: Stop → delayed same-ID Finish; Finish → Stop and repeated
+Finish; stale ID after Stop; and ordinary Finish successfully writing a slot.
+All 15 native voice tests and the full 1,116-test native Rust gate pass
+(`/tmp/xlog-rc14-voice-after.log`, `/tmp/xlog-rc14-full-rust.log`). No audio hardware
+or production WAV was used. This is source/native-test evidence, not packaged
+microphone or RF acceptance.
+
+### Windows DXpedition responsiveness follow-up
+
+The refreshed all-platform run `41901606176` passed macOS/Linux, failed Windows
+at `DXpeditionConcurrencyTests.swift:38`, and skipped both optional packaged
+runtime jobs. The failure is retained, not relabeled. Windows logs are saved at
+`/tmp/xlog-rc14-windows-original.log`. The two-second responsiveness criterion
+remains unchanged. Focused phase instrumentation and cold-reference investigation
+are in progress; diagnosis and required repeated Windows gate follow below.
+
+Contest run `41901614866` retained six passing jobs and one native macOS
+runner-acquisition cancellation. Only that missing job was requeued; it is now
+running. Earlier cancellations and successful jobs retain their separate states.

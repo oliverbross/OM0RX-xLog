@@ -179,9 +179,53 @@ struct NativeState {
     last: Value,
 }
 impl NativeState {
+    fn cancel_job(&self, save: bool) {
+        if let Some(job) = &self.job {
+            // Explicit cancellation is terminal until this exact job retires.
+            if job.cancel.load(Ordering::Acquire) && !job.save_recording.load(Ordering::Acquire) {
+                return;
+            }
+            job.save_recording.store(save, Ordering::Release);
+            job.cancel.store(true, Ordering::Release);
+        }
+    }
+    fn publish_recording(
+        &self,
+        id: &str,
+        original: &(u64, Value, Profile),
+        current: &(u64, Value, Profile),
+        slot: String,
+        bytes: Vec<u8>,
+        overwrite: bool,
+    ) -> Result<(), String> {
+        let job = self
+            .job
+            .as_ref()
+            .filter(|job| job.kind == "recording" && job.id == id)
+            .ok_or("That recording no longer owns publication; the original slot was retained.")?;
+        recording_publication(
+            original,
+            current,
+            job.cancel.load(Ordering::Acquire),
+            job.save_recording.load(Ordering::Acquire),
+        )?;
+        profile_write(ProfileWriteRequest {
+            profile_path: original.2.profile_path.clone(),
+            slot,
+            wav_base64: STANDARD.encode(bytes),
+            overwrite,
+        })?;
+        Ok(())
+    }
     fn finish_recording(&mut self, id: &str) -> Result<(), String> {
         let job = self.job.as_ref().filter(|job| job.kind == "recording" && job.id == id)
             .ok_or("That recording already ended or belongs to another job; no current audio was changed.")?;
+        if job.cancel.load(Ordering::Acquire) && !job.save_recording.load(Ordering::Acquire) {
+            return Err(
+                "That recording was cancelled; Finish cannot save it or replace the original slot."
+                    .into(),
+            );
+        }
         job.save_recording.store(true, Ordering::Release);
         job.cancel.store(true, Ordering::Release);
         self.prepared.clear();
@@ -238,10 +282,7 @@ pub(super) fn cancel(save: bool) {
         revoke =
             !s.prepared.is_empty() || s.job.as_ref().is_some_and(|j| j.kind.contains("transmit"));
         s.prepared.clear();
-        if let Some(job) = &s.job {
-            job.save_recording.store(save, Ordering::Release);
-            job.cancel.store(true, Ordering::Release);
-        }
+        s.cancel_job(save);
     }
     if let Ok(mut s) = runtime().lock() {
         revoke |= s.active_ptt || !s.prepared.is_empty();
@@ -874,19 +915,11 @@ pub fn native_request(
                 }
                 let current = settings()?;
                 // Stop/workspace changes can arrive during the settings read.
-                recording_publication(
-                    &original,
-                    &current,
-                    cancel.load(Ordering::Acquire),
-                    save.load(Ordering::Acquire),
-                )?;
-                profile_write(ProfileWriteRequest {
-                    profile_path: profile.profile_path.clone(),
-                    slot: name,
-                    wav_base64: STANDARD.encode(bytes),
-                    overwrite,
-                })?;
-                Ok(())
+                // Serialize the final admission/write with Stop and Finish.
+                state()
+                    .lock()
+                    .map_err(|_| "Native voice state unavailable")?
+                    .publish_recording(&id, &original, &current, name, bytes, overwrite)
             })();
             finish(&result, false, None);
             result?;
@@ -1128,6 +1161,92 @@ fn validate_claimed_voice_actions(
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn recording_fixture() -> NativeState {
+        NativeState {
+            job: Some(Job {
+                id: "recording".into(),
+                kind: "recording",
+                phase: "recording".into(),
+                cancel: Arc::new(AtomicBool::new(false)),
+                save_recording: Arc::new(AtomicBool::new(false)),
+                consumed: 0,
+                total: 0,
+            }),
+            ..NativeState::default()
+        }
+    }
+    fn cancelled_recording_retains_slot(order: &[&str]) {
+        let folder = tempfile::tempdir().unwrap();
+        let path = folder.path().join("f1.wav");
+        let retained = voice_audio::wav(&[1; 480], 48_000);
+        std::fs::write(&path, &retained).unwrap();
+        let mut profile = Profile::default();
+        profile.profile_path = folder.path().to_str().unwrap().into();
+        let settings = (1, json!({"generation":"original"}), profile);
+        let mut state = recording_fixture();
+        let mut last_finish = None;
+        for action in order {
+            match *action {
+                "stop" => state.cancel_job(false),
+                "finish" => last_finish = Some(state.finish_recording("recording")),
+                "stale" => assert!(state.finish_recording("retired").is_err()),
+                _ => panic!("Unknown fixture action"),
+            }
+        }
+        let publication = state.publish_recording(
+            "recording",
+            &settings,
+            &settings,
+            "f1".into(),
+            voice_audio::wav(&[2; 480], 48_000),
+            true,
+        );
+        assert!(
+            std::fs::read(path).unwrap() == retained,
+            "Stop must retain the existing slot"
+        );
+        assert!(publication.is_err(), "Cancelled recording must not publish");
+        if order.last() == Some(&"finish") {
+            assert!(
+                last_finish.unwrap().is_err(),
+                "Delayed Finish cannot reverse Stop"
+            );
+        }
+    }
+    #[test]
+    fn stop_then_same_recording_finish_cannot_publish_or_replace_a_slot() {
+        cancelled_recording_retains_slot(&["stop", "finish"]);
+    }
+    #[test]
+    fn finish_then_stop_is_terminal_before_publication() {
+        cancelled_recording_retains_slot(&["finish", "stop"]);
+        cancelled_recording_retains_slot(&["finish", "stop", "finish"]);
+    }
+    #[test]
+    fn stale_finish_does_not_restore_a_cancelled_recording() {
+        cancelled_recording_retains_slot(&["stop", "stale"]);
+    }
+    #[test]
+    fn ordinary_finish_can_still_publish_the_original_recording() {
+        let folder = tempfile::tempdir().unwrap();
+        let mut profile = Profile::default();
+        profile.profile_path = folder.path().to_str().unwrap().into();
+        let settings = (1, json!({"generation":"original"}), profile);
+        let mut state = recording_fixture();
+        state.finish_recording("recording").unwrap();
+        let bytes = voice_audio::wav(&[2; 480], 48_000);
+        state
+            .publish_recording(
+                "recording",
+                &settings,
+                &settings,
+                "f1".into(),
+                bytes.clone(),
+                false,
+            )
+            .unwrap();
+        assert_eq!(std::fs::read(folder.path().join("f1.wav")).unwrap(), bytes);
+    }
     fn prepared_fixture() -> Prepared {
         let profile = Profile::default();
         let pcm = PCM {
