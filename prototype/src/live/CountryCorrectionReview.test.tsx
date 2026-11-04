@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CountryCorrectionReview } from "./CountryCorrectionReview";
 import CountryReferenceControl from "./CountryReferenceControl";
@@ -11,15 +11,19 @@ const reviewID = "33333333-3333-4333-8333-333333333333", operationID = "44444444
 const row = { contactID, revision: 7, call: "OM0RX/P", start: "2020-01-01T12:00:00Z",
   facts: { status: "resolved", referenceRevision: "fixture-snapshot", matchedRule: "OM" },
   changes: [{ field: "cqZone", retained: "14", proposed: "15", retainedOrigin: "retainedOriginUnknownProtected", reason: "UTC QSO date; explicit operator selection required" }] };
-function requestFixture() {
+const recoveryRow = { operationID, contactID, call: row.call, start: row.start, revision: 8, fields: ["cqZone"], recoverable: true,
+  unavailableReason: null, changes: [{ field: "cqZone", retained: "14", applied: "15" }] };
+function requestFixture(saved = false) {
+  let applied = saved;
   return vi.fn(async (method: string, _params?: Record<string, unknown>): Promise<any> => {
     switch (method) {
       case "workspace_status": return { generation };
       case "logbook_country_review": return { generation, read_only: true, page: { rows: [row], comparedCount: 101, affectedCount: 1, unresolvedCount: 0, limit: 20, offset: 0, referenceRevision: "fixture-snapshot" } };
       case "logbook_country_correction_preview": return { generation, read_only: true, reviewID, rows: [row], referenceRevision: "fixture-snapshot" };
       case "logbook_country_correction_cancel": return { generation, status: "cancelled", contacts_changed: false };
-      case "logbook_country_correction_apply": return { generation, status: "applied", receipts: [{ mutation: { operationID }, contact: { qso: { call: row.call } } }] };
-      case "logbook_country_correction_undo": return { generation, status: "applied" };
+      case "logbook_country_correction_apply": applied = true; return { generation, status: "applied", receipts: [{ mutation: { operationID, contactID }, contact: { qso: { id: contactID, call: row.call } } }] };
+      case "logbook_country_correction_receipts": return { generation, read_only: true, rows: applied ? [recoveryRow] : [], nextCursor: null };
+      case "logbook_country_correction_undo": applied = false; return { generation, status: "applied", receipt: { mutation: { operationID: String(_params?.undoOperationID).toUpperCase(), contactID }, contact: { qso: { id: contactID } } } };
       default: throw new Error("Unexpected operation " + method);
     }
   });
@@ -44,6 +48,89 @@ it("reads only on demand and Keep cancels an unselected native review without co
   await user.click(screen.getByRole("button", { name: "Keep recorded values" }));
   await waitFor(() => expect(request).toHaveBeenLastCalledWith("logbook_country_correction_cancel", { generation, reviewID }));
   expect(request.mock.calls.every(([method]) => ["workspace_status", "logbook_country_review", "logbook_country_correction_preview", "logbook_country_correction_cancel"].includes(method))).toBe(true);
+});
+
+it("discovers a durable receipt after navigation and worker reload, then explicitly recovers it", async () => {
+  const request = requestFixture(), changed = vi.fn();
+  const view = render(<CountryCorrectionReview onRequest={request} refreshKey={0} onChanged={changed} />);
+  const user = await openReview(request);
+  await user.click(screen.getByRole("checkbox", { name: /cqZone: 14/ }));
+  await user.click(screen.getByRole("button", { name: "Apply selected country changes" }));
+  await waitFor(() => expect(changed).toHaveBeenCalledTimes(1));
+  view.unmount();
+  const restarted = requestFixture(true);
+  render(<CountryCorrectionReview onRequest={restarted} refreshKey={0} onChanged={changed} />);
+  expect(restarted).not.toHaveBeenCalled();
+  expect(screen.queryByRole("button", { name: "Recover country correction" })).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Read saved country correction receipts" }));
+  await screen.findByText("cqZone: 14 → 15");
+  expect(restarted).toHaveBeenLastCalledWith("logbook_country_correction_receipts", { generation, limit: 20 });
+  await user.click(screen.getByRole("button", { name: "Recover country correction" }));
+  await waitFor(() => expect(changed).toHaveBeenCalledTimes(2));
+  expect(restarted).toHaveBeenLastCalledWith("logbook_country_correction_undo", { generation, operationID, undoOperationID: expect.any(String) });
+});
+
+it("pages saved receipts and rejects malformed contact identity without offering recovery", async () => {
+  const request = requestFixture(true), original = request.getMockImplementation()!;
+  request.mockImplementation(async (method, params) => method === "logbook_country_correction_receipts"
+    ? { generation, read_only: true, rows: [{ ...recoveryRow, ...(params?.after ? { contactID: "invalid" } : {}) }], nextCursor: params?.after ? null : operationID }
+    : original(method, params));
+  render(<CountryCorrectionReview onRequest={request} refreshKey={0} />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Read saved country correction receipts" }));
+  await user.click(await screen.findByRole("button", { name: "More saved corrections" }));
+  await screen.findByRole("alert");
+  expect(request).toHaveBeenLastCalledWith("logbook_country_correction_receipts", { generation, limit: 20, after: operationID });
+  expect(screen.queryByRole("button", { name: "Recover country correction" })).toBeNull();
+});
+
+it("rejects saved receipts from another workspace generation", async () => {
+  const request = requestFixture(true), original = request.getMockImplementation()!;
+  request.mockImplementation(async (method, params) => method === "logbook_country_correction_receipts"
+    ? { generation: reviewID, read_only: true, rows: [recoveryRow], nextCursor: null } : original(method, params));
+  render(<CountryCorrectionReview onRequest={request} refreshKey={0} />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Read saved country correction receipts" }));
+  await screen.findByRole("alert");
+  expect(screen.queryByRole("button", { name: "Recover country correction" })).toBeNull();
+  expect(request.mock.calls.every(([method]) => ["workspace_status", "logbook_country_correction_receipts"].includes(method))).toBe(true);
+});
+
+it("does not confirm or discard recovery when the undo response has a different workspace generation", async () => {
+  const request = requestFixture(true), original = request.getMockImplementation()!, changed = vi.fn();
+  request.mockImplementation(async (method, params) => {
+    const response = await original(method, params);
+    return method === "logbook_country_correction_undo" ? { ...response, generation: reviewID } : response;
+  });
+  render(<CountryCorrectionReview onRequest={request} refreshKey={0} onChanged={changed} />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Read saved country correction receipts" }));
+  await user.click(await screen.findByRole("button", { name: "Recover country correction" }));
+  await screen.findByRole("alert");
+  expect(changed).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "Recover country correction" })).toBeTruthy();
+});
+
+it("ignores a delayed undo reply after switching to a restored workspace with the same durable operation ID", async () => {
+  const first = requestFixture(true), original = first.getMockImplementation()!, changed = vi.fn();
+  let finish: ((value: unknown) => void) | undefined, undoParams: Record<string, unknown> | undefined;
+  first.mockImplementation(async (method, params) => method === "logbook_country_correction_undo"
+    ? new Promise(resolve => { undoParams = params; finish = resolve; }) : original(method, params));
+  const view = render(<CountryCorrectionReview onRequest={first} refreshKey={0} onChanged={changed} />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Read saved country correction receipts" }));
+  await user.click(await screen.findByRole("button", { name: "Recover country correction" }));
+  const nextGeneration = "55555555-5555-4555-8555-555555555555";
+  const restored = requestFixture(true), restoredOriginal = restored.getMockImplementation()!;
+  restored.mockImplementation(async (method, params) => ({ ...(await restoredOriginal(method, params)), generation: nextGeneration }));
+  view.rerender(<CountryCorrectionReview onRequest={restored} refreshKey={1} onChanged={changed} />);
+  await user.click(screen.getByRole("button", { name: "Read saved country correction receipts" }));
+  await screen.findByRole("button", { name: "Recover country correction" });
+  expect(restored).toHaveBeenLastCalledWith("logbook_country_correction_receipts", { generation: nextGeneration, limit: 20 });
+  await act(async () => finish?.({ generation, status: "applied", receipt: { mutation: { operationID: undoParams?.undoOperationID, contactID }, contact: { qso: { id: contactID } } } }));
+  expect(changed).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "Recover country correction" })).toBeTruthy();
+  expect(screen.queryByText("Country correction recovered through a revision-checked edit.")).toBeNull();
 });
 
 it("sends only explicitly selected country fields and keeps recovery bound to the receipt workspace", async () => {

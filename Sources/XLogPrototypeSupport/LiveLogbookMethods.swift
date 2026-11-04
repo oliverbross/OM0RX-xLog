@@ -1128,6 +1128,41 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                     "operationIDs": Dictionary(uniqueKeysWithValues: operations.map { ($0.key.uuidString, $0.value.uuidString) }), "read_only": true]
             case "logbook_country_correction_apply":
                 return try applyCountryCorrection(params)
+            case "logbook_country_correction_receipts":
+                try requireKeys(params, allowed: ["generation", "limit", "after"], required: ["generation"])
+                let generation = try editGeneration(createIfMissing: false)
+                guard try matchesEditGeneration(params, generation) else {
+                    throw WorkerFailure("workspace_changed", "Country recovery belongs to another workspace.")
+                }
+                let limit = try integer(params, "limit", default: 20, range: 1...25)
+                let after: UUID?
+                if let raw = params["after"] {
+                    guard let text = raw as? String, let id = UUID(uuidString: text) else { throw invalid() }
+                    after = id
+                } else { after = nil }
+                let db = try readyDatabase()
+                let candidates = try db.countryCorrectionReceipts(limit: limit + 1, after: after)
+                let selected = Array(candidates.prefix(limit))
+                let rows: [[String: Any]] = try selected.map { receipt in
+                    let fields = (receipt.contact.qso.extraFields["APP_XLOG_COUNTRY_CORRECTION_FIELDS"] ?? "")
+                        .split(separator: ",").compactMap { CountryCorrectionField(rawValue: String($0)) }
+                    let current = try db.contactSnapshot(localID: receipt.contact.qso.id)
+                    let complete = receipt.previousContact != nil && !fields.isEmpty
+                    let recoverable = complete && current?.revision == receipt.contact.revision
+                    let reason = !complete ? "Original before-values unavailable" :
+                        current?.qso.extraFields["APP_XLOG_COUNTRY_UNDO_OF"] == receipt.mutation.operationID.uuidString ? "Already recovered" :
+                        current == nil ? "Contact unavailable" : "Contact changed after correction"
+                    return ["operationID": receipt.mutation.operationID.uuidString, "contactID": receipt.contact.qso.id.uuidString,
+                        "call": receipt.contact.qso.call, "start": ISO8601DateFormatter().string(from: receipt.contact.qso.start),
+                        "revision": receipt.contact.revision, "fields": fields.map(\.rawValue), "recoverable": recoverable,
+                        "unavailableReason": recoverable ? NSNull() : reason as Any,
+                        "changes": fields.map { field -> [String: Any] in
+                            ["field": field.rawValue, "retained": receipt.previousContact.flatMap { field.value(in: $0.qso) } as Any? ?? NSNull(),
+                             "applied": field.value(in: receipt.contact.qso) as Any? ?? NSNull()]
+                        }]
+                }
+                return ["generation": generation, "read_only": true, "rows": rows,
+                    "nextCursor": candidates.count > limit ? selected.last!.mutation.operationID.uuidString as Any : NSNull()]
             case "logbook_country_review_cancel":
                 try requireKeys(params, allowed: ["generation", "scanID"], required: ["generation", "scanID"])
                 let generation = try editGeneration(createIfMissing: false)

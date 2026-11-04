@@ -3,6 +3,11 @@ import Foundation
 import FoundationNetworking
 #endif
 import Testing
+#if canImport(SQLite3)
+import SQLite3
+#else
+import CSQLitePrototype
+#endif
 import XClusterIntegrationCore
 #if canImport(XLogCore)
 import XLogCore
@@ -209,6 +214,113 @@ struct CountryIntegrationTests {
         for snapshot in current { #expect(try db.contactSnapshot(localID: snapshot.qso.id) == snapshot) }
     }
 
+    @Test("Durable correction discovery reopens, pages original receipts and fences later edits and workspace authority")
+    func durableRecoveryDiscovery() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let service = try make(root), db = try service.openedDatabase()
+        let contacts = try populated(db, resolver: service.currentCTYResolver(), count: 2)
+        let applied = try service.handle(method: "logbook_country_correction_apply", params: applyParams(preview(service, contacts), contacts))
+        let appliedRows = try #require(applied["receipts"] as? [[String: Any]])
+        let operations = Set(try appliedRows.map { try #require(($0["mutation"] as? [String: Any])?["operationID"] as? String) })
+        // A canonical ordinary edit inherits correction metadata, but must not
+        // masquerade as another original country-correction receipt.
+        let current = try #require(try db.contactSnapshot(localID: contacts[0].qso.id))
+        var edited = current.qso; edited.comment = "Later operator decision"
+        _ = try db.applyContactMutation(.init(operationID: UUID(), contactID: edited.id,
+            expectedRevision: current.revision, action: .update, qso: edited))
+        let reopened = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        let generation = try self.generation(reopened)
+        let revision = try db.currentRevision(), pending = try db.pendingSyncCount(), outbox = try db.outboxCount()
+        let first = try reopened.handle(method: "logbook_country_correction_receipts", params: ["generation": generation, "limit": 1])
+        #expect(first["read_only"] as? Bool == true)
+        #expect(first["generation"] as? String == generation)
+        let firstRows = try #require(first["rows"] as? [[String: Any]])
+        #expect(firstRows.count == 1)
+        let cursor = try #require(first["nextCursor"] as? String)
+        let second = try reopened.handle(method: "logbook_country_correction_receipts", params: ["generation": generation, "limit": 1, "after": cursor])
+        #expect(second["nextCursor"] is NSNull)
+        let rows = firstRows + (try #require(second["rows"] as? [[String: Any]]))
+        #expect(Set(rows.compactMap { $0["operationID"] as? String }) == operations)
+        let changed = try #require(rows.first { $0["contactID"] as? String == edited.id.uuidString })
+        #expect(changed["recoverable"] as? Bool == false)
+        #expect(changed["unavailableReason"] as? String == "Contact changed after correction")
+        let available = try #require(rows.first { $0["contactID"] as? String == contacts[1].qso.id.uuidString })
+        #expect(available["recoverable"] as? Bool == true)
+        let changes = try #require(available["changes"] as? [[String: Any]])
+        #expect(changes.first?["field"] as? String == "cqZone")
+        #expect(changes.first?["retained"] as? String == "14")
+        #expect(changes.first?["applied"] as? String == "15")
+        let invalidCases: [[String: Any]] = [["generation": UUID().uuidString], ["generation": generation, "limit": 26],
+                                            ["generation": generation, "after": "invalid"], ["generation": generation, "limit": true]]
+        for invalid in invalidCases {
+            #expect(throws: WorkerFailure.self) { try reopened.handle(method: "logbook_country_correction_receipts", params: invalid) }
+        }
+        #expect(try db.currentRevision() == revision)
+        #expect(try db.pendingSyncCount() == pending && db.outboxCount() == outbox)
+        let lowercase = try reopened.handle(method: "logbook_country_correction_receipts", params: ["generation": generation, "limit": 1, "after": cursor.lowercased()])
+        #expect((lowercase["rows"] as? [[String: Any]])?.first?["operationID"] as? String
+            == (second["rows"] as? [[String: Any]])?.first?["operationID"] as? String)
+        #expect(throws: WorkerFailure.self) {
+            try reopened.handle(method: "logbook_country_correction_undo", params: ["generation": UUID().uuidString,
+                "operationID": available["operationID"]!, "undoOperationID": UUID().uuidString])
+        }
+        #expect(try db.currentRevision() == revision)
+        let undo = try reopened.handle(method: "logbook_country_correction_undo", params: ["generation": generation,
+            "operationID": available["operationID"]!, "undoOperationID": UUID().uuidString])
+        #expect(undo["status"] as? String == "applied")
+        let after = try reopened.handle(method: "logbook_country_correction_receipts", params: ["generation": generation])
+        let recovered = try #require((after["rows"] as? [[String: Any]])?.first { $0["operationID"] as? String == available["operationID"] as? String })
+        #expect(recovered["recoverable"] as? Bool == false)
+        #expect(recovered["unavailableReason"] as? String == "Already recovered")
+        #expect(try reopened.openedDatabase().contactSnapshot(localID: contacts[1].qso.id)?.qso.cqZone == "14")
+    }
+
+    @Test("Existing many-receipt storage admits the narrow recovery index without changing QSO revisions")
+    func receiptIndexMigration() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appendingPathComponent("receipt-migration.sqlite")
+        let database = try LogbookDatabase(url: url)
+        let ids = try (0..<25).map { index in
+            var qso = QSO(call: "OM\(index)TEST", band: "20m", mode: "CW")
+            qso.comment = String(repeating: "Country receipt migration fixture. ", count: 128)
+            qso.cqZone = "14"; try database.save(qso); return qso.id
+        }
+        for round in 0..<40 {
+            let mutations = try ids.map { id in
+                let current = try #require(try database.contactSnapshot(localID: id))
+                let operation = UUID(); var proposed = current.qso
+                proposed.comment = String(repeating: "Country receipt migration fixture. ", count: 128) + String(round)
+                if round == 0 {
+                    proposed.cqZone = "15"
+                    proposed.extraFields["APP_XLOG_COUNTRY_CORRECTION_OPERATION"] = operation.uuidString
+                    proposed.extraFields["APP_XLOG_COUNTRY_CORRECTION_FIELDS"] = "cqZone"
+                }
+                return LogbookContactMutation(operationID: operation, contactID: id,
+                    expectedRevision: current.revision, action: .update, qso: proposed)
+            }
+            _ = try database.applyContactMutations(mutations)
+        }
+        let revision = try database.currentRevision(); database.close()
+        // Simulate a database from the prior release: all historical receipt
+        // payloads exist, but the newly introduced partial index does not.
+        var legacy: OpaquePointer?
+        #expect(sqlite3_open(url.path, &legacy) == SQLITE_OK)
+        #expect(sqlite3_exec(legacy, "DROP INDEX xlog_country_correction_receipt_page;", nil, nil, nil) == SQLITE_OK)
+        sqlite3_close(legacy)
+        let bytes = (try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.intValue ?? 0
+        let began = Date()
+        let reopened = try LogbookDatabase(url: url)
+        let elapsed = Date().timeIntervalSince(began) * 1_000
+        defer { reopened.close() }
+        let page = try reopened.countryCorrectionReceipts(limit: 26)
+        #expect(page.count == 25) // 975 inherited ordinary-edit receipts excluded
+        #expect(try reopened.currentRevision() == revision)
+        #expect(try reopened.countryCorrectionReceipts(limit: 1).count == 1)
+        print("COUNTRY_RECEIPT_MIGRATION receipts=1000 originalCorrections=25 databaseBytes=\(bytes) reopenMilliseconds=\(String(format: "%.3f", elapsed))")
+    }
+
     @Test("Whole-pack validation/rollback and combined backup retain contacts, reference bytes and recovery receipts")
     func packLifecycleAndBackup() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -310,6 +422,10 @@ struct CountryIntegrationTests {
         #expect(try reopened.currentCTYResolver().facts("OM0RX", at: contacts[0].qso.start).country?.adif == 999)
         let restoredReceipt = try reopened.openedDatabase().contactReceipt(operationID: UUID(uuidString: operation)!)
         #expect(restoredReceipt?.previousContact?.qso.cqZone == "14")
+        let recoveryPage = try reopened.handle(method: "logbook_country_correction_receipts", params: ["generation": generation(reopened)])
+        let discovered = try #require((recoveryPage["rows"] as? [[String: Any]])?.first { $0["operationID"] as? String == operation })
+        #expect(discovered["recoverable"] as? Bool == true)
+        #expect(discovered["contactID"] as? String == contacts[0].qso.id.uuidString)
         let recovered = try reopened.handle(method: "logbook_country_correction_undo", params: ["generation": generation(reopened), "operationID": operation, "undoOperationID": UUID().uuidString])
         #expect(recovered["status"] as? String == "applied")
         #expect(try reopened.openedDatabase().contactSnapshot(localID: contacts[0].qso.id)?.qso.cqZone == "14")

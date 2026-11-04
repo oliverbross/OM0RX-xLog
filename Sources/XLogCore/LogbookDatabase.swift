@@ -1331,6 +1331,32 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
+    /// Keyset paging over the existing durable receipts, restricted to the
+    /// original country mutation (ordinary later edits can inherit its metadata).
+    public func countryCorrectionReceipts(limit: Int, after: UUID? = nil) throws -> [LogbookContactReceipt] {
+        guard (1...26).contains(limit) else { throw LogbookContactError.invalid }
+        return try withDatabaseLock {
+            try withStatement("""
+                SELECT payload FROM xlog_contact_receipts
+                WHERE json_extract(CAST(payload AS TEXT),'$.contact.qso.extraFields.APP_XLOG_COUNTRY_CORRECTION_OPERATION')=operation_id
+                  AND operation_id > ?
+                ORDER BY operation_id LIMIT ?;
+                """) { statement in
+                bind(after?.uuidString ?? "", to: 1, in: statement); bind(limit, to: 2, in: statement)
+                var receipts: [LogbookContactReceipt] = []
+                var step = sqlite3_step(statement)
+                while step == SQLITE_ROW {
+                    guard let bytes = sqlite3_column_blob(statement, 0) else { throw error() }
+                    receipts.append(try decoder.decode(LogbookContactReceipt.self,
+                        from: Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0)))))
+                    step = sqlite3_step(statement)
+                }
+                guard step == SQLITE_DONE else { throw error() }
+                return receipts
+            }
+        }
+    }
+
     public func applyContactMutation(_ mutation: LogbookContactMutation) throws -> LogbookContactReceipt {
         try applyContactMutations([mutation])[0]
     }
@@ -4470,6 +4496,8 @@ public final class LogbookDatabase: @unchecked Sendable {
           operation_id TEXT PRIMARY KEY,
           payload BLOB NOT NULL
         );
+        CREATE INDEX IF NOT EXISTS xlog_country_correction_receipt_page ON xlog_contact_receipts(operation_id)
+          WHERE json_extract(CAST(payload AS TEXT),'$.contact.qso.extraFields.APP_XLOG_COUNTRY_CORRECTION_OPERATION')=operation_id;
         CREATE TABLE IF NOT EXISTS xlog_contest_transfer_manifests(
           manifest_id TEXT PRIMARY KEY,
           contest_session_id TEXT NOT NULL,

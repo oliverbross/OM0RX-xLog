@@ -432,6 +432,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "logbook_country_correction_cancel",
         "logbook_country_correction_apply",
         "logbook_country_correction_undo",
+        "logbook_country_correction_receipts",
         "logbook_save",
         "logbook_delete",
         "logbook_undo",
@@ -2041,7 +2042,7 @@ mod tests {
     }
     #[test]
     fn country_review_and_reference_publication_have_explicit_surface_authority(){
-        for method in ["logbook_country_review","logbook_country_review_cancel","logbook_country_correction_preview","logbook_country_correction_cancel","logbook_country_correction_apply","logbook_country_correction_undo"] {
+        for method in ["logbook_country_review","logbook_country_review_cancel","logbook_country_correction_preview","logbook_country_correction_cancel","logbook_country_correction_apply","logbook_country_correction_undo","logbook_country_correction_receipts"] {
             let request=json!({"id":"country","method":method,"params":{}});
             for label in ["main","logbook"]{assert!(validate_surface(label,&request).is_ok(),"{method}/{label}");}
             for label in ["settings","monitor","world-map","awards","callsign-intelligence","log-qso","contest-setup"]{assert!(validate_surface(label,&request).is_err(),"{method}/{label}");}

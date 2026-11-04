@@ -72,6 +72,7 @@ public final class LocalAcceptanceSession: @unchecked Sendable {
             "logbook_correction_preview",
             "logbook_country_facts", "logbook_country_review", "logbook_country_correction_preview",
             "logbook_country_correction_apply", "logbook_country_correction_undo",
+            "logbook_country_correction_receipts",
             "logbook_country_correction_cancel",
             "logbook_country_review_cancel",
             "logbook_matrix", "logbook_import_adif", "logbook_export_adif",

@@ -33,7 +33,12 @@ Apply uses the reviewed contact revisions and country snapshot. A changed contac
 workspace or reference requires a fresh review. A retry of the same selection
 retrieves the existing receipt. Keep/cancel retires the review without editing
 contacts. A successful correction offers receipt-based recovery, which refuses to
-overwrite a later edit. Reference bytes and correction receipts are retained by
+overwrite a later edit. After navigation, restart or backup restore, open the same
+Logbook panel and choose **Read saved country correction receipts**. Each bounded
+page shows the contact/date and original-to-applied field values. Use **More saved
+corrections** for the next page. **Recover country correction** is offered only
+while that contact still has the correction's revision; an already recovered or
+subsequently edited contact shows its reason instead. Reference bytes and correction receipts are retained by
 the existing workspace backup/restore. External voice recordings remain subject
 to the voice-library backup policy; saving profile metadata does not copy them.
 
