@@ -90,6 +90,29 @@ class QTCOperatingTests(unittest.TestCase):
         self.qtc("qtc_observe", counterpart="K1ABC", status="unavailable")
         self.assertFalse(self.view(counterparts=["K1ABC"])["opportunities"]["K1ABC"]["opportunity"])
 
+    def test_rtty_receive_without_sources_and_european_send_share_the_same_ten_item_quota(self):
+        self.create_wae("wae_rtty", own="K1ABC")
+        before = deepcopy(self.host.database(self.session).state(self.session))
+        row = self.view(counterparts=["DL1ABC"])["opportunities"]["DL1ABC"]
+        self.assertEqual(row["availableSources"], 0)
+        self.assertFalse(row["capabilities"]["send"]["opportunity"])
+        self.assertTrue(row["capabilities"]["receive"]["opportunity"])
+        self.assertTrue(row["opportunity"])
+        self.assertEqual(self.host.database(self.session).state(self.session), before)
+        self.qtc("qtc_create", batchID="rtty-receive", number=1, direction="receive", counterpart="DL1ABC",
+            timestamp="2026-11-14 09:00:00", frequencyHz=14025000,
+            items=[{"time": f"08{i:02d}", "callsign": f"OM{i}ABC", "serial": str(i+1)} for i in range(10)])
+        row = self.view(counterparts=["DL1ABC"])["opportunities"]["DL1ABC"]
+        self.assertEqual(row["remaining"], 0)
+        self.assertFalse(row["opportunity"])
+        self.assertFalse(any(item["opportunity"] for item in row["capabilities"].values()))
+        self.create_wae("wae_rtty")
+        self.log("DL1ABC", "13")
+        row = self.view(counterparts=["K1ABC"])["opportunities"]["K1ABC"]
+        self.assertEqual(row["capabilities"]["send"]["availableSources"], 1)
+        self.assertTrue(row["capabilities"]["send"]["opportunity"])
+        self.assertTrue(row["capabilities"]["receive"]["opportunity"])
+
     def test_pending_edit_and_series_completion_do_not_invent_ack_or_output(self):
         self.create_wae(); self.receive()
         with self.assertRaises(HostError):

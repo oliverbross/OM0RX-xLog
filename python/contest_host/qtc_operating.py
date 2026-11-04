@@ -137,19 +137,30 @@ def opportunities(desk, calls):
     direction = "receive" if european(identity(desk.state, desk.station["Call"]), desk.station["Call"]) else "send"
     # Eligibility/reservations are shared across counterparts. Scan the log once
     # per bounded projection, then exclude the counterpart's own source rows.
-    sources = available(desk, "") if direction == "send" else []
+    bidirectional = desk.state["pluginID"] == "wae_rtty"
+    sources = available(desk, "") if direction == "send" or bidirectional else []
     sources_by_call = Counter(item["callsign"] for item in sources)
     result = {}
     for call in calls:
-        reason = eligibility(desk.state, call, direction)
         reserved = sum(len(batch["items"]) for batch in journal if batch["counterpart"] == call)
         confirmed = sum(item["status"] == "confirmed" for batch in journal if batch["counterpart"] == call for item in batch["items"])
         observation = data["observations"].get(call, {"status": "unknown"})
         remaining = max(0, 10 - reserved)
-        source_count = len(sources) - sources_by_call[call] if direction == "send" and reason is None else None
+        capabilities = {}
+        for candidate in ("send", "receive"):
+            reason = eligibility(desk.state, call, candidate)
+            source_count = len(sources) - sources_by_call[call] if candidate == "send" and reason is None else None
+            capabilities[candidate] = {
+                "eligibility": "unknown" if reason and reason.startswith("Resolve") else "ineligible" if reason else "eligible",
+                "reason": reason, "availableSources": source_count,
+                "opportunity": reason is None and remaining > 0 and observation["status"] != "unavailable"
+                               and (candidate == "receive" or source_count > 0)}
+        primary = capabilities[direction]
+        reason, source_count = primary["reason"], primary["availableSources"]
         result[call] = {"eligibility": "unknown" if reason and reason.startswith("Resolve") else "ineligible" if reason else "eligible",
             "reason": reason, "direction": direction, "remaining": remaining, "confirmed": confirmed,
             "reserved": reserved, "availableSources": source_count, "observation": observation,
-            "opportunity": reason is None and remaining > 0 and observation["status"] != "unavailable"
-                           and (direction == "receive" or source_count > 0)}
+            "opportunity": any(value["opportunity"] for value in capabilities.values()),
+            # Additive schema-1 capability extension; the shared quota stays above.
+            "capabilities": capabilities}
     return result

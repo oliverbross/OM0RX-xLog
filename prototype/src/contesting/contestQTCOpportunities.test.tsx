@@ -6,6 +6,14 @@ const row:QTCOpportunity={eligibility:"eligible",reason:null,direction:"receive"
   observation:{status:"later",observedUTC:"2026-11-04T10:00:00Z"},opportunity:true};
 afterEach(()=>{cleanup();vi.useRealTimers();});
 describe("server-owned QTC map opportunities",()=>{
+  it("validates and labels independent send/receive capabilities with one shared quota",()=>{
+    const updated={...row,capabilities:{send:{eligibility:"eligible" as const,reason:null,availableSources:0,opportunity:false},
+      receive:{eligibility:"eligible" as const,reason:null,availableSources:null,opportunity:true}}};
+    expect(validQTCOpportunities({schema:1,revision:1,opportunities:{DL1ABC:updated}})).toBe(true);
+    expect(qtcOpportunityLabel(updated)).toContain("send eligible · 0 source contacts · no capacity; receive eligible · opportunity");
+    expect(qtcOpportunityLabel(updated)).toContain("shared send/receive quota");
+    expect(validQTCOpportunities({schema:1,revision:1,opportunities:{DL1ABC:{...updated,capabilities:{send:updated.capabilities.send}}}})).toBe(false);
+  });
   it("keeps journal allowance and local observations distinct without deriving scoring",()=>{
     const value={schema:1 as const,revision:42,opportunities:{K1ABC:row}};
     expect(validQTCOpportunities(value)).toBe(true);expect(qtcOpportunityFor(value," k1abc ")).toBe(row);

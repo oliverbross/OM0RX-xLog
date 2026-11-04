@@ -1,17 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ContestRequest } from "./types";
 
+type QTCDirectionCapability={eligibility:"unknown"|"eligible"|"ineligible";reason:string|null;availableSources:number|null;opportunity:boolean};
 export type QTCOpportunity={eligibility:"unknown"|"eligible"|"ineligible";reason:string|null;direction:"send"|"receive";
   remaining:number;confirmed:number;reserved:number;availableSources:number|null;
+  capabilities?:{send:QTCDirectionCapability;receive:QTCDirectionCapability};
   observation:{status:"unknown"|"available"|"later"|"unavailable";observedUTC?:string;note?:string};opportunity:boolean};
 export type QTCOpportunityProjection={schema:1;revision:number;opportunities:Record<string,QTCOpportunity>};
 const record=(value:unknown):value is Record<string,unknown>=>!!value&&typeof value==="object"&&!Array.isArray(value);
 const bounded=(value:unknown,max:number)=>typeof value==="string"&&new TextEncoder().encode(value).length<=max;
 const count=(value:unknown,max=1_000_000)=>Number.isSafeInteger(value)&&Number(value)>=0&&Number(value)<=max;
+const capability=(value:unknown)=>record(value)&&Object.keys(value).length===4&&
+  Object.keys(value).every(key=>["eligibility","reason","availableSources","opportunity"].includes(key))&&
+  ["unknown","eligible","ineligible"].includes(String(value.eligibility))&&(value.reason===null||bounded(value.reason,512))&&
+  (value.availableSources===null||count(value.availableSources))&&typeof value.opportunity==="boolean";
 export function validQTCOpportunities(value:unknown):value is QTCOpportunityProjection{
   if(!record(value)||value.schema!==1||!count(value.revision,Number.MAX_SAFE_INTEGER)||!record(value.opportunities)||Object.keys(value).some(key=>!["schema","revision","opportunities"].includes(key))||Object.keys(value.opportunities).length>2000)return false;
   return Object.entries(value.opportunities).every(([call,row])=>/^[A-Z0-9/]{3,32}$/.test(call)&&record(row)&&
-    Object.keys(row).every(key=>["eligibility","reason","direction","remaining","confirmed","reserved","availableSources","observation","opportunity"].includes(key))&&
+    Object.keys(row).every(key=>["eligibility","reason","direction","remaining","confirmed","reserved","availableSources","observation","opportunity","capabilities"].includes(key))&&
+    (row.capabilities===undefined||record(row.capabilities)&&Object.keys(row.capabilities).length===2&&capability(row.capabilities.send)&&capability(row.capabilities.receive))&&
     ["unknown","eligible","ineligible"].includes(String(row.eligibility))&&(row.reason===null||bounded(row.reason,512))&&["send","receive"].includes(String(row.direction))&&
     count(row.remaining,10)&&count(row.confirmed)&&count(row.reserved)&&(row.availableSources===null||count(row.availableSources))&&typeof row.opportunity==="boolean"&&record(row.observation)&&
     Object.keys(row.observation).every(key=>["status","observedUTC","note"].includes(key))&&["unknown","available","later","unavailable"].includes(String(row.observation.status))&&
@@ -22,6 +29,14 @@ export function qtcOpportunityFor(projection:QTCOpportunityProjection|undefined|
 }
 export function qtcOpportunityLabel(row:QTCOpportunity|undefined){
   if(!row)return "QTC eligibility unknown · waiting for the contest owner";
+  if(row.capabilities){
+    const directions=(["send","receive"] as const).map(direction=>{
+      const value=row.capabilities![direction];
+      return `${direction} ${value.eligibility}${value.availableSources===null?"":` · ${value.availableSources} source contacts`} · ${value.opportunity?"opportunity":"no capacity"}${value.reason?` · ${value.reason}`:""}`;
+    }).join("; ");
+    return `QTC ${directions} · ${row.remaining} remaining · ${row.confirmed} confirmed · ${row.reserved} reserved (shared send/receive quota) · local ${row.observation.status}`+
+      `${row.observation.observedUTC?` at ${row.observation.observedUTC}`:""}${row.observation.note?` · ${row.observation.note}`:""}`;
+  }
   return `QTC ${row.direction} · ${row.eligibility} · ${row.remaining} remaining · ${row.confirmed} confirmed · ${row.reserved} reserved`+
     `${row.availableSources===null?"":` · ${row.availableSources} source contacts`} · local ${row.observation.status}`+
     `${row.observation.observedUTC?` at ${row.observation.observedUTC}`:""}${row.reason?` · ${row.reason}`:""}${row.observation.note?` · ${row.observation.note}`:""}`;

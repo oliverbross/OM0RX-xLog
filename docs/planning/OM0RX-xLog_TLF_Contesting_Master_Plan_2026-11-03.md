@@ -24,6 +24,16 @@ physical CAT action or submission is authorised by this correction pass.
 
 ### Correction evidence (this register remains authoritative)
 
+**TLF-R06 / P2-04; QTC-11/15 — VERIFIED_SOFTWARE:** RTTY no-source K1ABC
+previously hid valid receiving. The additive schema-1 `capabilities.send/receive`
+projection now exposes independent eligibility/source capacity; overall opportunity
+is either direction, with one shared ten-item quota. Strict frontend validation and
+labels accept old frames and explain both new directions. Actual-Host non-European
+receive/no-source, European send/source and quota exhaustion tests passed with
+unchanged CW/SSB cases (`test_tlf_qtc_operating test_wave5_qtc_host`: 12).
+`contestQTCOpportunities.test.tsx`: 4 passed. Displaying remains read-only.
+Retained WAE §7/§12 and exact source digest verified; no reservation/output implied.
+
 **TLF-R04 / P3-05/06; RULE-03/04/08 — VERIFIED_SOFTWARE:**
 the duplicate K1ABC/zone-4 changed eligibility from 14:12 to 14:20. Guidance now
 uses the same historical duplicate authority as the Host's log projection before
