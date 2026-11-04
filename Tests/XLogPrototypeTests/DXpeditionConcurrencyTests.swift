@@ -15,7 +15,8 @@ struct DXpeditionConcurrencyTests {
         defer { trace.report() }
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
-        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
+        let logbook = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false,
+            runtimeProfile: .production, aggregateReadPhaseObserver: { trace.mark($0) })
         _ = try logbook.handle(method: "workspace_create", params: ["mode": "empty"])
         trace.mark("workspaceCreated")
         let configuration = URLSessionConfiguration.ephemeral
@@ -25,7 +26,11 @@ struct DXpeditionConcurrencyTests {
         let opportunities = LiveOpportunitiesMethods(logbook: logbook, session: session, clusterSpots: { [] })
         let worker = LiveWorker(logbook: logbook, opportunityMethods: opportunities, aggregateEvaluator: { snapshot, cancellation in
             trace.mark("evaluateStarted")
-            defer { trace.mark("evaluateFinished") }
+            defer {
+                trace.mark("evaluateFinished")
+                DispatchQueue.global().async { trace.mark("dispatchAvailable") }
+                Task.detached { trace.mark("taskExecutorAvailable") }
+            }
             return try snapshot.evaluate(cancellation: cancellation)
         })
         trace.mark("workerCreated")

@@ -46,6 +46,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
     private let supportDirectory: URL
     private let inheritNativePreferences: Bool
     private let runtimeProfile: AppRuntimeProfile
+    private let aggregateReadPhaseObserver: (@Sendable (String) -> Void)?
     private var database: LogbookDatabase?
     private var workspace: IntegrationWorkspace?
     private var ctyResolverCache: (source: String, resolver: CTYResolver)?
@@ -102,10 +103,12 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
     }
 
     init(fileManager: FileManager = .default, supportDirectory: URL? = nil,
-         inheritNativePreferences: Bool = true, runtimeProfile: AppRuntimeProfile) {
+         inheritNativePreferences: Bool = true, runtimeProfile: AppRuntimeProfile,
+         aggregateReadPhaseObserver: (@Sendable (String) -> Void)? = nil) {
         self.fileManager = fileManager
         self.inheritNativePreferences = inheritNativePreferences
         self.runtimeProfile = runtimeProfile
+        self.aggregateReadPhaseObserver = aggregateReadPhaseObserver
         self.supportDirectory = supportDirectory ?? fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -405,7 +408,10 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
     }
 
     func acceptAggregate(_ result: LogbookAggregateResult, owner: LiveLogbookAggregateOwner) throws {
+        aggregateReadPhaseObserver?("acceptStarted")
+        defer { aggregateReadPhaseObserver?("acceptReturned") }
         try lock.withLock {
+            aggregateReadPhaseObserver?("acceptLocked")
             try validateAggregateOwner(owner)
             guard result.authority.fileIdentity == owner.authority.fileIdentity else { throw LiveLogbookAggregateChange.retired }
             guard result.authority.revision == owner.authority.revision else { throw LiveLogbookAggregateChange.superseded }
@@ -415,6 +421,8 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
 
     func renderAggregate(_ result: LogbookAggregateResult, owner: LiveLogbookAggregateOwner,
                          query: LiveLogbookAggregateQuery, preparedExport: ADIFExportSnapshot? = nil) throws -> [String: Any] {
+        aggregateReadPhaseObserver?("renderStarted")
+        defer { aggregateReadPhaseObserver?("renderReturned") }
         // Runtime callers prepare full exports on their existing utility queue.
         // The synchronous compatibility entry also prepares before this lock.
         let exportSnapshot: ADIFExportSnapshot?
@@ -422,6 +430,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
             exportSnapshot = preparedExport ?? ADIFExportSnapshot(contacts:value.contacts,scope:.all)
         } else { exportSnapshot = nil }
         return try lock.withLock {
+            aggregateReadPhaseObserver?("renderLocked")
             try validateAggregateOwner(owner)
             guard result.authority == owner.authority, result.request.kind == query.kind else {
                 throw LogbookDatabaseError.corruptRecord
@@ -463,9 +472,15 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
 
     private func statisticsJSON(stats: LogbookStats, awards: AwardProgressSnapshot, statuses source: [Int: String],
                                 database db: LogbookDatabase) throws -> [String: Any] {
-        var statuses = Dictionary(try currentCTYResolver().entities.map { (String($0.adif), "needed") }, uniquingKeysWith: { first, _ in first })
+        aggregateReadPhaseObserver?("resolverStarted")
+        let resolver = try currentCTYResolver()
+        aggregateReadPhaseObserver?("resolverReturned")
+        let entities = resolver.entities
+        aggregateReadPhaseObserver?("entitiesReturned")
+        var statuses = Dictionary(entities.map { (String($0.adif), "needed") }, uniquingKeysWith: { first, _ in first })
         for (adif, status) in source { statuses[String(adif)] = status }
         let settings = try currentSettings()
+        aggregateReadPhaseObserver?("statisticsSettingsReturned")
         let home: Any = MaidenheadLocator.coordinate(settings.gridSquare).map {
             ["lat": $0.latitude, "lon": $0.longitude, "call": settings.stationCall, "grid": settings.gridSquare] as [String: Any]
         } as Any? ?? NSNull()
