@@ -30,7 +30,17 @@ struct CountryFactsTests {
         #expect(resolver.facts("OM0RX", at: nil).status == .missingDate)
         #expect(resolver.facts("OM0RX/4", at: day).status == .unknown)
         #expect(resolver.facts("OM0RX/K1ABC", at: day).status == .ambiguous)
-        #expect(resolver.facts("OM0RX/ZZ", at: day).status == .unknown)
+        // ZZ is a geographic prefix, not an unknown marker: the bundled PY row
+        // includes ZZ (Brazil 108), consistent with ITU Appendix 42's ZVA–ZZZ.
+        // https://www.itu.int/gladapp/Allocation/CallSigns
+        #expect(resolver.facts("OM0RX/ZZ", at: day).status == .resolved)
+        #expect(resolver.facts("OM0RX/ZZ", at: day).country?.adif == 108)
+        // QQ has no geographic rule in either admitted bundle. Preserve the
+        // unsupported-suffix assertion: never fall back to OM/Slovakia here.
+        for snapshot in [resolver, Self.packed] {
+            #expect(snapshot.facts("OM0RX/QQ", at: day).status == .unknown)
+            #expect(snapshot.facts("OM0RX/QQ", at: day).country == nil)
+        }
     }
 
     @Test("Date boundaries and contradictory equal-authority rules are independent of file order")

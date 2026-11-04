@@ -1,5 +1,13 @@
 # C01/C02 country implementation evidence — 4 November 2026
 
+Final normal-manifest gate found one fixture error: `ZZ` is allocated to Brazil,
+as the bundled CSV and [ITU allocation table](https://www.itu.int/gladapp/Allocation/CallSigns)
+both establish. The resolver was unchanged. The corpus now positively checks
+Brazil/108 for `OM0RX/ZZ`, and checks unknown plus absent country for `OM0RX/QQ`
+against both bundled adapters. `swift test --filter 'CountryFactsTests|CTYResolverTests'`
+passed **12/12** (CLI evidence `swift_test_--filter__CountryFactsTests_C_64533a0d.log`).
+The initial normal run's one assertion failure remains recorded; it is not a pass.
+
 Baseline: canonical `main` at `db4a9ce2739fc8b96371cd432d3b8787e950a45e`.
 No production application, contact store or station device was opened or changed
 by this implementation lane. The root integrator owns commits/releases.
