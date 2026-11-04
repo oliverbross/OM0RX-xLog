@@ -283,7 +283,11 @@ impl Session {
                 return Err("Contest operation was replayed or its authoritative context changed; output was not replayed.".into());
             }
             let actions = result["actions"].as_array().ok_or("Contest output actions unavailable")?;
-            let suppressed = actions.iter().any(|action| action["earlyCallSuppressed"] == true);
+            // A default {CALL} action disappears when suppressed. The fresh
+            // Host operation carries its decision independently of text actions.
+            // Legacy action markers still fail closed without live admission.
+            let suppressed = result["earlyCallSuppressed"] == true
+                || actions.iter().any(|action| action["earlyCallSuppressed"] == true);
             if suppressed && continuation.is_null() {
                 return Err("Live CW continuation is unavailable; Stop and recover with the full callsign.".into());
             }
@@ -563,6 +567,8 @@ mod tests {
         canonical: Mutex<Value>, target: Mutex<Value>, writes: Mutex<Vec<(String, Option<String>, u64)>>,
         claims: Mutex<BTreeSet<String>>,
         received_provider_context: Mutex<Value>,
+        host_frames: Mutex<std::collections::VecDeque<Value>>,
+        keyer_probe: Mutex<Option<crate::winkeyer::continuation_probe::Probe>>,
         lost_send: AtomicBool, stop_fails: AtomicBool, receipt_fails: AtomicBool,
         gate: Mutex<Option<(mpsc::Sender<()>, mpsc::Receiver<()>)>>,
         arm_gate: Mutex<Option<(mpsc::Sender<()>, mpsc::Receiver<()>)>>,
@@ -570,6 +576,17 @@ mod tests {
     impl Backend for Fake {
         fn contest_operation(&self, canonical: &Value, params: &Value) -> Result<Value, String> {
             *self.received_provider_context.lock().unwrap()=params["cwProviderContext"].clone();
+            if let Some(frame) = self.host_frames.lock().unwrap().pop_front() {
+                assert_eq!(params["operationID"], frame["result"]["operationID"]);
+                assert_eq!(params["fields"]["callsign"], frame["after"]["fields"]["callsign"]);
+                if frame["operation"] == "esm" && frame["result"]["replayed"] == false {
+                    for key in ["streamID", "draftID", "operationID", "nativeOwner", "providerContext"] {
+                        assert_eq!(params["cwContinuationAdmission"][key], frame["admission"][key], "{key}");
+                    }
+                }
+                *self.canonical.lock().unwrap() = host_canonical(canonical, &frame["after"]);
+                return Ok(frame["result"].clone());
+            }
             let revision = canonical["draftRevision"].as_u64().unwrap() + 1;
             let mut after = canonical.clone(); after["draftRevision"] = json!(revision); after["draftID"] = json!("next-draft");
             after["context"]["CALL"] = json!("");
@@ -586,6 +603,7 @@ mod tests {
             *self.canonical.lock().unwrap() = after;
             Ok(json!({"operationID":params["operationID"],"sessionID":canonical["contestSessionID"],"revision":revision,
                 "projection":{"revision":revision,"draftID":after_draft},"replayed":params["replayed"] == true,"earlyCW":early_state,
+                "earlyCallSuppressed":params["testOperationEarlyCallSuppressed"] == true,
                 "actions":[{"kind":"function_key","key":"F2","sessionID":canonical["contestSessionID"],"draftID":canonical["draftID"],
                     "actionID":format!("{}:0",params["operationID"].as_str().unwrap()),"fields":params["fields"],"stationCall":"OM0RX","sentExchange":"15","sentSerial":sent_serial,
                     "earlyCallSuppressed":params["testEarlyCallSuppressed"] == true,
@@ -598,6 +616,7 @@ mod tests {
         fn canonical(&self) -> Result<Value, String> { Ok(self.canonical.lock().unwrap().clone()) }
         fn inspect(&self, _: &Value, _: bool) -> Result<Value, String> { Ok(self.target.lock().unwrap().clone()) }
         fn output(&self, _: &Value, action: &str, text: Option<&str>, intent: u64) -> Result<Value, String> {
+            if action == "arm" { if let Some(probe) = self.keyer_probe.lock().unwrap().as_mut() { probe.arm()?; } }
             self.writes.lock().unwrap().push((action.into(), text.map(str::to_owned), intent));
             if action == "arm" {
                 if let Some((entered, resume)) = self.arm_gate.lock().unwrap().take() { entered.send(()).unwrap(); resume.recv().unwrap(); }
@@ -610,8 +629,17 @@ mod tests {
             if action == "stop" && self.stop_fails.load(Ordering::SeqCst) { return Err("Stop unconfirmed".into()); }
             Ok(json!({"accepted":true}))
         }
-        fn stream(&self, target: &Value, stream: &Value, intent: u64) -> Result<Value, String> { self.output(target,"stream",stream["call"].as_str(),intent) }
-        fn continue_sequence(&self,target:&Value,sequence:&crate::winkeyer::Sequence,_stream:&str,intent:u64)->Result<Value,String> {
+        fn stream(&self, target: &Value, stream: &Value, intent: u64) -> Result<Value, String> {
+            if let Some(probe) = self.keyer_probe.lock().unwrap().as_mut() { probe.stream(stream, intent)?; }
+            self.output(target,"stream",stream["call"].as_str(),intent)
+        }
+        fn sequence(&self, target: &Value, sequence: &crate::winkeyer::Sequence, intent: u64) -> Result<Value, String> {
+            if let Some(probe) = self.keyer_probe.lock().unwrap().as_mut() { probe.sequence(sequence, None, intent)?; }
+            else if sequence.variable_speed() { return Err("This adapter does not support buffered CW speed segments.".into()); }
+            self.output(target, "send", Some(&sequence.text()), intent)
+        }
+        fn continue_sequence(&self,target:&Value,sequence:&crate::winkeyer::Sequence,stream:&str,intent:u64)->Result<Value,String> {
+            if let Some(probe) = self.keyer_probe.lock().unwrap().as_mut() { probe.sequence(sequence, Some(stream), intent)?; }
             self.output(target,"continue",Some(&sequence.text()),intent)
         }
         fn contest_outcome(&self, _: &Value, _: &Value, _: &Value, _: &str) -> Result<(), String> {
@@ -625,7 +653,9 @@ mod tests {
                 "cwSerialOne":"1","cwSerialNine":"9","cwSerialZero":"0"},
             "context":{"CALL":"K1ABC","MYCALL":"OM0RX","RST":"599"}})),
             target: Mutex::new(json!({"output":"radio","provider":"direct_agent","generation":7,"worker":4,"selection":"choice","limit":128})),
-            writes: Mutex::new(vec![]), claims: Mutex::new(BTreeSet::new()), received_provider_context:Mutex::new(Value::Null), lost_send: AtomicBool::new(false), stop_fails: AtomicBool::new(false), receipt_fails: AtomicBool::new(false), gate: Mutex::new(None), arm_gate: Mutex::new(None) });
+            writes: Mutex::new(vec![]), claims: Mutex::new(BTreeSet::new()), received_provider_context:Mutex::new(Value::Null),
+            host_frames: Mutex::new(Default::default()), keyer_probe: Mutex::new(None),
+            lost_send: AtomicBool::new(false), stop_fails: AtomicBool::new(false), receipt_fails: AtomicBool::new(false), gate: Mutex::new(None), arm_gate: Mutex::new(None) });
         let clock = Arc::new(AtomicU64::new(0)); let ticking = clock.clone();
         (Arc::new(Session::with_clock(backend.clone(), Arc::new(move || ticking.load(Ordering::SeqCst)))), backend, clock)
     }
@@ -638,6 +668,14 @@ mod tests {
         }
     }
     fn ready(client: &mut Client, session: &Session) { client.call(session, "snapshot").unwrap(); client.call(session, "arm").unwrap(); }
+    fn host_canonical(base: &Value, context: &Value) -> Value {
+        let mut value = base.clone();
+        value["contestSessionID"] = context["sessionID"].clone();
+        value["workspaceGeneration"] = context["workspaceGeneration"].clone();
+        value["draftID"] = context["draftID"].clone(); value["draftRevision"] = context["revision"].clone();
+        value["earlyCW"] = context["earlyCW"].clone(); value["cwFormatting"] = context["cwFormatting"].clone();
+        value["context"]["CALL"] = context["fields"]["callsign"].clone(); value
+    }
     fn contest_ready() -> (Arc<Session>, Arc<Fake>, Client) {
         let (session, backend, _) = fixture();
         { let mut canonical = backend.canonical.lock().unwrap(); canonical["contestSessionID"] = json!("contest-1");
@@ -676,13 +714,16 @@ mod tests {
     }
     #[test]
     fn absent_native_continuation_cannot_send_a_host_suppressed_callsign() {
-        let (session, backend, mut client) = contest_ready();
-        let reply = contest_call(&mut client, &session, json!({"operation":"esm", "testEarlyCallSuppressed":true,
-            "cwContinuationAdmission":{"draftID":"draft-1","streamID":"stale-renderer"},
-            "testCWSequence":{"schema":1,"segments":[{"kind":"text","text":"5NN TT1"}]}}));
-        assert!(reply["error"].as_str().unwrap().contains("Live CW continuation"));
-        assert!(backend.writes.lock().unwrap().is_empty());
-        assert!(backend.claims.lock().unwrap().is_empty());
+        for operation_scope in [false, true] {
+            let (session, backend, mut client) = contest_ready();
+            let reply = contest_call(&mut client, &session, json!({"operation":"esm",
+                "testEarlyCallSuppressed":!operation_scope, "testOperationEarlyCallSuppressed":operation_scope,
+                "cwContinuationAdmission":{"draftID":"draft-1","streamID":"stale-renderer"},
+                "testCWSequence":{"schema":1,"segments":[{"kind":"text","text":"5NN TT1"}]}}));
+            assert!(reply["error"].as_str().unwrap().contains("Live CW continuation"));
+            assert!(backend.writes.lock().unwrap().is_empty());
+            assert!(backend.claims.lock().unwrap().is_empty());
+        }
     }
     #[test]
     fn isolated_observation_reports_actual_owner_guard_without_provider_or_output_admission() {
@@ -700,20 +741,42 @@ mod tests {
         assert!(backend.writes.lock().unwrap().is_empty()); assert!(backend.claims.lock().unwrap().is_empty());
     }
     #[test]
-    fn live_owned_finish_admits_one_exchange_continuation() {
-        let (session, backend, mut client) = contest_ready();
-        client.call(&session, "stop").unwrap();
-        backend.target.lock().unwrap()["streaming"] = json!(true);
-        ready(&mut client, &session);
-        let id = uuid::Uuid::new_v4().to_string();
-        assert_eq!(contest_call(&mut client, &session, json!({"operation":"early_start","streamID":id,"fields":{"callsign":"OM0"}}))["error"], "");
-        assert_eq!(contest_call(&mut client, &session, json!({"operation":"early_finish","streamID":id,"fields":{"callsign":"OM0RX"}}))["error"], "");
-        let reply = contest_call(&mut client, &session, json!({"operation":"esm","testEarlyCallSuppressed":true,
-            "testCWSequence":{"schema":1,"segments":[{"kind":"text","text":"5NN TT1"}]}}));
-        assert_eq!(reply["error"], "");
+    fn actual_host_default_macros_continue_pending_keyer_once_and_reject_replay() {
+        let (session, backend, _) = fixture();
+        let project = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let output = std::process::Command::new(std::env::var("XLOG_TEST_PYTHON").unwrap_or_else(|_| "python3.12".into()))
+            .arg(project.join("python/tests/cw_continuation_fixture.py"))
+            // Initial canonical observation retires epoch 0; explicit arm uses 2.
+            .arg(json!({"ownerID":session.owner_id,"epoch":2}).to_string())
+            .env("PYTHONPATH", project.join("python")).output().unwrap();
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+        let fixture: Value = serde_json::from_slice(&output.stdout).unwrap();
+        let frames = fixture["frames"].as_array().unwrap();
+        { let mut canonical = backend.canonical.lock().unwrap(); *canonical = host_canonical(&canonical, &frames[0]["before"]); }
+        *backend.host_frames.lock().unwrap() = frames.iter().cloned().collect();
+        *backend.keyer_probe.lock().unwrap() = Some(crate::winkeyer::continuation_probe::Probe::new());
+        { let mut target = backend.target.lock().unwrap();
+            target["output"] = json!("winkeyer"); target["provider"] = json!("winkeyer"); target["streaming"] = json!(true); }
+        let mut client = Client::new(); ready(&mut client, &session);
+        assert_eq!(session.lock().unwrap().epoch, 2);
+        for (index, frame) in frames.iter().enumerate() {
+            if index == 3 { assert!(backend.keyer_probe.lock().unwrap().as_ref().unwrap().pending()); }
+            let reply = contest_call(&mut client, &session, json!({"operation":frame["operation"],
+                "operationID":frame["result"]["operationID"], "streamID":frame["result"]["earlyCW"]["streamID"],
+                "fields":frame["after"]["fields"], "field":"callsign", "earlyStartEnabled":true, "inputOrigin":"typing", "threshold":3}));
+            if index == 4 { assert!(reply["error"].as_str().unwrap().contains("replayed")); }
+            else { assert_eq!(reply["error"], "", "frame {index}"); }
+        }
+        assert_eq!(frames[3]["result"]["actions"].as_array().unwrap().len(), 1);
+        assert_eq!(frames[3]["result"]["actions"][0]["key"], "F3");
+        assert_eq!(frames[3]["result"]["earlyCallSuppressed"], true);
+        assert!(frames[3]["result"]["actions"][0]["earlyCallSuppressed"].is_null());
         assert!(session.lock().unwrap().continuation.is_null());
-        assert_eq!(backend.writes.lock().unwrap().iter().filter(|(action,text,_)|
-            action=="continue" && text.as_deref()==Some("5NN TT1")).count(), 1);
+        assert_eq!(backend.keyer_probe.lock().unwrap().as_ref().unwrap().bytes(), b"OM0RX 5NN TT1");
+        assert_eq!(backend.writes.lock().unwrap().iter().filter(|(action,_,_)| action=="continue").count(), 1);
+        assert_eq!(backend.claims.lock().unwrap().len(), 4);
+        assert_eq!(fixture["serialBeforeLog"], 1); assert_eq!(fixture["qsoCountBeforeLog"], 0);
+        assert_eq!(fixture["qsoCountAfterLog"], 1); assert_eq!(fixture["nextSerial"], 2);
     }
     #[test]
     fn stop_reaches_the_original_output_even_when_its_ancillary_outcome_journal_fails() {

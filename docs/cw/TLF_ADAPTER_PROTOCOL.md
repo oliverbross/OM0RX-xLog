@@ -38,6 +38,15 @@ deliberate repeat. Setup Entry/QTC arms explicitly select `controlSurface=setup`
 their polling retains that actual focus surface. Detached Entry keeps its
 existing focus scope, and an unrelated window cannot borrow either arm.
 
+The Host's fresh durable operation carries `earlyCallSuppressed=true` separately
+from its text actions. A default `{CALL}` HISCALL action compiles empty after
+suppression and is omitted; the decision still reaches native dispatch. Only a
+fresh, identity-checked, non-replayed Host result together with the same live
+one-use native admission selects `continue_sequence`. It appends the exchange
+and its word boundary even while WinKeyer still owns the queued callsign.
+Persisted `esmConsumed`, a renderer flag or an old continuation alone grants no
+permission. A replay cannot consume the continuation or append again.
+
 Call suppression additionally requires native-authored live continuation
 admission matching the unique native owner, lease epoch, provider/generation,
 draft, stream and finish operation, plus the current Host process epoch. A

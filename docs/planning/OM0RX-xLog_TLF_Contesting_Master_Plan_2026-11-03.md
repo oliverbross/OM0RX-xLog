@@ -53,6 +53,28 @@ controls also pass: `PYTHONPATH=python:python/tests /opt/local/bin/python3.12 -m
 unittest test_okom_host` → 16 passed. Native UI/physical qualification not implied.
 R09 live integration remains IN_PROGRESS pending its actual-Host native regression.
 
+**R09 live-continuation follow-up — VERIFIED_SOFTWARE:** the real default WPX
+Host response contained only F3 `{RST} {SENTNR}` / `5NN TT1`; the suppressed
+`{CALL}` action vanished with its marker. The actual-Host native regression
+reproduced ordinary-send rejection at the ESM frame while the production WinKeyer
+core still owned its pending callsign (failure archive `0da1f0eeb468e022`). The
+fresh durable Host operation now carries `earlyCallSuppressed=true` independent
+of empty text actions. Native dispatch still validates current operation/revision,
+non-replay, owner/epoch/provider/generation and live one-use admission before
+selecting the existing continuation path. No persisted flag or renderer value
+grants output. `cw_continuation_fixture.py` generates actual Host/default-macro
+frames using the native test's matching owner/epoch; no synthetic exchange marker
+is added. Native tests check those frames/admission, pending production FIFO
+ownership and exactly `OM0RX 5NN TT1` queued once with a word boundary; real Host
+replay is refused and continuation consumed once. Original serial 1/no QSO until
+ordinary logging, then next serial 2, are retained. Restart/same-generation old
+admission, missing/changed live admission and provider-accepted partial correction
+remain covered. Python CW/message suites passed 13; native `cw_session::tests::`
+passed 36 (final focused archive `a9996f685e4e08c6`, including the explicit
+operation-flag assertion). Initial test setup mistakes in replay revision, keyer
+route/arm and lease epoch were corrected before recording the product failure.
+These are software FIFO/contract results; no physical serial device or RF was used.
+
 **Final correction disposition and commits:** all completed commits were pushed
 immediately to canonical `main`; starting SHA is above. Final documentation is a
 later documentation-only commit; the executable remains exact release source

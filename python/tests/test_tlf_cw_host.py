@@ -33,7 +33,7 @@ class TLFCWHostTests(unittest.TestCase):
         draft = self.call("projection")["projection"]["draftID"]
         return self.mutate(method, streamID=stream, draftID=draft, fields={"callsign": call},
                            earlyStartEnabled=True, inputOrigin="typing", threshold=3,
-                           cwOwnerContext={"ownerID": "f14b3a10-7d12-4c77-9c34-2fde329a6dc1", "epoch": 1}, **extra)
+                           cwOwnerContext=getattr(self, "native_owner", {"ownerID": "f14b3a10-7d12-4c77-9c34-2fde329a6dc1", "epoch": 1}), **extra)
 
     def continuation(self, finish, generation=1):
         stream = finish["earlyCW"]
@@ -54,13 +54,27 @@ class TLFCWHostTests(unittest.TestCase):
         self.call("output_claim", {"operationID": finish["operationID"], "revision": finish["revision"]})
         self.call("cw_outcome", {"outputOperationID": finish["operationID"], "outcome": "accepted",
                                 "acceptanceLevel": "native_queue", "providerID": "winkeyer", "generation": 1})
-        result = self.mutate("esm", field="callsign", cwProviderContext={"providerID": "winkeyer", "generation": 1},
-                             cwContinuationAdmission=self.continuation(finish))
+        params = {"operationID": uid(), "expectedRevision": finish["revision"], "field": "callsign",
+                  "cwProviderContext": {"providerID": "winkeyer", "generation": 1},
+                  "cwContinuationAdmission": self.continuation(finish)}
+        result = self.call("esm", params)
         text = " ".join(sequence_text(a["cwSequence"]) for a in result["actions"])
+        # Default HISCALL is {CALL}; suppressing it drops that empty action.
+        # Its fresh decision must survive on the operation, not on a mock exchange.
+        self.assertEqual([(a["key"], a["template"]) for a in result["actions"]], [("F3", "{RST} {SENTNR}")])
+        self.assertTrue(result.get("earlyCallSuppressed"))
+        self.assertNotIn("earlyCallSuppressed", result["actions"][0])
         self.assertNotIn("OM0RX", text)
         self.assertIn("5NN", text)
         self.assertEqual(result["projection"]["reservedSerial"], serial)
         self.assertEqual(self.call("log")["total"], 0)
+        replay = self.call("esm", params)
+        self.assertTrue(replay["replayed"])
+        self.assertTrue(replay["earlyCallSuppressed"])
+        fresh = self.mutate("esm", field="callsign", cwProviderContext=params["cwProviderContext"],
+                            cwContinuationAdmission=params["cwContinuationAdmission"])
+        self.assertNotIn("earlyCallSuppressed", fresh)
+        self.assertIn("OM0RX", " ".join(sequence_text(a["cwSequence"]) for a in fresh["actions"]))
         self.mutate("esm", field="other_2", fields={"callsign": "OM0RX", "other_2": "3"})
         logged = self.call("log")
         self.assertEqual(logged["total"], 1)
@@ -82,19 +96,31 @@ class TLFCWHostTests(unittest.TestCase):
         result = self.mutate("esm", field="callsign", cwProviderContext={"providerID": "winkeyer", "generation": 1},
                              cwContinuationAdmission=self.continuation(finish))
         self.assertIn("OM0RX", " ".join(sequence_text(a["cwSequence"]) for a in result["actions"]))
+        self.assertNotIn("earlyCallSuppressed", result)
         self.assertEqual(result["projection"]["reservedSerial"], serial)
         self.assertEqual(self.call("log")["total"], 0)
 
     def test_lost_live_continuation_or_changed_generation_recovers_full_call(self):
         self.mutate("run_state", run=True)
-        stream = uid()
-        self.early("early_cw_start", stream, "OM0")
-        finish = self.early("early_cw_finish", stream, "OM0RX")
-        self.call("output_claim", {"operationID": finish["operationID"], "revision": finish["revision"]})
-        self.call("cw_outcome", {"outputOperationID": finish["operationID"], "outcome": "accepted",
-                                 "acceptanceLevel": "native_queue", "providerID": "winkeyer", "generation": 1})
-        result = self.mutate("esm", field="callsign", cwProviderContext={"providerID": "winkeyer", "generation": 999})
-        self.assertIn("OM0RX", " ".join(sequence_text(a["cwSequence"]) for a in result["actions"]))
+        for lost in ["missing", "generation", "owner", "stream"]:
+            with self.subTest(lost=lost):
+                self.mutate("draft_apply", fields={"callsign": ""})
+                stream = uid()
+                self.early("early_cw_start", stream, "OM0")
+                finish = self.early("early_cw_finish", stream, "OM0RX")
+                self.call("output_claim", {"operationID": finish["operationID"], "revision": finish["revision"]})
+                self.call("cw_outcome", {"outputOperationID": finish["operationID"], "outcome": "accepted",
+                                         "acceptanceLevel": "native_queue", "providerID": "winkeyer", "generation": 1})
+                admission = self.continuation(finish)
+                if lost == "owner": admission["nativeOwner"]["epoch"] += 1
+                if lost == "stream": admission["streamID"] = uid()
+                result = self.mutate("esm", field="callsign",
+                    cwProviderContext={"providerID": "winkeyer", "generation": 999 if lost == "generation" else 1},
+                    **({} if lost == "missing" else {"cwContinuationAdmission": admission}))
+                self.assertIn("OM0RX", " ".join(sequence_text(a["cwSequence"]) for a in result["actions"]))
+                self.assertNotIn("earlyCallSuppressed", result)
+                self.assertEqual(result["projection"]["reservedSerial"], 1)
+                self.assertEqual(self.call("log")["total"], 0)
 
     def test_disabled_paste_edit_and_unrelated_revision_fail_closed(self):
         self.mutate("run_state", run=True)

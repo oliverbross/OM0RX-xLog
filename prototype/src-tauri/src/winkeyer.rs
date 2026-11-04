@@ -846,6 +846,30 @@ pub fn shutdown() {
     }
 }
 
+/// Test access to the production FIFO/ownership core, with no serial device.
+#[cfg(test)]
+pub(crate) mod continuation_probe {
+    use super::*;
+    pub struct Probe { core: Core }
+    impl Probe {
+        pub fn new() -> Self {
+            let mut core = Core::new(7, "disposable-contract".into());
+            core.snapshot.phase = "ready"; core.receive(0xc0, 1);
+            Self { core }
+        }
+        pub fn arm(&mut self) -> Result<(), String> { self.core.arm(2) }
+        pub fn stream(&mut self, value: &Value, intent: u64) -> Result<(), String> {
+            self.core.stream(intent, value["streamID"].as_str().unwrap(), value["revision"].as_u64().unwrap(),
+                value["call"].as_str().unwrap(), value["complete"] == true, 10)
+        }
+        pub fn sequence(&mut self, value: &Sequence, stream: Option<&str>, intent: u64) -> Result<(), String> {
+            self.core.sequence_continuation(intent, value, stream, 10)
+        }
+        pub fn pending(&self) -> bool { self.core.snapshot.owns_output && !self.core.queue.is_empty() }
+        pub fn bytes(&self) -> Vec<u8> { self.core.queue.iter().flatten().copied().collect() }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

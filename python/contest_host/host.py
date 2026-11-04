@@ -768,6 +768,9 @@ class Desk:
                     and live_continuation(self, stream, evidence):
                 values["CALL"] = ""
                 stream["esmConsumed"] = True
+                # Default {CALL} compiles empty and its action is omitted. Keep
+                # this fresh decision on the enclosing durable operation too.
+                self.early_call_suppressed = True
                 action["earlyCallSuppressed"] = True
             elif self.current_widget != "callsign" and getattr(self, "cw_partial_policy", "full") == "partial" \
                     and evidence.get("outcome") == "accepted" and evidence.get("acceptanceLevel") == "provider_accepted" \
@@ -3378,6 +3381,8 @@ class Host:
             projection_desk = Desk(store, state, self.commit) if state.get("laneState") else desk
             result = {"operationID": operation, "sessionID": session_id, "revision": state["revision"],
                       "projection": projection_desk.projection(), "actions": desk.actions, "messages": desk.messages, "replayed": False}
+            if getattr(desk, "early_call_suppressed", False):
+                result["earlyCallSuppressed"] = True
             if method in {"early_cw_start", "early_cw_append", "early_cw_finish"}:
                 result["earlyCW"] = deepcopy(state["earlyCW"])
             if action_context:
