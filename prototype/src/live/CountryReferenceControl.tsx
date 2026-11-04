@@ -10,7 +10,10 @@ export default function CountryReferenceControl({ request, visible }: { request:
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null), [path, setPath] = useState(""), [url, setURL] = useState("");
   const [busy, setBusy] = useState(false), [message, setMessage] = useState("");
   const pending = useRef(false), epoch = useRef(0);
-  useEffect(() => () => { epoch.current++; }, []);
+  useEffect(() => {
+    epoch.current++; pending.current = false; setBusy(false); setSnapshot(null); setMessage("");
+    return () => { epoch.current++; };
+  }, [request]);
   async function run(method: string, params: Record<string, unknown> = {}) {
     if (pending.current) return;
     pending.current = true; setBusy(true); setMessage(""); const ticket = ++epoch.current;
@@ -25,7 +28,7 @@ export default function CountryReferenceControl({ request, visible }: { request:
         response.country_reference_changed ? "Country snapshot activated. Stored contacts and contest interpretation stay unchanged; review country fields separately." :
         "Country snapshot unchanged. Check completed without a new data revision.");
     } catch (cause) { if (ticket === epoch.current) setMessage(cause instanceof Error ? cause.message : String(cause)); }
-    finally { pending.current = false; setBusy(false); }
+    finally { if (ticket === epoch.current) { pending.current = false; setBusy(false); } }
   }
   return <section className="country-reference-control" hidden={!visible} aria-label="Versioned country snapshot" aria-busy={busy}>
     <h2>Country snapshot</h2>

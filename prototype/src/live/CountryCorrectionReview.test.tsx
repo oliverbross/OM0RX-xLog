@@ -272,6 +272,30 @@ it("cancels a pending read by its captured native scan scope and ignores its lat
   expect(request.mock.calls.every(([method]) => ["workspace_status", "logbook_country_review", "logbook_country_review_cancel"].includes(method))).toBe(true);
 });
 
+it("retires reference status replies without losing pack drafts or unlocking a new request", async () => {
+  const oldReply = deferred(), nextReply = deferred();
+  const first = vi.fn(() => oldReply.promise), next = vi.fn(() => nextReply.promise);
+  const view = render(<CountryReferenceControl request={first} visible />);
+  const user = userEvent.setup();
+  await user.type(screen.getByRole("textbox", { name: "Country pack file" }), "/private/tmp/reviewed.json");
+  await user.type(screen.getByRole("textbox", { name: "Country pack URL" }), "https://example.invalid/pack.json");
+  await user.click(screen.getByRole("button", { name: "Read country snapshot" }));
+  view.rerender(<CountryReferenceControl request={next} visible />);
+  const read = screen.getByRole("button", { name: "Read country snapshot" }) as HTMLButtonElement;
+  expect(read.disabled).toBe(false);
+  expect((screen.getByRole("textbox", { name: "Country pack file" }) as HTMLInputElement).value).toBe("/private/tmp/reviewed.json");
+  expect((screen.getByRole("textbox", { name: "Country pack URL" }) as HTMLInputElement).value).toBe("https://example.invalid/pack.json");
+  await user.click(read);
+  expect(next).toHaveBeenCalledOnce();
+  const snapshot = { reference_revision: "fixture", provider: "Retired provider", rollback_available: true, coverage: [] };
+  await act(async () => oldReply.finish(snapshot));
+  expect(screen.queryByText(/Retired provider/)).toBeNull();
+  expect(read.disabled).toBe(true);
+  await act(async () => nextReply.finish({ ...snapshot, provider: "Current provider" }));
+  expect(screen.getByText(/Current provider/)).toBeTruthy();
+  expect(read.disabled).toBe(false);
+});
+
 it("country reference controls issue only explicit reference actions and never a contact or station mutation", async () => {
   const snapshot = { reference_revision: "composite-fixture", primary_reference_revision: "primary-xml-fixture", fallback_reference_revision: "bundled-fallback-fixture",
     provider: "Club Log XML + bundled country fallback", source_revision: "pinned", source_version: null,

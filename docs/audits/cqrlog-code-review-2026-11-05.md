@@ -205,3 +205,15 @@ LF output is independent of platform text translation. Both regressions pass
 upstream checkout is byte-identical to the bundled resource: SHA-256
 `c04689ac8cf530672a98df3d1ecd132a150d13e7583f88037928b75a09ff1731`
 (`/tmp/xlog-cqrlog-review-normalizer-reproduction.log`). No pack bytes changed.
+
+## Reference control transport retirement
+
+A pending country snapshot read kept controls disabled after transport
+replacement, and its late response could display the retired provider or unlock
+a newer operation. The regression fails before the fix
+(`/tmp/xlog-cqrlog-review-reference-scope-before.log`). Request replacement now
+retires the old epoch, clears its status/busy state, and guards finalization.
+Operator-entered file/URL drafts remain intact. All 19 correction/reference UI
+tests pass (`/tmp/xlog-cqrlog-review-reference-scope-after.log`). Native reference
+publication still owns admission and validation; UI retirement does not cancel
+an already admitted import or download.
