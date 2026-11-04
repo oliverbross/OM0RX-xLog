@@ -357,24 +357,22 @@ actor LiveTCISession {
         case .available: "ready"
         default: "stopped"
         }
-        return ["source": "direct_tci", "available": state != nil, "generation": generation,
-                "transport_state": transport, "generated_at": receivedAt?.timeIntervalSince1970 as Any? ?? NSNull(),
-                "radio": radio, "allow_transmit": allowTransmit,
-                "carrier_tune":["pending":false,"release_required":false],
-                "ptt":["source":"gui","owner_id":pttOwner as Any? ?? NSNull(),"pending":pttPending,"confirmed":pttConfirmed,"release_required":pttReleaseRequired,"transmitting":state?.transceiver.transmitting as Any? ?? NSNull()],
-                "station": ["available": false, "commissioned": false, "radio_known": state != nil,
+        let ptt: [String: Any] = ["source":"gui","owner_id":pttOwner as Any? ?? NSNull(),
+                "pending":pttPending,"confirmed":pttConfirmed,"release_required":pttReleaseRequired,
+                "transmitting":state?.transceiver.transmitting as Any? ?? NSNull()]
+        let station: [String: Any] = ["available": false, "commissioned": false, "radio_known": state != nil,
                             "radio_stale": !fresh || state == nil, "allowed_actions": [String](),
-                            "supported_commands": commands],
-                "capabilities": ["read_only": false, "receive_control_only": !protocolSupported,
+                             "supported_commands": commands]
+        let capabilities: [String: Any] = ["read_only": false, "receive_control_only": !protocolSupported,
                                  "supported_commands": commands,
-                                 "requires_transmit_opt_in": true],
-                "rotor": NSNull(), "propagation": NSNull(),
-                "tci": ["read_only": false, "receive_control_only": !protocolSupported,
+                                  "requires_transmit_opt_in": true]
+        let outputReason: String = !protocolSupported ? "Requires ExpertSDR3 TCI 2.1 transceiver." : !allowTransmit ? "Transmit permission is off." : !cwSupported ? "CW requires one TRX because Stop and speed are server-global." : "Requires fresh addressed RX and server TX_ENABLE; RF is unverified."
+        let tci: [String: Any] = ["read_only": false, "receive_control_only": !protocolSupported,
                         "transmit_enabled":state?.transceiver.transmitEnabled as Any? ?? NSNull(),
                         "trx_observed_at":observation?.trxEvidenceReceivedAt?.timeIntervalSince1970 as Any? ?? NSNull(),
                         "cw_macros_speed":observation?.cwMacrosSpeed as Any? ?? NSNull(),
                         "cw_owned":cwOwned,"output_supported":protocolSupported,"cw_supported":cwSupported,
-                        "output_reason":!protocolSupported ? "Requires ExpertSDR3 TCI 2.1 transceiver." : !allowTransmit ? "Transmit permission is off." : !cwSupported ? "CW requires one TRX because Stop and speed are server-global." : "Requires fresh addressed RX and server TX_ENABLE; RF is unverified.",
+                        "output_reason":outputReason,
                         "observation_sequence": sequence,
                         "filter_lower_hz": state?.transceiver.receiveFilter?.lowHz as Any? ?? NSNull(),
                         "filter_upper_hz": state?.transceiver.receiveFilter?.highHz as Any? ?? NSNull(),
@@ -386,7 +384,13 @@ actor LiveTCISession {
                         "device": state?.device as Any? ?? NSNull(), "receive_only": state?.receiveOnly as Any? ?? NSNull(),
                         "program": state?.protocolAnnouncement.program as Any? ?? NSNull(), "protocol_version": state?.protocolAnnouncement.version as Any? ?? NSNull(),
                         "trx_count": state?.trxCount as Any? ?? NSNull(), "channel_count": state?.channelCount as Any? ?? NSNull(),
-                        "supported_modulations": state?.supportedModulations as Any? ?? NSNull()]]
+                        "supported_modulations": state?.supportedModulations as Any? ?? NSNull()]
+        return ["source": "direct_tci", "available": state != nil, "generation": generation,
+                "transport_state": transport, "generated_at": receivedAt?.timeIntervalSince1970 as Any? ?? NSNull(),
+                "radio": radio, "allow_transmit": allowTransmit,
+                "carrier_tune":["pending":false,"release_required":false], "ptt":ptt,
+                "station":station, "capabilities":capabilities,
+                "rotor": NSNull(), "propagation": NSNull(), "tci":tci]
     }
     private func failureCode(_ failure: TCIReadOnlySessionFailure?) -> Any {
         switch failure {

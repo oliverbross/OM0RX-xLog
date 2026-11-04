@@ -1,5 +1,12 @@
 # C03 / C04 device implementation evidence
 
+Integrator portability follow-up: CI run `41841435824` at `9087b323` failed
+Swift type checking of the large `LiveTCISession.snapshot` dictionary. It is now
+split into explicitly typed PTT/station/capability/TCI dictionaries with the same
+keys and values; no protocol/admission behavior or compiler limits were changed.
+The local full portable build subsequently compiled that owner. Final runtime
+and platform results are recorded in the programme integration/candidate ledger.
+
 Baseline: canonical `main` `db4a9ce2739fc8b96371cd432d3b8787e950a45e`,
 clean and fast-forward current at programme start. No production store, physical
 radio, serial port, keyer or RF output was opened by this lane. Source changes
