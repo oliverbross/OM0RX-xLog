@@ -1,9 +1,11 @@
 # OM0RX-xLog — CQRLOG C01–C06 Implementation Programme
 
-**Current delivery — 5 November 2026:** selected software is delivered in the
-signed 1.5.13 candidate. [Section 13](#13-final-software-delivery--5-november-2026-darwin)
-and the [release record](../releases/v1.5.13-cqrlog-candidate.md) give current
-source/native/package/CI evidence and precise external acceptance limits.
+**Current delivery — 5 November 2026:** signed isolated candidate 1.5.14 passed
+bounded macOS checks but failed the repeated Windows responsiveness gate; the
+next correction/candidate is in progress. [Section 14](#14-focused-release-candidate-close-out--5-november-2026-darwin)
+and its [release record](../releases/v1.5.14-cqrlog-candidate.md) give exact
+source/native/package/CI evidence and qualification limits. Section 13 and the
+1.5.13 archive retain their historical evidence. Installed production remains 1.5.9.
 
 **Comprehensive project management and implementation contract**  
 **Version:** 1.0  
@@ -1379,10 +1381,37 @@ it does not authorize production replacement or physical output.
 | Follow-up | Current state and evidence |
 | --- | --- |
 | C06 terminal recording cancellation | Reproduced actual disposable WAV replacement after Stop → same-ID Finish. Native cancellation is now terminal; publication shares Stop/Finish admission. Fifteen native voice and all 1,116 Rust tests pass. Packaged/physical scopes remain separate. |
-| Windows DXpedition two-second read | Run 41901606176 failed Windows; Mac/Linux passed and optional runtime jobs skipped. Instrumentation locates local delay in cold reply shaping; country rules were validated/compiled twice. Reusing fully validated compiled rules halves the cold focused read (983.4 → 496.3 ms), with the feed held and two-second limit unchanged. Thirteen integration and seven core/oracle methods pass; 21,335 complete Facts remain identical. Instrumented Windows gate pending. |
+| Windows DXpedition two-second read | Run 41901606176 failed Windows; Mac/Linux passed and optional runtime jobs skipped. Reusing fully validated compiled rules halves the local cold focused read (983.4 → 496.3 ms), with the feed held and two-second limit unchanged. Thirteen integration and seven core/oracle methods pass; 21,335 complete Facts remain identical. Instrumented repeat 41917365254 still fails Windows: read 2,161.652 ms, including 2,145.151 ms after evaluation. Setup/feed/task admission are prompt; cold reply construction remains too costly. Further correction and candidate 1.5.15 are required. |
 
 The [existing review record](../audits/cqrlog-code-review-2026-11-05.md#release-candidate-close-out-follow-ups--5-november-2026)
 retains reproduction logs, corrections and current gate state. Only the missing
-native macOS job from contest run 41901614866 was requeued. Candidate provenance,
-unchanged-input reuse, new signed-worker checks and bounded native acceptance
-will be appended to this register and the new candidate record.
+native macOS job from contest run 41901614866 was requeued; all seven jobs now
+pass at that run's separately pinned source `982b289a`.
+
+Signed **1.5.14** was built from clean canonical source
+`5d92260f2db8f18ec90421c39d98a00d222d9283`. The [new release record](../releases/v1.5.14-cqrlog-candidate.md)
+and [machine receipt](../audits/cqrlog-implementation-2026-11-04/candidate-1.5.14-gates.json)
+pin artifact/hash/signatures, input comparisons, full normal/portable Swift and
+Rust gates, first-signed-worker 9/9 and retained raw evidence. Separate native
+acceptance selected/applied only a CQ zone, rediscovered its receipt after an
+ordinary Quit/restart, recovered it and reread Already recovered. Signed-worker
+reloads proved preservation of the other contacts, protected context, settings,
+preferences and existing WAV. Saved unarmed CW preview and reachable voice
+controls were observed. Offline voice/CW restrictions remained intact; native
+publication regressions with disposable WAVs do not qualify a physical microphone.
+
+The additional cold-construction correction is `7d969f36`: literal rules avoid
+regex compilation and one decode reuses strictly validated identical dates.
+The corrected boundary test, full normal/portable Swift gates and all 21,335
+original full-Facts oracle entries pass; the local focused read is 331.452 ms.
+Focused Windows `41928552588` and full native-core `41928560129` are running at
+that source. A new 1.5.15 candidate must wait for the applicable required gates;
+the failed 1.5.14 checkpoint remains separately pinned and retained.
+
+The operator records explicitly retain ExpertSDR3/TCI 2.1 PTT, exactly one
+advertised TRX for whole literal TCI CW messages (maximum 128 characters), and
+WinKeyer for live composition/typed speed/prosign segments. Keyer preferences
+expose the documented finite subset. Normal native voice is macOS-only; external
+WAV libraries require their own folder backup. Real SunSDR advertised TRX count,
+physical station/device qualification, Windows/Linux packaged-runtime acceptance,
+notarization and controlled OS-cache-cold measurement remain pending.

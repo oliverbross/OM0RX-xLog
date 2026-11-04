@@ -1,5 +1,10 @@
 # CQRLOG C01–C06 follow-up code review
 
+The [focused release close-out](#release-candidate-close-out-follow-ups--5-november-2026)
+adds terminal recording cancellation, cold-read diagnostics and the new signed
+[1.5.14 candidate](../releases/v1.5.14-cqrlog-candidate.md). Earlier review and
+release-boundary statements below describe their original checkpoint.
+
 Review baseline: clean canonical main `68d7b02846c94d904cdf3c9452f4c931e7167b48`,
 fast-forward fetched/pulled before work. Scope is the complete C01–C06 source
 delta from `db4a9ce2739fc8b96371cd432d3b8787e950a45e`, its callers and shared
@@ -373,6 +378,7 @@ PTT/release paths and normal recording Finish remain intact.
 The real native admission/publication helpers are exercised with synthetic PCM
 and disposable files: Stop → delayed same-ID Finish; Finish → Stop and repeated
 Finish; stale ID after Stop; and ordinary Finish successfully writing a slot.
+Correction source is `1d6c329ebf0515e829427bbc97ade0a80230a3cb`.
 All 15 native voice tests and the full 1,116-test native Rust gate pass
 (`/tmp/xlog-rc14-voice-after.log`, `/tmp/xlog-rc14-full-rust.log`). No audio hardware
 or production WAV was used. This is source/native-test evidence, not packaged
@@ -385,7 +391,7 @@ at `DXpeditionConcurrencyTests.swift:38`, and skipped both optional packaged
 runtime jobs. The failure is retained, not relabeled. Windows logs are saved at
 `/tmp/xlog-rc14-windows-original.log`. The two-second responsiveness criterion
 remains unchanged. Focused phase instrumentation and cold-reference investigation
-are in progress; diagnosis and required repeated Windows gate follow below.
+were added for the repeated Windows gate; actual outcomes follow below.
 
 Focused baseline locally passes (1.123 s overall). Phase instrumentation then
 measures workspace/worker setup at 50.6/61.3 ms, feed held at 66.5 ms, read task
@@ -396,7 +402,8 @@ for the feed or fixture-start signal. `statisticsJSON` cold-loads the country
 resolver in that phase. Its constructor validated/compiled every rule and then
 compiled all rules again, parsing date windows a third time.
 
-The validator now returns its fully checked compiled rules to the constructor.
+In `e084d54f75b9b42b7cf0e50955257503b1871c8b`, the validator now returns its
+fully checked compiled rules to the constructor.
 Every manifest/component/country/pattern/date/identity check remains; no partial
 pack is admitted. No renderer, timeout, warmup, test skip or responsiveness
 assertion changes. The same cold focused run now measures evaluation finish
@@ -406,8 +413,73 @@ assertion changes. The same cold focused run now measures evaluation finish
 pass. All 21,335 complete-facts oracle entries still agree and seven core/oracle
 methods pass (`/tmp/xlog-rc14-country-oracle.log`). Windows's original log has no
 phase stamps, so it does not alone separate cold materialization from runner
-scheduling; the instrumented repeated Windows gate must confirm its outcome.
+scheduling. The repeated Windows gate then failed the same expectation: read
+task start 313.871 ms, evaluation finish 330.372 ms, waiter timeout 2,314.316 ms,
+reply 2,475.523 ms. The task-to-reply interval is 2,161.652 ms; 2,145.151 ms is
+after evaluation. Worker setup/feed synchronization occurred before that budget;
+task scheduling and evaluation begin promptly. This demonstrates excessive cold
+reply-shaping cost, not serialization behind the held feed. The original
+compilation-reuse change alone is insufficient on Windows. Its complete logs
+are retained in `.build/releases/1.5.14/evidence/ci-windows-126880466368.log`.
+The 1.5.14 bytes remain a bounded macOS checkpoint with a failed required gate;
+a further construction correction and a newly versioned candidate are required.
+
+Further correction `7d969f36dd4c6d72740d546d1a208f971f9f49a2` keeps exact/prefix
+literal rules as validated strings instead of compiling 13,052 unnecessary
+regular expressions, and caches strictly validated UTC dates within one pack
+decode (15,699 date fields, 2,386 distinct values). Wildcard expressions,
+date-window checks, ranking, identities and whole-pack admission are unchanged.
+An independent synthetic-rule test covers literal exact/prefix boundaries,
+wildcards/classes, unsupported syntax, oversized patterns, invalid calendar dates
+and inverted windows. Its first fixture retained an unrelated real ambiguity
+prefix; the fixture now owns its ambiguity set. The corrected test and full normal
+Swift gate pass (393 reported Swift Testing methods/53 suites plus 8/2). All
+21,335 original full-Facts oracle entries still match. The local focused read is
+331.452 ms; no timeout, startup warmup or skip was added. Focused Windows
+`41928552588` and complete native-core platform gate `41928560129` are dispatched
+at the exact correction source. Their actual outcomes will qualify a separately
+versioned successor; they do not relabel 1.5.14's failed gate.
 
 Contest run `41901614866` retained six passing jobs and one native macOS
-runner-acquisition cancellation. Only that missing job was requeued; it is now
-running. Earlier cancellations and successful jobs retain their separate states.
+runner-acquisition cancellation. Only that missing job was requeued; all seven
+jobs now pass at original source `982b289a`. Earlier cancellations and successful
+jobs retain their separate states. The release-source contest run `41918608531`
+also passed all seven jobs after retrying only its macOS Swift runner-acquisition
+cancellation. Regular release-source CI `41918608659` initially ended with a
+cancelled job/no runner and workflow-level failure; its single-job retry passed.
+Neither infrastructure cancellation is represented as a test failure or an
+original-attempt pass.
+
+### Signed successor and acceptance boundary
+
+The [1.5.14 candidate](../releases/v1.5.14-cqrlog-candidate.md) is built from clean
+canonical source `5d92260f2db8f18ec90421c39d98a00d222d9283`. It includes both
+corrections and clarified capability documentation. Its ZIP is SHA-256
+`a2375545ce836fe6934feed9c1eb7c1d38ce56bd0c8910be98af5acd78407767`.
+Arm64 host/worker Developer ID signing, strict ZIP-roundtrip verification,
+3,546-file privacy audit (zero findings) and unchanged first-signed-worker gate
+(9/9, no skips, five-second deadline) pass. Full normal and portable Swift gates
+were repeated and passed, retaining existing conditional skips. Exact native/
+test/workflow input comparison supports validation-source `e084d54f` reuse at
+candidate `5d92260f`; frontend/Python inputs match `9db3d3c0`. No earlier package's
+acceptance is relabeled for these new bytes.
+
+Actual native private acceptance used fresh marked storage and two process-verified
+launches of the signed ZIP-extracted bundle. CQ-only selected apply, ordinary
+Quit/restart, saved receipt rediscovery, revision-checked Recover and Already
+recovered passed. Post-Quit signed-worker reads verified 12 contacts, unchanged
+other 11 contacts/protected context, retained extra fields, settings/preferences
+and WAV. Saved unarmed CW settings/literal preview and reachable voice/library
+controls were observed. Offline voice/CW guards remained intact; recording
+admission/publication regressions are native component tests with disposable WAVs,
+not physical microphone or station acceptance. Both Quits were verified only
+through process inspection, without a post-Quit GUI binding.
+
+The [machine receipt](cqrlog-implementation-2026-11-04/candidate-1.5.14-gates.json)
+pins sources, input manifests, current CI states, package/native/protection
+receipts and retained raw log checksums. Installed 1.5.9 and its rollback ZIP,
+old signed 1.5.13 bytes/receipts and the CW-skimmer worktree are unchanged.
+Physical TCI/keyer/audio/PTT qualification, Windows/Linux packaged-runtime
+acceptance, notarization and controlled OS-cache-cold measurement remain pending.
+Later SunSDR qualification must observe the real advertised TRX count before
+claiming native TCI CW availability; selecting one receiver is not that evidence.

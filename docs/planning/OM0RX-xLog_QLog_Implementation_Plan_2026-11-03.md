@@ -1733,7 +1733,8 @@ tracks two additive follow-ups: terminal cancellation of the same native voice
 recording and the specific Windows DXpedition two-second logbook read failure.
 The recording regression reproduced an actual disposable WAV replacement and is
 corrected natively; 15 focused voice and 1,116 complete Rust tests pass. Windows
-phase diagnostics and its required repeated gate remain in progress. The old
+phase diagnostics and its required repeated gate are recorded in the linked
+close-out register. The old
 1.5.13 artifact predates follow-up fixes; installed 1.5.9 and rollback stay intact.
 No QLog acceptance ID is reset, and no physical or packaged acceptance is inferred
 from these source tests. New isolated candidate evidence belongs to that register.
@@ -1743,4 +1744,27 @@ evaluation, with the feed still held. Reusing the country validator's compiled
 rules removes duplicate compilation and halves the local cold read; 13 country/
 DX integration methods, seven core/oracle methods and all 21,335 prior full-Facts
 entries pass unchanged. Windows's original log lacks phase stamps; its repeated
-instrumented gate remains required. The responsiveness limit stays two seconds.
+instrumented gate failed again: the real read took 2,161.652 ms, with
+2,145.151 ms after aggregate evaluation. Startup/feed/task synchronization is
+prompt; cold application reply construction still exceeds the unchanged
+two-second guarantee. The first optimization is insufficient on Windows and
+requires further correction.
+
+The retained checkpoint is signed isolated **1.5.14**, exact source
+`5d92260f2db8f18ec90421c39d98a00d222d9283`; its [release record](../releases/v1.5.14-cqrlog-candidate.md)
+and [machine receipt](../audits/cqrlog-implementation-2026-11-04/candidate-1.5.14-gates.json)
+supersede the old candidate only for their named scopes. Normal/portable Swift,
+Rust, first-signed-worker and new native CQ-only apply/restart/recovery passed.
+The actual package retained the other contacts, protected QSO context, settings,
+preferences and WAV. Unarmed CW preview/voice UI were checked within unchanged
+offline restrictions. QLog/TLF acceptance IDs and physical/platform limits remain
+unchanged; installed 1.5.9 and both old archives are preserved. This checkpoint
+is not fully qualified because its required Windows read gate failed. Its bytes
+are preserved; a corrected package must advance to the next unused version.
+
+Additional correction `7d969f36` removes unnecessary literal regex compilation
+and repeats of validated date conversion. Full local normal/portable Swift and
+the original 21,335-entry full-Facts oracle pass. Focused Windows `41928552588`
+and complete native-core `41928560129` are running at that exact source before
+the separately versioned 1.5.15 candidate is built. QLog/TLF IDs and the existing
+physical/platform boundaries remain unchanged.
