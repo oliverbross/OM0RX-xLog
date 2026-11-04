@@ -4,6 +4,12 @@ Prepared from tested product source `defa0007d2257ba360232415e6837c80bf6aa062` o
 The release-preparation commit is the exact argument to
 `docs/releases/build-1.5.8-macos-arm64.sh`; the recipe checks the extracted signed
 bundle's source/version, Developer ID signature and first signed-worker gate.
+The signed arm64 candidate was built from exact clean source
+`a7cddff95cd45040ff98710927e32714c5fad186`; its first signed-worker gate passed 9/9.
+Disposable native checks passed category/score/export, QTC correction/ack/reopen,
+and loopback pass/park-load/incoming log/original draft resume/restart. Native tune
+remains NOT_RUN without a suitable observed binding. See the
+[candidate evidence](docs/releases/v1.5.8-tlf-correction-candidate.md).
 
 - Correct OK/OM single-band claims and pinned 2026 period eligibility while
   retaining cross-check and outside-period rows. MO2T submission remains

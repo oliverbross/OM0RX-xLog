@@ -1,0 +1,70 @@
+{
+  "version": "1.5.8",
+  "source": "a7cddff95cd45040ff98710927e32714c5fad186",
+  "root": "/private/tmp/xlog-wave1-tlf-loopback-r1d6z2gw",
+  "webKitUUID": "b3247d63-c3ce-409d-8844-7e17564330a5",
+  "firstLaunch": [
+    88187,
+    88207
+  ],
+  "restart": [
+    96436,
+    96443
+  ],
+  "ordinaryQuitProcessOnlyVerification": "PASS both launches; exact host and all bundle workers stopped",
+  "okomNative": {
+    "singleBand": "20M",
+    "singleBandScore": 6,
+    "allBandScore": 18,
+    "retainedQSOCount": 2,
+    "reviewedCabrilloSHA256": "6c7f4c16e32f3bf4517eadbc13666b1279924d5fa2485ebe2d53b9104d072275"
+  },
+  "passNative": {
+    "sender": "TLF-B loopback peer",
+    "authority": "TLF-A native Group owner",
+    "passID": "2b04e874-34f7-47ee-899b-3511cb2b3d8f",
+    "callsign": "DL1ABC",
+    "frequencyHz": 14025000,
+    "mode": "CW",
+    "received": true,
+    "acknowledged": true,
+    "occupiedLoadRefused": true,
+    "parkLoad": true,
+    "incomingLoggedSerial": 2,
+    "originalResumed": {
+      "callsign": "K1ABC",
+      "sent": "589",
+      "serial": 1,
+      "received": "579",
+      "receivedSerial": "007"
+    },
+    "preservedOnRestart": true,
+    "originalNativeCommit": "NOT_RUN; covered by real Host/controller regression"
+  },
+  "qtcNative": {
+    "correction": "0802 W1AW 91",
+    "save": true,
+    "acknowledgement": true,
+    "pendingEditNullInOriginalCorrectionReceipt": true,
+    "confirmedPoints": 2,
+    "sharedScore": 6,
+    "restart": true,
+    "outputAttempts": 0,
+    "sub400msKeyboardAcknowledgement": "NOT_ESTABLISHED: form unmount lost shortcut focus; explicit acknowledgement succeeded; atomic receipt and real Host regression establish durable race fix"
+  },
+  "serialInspectionNote": "Initial inspector incorrectly expected lane/shared qso_id in an unbound lane. Owning source uses xlog_draft_contact for ordinary Entry. Verified incoming draft binding and reservations exactly 1,2,3; no product or store mutation.",
+  "tune": "NOT_RUN: no suitable observed isolated radio binding; physical CAT not authorised",
+  "stationIO": false,
+  "RF": false,
+  "audioIO": false,
+  "outputClaims": 0,
+  "installedApplication": {
+    "version": "1.5.6",
+    "hostPID": 67299,
+    "workerPID": 67306,
+    "hostSHA256": "61d9fd33fc3ea89618883db54a40fac531686a33b0256b01a333006f43e52f8f",
+    "workerSHA256": "f941d518285261c0907ade16eb088f0bd569f057ef64e85518b6651d709f6e7d",
+    "changedByTask": false
+  },
+  "productionStoreWrittenOrCopiedByTask": false
+}

@@ -1,0 +1,2 @@
+# Preserve the native export's exact CRLF and fixed-width bytes for its digest.
+okom-20m-cabrillo.log -text -diff

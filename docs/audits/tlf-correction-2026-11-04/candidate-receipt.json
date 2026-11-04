@@ -1,0 +1,75 @@
+{
+  "schema": 1,
+  "version": "1.5.8",
+  "releaseSource": "a7cddff95cd45040ff98710927e32714c5fad186",
+  "productSource": "defa0007d2257ba360232415e6837c80bf6aa062",
+  "app": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app",
+  "archive": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.8/OM0RX-xLog-1.5.8-macOS-arm64.zip",
+  "archiveSHA256": "ca83b157a4c1692de95237acb814866db7f89d684a6945c0662e37fa795f774e",
+  "signedAppSHA256": "8f82f43e08ad9e3877a61b4910bd0c71a9d7b3c6804c2bddaada199964ae0fe0",
+  "signedWorkerSHA256": "aea6bbffd082264d9e699777dabd45d50bee154206e5b92ae609a9caec1eebbd",
+  "signedWorkerGate": {
+    "passed": 9,
+    "failed": 0
+  },
+  "signature": "Executable=/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.8/.verify.tb4rCjtl/extracted/OM0RX-xLog.app/Contents/MacOS/xlog-prototype\nIdentifier=com.oliverbross.xlog.integration\nFormat=app bundle with Mach-O thin (arm64)\nCodeDirectory v=20500 size=75020 flags=0x10000(runtime) hashes=2333+7 location=embedded\nVersionPlatform=1\nVersionMin=917504\nVersionSDK=1769984\nHash type=sha256 size=32\nCandidateCDHash sha256=0a8e7d1e127865b1eba1d9655b0da5615d630c3b\nCandidateCDHashFull sha256=0a8e7d1e127865b1eba1d9655b0da5615d630c3be74099c39fb95b67417c354d\nHash choices=sha256\nCMSDigest=0a8e7d1e127865b1eba1d9655b0da5615d630c3be74099c39fb95b67417c354d\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=28884992\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=0a8e7d1e127865b1eba1d9655b0da5615d630c3b\nSignature size=8974\nAuthority=Developer ID Application: Oliver Bross (4WCMQ4U946)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTimestamp=4 Nov 2026 at 19:45:28\nInfo.plist entries=16\nTeamIdentifier=4WCMQ4U946\nRuntime Version=27.2.0\nSealed Resources version=2 rules=13 files=859\nInternal requirements count=1 size=192\nTotal signatures=1\nChosen signature=1\n",
+  "notarized": false,
+  "installed": false,
+  "productionDataWritten": false,
+  "integration": {
+    "python": {
+      "command": [
+        "/opt/local/bin/python3.12",
+        "-m",
+        "unittest",
+        "discover",
+        "python/tests"
+      ],
+      "exitCode": 0,
+      "seconds": 46.74553918838501,
+      "log": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/tlf-correction/python.log",
+      "state": "passed",
+      "rawLogSHA256": "4a831fa94babe696b52b79b1b7563f28c331457fd8340ae38540199add4db937"
+    },
+    "rust": {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--manifest-path",
+        "prototype/src-tauri/Cargo.toml",
+        "--bin",
+        "xlog-prototype"
+      ],
+      "exitCode": 0,
+      "seconds": 112.86939477920532,
+      "log": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/tlf-correction/rust.log",
+      "state": "passed",
+      "rawLogSHA256": "936205a30c38428ac37abf83d5c96de4be8606fccd6158da61e716c04fc2584f"
+    },
+    "swift": {
+      "command": [
+        "swift",
+        "test"
+      ],
+      "exitCode": 0,
+      "seconds": 99.67112588882446,
+      "log": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/tlf-correction/swift.log",
+      "state": "passed",
+      "rawLogSHA256": "9fb55cb65e53e69ea86a64246fc7b9a435346d935af2bc5eed34d150c1bda33a"
+    },
+    "frontend": {
+      "command": [
+        "npm",
+        "--prefix",
+        "prototype",
+        "test"
+      ],
+      "exitCode": 1,
+      "seconds": 486.02949595451355,
+      "log": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/tlf-correction/frontend.log",
+      "state": "failed",
+      "rawLogSHA256": "6a651c80ad8f2f11d830e5675a99bd88caa5c03a7be02979078b52c51aa97dd2"
+    }
+  }
+}

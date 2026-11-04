@@ -1,0 +1,4 @@
+source=a7cddff95cd45040ff98710927e32714c5fad186
+version=1.5.8
+platform=macOS-arm64
+signing_identity=Developer ID Application: Oliver Bross (4WCMQ4U946)

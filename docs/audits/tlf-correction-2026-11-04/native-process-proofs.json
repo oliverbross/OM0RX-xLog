@@ -1,0 +1,88 @@
+[
+  {
+    "pid": 88187,
+    "command": [
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+      "--offline-contest-acceptance=/private/tmp/xlog-wave1-tlf-loopback-r1d6z2gw"
+    ],
+    "root": "/private/tmp/xlog-wave1-tlf-loopback-r1d6z2gw",
+    "markerID": "b3247d63-c3ce-409d-8844-7e17564330a5",
+    "ordinal": 1,
+    "started": 1793787386.560292,
+    "state": "verified",
+    "GUIObserved": false,
+    "stdout": "/private/tmp/xlog-wave1-tlf-loopback-r1d6z2gw/evidence/native-1.stdout.log",
+    "stderr": "/private/tmp/xlog-wave1-tlf-loopback-r1d6z2gw/evidence/native-1.stderr.log",
+    "app": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app",
+    "workerPID": 88207,
+    "verified": 1793787388.7775302,
+    "processProof": {
+      "state": "verified",
+      "app": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app",
+      "root": "/private/tmp/xlog-wave1-tlf-loopback-r1d6z2gw",
+      "appProcess": {
+        "pid": 88187,
+        "ppid": 88185,
+        "executable": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+        "command": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/MacOS/xlog-prototype --offline-contest-acceptance=/private/tmp/xlog-wave1-tlf-loopback-r1d6z2gw"
+      },
+      "workerProcess": {
+        "pid": 88207,
+        "ppid": 88187,
+        "executable": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+        "command": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker --offline-contest-acceptance=/private/tmp/xlog-wave1-tlf-loopback-r1d6z2gw"
+      },
+      "markerID": "b3247d63-c3ce-409d-8844-7e17564330a5",
+      "webKitStores": [
+        "/private/tmp/xlog-wave1-tlf-loopback-r1d6z2gw/home/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b3247d63-c3ce-409d-8844-7e17564330a5"
+      ],
+      "windowTitleContains": "disposable offline acceptance b3247d63-c3ce-409d-8844-7e17564330a5",
+      "production": false,
+      "stationIO": false,
+      "GUIObserved": false
+    }
+  },
+  {
+    "pid": 96436,
+    "command": [
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+      "--offline-contest-acceptance=/private/tmp/xlog-wave1-tlf-loopback-r1d6z2gw"
+    ],
+    "root": "/private/tmp/xlog-wave1-tlf-loopback-r1d6z2gw",
+    "markerID": "b3247d63-c3ce-409d-8844-7e17564330a5",
+    "ordinal": 2,
+    "started": 1793788058.793236,
+    "state": "verified",
+    "GUIObserved": false,
+    "stdout": "/private/tmp/xlog-wave1-tlf-loopback-r1d6z2gw/evidence/native-2.stdout.log",
+    "stderr": "/private/tmp/xlog-wave1-tlf-loopback-r1d6z2gw/evidence/native-2.stderr.log",
+    "app": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app",
+    "workerPID": 96443,
+    "verified": 1793788059.6494458,
+    "processProof": {
+      "state": "verified",
+      "app": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app",
+      "root": "/private/tmp/xlog-wave1-tlf-loopback-r1d6z2gw",
+      "appProcess": {
+        "pid": 96436,
+        "ppid": 96432,
+        "executable": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+        "command": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/MacOS/xlog-prototype --offline-contest-acceptance=/private/tmp/xlog-wave1-tlf-loopback-r1d6z2gw"
+      },
+      "workerProcess": {
+        "pid": 96443,
+        "ppid": 96436,
+        "executable": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+        "command": "/Users/oliver/Documents/Projects/OM0RX-xLog/prototype/src-tauri/target/release/bundle/macos/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker --offline-contest-acceptance=/private/tmp/xlog-wave1-tlf-loopback-r1d6z2gw"
+      },
+      "markerID": "b3247d63-c3ce-409d-8844-7e17564330a5",
+      "webKitStores": [
+        "/private/tmp/xlog-wave1-tlf-loopback-r1d6z2gw/home/Library/WebKit/com.oliverbross.xlog.integration/WebsiteDataStore/b3247d63-c3ce-409d-8844-7e17564330a5"
+      ],
+      "windowTitleContains": "disposable offline acceptance b3247d63-c3ce-409d-8844-7e17564330a5",
+      "production": false,
+      "stationIO": false,
+      "GUIObserved": false
+    }
+  }
+]

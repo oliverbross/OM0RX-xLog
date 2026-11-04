@@ -1,0 +1,14 @@
+{
+  ".gitattributes": "55e6be65248bcb9f7f74f58ab51ec1d4e5b648070c7cda812ab7949ce00d03a5",
+  "NativeBundleBuild.json": "366435ce2d59ff27392caa866fd7f0c6806ee23c3bbc8911ac7325028193cbf7",
+  "SHA256SUMS": "83b9271cff04bccb878d8dcda660b8a482c9bb1b7950f6bd6d0468791f2c57b7",
+  "build-input.txt": "fc2eb8494cbf70edd69fc0dc2a2364d5b247f69f5037e674d1e56104e513780b",
+  "candidate-receipt.json": "bca4d05247abf61352695b3a2aacabe4eac98e9365d243bfb840933cdbb60fd4",
+  "native-after-first-quit.json": "c79ffc27c6420ab69c5d7f8cca3d9ac01245ceb2d1eda2cc54d79bb55e3722b1",
+  "native-after-restart-quit.json": "c79ffc27c6420ab69c5d7f8cca3d9ac01245ceb2d1eda2cc54d79bb55e3722b1",
+  "native-process-proofs.json": "d8a59242cd8a93b5238e54d878fd470c662645da7c44f7471c08e91f2ed5e208",
+  "okom-20m-cabrillo.log": "6c7f4c16e32f3bf4517eadbc13666b1279924d5fa2485ebe2d53b9104d072275",
+  "rehearsal-result.json": "0fdbcc224e91e5df87609f88108430e65dc1f5a2f2700f4ff7afa7c1a219bb86",
+  "signature.txt": "792688804b3f6f2d51539c499eae69e4d62359c99f2a1a114ac6376c5187ab61",
+  "signed-worker.tap": "d3db3f9423f1210b47591c123d344078f9264175e900f16bf46a31da6eaf2297"
+}
