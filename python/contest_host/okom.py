@@ -37,6 +37,8 @@ def normalized_exchange(value):
 
 def validate_setup(station, settings, countries, require):
     """Require an explicit station operating location, independently of address."""
+    require(settings.get("TransmitterCategory") != "TWO",
+            "OK/OM MO2T submission is unavailable: explicit per-QSO transmitter identity and per-band/per-transmitter serial ownership are not implemented")
     own = countries.get(station.get("Call", ""), {})
     declared = str(station.get("OperatingCountryPrefix", "")).strip().upper()
     require(bool(declared) and declared == prefix(own).upper(),
@@ -80,9 +82,16 @@ def station_snapshot(desk):
             "operatingCall": desk.station["Call"]}
 
 
+def in_period(row):
+    # Host timestamps are validated canonical UTC. Keep the original timestamp.
+    start = REFERENCE["contestStartUTC"].replace("T", " ").removesuffix("Z")
+    end = REFERENCE["contestEndExclusiveUTC"].replace("T", " ").removesuffix("Z")
+    return start <= str(row.get("TS", "")) < end
+
+
 def row_points(state, row):
     """Single-contact arithmetic; duplicate credit is applied by ordered history."""
-    if row.get("Band") not in BANDS or row.get("Mode") not in {"CW", "CWR", "CW-R", "CW-U", "CW-L"}:
+    if not in_period(row) or row.get("Band") not in BANDS or row.get("Mode") not in {"CW", "CWR", "CW-R", "CW-U", "CW-L"}:
         return 0
     try:
         own = json.loads(row.get("MiscText", ""))
@@ -122,10 +131,12 @@ def credit_keys(row):
 
 def score(desk):
     rows = desk.database.fetch_all_contacts_asc()
-    keys = {key for row in rows for key in credit_keys(row)}
+    credited = [row for row in rows if in_period(row)
+                and desk.database.score_band in (None, row.get("Band"))]
+    keys = {key for row in credited for key in credit_keys(row)}
     countries = sum(key[0] == "country" for key in keys)
     districts = len(keys) - countries
-    points = sum(row.get("Points", 0) for row in rows)
+    points = sum(row.get("Points", 0) for row in credited)
     complete = True
     for row in rows:
         try:
@@ -134,17 +145,21 @@ def score(desk):
         except (TypeError, ValueError):
             complete = False
         complete = complete and bool(row.get("CountryPrefix") and row.get("Continent") or row["Call"].endswith("/MM"))
+    limitations = [] if complete else ["A retained contact lacks pinned operating-location or country evidence; review before a submission claim"]
+    if desk.contest_settings.get("TransmitterCategory") == "TWO":
+        limitations.append("OK/OM MO2T submission unavailable: actual per-QSO transmitter identity and permitted serial scope are missing; historical exchanges are preserved")
     return {"qsos": len(rows), "points": points, "countries": countries, "districts": districts,
             "zones": 0, "multipliers": len(keys), "total": points * len(keys),
-            "ruleEdition": RULE_EDITION, "scoringComplete": complete,
-            "scoringLimitation": "" if complete else "A retained contact lacks pinned operating-location or country evidence; review before a submission claim",
-            "scoringLimitations": [] if complete else ["A retained contact lacks pinned operating-location or country evidence; review before a submission claim"],
+            "ruleEdition": RULE_EDITION, "scoringComplete": not limitations,
+            "scoringLimitation": "; ".join(limitations),
+            "scoringLimitations": limitations,
             "multiplierSummaryLabels": [f"{countries} DXCC / WAE countries", f"{districts} OK / OM districts"]}
 
 
 def is_valid_dupe(desk, call, band):
-    return bool(desk.database.exec_sql("SELECT 1 AS isdupe FROM DXLOG WHERE ContestNR=? AND Call=? AND Band=? AND Points>0 LIMIT 1",
-                                      (desk.database.current_contest, call, band)))
+    rows = desk.database.exec_sql_mult("SELECT * FROM DXLOG WHERE ContestNR=? AND Call=? AND Band=? AND Points>0",
+                                      (desk.database.current_contest, call, band))
+    return any(row_points(desk.state, row) > 0 for row in rows)
 
 
 def points(desk):
@@ -185,7 +200,7 @@ def esm_callback(base):
 def export(desk, encoding):
     if not score(desk)["scoringComplete"]:
         from .host import require
-        require(False, "Review unresolved OK/OM historical country/location evidence before creating a Cabrillo claim", "scoring_review_required")
+        require(False, score(desk)["scoringLimitation"], "scoring_review_required")
     rows = desk.database.fetch_all_contacts_asc()
     station, settings = desk.station, desk.contest_settings
     lines = ["START-OF-LOG: 3.0", "CREATED-BY: OM0RX-xLog", "CONTEST: OK-OM-DX", f"CALLSIGN: {station['Call']}"]

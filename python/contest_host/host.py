@@ -622,7 +622,7 @@ class Desk:
         self.database.plugin_id = state["pluginID"]
         self.database.score_band = (SINGLE_BAND_SCORE_VALUES.get(
             str(state["settings"].get("BandCategory", "ALL")).upper())
-            if state["pluginID"] == "cq_ww_ssb" else None)
+            if state["pluginID"] in {"cq_ww_ssb", "okom_dx_cw"} else None)
         self.contest = load_plugin(state["pluginID"])
         self.cw_macros = load_cw_macros(state["pluginID"])
         self.macro_origins = {identity: "pinned_not1mm" for identity in self.cw_macros}
@@ -4938,8 +4938,8 @@ class Host:
                     params,
                 )
             return result
-        return {"countries": store.exec_sql_mult("SELECT CountryPrefix AS value,Band AS band,count(*) AS qsos FROM DXLOG WHERE ContestNR=? GROUP BY CountryPrefix,Band ORDER BY CountryPrefix,Band", params),
-                "zones": store.exec_sql_mult("SELECT ZN AS value,Band AS band,count(*) AS qsos FROM DXLOG WHERE ContestNR=? GROUP BY ZN,Band ORDER BY ZN,Band", params)}
+        return {"countries": store.exec_sql_mult(f"SELECT q.CountryPrefix AS value,q.Band AS band,count(*) AS qsos FROM DXLOG AS q WHERE q.ContestNR=?{band_clause} GROUP BY q.CountryPrefix,q.Band ORDER BY q.CountryPrefix,q.Band", params),
+                "zones": store.exec_sql_mult(f"SELECT q.ZN AS value,q.Band AS band,count(*) AS qsos FROM DXLOG AS q WHERE q.ContestNR=?{band_clause} GROUP BY q.ZN,q.Band ORDER BY q.ZN,q.Band", params)}
 
     @staticmethod
     def export_artifact(desk, maximum, export_format="cabrillo", site_id=None):

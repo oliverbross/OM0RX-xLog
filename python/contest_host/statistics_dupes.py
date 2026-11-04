@@ -55,6 +55,11 @@ class _PriorRows:
             "WITH DXLOG AS (SELECT * FROM main.DXLOG WHERE TS<? OR (TS=? AND rowid<?)) " + query,
             (self.row["TS"], self.row["TS"], self.row["source_order"], *params))
 
+    def exec_sql_mult(self, query, params=()):
+        return self.database.exec_sql_mult(
+            "WITH DXLOG AS (SELECT * FROM main.DXLOG WHERE TS<? OR (TS=? AND rowid<?)) " + query,
+            (self.row["TS"], self.row["TS"], self.row["source_order"], *params))
+
     def __getattr__(self, name):
         value = getattr(self.database, name)
         # Database check_dupe_* helpers must call this proxy's restricted SQL.

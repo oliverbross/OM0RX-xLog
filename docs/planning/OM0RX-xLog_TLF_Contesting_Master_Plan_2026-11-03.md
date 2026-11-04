@@ -22,6 +22,22 @@ Their earlier VERIFIED_SOFTWARE/PASS labels are reopened for these subcases unti
 specific corrective evidence is recorded here. No installation, RF transmission,
 physical CAT action or submission is authorised by this correction pass.
 
+### Correction evidence (this register remains authoritative)
+
+| Finding / acceptance | Failed reproduction → corrected result | Corrective evidence / remaining boundary |
+| --- | --- | --- |
+| TLF-R01; P1-09/10; OK-05/08/09 | Mixed 20M/40M gave 18 for 20M → 6; ALL remains 18, both export rows retained | `python/tests/test_okom_host.py`, `test_single_band_claim_switch_edit_rebuild_restart_and_cross_check_export`; category/edit/rebuild/restart/export passed. Native confirmation pending. |
+| TLF-R02; P1-09/10; OK-07/08/09 | Outside-period rows scored and occupied credit → zero credit, valid later contact scores | Same suite, `test_period_boundaries_and_outside_row_cannot_consume_duplicate_credit`; exact start/last second/end, raw times and rebuild/export passed. No database-wide rescore: explicitly use the existing per-contest Recalculate for retained pre-correction points/flags; edition and sent snapshots unchanged. |
+| TLF-R03; P1-09/10; OK-02/09 | TWO accepted without IDs/supported scope → new TWO setup refused, historical TWO score marked incomplete and Cabrillo blocked | Same suite, `test_mo2t_is_explicitly_unavailable_without_fabricating_historical_attribution`; SO/MOST export retained. **OPEN / contained:** OK/OM serial owner is chronological contest-wide; lane/Run1Run2 defaults are not actual per-QSO transmitter declarations. Real transmitter attribution plus per-band/per-transmitter serial ownership still required for MO2T. No historical ID fabrication or renumbering. |
+
+Command: `PYTHONPATH=python:python/tests /opt/local/bin/python3.12 -m unittest test_okom_host` → PASS (14 tests).
+Initial test attempts exposed unavailable system Python 3.9, a test transaction
+commit omission, a generic matrix query's single-band parameter mismatch and a
+historical duplicate proxy that did not restrict multi-row queries. Corrected;
+the final focused command above passed. Tool policy rejected inline Python and
+unittest's short `-p` spelling before execution; the normal module command uses
+the existing Python 3.12 interpreter. No station/native output was used.
+
 **Delivery checkpoint — 4 November 2026:** All three selected phases have committed software implementations on canonical `main`. Signed macOS arm64 candidate **1.5.7** is built from `4de56b1aeaa1fad93309b0d9a2cc382c04c994da` (product source `1cf9a145a9191be845c159a7ec8cde38169cf0a8`). Software tests and bounded disposable native checks are recorded in section 14. Full native pass park/load/tune, physical adapter/route qualification and installation are not claimed. Flex advanced CW remains unimplemented; the real advanced production adapter is WinKeyer. WPX 2027 has no verified profile because official publication was unavailable. No simulator was added. The installed 1.5.6 app and production data were not changed by this work.
 
 ## 1. Approved scope and sequencing

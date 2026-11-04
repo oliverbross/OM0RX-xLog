@@ -74,6 +74,68 @@ class OKOMHostTests(unittest.TestCase):
         self.assertEqual(score["multiplierSummaryLabels"], ["1 DXCC / WAE countries", "1 OK / OM districts"])
         self.assertEqual(score["scoringLimitations"], [])
 
+    def test_single_band_claim_switch_edit_rebuild_restart_and_cross_check_export(self):
+        self.create()
+        self.log("OK1ABC", "APA", 0)
+        other = self.log("DL1ABC", "001", 1, 7025000)
+        self.assertEqual(self.read("score")["score"]["total"], 18)
+        setup = self.read("setup_get")["setup"]
+        setup["settings"]["BandCategory"] = "20M"
+        self.mutate("setup_save", setup=setup)
+        self.assertEqual(self.read("score")["score"]["total"], 6)
+        self.mutate("qso_correct", qsoID=other, fields={"other_2": "002"}, reason="Received correction")
+        self.mutate("recalculate")
+        self.host.close(); self.host = Host(self.root)
+        self.assertEqual(self.read("score")["score"]["total"], 6)
+        exported = self.read("export")["content"]
+        self.assertIn("CATEGORY-BAND: 20M", exported)
+        self.assertIn("CLAIMED-SCORE: 6", exported)
+        self.assertEqual(sum(line.startswith("QSO:") for line in exported.splitlines()), 2)
+        setup["settings"]["BandCategory"] = "ALL"
+        self.mutate("setup_save", setup=setup)
+        self.assertEqual(self.read("score")["score"]["total"], 18)
+
+    def test_period_boundaries_and_outside_row_cannot_consume_duplicate_credit(self):
+        self.create()
+        times = ["2026-11-14 11:59:59", "2026-11-14 12:00:00",
+                 "2026-11-15 11:59:59", "2026-11-15 12:00:00"]
+        ids = []
+        for call, exchange, timestamp in zip(["OK1ABC", "OK1ABC", "DL1ABC", "K1ABC"],
+                                             ["APA", "APA", "001", "001"], times):
+            ids.append(fixtures.uid())
+            self.mutate("qso_commit", qsoID=ids[-1], timestamp=timestamp, frequencyHz=14025000,
+                        fields={"callsign": call, "other_2": exchange})
+        for rebuild in (False, True):
+            if rebuild: self.mutate("recalculate")
+            rows = {row["ID"]: row for row in self.read("log")["rows"]}
+            self.assertEqual([rows[key]["Points"] for key in ids], [0, 3, 3, 0])
+            self.assertEqual([rows[key]["TS"] for key in ids], times)
+            self.assertEqual(self.read("score")["score"]["total"], 18)
+        self.assertIn("CLAIMED-SCORE: 18", self.read("export")["content"])
+
+    def test_mo2t_is_explicitly_unavailable_without_fabricating_historical_attribution(self):
+        self.create("DL1ABC", "DL", "#")
+        setup = self.read("setup_get")["setup"]
+        setup["settings"].update(OperatorCategory="MULTI-OP", TransmitterCategory="TWO")
+        with self.assertRaisesRegex(HostError, "MO2T submission is unavailable"):
+            self.mutate("setup_save", setup=setup)
+        # SO and MOST remain usable with the existing chronological authority.
+        setup["settings"]["TransmitterCategory"] = "ONE"
+        self.mutate("setup_save", setup=setup)
+        self.log("OK1ABC", "APA", 0)
+        self.assertIn("CATEGORY-TRANSMITTER: ONE", self.read("export")["content"])
+        # Pre-correction TWO sessions load without inventing IDs or renumbering.
+        store = self.host.database(self.session)
+        saved = store.state(self.session)
+        saved["settings"]["TransmitterCategory"] = "TWO"
+        store.save_state(saved)
+        store.conn.commit()
+        score = self.read("score")["score"]
+        self.assertFalse(score["scoringComplete"])
+        self.assertIn("MO2T", score["scoringLimitation"])
+        with self.assertRaises(HostError): self.read("export")
+        self.assertEqual(str(self.read("log")["rows"][0]["SentNr"]), "1")
+
     def test_domestic_arithmetic_duplicates_multiband_correction_restart_and_exports(self):
         self.create()
         rows = [self.log("OM1ABC", " baa ", 0), self.log("OK1ABC", "APA", 1),
