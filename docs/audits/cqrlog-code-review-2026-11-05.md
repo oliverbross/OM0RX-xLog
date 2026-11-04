@@ -31,3 +31,25 @@ backup/restore, download/304, cancellation and XML rollback
 Python 3.12, `--jobs 2 --no-parallel`; the portable gate retained its existing
 `.build/cqrlog-portable-final` scratch path. No native app, physical output,
 production data or installed bundle was exercised or changed.
+
+## Correction UI response and native review lifetime
+
+Five deterministic regressions reproduced late workspace handshakes starting
+retired scans, old preview/apply `finally` blocks unlocking a newer scan, and
+old Cancel/Already-applied responses replacing a new review or exposing old
+receipts. All async UI outcomes now belong to their captured sequence, including
+scan cancellation acknowledgements. A retired handshake starts no native read.
+
+Unapplied review tokens also outlived navigation, rejected previews and late
+responses. They consumed the native eight-review allowance until its 15-minute
+expiry, while the UI no longer offered a way to close them. Scope retirement
+now explicitly cancels those tokens. Completed corrections retain their durable
+receipts; cancellation still cannot undo an applied correction.
+
+Validation: five real behavior failures before the fix are retained in
+`/tmp/xlog-cqrlog-review-ui-before-corrected.log`. All 18 correction/reference
+UI tests now pass, including the eight new retirement/ownership cases and
+rejected-reference cleanup; TypeScript exits zero. Logs:
+`/tmp/xlog-cqrlog-review-ui-after.log` and
+`/tmp/xlog-cqrlog-review-ui-tsc.log`. No timers, sleeps, timeout limits, native
+mutation checks or workspace generation guards were weakened.

@@ -35,12 +35,16 @@ export function CountryCorrectionReview({ onRequest, refreshKey, queryContext = 
   const [message, setMessage] = useState("");
   const [scan, setScan] = useState<{ generation: string; scanID: string } | null>(null);
   const scanScope = useRef<{ generation: string; scanID: string } | null>(null);
+  const reviewScope = useRef<{ generation: string; reviewID: string } | null>(null);
   const sequence = useRef(0), pending = useRef(false), undoIDs = useRef<Record<string, string>>({});
   const scopeKey = JSON.stringify(queryContext);
   useEffect(() => { setReceipts([]); setRecoveryPage(null); undoIDs.current = {}; }, [onRequest]);
   useEffect(() => {
     const retiredScan = scanScope.current;
     if (retiredScan) void onRequest("logbook_country_review_cancel", retiredScan).catch(() => {});
+    const retiredReview = reviewScope.current;
+    if (retiredReview) void onRequest("logbook_country_correction_cancel", retiredReview).catch(() => {});
+    reviewScope.current = null;
     scanScope.current = null; setScan(null); pending.current = false; setBusy(false);
     sequence.current++; setPage(null); setReview(null); setSelected([]); setChoices({}); setGeneration("");
   }, [onRequest, refreshKey, scopeKey]);
@@ -48,6 +52,9 @@ export function CountryCorrectionReview({ onRequest, refreshKey, queryContext = 
     sequence.current++;
     const retiredScan = scanScope.current;
     if (retiredScan) void onRequest("logbook_country_review_cancel", retiredScan).catch(() => {});
+    const retiredReview = reviewScope.current;
+    if (retiredReview) void onRequest("logbook_country_correction_cancel", retiredReview).catch(() => {});
+    reviewScope.current = null;
   }, [onRequest]);
   async function read(offset = 0) {
     if (pending.current) return;
@@ -55,6 +62,7 @@ export function CountryCorrectionReview({ onRequest, refreshKey, queryContext = 
     const ticket = ++sequence.current;
     try {
       const workspace = result(await onRequest("workspace_status"));
+      if (ticket !== sequence.current) return;
       if (!uuid.test(workspace?.generation)) throw new Error("Open a local logbook before reviewing countries.");
       const scope = { generation: workspace.generation, scanID: crypto.randomUUID() };
       scanScope.current = scope; setScan(scope);
@@ -75,6 +83,7 @@ export function CountryCorrectionReview({ onRequest, refreshKey, queryContext = 
     setReceipts([]); if (!after) setRecoveryPage(null);
     try {
       const workspace = result(await onRequest("workspace_status"));
+      if (ticket !== sequence.current) return;
       if (!uuid.test(workspace?.generation)) throw new Error("Open a local logbook before reading saved corrections.");
       if (after && recoveryPage?.generation !== workspace.generation) throw new Error("The workspace changed. Read its saved corrections again.");
       const response = result(await onRequest("logbook_country_correction_receipts", { generation: workspace.generation, limit: 20, ...(after ? { after } : {}) }));
@@ -97,27 +106,35 @@ export function CountryCorrectionReview({ onRequest, refreshKey, queryContext = 
   async function cancelScan() {
     const scope = scanScope.current;
     if (!scope) return;
-    sequence.current++; scanScope.current = null; setScan(null); pending.current = false; setBusy(false);
+    const ticket = ++sequence.current;
+    scanScope.current = null; setScan(null); pending.current = false; setBusy(false);
     try {
       await onRequest("logbook_country_review_cancel", scope);
-      setMessage("Country scan cancelled. No contacts changed.");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+      if (ticket === sequence.current) setMessage("Country scan cancelled. No contacts changed.");
+    } catch (cause) { if (ticket === sequence.current) setError(cause instanceof Error ? cause.message : String(cause)); }
   }
   async function preview() {
     if (!page || !generation || !selected.length || pending.current) return;
     pending.current = true; setBusy(true); setError(""); const ticket = ++sequence.current;
+    let unusedReview: { generation: string; reviewID: string } | null = null;
     try {
       const contacts = page.rows.filter(row => selected.includes(row.contactID)).map(row => ({ contactID: row.contactID, expectedRevision: row.revision }));
       const response = result(await onRequest("logbook_country_correction_preview", { generation, contacts }));
+      if (response?.generation === generation && uuid.test(response.reviewID)) unusedReview = { generation, reviewID: response.reviewID };
       if (ticket !== sequence.current) return;
       if (response?.read_only !== true || response?.generation !== generation || !uuid.test(response.reviewID) ||
           !Array.isArray(response.rows) || response.rows.length !== contacts.length || !response.rows.every(validRow) ||
           response.referenceRevision !== page.referenceRevision || response.rows.some((row: Row) =>
             !contacts.some(contact => contact.contactID === row.contactID && contact.expectedRevision === row.revision)))
         throw new Error("The contact or country evidence changed. Refresh this review.");
+      reviewScope.current = { generation, reviewID: response.reviewID };
+      unusedReview = null;
       setReview(response); setChoices({});
     } catch (cause) { if (ticket === sequence.current) setError(cause instanceof Error ? cause.message : String(cause)); }
-    finally { pending.current = false; setBusy(false); }
+    finally {
+      if (unusedReview) void onRequest("logbook_country_correction_cancel", unusedReview).catch(() => {});
+      if (ticket === sequence.current) { pending.current = false; setBusy(false); }
+    }
   }
   const selection = review?.rows.flatMap(row => (choices[row.contactID]?.length ? [{ contactID: row.contactID, fields: [...choices[row.contactID]].sort() }] : [])) ?? [];
   async function apply() {
@@ -133,11 +150,12 @@ export function CountryCorrectionReview({ onRequest, refreshKey, queryContext = 
             !sameID(receipt?.mutation?.contactID, receipt.contact.qso.id) || !selection.some(item => sameID(item.contactID, receipt.contact.qso.id))) throw new Error("Correction receipt is incomplete.");
         return { operationID: receipt.mutation.operationID, contactID: receipt.contact.qso.id, call: receipt.contact.qso.call, generation: review.generation, recoverable: true };
       }));
+      reviewScope.current = null;
       setReview(null); setChoices({}); setSelected([]); setPage(null);
       setMessage(`${response.receipts.length} contact(s) corrected. Callsigns, times, confirmations and own-station context retained.`);
       onChanged?.();
     } catch (cause) { if (ticket === sequence.current) setError(cause instanceof Error ? cause.message : String(cause)); }
-    finally { pending.current = false; setBusy(false); }
+    finally { if (ticket === sequence.current) { pending.current = false; setBusy(false); } }
   }
   async function undo(operationID: string, receiptGeneration: string, contactID: string) {
     if (pending.current) return;
@@ -155,9 +173,10 @@ export function CountryCorrectionReview({ onRequest, refreshKey, queryContext = 
   }
   async function cancel() {
     if (!review || pending.current) return;
-    pending.current = true; setBusy(true); setError("");
+    pending.current = true; setBusy(true); setError(""); const ticket = ++sequence.current;
     try {
       const response = result(await onRequest("logbook_country_correction_cancel", { generation: review.generation, reviewID: review.reviewID }));
+      if (ticket !== sequence.current) return;
       if (response?.generation !== review.generation || !["cancelled", "already_applied"].includes(response?.status)) throw new Error("Review cancellation could not be confirmed.");
       if (response.status === "already_applied") {
         setMessage("The original apply completed. Its retained receipts are available; cancellation performed no further edits.");
@@ -168,9 +187,10 @@ export function CountryCorrectionReview({ onRequest, refreshKey, queryContext = 
         }));
         onChanged?.();
       } else setMessage("Recorded country fields retained. No contacts changed.");
+      reviewScope.current = null;
       setReview(null); setChoices({}); setSelected([]);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
-    finally { pending.current = false; setBusy(false); }
+    } catch (cause) { if (ticket === sequence.current) setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { if (ticket === sequence.current) { pending.current = false; setBusy(false); } }
   }
   return <section aria-label="Selected country field corrections" aria-busy={busy}>
     <h3>Review country fields</h3>

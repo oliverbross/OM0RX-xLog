@@ -38,6 +38,96 @@ async function openReview(request: ReturnType<typeof requestFixture>) {
   return user;
 }
 
+function deferred() {
+  let finish!: (value: any) => void;
+  const promise = new Promise<any>(resolve => { finish = resolve; });
+  return { promise, finish };
+}
+
+it("does not start a retired scan after a delayed workspace handshake", async () => {
+  const handshake = deferred(), nextScan = deferred();
+  const first = requestFixture(), firstOriginal = first.getMockImplementation()!;
+  first.mockImplementation((method, params) => method === "workspace_status" ? handshake.promise : firstOriginal(method, params));
+  const view = render(<CountryCorrectionReview onRequest={first} refreshKey={0} />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Read country field differences" }));
+  const next = requestFixture(), nextOriginal = next.getMockImplementation()!;
+  next.mockImplementation((method, params) => method === "logbook_country_review" ? nextScan.promise : nextOriginal(method, params));
+  view.rerender(<CountryCorrectionReview onRequest={next} refreshKey={1} />);
+  await user.click(screen.getByRole("button", { name: "Read country field differences" }));
+  await screen.findByRole("button", { name: "Cancel country scan" });
+  await act(async () => handshake.finish({ generation }));
+  expect(first.mock.calls.filter(([method]) => method === "logbook_country_review")).toHaveLength(0);
+  expect((screen.getByRole("button", { name: "Read country field differences" }) as HTMLButtonElement).disabled).toBe(true);
+});
+
+it.each(["logbook_country_correction_preview", "logbook_country_correction_apply"])(
+  "a retired %s response cannot unlock a new pending scan", async method => {
+    const oldReply = deferred(), nextScan = deferred(), changed = vi.fn();
+    const first = requestFixture(), original = first.getMockImplementation()!;
+    first.mockImplementation((name, params) => name === method ? oldReply.promise : original(name, params));
+    const view = render(<CountryCorrectionReview onRequest={first} refreshKey={0} onChanged={changed} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Read country field differences" }));
+    await user.click(await screen.findByRole("checkbox", { name: `Review OM0RX/P ${contactID}` }));
+    await user.click(screen.getByRole("button", { name: "Review selected contacts" }));
+    if (method === "logbook_country_correction_apply") {
+      await user.click(await screen.findByRole("checkbox", { name: /cqZone: 14/ }));
+      await user.click(screen.getByRole("button", { name: "Apply selected country changes" }));
+    }
+    const next = requestFixture(), nextOriginal = next.getMockImplementation()!;
+    next.mockImplementation((name, params) => name === "logbook_country_review" ? nextScan.promise : nextOriginal(name, params));
+    view.rerender(<CountryCorrectionReview onRequest={next} refreshKey={1} onChanged={changed} />);
+    await user.click(screen.getByRole("button", { name: "Read country field differences" }));
+    await screen.findByRole("button", { name: "Cancel country scan" });
+    await act(async () => oldReply.finish(await original(method)));
+    expect((screen.getByRole("button", { name: "Read country field differences" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(changed).not.toHaveBeenCalled();
+  });
+
+it.each(["cancelled", "already_applied"])("a retired %s cancellation cannot replace the new review", async status => {
+  const reply = deferred(), changed = vi.fn(), first = requestFixture(), original = first.getMockImplementation()!;
+  first.mockImplementation((method, params) => method === "logbook_country_correction_cancel" ? reply.promise : original(method, params));
+  const view = render(<CountryCorrectionReview onRequest={first} refreshKey={0} onChanged={changed} />);
+  const user = await openReview(first);
+  await user.click(screen.getByRole("button", { name: "Keep recorded values" }));
+  const next = requestFixture();
+  view.rerender(<CountryCorrectionReview onRequest={next} refreshKey={1} onChanged={changed} />);
+  await openReview(next);
+  await act(async () => reply.finish({ generation, status, receipts: [{ mutation: { operationID, contactID }, contact: { qso: { id: contactID, call: row.call } } }] }));
+  expect(screen.getByRole("button", { name: "Apply selected country changes" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Recover country correction" })).toBeNull();
+  expect(changed).not.toHaveBeenCalled();
+});
+
+it.each(["navigation", "unmount"])("releases an unapplied native review on %s", async exit => {
+  const request = requestFixture();
+  const view = render(<CountryCorrectionReview onRequest={request} refreshKey={0} />);
+  await openReview(request);
+  if (exit === "unmount") view.unmount();
+  else view.rerender(<CountryCorrectionReview onRequest={request} refreshKey={1} />);
+  await waitFor(() => expect(request).toHaveBeenLastCalledWith("logbook_country_correction_cancel", { generation, reviewID }));
+  expect(request.mock.calls.filter(([method]) => method === "logbook_country_correction_cancel")).toHaveLength(1);
+  expect(request.mock.calls.some(([method]) => /apply|undo/.test(method))).toBe(false);
+});
+
+it("a delayed scan cancellation cannot report the new pending scan as cancelled", async () => {
+  const acknowledgement = deferred(), scan = deferred(), first = requestFixture(), original = first.getMockImplementation()!;
+  first.mockImplementation((method, params) => method === "logbook_country_review" ? scan.promise
+    : method === "logbook_country_review_cancel" ? acknowledgement.promise : original(method, params));
+  const view = render(<CountryCorrectionReview onRequest={first} refreshKey={0} />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Read country field differences" }));
+  await user.click(await screen.findByRole("button", { name: "Cancel country scan" }));
+  const next = requestFixture(), nextOriginal = next.getMockImplementation()!, nextScan = deferred();
+  next.mockImplementation((method, params) => method === "logbook_country_review" ? nextScan.promise : nextOriginal(method, params));
+  view.rerender(<CountryCorrectionReview onRequest={next} refreshKey={1} />);
+  await user.click(screen.getByRole("button", { name: "Read country field differences" }));
+  await act(async () => acknowledgement.finish({ generation, status: "cancelled" }));
+  expect(screen.queryByText("Country scan cancelled. No contacts changed.")).toBeNull();
+  expect((screen.getByRole("button", { name: "Read country field differences" }) as HTMLButtonElement).disabled).toBe(true);
+});
+
 it("reads only on demand and Keep cancels an unselected native review without contact/output calls", async () => {
   const request = requestFixture();
   render(<CountryCorrectionReview onRequest={request} refreshKey={0} />);
@@ -159,6 +249,7 @@ it("rejects a native preview with a different reference before offering apply", 
   await user.click(screen.getByRole("button", { name: "Review selected contacts" }));
   expect((await screen.findByRole("alert")).textContent).toContain("country evidence changed");
   expect(screen.queryByRole("button", { name: "Apply selected country changes" })).toBeNull();
+  expect(request).toHaveBeenLastCalledWith("logbook_country_correction_cancel", { generation, reviewID });
 });
 
 it("cancels a pending read by its captured native scan scope and ignores its late response", async () => {
