@@ -41,7 +41,7 @@ export function contestPreflight(document: ContestSetupDocument, context: Contes
   const tokens = macros.flatMap((macro: ContestSetupMacro) => [...macro.template.matchAll(/\{([^{}]+)\}/g)].map(match => match[1]));
   // This checklist does not expand or execute macros; the host remains the token authority.
   const unknown = tokens.filter(token => !new Set(["MYCALL", "CALL", "RST", "EXCHANGE", "SENTNR", "PREVNR", "OTHER1", "OTHER2", "HISCALL", "SNT", "EXCH", "LOGIT", "RUN", "SANDP", "WIPE", ...Array.from({ length: 10 }, (_, index) => `VOICE${index + 1}`)]).has(token)
-    && !(document.settings.ModeCategory === "CW" && /^(?:WPM:BASE|WPM:(?:[5-9]|[1-9][0-9]))$/.test(token)));
+    && !(document.settings.ModeCategory === "CW" && /^(?:WPM:BASE|WPM:(?:[5-9]|[1-9][0-9])|PROSIGN:(?:AR|AS|BT|SK|KN))$/.test(token)));
   const output = document.preferences.rtcEnabled === true || Object.entries(document.network).some(([key, value]) => /Enabled$|^n1mm(Radio|Contact|Lookup|Score)$/.test(key) && value === true);
   return [
     { label: "UTC / event period", status: period ? now < start! || now >= end! ? "LIMITED" : "ACCEPTED" : "UNVERIFIED", detail: period ? `${new Date(start!).toISOString()} to ${new Date(end!).toISOString()}${now < start! || now >= end! ? " · outside configured event period" : ""}` : "Configure the full event period in UTC; no system-clock accuracy is inferred." },

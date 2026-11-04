@@ -4,7 +4,9 @@ import { defaultCWProfile, validateCWProfile, type CWContext, type CWMacro, type
 
 type Data = Record<string, any>;
 export type SharedCWState = CWState & { revision: number; lease: string | null; client: string | null; canonical: Data | null;
-  capabilities?: { speedSegments?: boolean; streaming?: boolean; progressEvidence?: string } };
+  composition?: {jobID: string; appendSequence: number; accepted: string; closed: boolean; evidence: string} | null;
+  capabilities?: { speedSegments?: boolean; streaming?: boolean; composition?: boolean; prosigns?: boolean; progressEvidence?: string } };
+export type CWComposeRequest = {jobID: string; appendSequence: number; template: string; live: boolean; finish: boolean; inputOrigin: "typing" | "explicit-send"};
 export type CWTransport = (client: string, sequence: number, params: Data) => Promise<Data>;
 const native: CWTransport = (client, sequence, params) => invoke("cw_session_request", { client, sequence, params });
 /** Renderer adapter only. Native owns the lease, saved text, context, expiry,
@@ -34,7 +36,7 @@ export class SharedCWSession {
       return value;
     } catch (cause) {
       if (!this.disposed) {
-        if (action === "send" || action === "contest" || action === "arm" || action === "stop") this.uncertain = true;
+        if (action === "send" || action === "compose" || action === "contest" || action === "arm" || action === "stop") this.uncertain = true;
         this.update({ armed: false, error: cause instanceof Error ? cause.message : String(cause) });
         // An Arm rejection/lost reply must release only our lease: another
         // window may have won admission after our last observed snapshot.
@@ -49,6 +51,11 @@ export class SharedCWSession {
     ...(controlSurface ? {controlSurface} : {}),
   }).then(() => {});
   send = (macro: CWMacro, _previewContext?: CWContext) => this.action("send", { expectedRevision: this.state.revision, lease: this.state.lease, macroID: macro.id }).then(() => {});
+  compose = async (params: CWComposeRequest): Promise<boolean> => {
+    if (!this.state.armed || this.uncertain) return false;
+    const value = await this.action("compose", {...params, expectedRevision: this.state.revision, lease: this.state.lease});
+    return !!value && !value.error && value.composition?.jobID === params.jobID && value.composition?.appendSequence === params.appendSequence;
+  };
   executeContest = (params: Data) => this.action("contest", { ...params, expectedRevision: this.state.revision, lease: this.state.lease });
   stop = () => this.action("stop").then(() => {});
   // Focus/renderer lifecycle releases only this client's lease. Explicit Stop

@@ -10,9 +10,9 @@ const generationA="00000000-0000-4000-8000-000000000001",generationB="00000000-0
 const deferred=<T,>()=>{let resolve!:(value:T)=>void;const promise=new Promise<T>(done=>{resolve=done;});return {promise,resolve};};
 let reads:ReturnType<typeof deferred<any>>[]=[];
 const snapshot=(generation:string,revision:number,chord:string)=>({generation,revision,preferences:{normalCommandBindings:{version:1,overrides:{"open-awards":chord}}}});
-function Harness({generation}:{generation?:string}){useNormalCommands(true,vi.fn(),generation);return null;}
+function Harness({generation,scope="normal"}:{generation?:string;scope?:"normal"|"cw"}){useNormalCommands(true,vi.fn(),generation,scope);return null;}
 beforeEach(()=>{vi.resetAllMocks();selectNormalBindingScope(undefined);setNormalBindings(undefined);reads=[];native.listen.mockResolvedValue(()=>{});native.invoke.mockImplementation(command=>{if(command!=="normal_command_preferences")return Promise.resolve();const read=deferred<any>();reads.push(read);return read.promise;});});
-afterEach(cleanup);
+afterEach(()=>{cleanup();vi.restoreAllMocks();document.documentElement.removeAttribute("data-shortcut-capture");});
 it("ignores an overlapping older focus read even when it returns last",async()=>{
  render(<Harness generation={generationA}/>);await act(async()=>{});
  act(()=>window.dispatchEvent(new Event("focus")));
@@ -43,4 +43,16 @@ it("invalidates pending old-workspace reads and rejects a mismatched generation 
 it("does not install preferences before an authoritative workspace identity exists",async()=>{
  render(<Harness/>);await act(async()=>{});
  expect(reads).toHaveLength(0);
+});
+it("uses the same scoped command policy once for a detached CW intent and never executes capture, repeat or navigation",async()=>{
+ vi.spyOn(document,"hasFocus").mockReturnValue(true);
+ const send=vi.fn();window.addEventListener("xlog:cw-compose-send",send);
+ render(<Harness generation={generationA} scope="cw"/>);await act(async()=>{});
+ await act(async()=>reads[0].resolve({generation:generationA,revision:1,preferences:{normalCommandBindings:{version:1,overrides:{"cw-compose-send":"Primary+Shift+J","open-awards":"Primary+Shift+U"}}}}));
+ const event=(key:string,extra:KeyboardEventInit={})=>new KeyboardEvent("keydown",{key,ctrlKey:!/Mac/.test(navigator.platform),metaKey:/Mac/.test(navigator.platform),shiftKey:true,bubbles:true,cancelable:true,...extra});
+ const first=event("j");act(()=>{window.dispatchEvent(first);window.dispatchEvent(first);});expect(send).toHaveBeenCalledTimes(1);
+ act(()=>{window.dispatchEvent(event("j",{repeat:true}));window.dispatchEvent(event("j",{isComposing:true}));window.dispatchEvent(event("u"));});
+ document.documentElement.dataset.shortcutCapture="true";act(()=>window.dispatchEvent(event("j")));
+ expect(send).toHaveBeenCalledTimes(1);expect(native.invoke.mock.calls.filter(([command])=>command==="normal_command_navigate")).toHaveLength(0);
+ window.removeEventListener("xlog:cw-compose-send",send);
 });

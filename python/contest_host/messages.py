@@ -56,6 +56,8 @@ def _inspect(template, mode="CW"):
                 continue
             elif SPEED.fullmatch(token) and mode == "CW" and (token == "WPM:BASE" or 5 <= int(token[4:]) <= 99):
                 continue
+            elif mode == "CW" and token in {"PROSIGN:AR", "PROSIGN:AS", "PROSIGN:BT", "PROSIGN:SK", "PROSIGN:KN"}:
+                continue
             elif re.fullmatch(r"VOICE(?:10|[1-9])", token):
                 assets.append("f" + token[5:])
                 warnings.append(f"{syntax}: Not1MM radio memory is translated to an xLog managed WAV slot; these are different providers")

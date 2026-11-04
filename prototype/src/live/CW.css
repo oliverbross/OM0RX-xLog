@@ -35,6 +35,19 @@
 .live .cw-stop { color: #ffb6b0; background: #422529; border-color: #74403f; }
 .live .cw-armed { color: var(--amber); border-color: var(--amber); }
 .cw-desk .cw-state, .cw-desk .cw-error { margin: 5px 0 0; font-size: 10px; overflow-wrap: anywhere; }
+.cw-composition { margin-top: 8px; min-width: 0; }
+.cw-composition summary { cursor: pointer; width: fit-content; font-size: 12px; }
+.cw-compose-options, .cw-compose-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; }
+.cw-compose-options label { display: flex; gap: 6px; align-items: center; font-size: 12px; }
+.cw-compose-enable input { width: auto; }
+.cw-compose-entry { display: grid; gap: 5px; font-size: 12px; }
+.cw-compose-entry textarea { min-width: 0; width: 100%; box-sizing: border-box; resize: vertical; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--control); color: var(--primary, #e6edf6); caret-color: var(--cyan); font: 13px ui-monospace, monospace; }
+.cw-composition :is(button, input, textarea, summary, select):focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.cw-compose-preview { display: grid; gap: 4px; font-size: 12px; }
+.cw-compose-preview output, .cw-composition samp { white-space: pre-wrap; overflow-wrap: anywhere; }
+.cw-composition small { display: block; margin-top: 6px; color: var(--secondary); font-size: 11px; line-height: 1.5; }
+.cw-keyer-feedback { margin: 5px 0; font-size: 11px; color: var(--secondary); overflow-wrap: anywhere; }
+.cw-desk-row { flex-wrap: wrap; }
 .cw-state, .cw-key-only { color: var(--secondary); }
 .cw-error { color: #ffb6b0; }
 .cw-recovery { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }

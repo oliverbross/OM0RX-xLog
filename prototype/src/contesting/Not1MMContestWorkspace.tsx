@@ -10,6 +10,7 @@ import { validReviewCall } from "./logReview";
 import { resolveContestCWCallsign } from "./cwCallsign";
 import { connectMapContext, type MapContext } from "../live/mapContext";
 import { useSharedCW } from "../live/useSharedCW";
+import CWComposition from "../live/CWComposition";
 import { ContestAssistancePanel, type ContestSCPPanelSurface, type SCPSelectionScope } from "./ContestAssistancePanel";
 import { ContestSetupPanel, newContestSetup, restoredESMPreferences, type ContestSetupCatalogEntry, type ContestSetupDocument, type ContestSetupMacro, type SetupView } from "./ContestSetupPanel";
 import { canonicalJSON, ContestMutationUncertain, ContestServerError, type ContestMutation } from "./client";
@@ -4159,6 +4160,8 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
         <label>Automatic corrected call<select aria-label="Corrected call policy" value={cwCorrectionPolicy} onChange={event=>setCWCorrectionPolicy(event.target.value as "full"|"partial")}><option value="full">Full call (default)</option><option value="partial">Changed component with complete provider evidence</option></select></label>
         <p>Partial correction falls back to the full call after missing, queued-only, stopped, uncertain, portable or ambiguous evidence.</p>
       </fieldset>}
+      {projection.mode==="CW"&&!fldigiPanelOwned&&!dualContestLanes(projection)&&<CWComposition context={cw.context} state={cw.state} mode={cw.profile.composition?.mode}
+        disabled={busy||retiring||earlyCWEnabled||autoCQActiveRef.current} compose={cw.controller.compose} stop={cw.controller.stop}/>}
       <div className="contest-operator-keys">{projection.functionKeys.map(key => <button type="button" key={key.id} disabled={busy || retiring || fldigiReleaseBlocking || phoneReleaseBlocking || (phone ? !phoneCanSend : projection.mode !== "CW" && !fldigiPanelReady)} className={key.highlighted ? "contest-primary" : undefined} onClick={() => void hostAction("contest_function_key", { key: key.id })}>{key.id}</button>)}</div>
     </section>;
   };

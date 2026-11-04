@@ -6,7 +6,7 @@ pub fn validate_surface(label: &str, isolated: bool, exiting: bool, action: &str
     if !matches!(label, "main" | "cw" | "contest-setup" | "contest--active-qso") || isolated || exiting {
         return Err("Shared CW controls require the live Desk, CW, or contest Entry window.".into());
     }
-    if !matches!(action, "snapshot" | "arm" | "send" | "contest" | "stop" | "acknowledge" | "unregister") {
+    if !matches!(action, "snapshot" | "arm" | "send" | "compose" | "contest" | "stop" | "acknowledge" | "unregister") {
         return Err("Unknown CW session action".into());
     }
     Ok(())
@@ -41,7 +41,7 @@ pub fn focus_window<'a>(label: &'a str, params: &Value, retained: &Value) -> Res
 }
 
 pub fn validate_contest_route(label: &str, params: &Value, active_session: Option<&str>) -> Result<(), String> {
-    if !matches!(params["action"].as_str(), Some("arm" | "send" | "contest")) { return Ok(()); }
+    if !matches!(params["action"].as_str(), Some("arm" | "send" | "compose" | "contest")) { return Ok(()); }
     let entry = control_window(label) == "contest--active-qso";
     match (entry, active_session) {
         (true, None) => Err("Open a contest session before arming or sending from Entry.".into()),
@@ -60,9 +60,13 @@ pub trait Backend: Send + Sync {
     fn output(&self, target: &Value, action: &str, text: Option<&str>, intent: u64) -> Result<Value, String>;
     fn sequence(&self, target: &Value, sequence: &crate::winkeyer::Sequence, intent: u64) -> Result<Value, String> {
         if sequence.variable_speed() { return Err("This adapter does not support buffered CW speed segments.".into()); }
+        if sequence.has_prosigns() { return Err("This adapter does not support typed CW prosigns.".into()); }
         self.output(target, "send", Some(&sequence.text()), intent)
     }
     fn stream(&self, _target: &Value, _stream: &Value, _intent: u64) -> Result<Value, String> { Err("This adapter does not support owned CW streaming.".into()) }
+    fn compose(&self, _target: &Value, _sequence: &crate::winkeyer::Sequence, _job: &str, _append: u64, _finish: bool, _intent: u64) -> Result<Value, String> {
+        Err("This adapter does not support live CW composition; stage the text and use explicit Send.".into())
+    }
     fn continue_sequence(&self,target:&Value,sequence:&crate::winkeyer::Sequence,_stream:&str,intent:u64)->Result<Value,String>{self.sequence(target,sequence,intent)}
     fn contest_outcome(&self, _canonical: &Value, _result: &Value, _target: &Value, _outcome: &str) -> Result<(), String> { Ok(()) }
     fn keyer_snapshot(&self) -> Result<Option<Value>, String> { Ok(None) }
@@ -72,7 +76,7 @@ struct State {
     revision: u64, epoch: u64, clients: BTreeMap<String, Client>, closing: BTreeSet<String>, canonical: Value,
     holder: Option<String>, lease: Option<String>, target: Value, owner: Value, winkeyer: Value,
     armed_until: u64, pending: bool, stopping: bool, releases: usize, intent: u64,
-    message: String, error: String, contest_result: Value, contest_pending: bool, stream: Value, evidence: Value, control_surface: String, continuation: Value,
+    message: String, error: String, contest_result: Value, contest_pending: bool, stream: Value, evidence: Value, control_surface: String, continuation: Value, composition: Value,
 }
 pub struct Session { state: Mutex<State>, backend: Arc<dyn Backend>, clock: Arc<dyn Fn() -> u64 + Send + Sync>, owner_id: String }
 impl Session {
@@ -82,14 +86,16 @@ impl Session {
     fn with_clock(backend: Arc<dyn Backend>, clock: Arc<dyn Fn() -> u64 + Send + Sync>) -> Self {
         Self { backend, clock, owner_id: uuid::Uuid::new_v4().to_string(), state: Mutex::new(State { revision: 0, epoch: 0, clients: BTreeMap::new(), closing: BTreeSet::new(), canonical: Value::Null,
             holder: None, lease: None, target: Value::Null, owner: Value::Null, winkeyer: Value::Null, armed_until: 0, pending: false, stopping: false, releases: 0,
-            intent: 0, message: "CW disarmed".into(), error: String::new(), contest_result: Value::Null, contest_pending: false, stream: Value::Null, evidence: Value::Null, control_surface:"entry".into(), continuation:Value::Null }) }
+            intent: 0, message: "CW disarmed".into(), error: String::new(), contest_result: Value::Null, contest_pending: false, stream: Value::Null, evidence: Value::Null, control_surface:"entry".into(), continuation:Value::Null, composition:Value::Null }) }
     }
     fn lock(&self) -> Result<std::sync::MutexGuard<'_, State>, String> { self.state.lock().map_err(|_| "CW session unavailable".into()) }
     fn snapshot_locked(&self, state: &State) -> Value {
         json!({"revision":state.revision,"armed":state.armed_until > (self.clock)(),"pending":state.pending || state.stopping,
             "owner":state.owner,"message":state.message,"error":state.error,"winkeyer":state.winkeyer,
             "client":state.holder,"lease":state.lease,"canonical":state.canonical,"contestResult":state.contest_result,"stream":state.stream,"controlSurface":state.control_surface,
+            "composition":state.composition,
             "capabilities":{"speedSegments":state.target["speedSegments"] == true,"streaming":state.target["streaming"] == true,
+                "composition":state.target["composition"] == true,"prosigns":state.target["prosigns"] == true,
                 "progressEvidence":state.target["progressEvidence"]}})
     }
     pub fn snapshot(&self) -> Result<Value, String> { let state = self.lock()?; Ok(self.snapshot_locked(&state)) }
@@ -124,11 +130,15 @@ impl Session {
         let revision = self.lock()?.revision;
         if let Some(value) = self.backend.keyer_snapshot()? {
             let mut state = self.lock()?;
+            let keyer_lease_ended = state.target["output"] == "winkeyer" && state.armed_until > (self.clock)()
+                && (value["generation"] != state.target["generation"] || value["phase"] != "ready" || value["armed_remaining_ms"] == 0);
             if state.revision == revision && !state.pending && !state.stopping && state.owner["output"] == "winkeyer"
                 && value["generation"] == state.owner["generation"] && value["phase"] == "ready" && value["owns_output"] == false && value["pending_characters"] == 0 {
                 state.owner = Value::Null; Self::change(&mut state);
             }
             state.winkeyer = value;
+            drop(state);
+            if keyer_lease_ended { self.stop()?; }
         }
         Ok(())
     }
@@ -154,10 +164,10 @@ impl Session {
             "stop" => { self.stop()?; },
             "unregister" => { self.release_client(client)?; },
             "snapshot" => { if !focused { self.release_client(client)?; } self.refresh()?; self.tick()?; },
-            "arm" | "send" | "contest" | "acknowledge" => {
+            "arm" | "send" | "compose" | "contest" | "acknowledge" => {
                 if !focused { self.release_client(client)?; return Err("Focus the CW controls before using them.".into()); }
                 self.refresh()?;
-                match action { "arm" => self.arm(client, params)?, "send" => self.send(client, params)?,
+                match action { "arm" => self.arm(client, params)?, "send" => self.send(client, params)?, "compose" => self.compose(client, params)?,
                     "contest" => { if let Err(error) = self.contest(client, params) { self.lock()?.error = error; } }, _ => self.acknowledge(params)? }
             },
             _ => return Err("Unknown CW session action".into()),
@@ -196,11 +206,16 @@ impl Session {
         Ok(())
     }
     fn send(&self, client: &str, params: &Value) -> Result<(), String> {
-        let (canonical, target, epoch, text) = { let mut state = self.lock()?; Self::check(&state, client, params, true)?;
+        let (canonical, target, epoch, plan) = { let mut state = self.lock()?; Self::check(&state, client, params, true)?;
             if state.pending || state.stopping || state.armed_until <= (self.clock)() || state.target.is_null() { return Err("Arm CW before sending a macro.".into()); }
-            let text = expand(&state.canonical, params["macroID"].as_u64().ok_or("Choose a saved CW macro")?, state.target["limit"].as_u64().unwrap_or(80) as usize)?;
+            if !state.composition.is_null() && state.composition["closed"] != true { return Err("Finish or Stop the composition before sending a memory.".into()); }
+            let id = params["macroID"].as_u64().ok_or("Choose a saved CW macro")?;
+            let source = state.canonical["profile"]["macros"].as_array().and_then(|items| items.iter().find(|item| item["id"] == id && item["enabled"] == true))
+                .and_then(|item| item["text"].as_str()).ok_or("This macro is disabled or is not saved.")?;
+            let plan = crate::cw_message::compile(source, &state.canonical["context"], state.target["limit"].as_u64().unwrap_or(80) as usize, false)?;
+            validate_plan(&plan, &state.target)?;
             state.pending = true; state.error.clear(); Self::change(&mut state);
-            (state.canonical.clone(), state.target.clone(), state.epoch, text)
+            (state.canonical.clone(), state.target.clone(), state.epoch, plan)
         };
         let result = (|| {
             let observed = self.backend.inspect(&canonical, false)?;
@@ -212,9 +227,76 @@ impl Session {
                 state.intent = state.intent.max(observed["last_intent"].as_u64().unwrap_or(0)).checked_add(1).ok_or("CW intent exhausted")?;
                 state.owner = target.clone(); Self::change(&mut state); state.intent
             };
-            self.backend.output(&target, "send", Some(&text), intent)?; Ok(())
+            self.backend.sequence(&target, &plan, intent)?; Ok(())
         })();
         self.complete(epoch, result, true)
+    }
+    /// Composition appends immutable typed deltas to the same output owner.
+    /// Only the editable tail lives in the renderer; no growing string is replayed.
+    fn compose(&self, client: &str, params: &Value) -> Result<(), String> {
+        let job = params["jobID"].as_str().filter(|id| uuid::Uuid::parse_str(id).is_ok()).ok_or("Invalid CW composition identity")?;
+        let append = params["appendSequence"].as_u64().filter(|n| (1..=4096).contains(n)).ok_or("Invalid CW append sequence")?;
+        let finish = params["finish"].as_bool().ok_or("Choose the CW composition boundary")?;
+        let live = params["live"].as_bool().ok_or("Choose staged or live CW composition")?;
+        let source = params["template"].as_str().ok_or("CW composition text is unavailable")?;
+        if params["inputOrigin"] != "explicit-send" && !(live && !finish && params["inputOrigin"] == "typing") {
+            return Err("Only deliberate committed typing or explicit Send can admit composition.".into());
+        }
+        let (canonical, target, epoch, plan, count) = {
+            let mut state = self.lock()?;
+            Self::check(&state, client, params, true)?;
+            if state.pending || state.stopping || state.armed_until <= (self.clock)() || state.target.is_null() {
+                return Err("Arm CW and wait for the current request before composing.".into());
+            }
+            if !state.stream.is_null() || !state.continuation.is_null() {
+                return Err("Finish or Stop the contest callsign stream before composing.".into());
+            }
+            let previous = &state.composition;
+            let same = previous["jobID"] == job;
+            // An identical acknowledged append is idempotent. A lost IPC
+            // acknowledgement still makes the renderer require Stop.
+            if same && previous["appendSequence"] == append && previous["template"] == source && previous["finish"] == finish && previous["live"] == live {
+                return Ok(());
+            }
+            if same && (previous["closed"] == true || previous["appendSequence"].as_u64().unwrap_or(0) + 1 != append)
+                || !same && (append != 1 || !state.owner.is_null() || !previous.is_null() && previous["closed"] != true) {
+                return Err("CW composition was changed or retired. Stop before starting another job.".into());
+            }
+            if live && state.target["composition"] != true || !live && (!finish || append != 1) {
+                return Err("This output supports staged Send only; live append requires a capable adapter.".into());
+            }
+            if source.trim().is_empty() && !(same && live) {
+                return Err("Enter a CW message before sending.".into());
+            }
+            let plan = if source.is_empty() && same && finish {
+                crate::winkeyer::Sequence { schema: 1, segments: vec![] }
+            } else { crate::cw_message::compile(source, &state.canonical["context"], state.target["limit"].as_u64().unwrap_or(80) as usize, live)? };
+            validate_plan(&plan, &state.target)?;
+            let count = if same { previous["characters"].as_u64().unwrap_or(0) } else { 0 } + plan.text().len() as u64;
+            if count > 2048 { return Err("Finish this composition within 2,048 characters, then start a new job.".into()); }
+            state.pending = true; state.error.clear(); Self::change(&mut state);
+            (state.canonical.clone(), state.target.clone(), state.epoch, plan, count)
+        };
+        let outcome = (|| {
+            let observed = self.backend.inspect(&canonical, false)?;
+            if !same_target(&target, &observed) || self.backend.canonical()? != canonical {
+                return Err("CW draft, settings or connection changed; Stop and review the staged text.".into());
+            }
+            let intent = {
+                let mut state = self.lock()?; self.current(&state, epoch, client)?;
+                if state.armed_until <= (self.clock)() { return Err("CW arming expired during composition admission.".into()); }
+                state.intent = state.intent.max(observed["last_intent"].as_u64().unwrap_or(0)).checked_add(1).ok_or("CW intent exhausted")?;
+                state.owner = target.clone(); Self::change(&mut state); state.intent
+            };
+            if live { self.backend.compose(&target, &plan, job, append, finish, intent)?; }
+            else { self.backend.sequence(&target, &plan, intent)?; }
+            let mut state = self.lock()?; self.current(&state, epoch, client)?;
+            let accepted = if state.composition["jobID"] == job { state.composition["accepted"].as_str().unwrap_or("").to_owned() } else { String::new() };
+            state.composition = json!({"jobID":job,"appendSequence":append,"template":source,"finish":finish,"live":live,
+                "closed":finish,"characters":count,"accepted":format!("{accepted}{}", plan.text()),"evidence":"backend-accepted; RF not verified"});
+            Ok(())
+        })();
+        self.complete(epoch, outcome, true)
     }
     fn contest(&self, client: &str, params: &Value) -> Result<(), String> {
         let admission: Result<(Value, Value, u64), String> = (|| {
@@ -222,6 +304,9 @@ impl Session {
             Self::check(&state, client, params, true)?;
             if state.pending || state.stopping || state.armed_until <= (self.clock)() || state.target.is_null() {
                 return Err("Arm CW before using contest ESM.".into());
+            }
+            if !state.composition.is_null() && state.composition["closed"] != true {
+                return Err("Finish or Stop the CW workbench before a contest message or ESM action.".into());
             }
             let canonical = &state.canonical;
             if !canonical["contestSessionID"].is_string() || params["sessionID"] != canonical["contestSessionID"]
@@ -381,6 +466,7 @@ impl Session {
         state.epoch += 1; state.armed_until = 0; state.lease = None;
         state.stream = Value::Null;
         state.continuation = Value::Null;
+        state.composition = Value::Null;
         state.message = if simulated { "TEST SIMULATION · CW stopped · no RF, audio, or PTT".into() } else { "CW disarmed".into() };
         Self::change(state);
         if state.stopping { return None; }
@@ -499,6 +585,11 @@ fn same_stream_context(before: &Value, after: &Value, stream: &Value) -> bool {
 fn same_target(a: &Value, b: &Value) -> bool {
     ["output", "provider", "generation", "worker", "selection"].iter().all(|key| a[key] == b[key])
 }
+fn validate_plan(plan: &crate::winkeyer::Sequence, target: &Value) -> Result<(), String> {
+    if plan.variable_speed() && target["speedSegments"] != true { return Err("This output cannot execute per-part CW speeds.".into()); }
+    if plan.has_prosigns() && target["prosigns"] != true { return Err("This output cannot execute typed CW prosigns.".into()); }
+    Ok(())
+}
 fn allowed(byte: u8) -> bool { byte.is_ascii_alphanumeric() || b" /?=+.,-".contains(&byte) }
 fn cw_formatting<'a>(formatting: &'a Value, key: &str) -> Result<&'a str, String> {
     formatting[key].as_str().ok_or_else(|| format!("Invalid contest CW formatting preference: {key}"))
@@ -569,6 +660,7 @@ mod tests {
         received_provider_context: Mutex<Value>,
         host_frames: Mutex<std::collections::VecDeque<Value>>,
         keyer_probe: Mutex<Option<crate::winkeyer::continuation_probe::Probe>>,
+        keyer_view: Mutex<Option<Value>>,
         lost_send: AtomicBool, stop_fails: AtomicBool, receipt_fails: AtomicBool,
         gate: Mutex<Option<(mpsc::Sender<()>, mpsc::Receiver<()>)>>,
         arm_gate: Mutex<Option<(mpsc::Sender<()>, mpsc::Receiver<()>)>>,
@@ -614,6 +706,7 @@ mod tests {
             else { Err("Output consumed".into()) }
         }
         fn canonical(&self) -> Result<Value, String> { Ok(self.canonical.lock().unwrap().clone()) }
+        fn keyer_snapshot(&self)->Result<Option<Value>,String>{Ok(self.keyer_view.lock().unwrap().clone())}
         fn inspect(&self, _: &Value, _: bool) -> Result<Value, String> { Ok(self.target.lock().unwrap().clone()) }
         fn output(&self, _: &Value, action: &str, text: Option<&str>, intent: u64) -> Result<Value, String> {
             if action == "arm" { if let Some(probe) = self.keyer_probe.lock().unwrap().as_mut() { probe.arm()?; } }
@@ -632,6 +725,9 @@ mod tests {
         fn stream(&self, target: &Value, stream: &Value, intent: u64) -> Result<Value, String> {
             if let Some(probe) = self.keyer_probe.lock().unwrap().as_mut() { probe.stream(stream, intent)?; }
             self.output(target,"stream",stream["call"].as_str(),intent)
+        }
+        fn compose(&self, target: &Value, sequence: &crate::winkeyer::Sequence, _: &str, _: u64, _: bool, intent: u64) -> Result<Value,String> {
+            self.output(target, "send", Some(&sequence.text()), intent)
         }
         fn sequence(&self, target: &Value, sequence: &crate::winkeyer::Sequence, intent: u64) -> Result<Value, String> {
             if let Some(probe) = self.keyer_probe.lock().unwrap().as_mut() { probe.sequence(sequence, None, intent)?; }
@@ -654,7 +750,7 @@ mod tests {
             "context":{"CALL":"K1ABC","MYCALL":"OM0RX","RST":"599"}})),
             target: Mutex::new(json!({"output":"radio","provider":"direct_agent","generation":7,"worker":4,"selection":"choice","limit":128})),
             writes: Mutex::new(vec![]), claims: Mutex::new(BTreeSet::new()), received_provider_context:Mutex::new(Value::Null),
-            host_frames: Mutex::new(Default::default()), keyer_probe: Mutex::new(None),
+            host_frames: Mutex::new(Default::default()), keyer_probe: Mutex::new(None), keyer_view:Mutex::new(None),
             lost_send: AtomicBool::new(false), stop_fails: AtomicBool::new(false), receipt_fails: AtomicBool::new(false), gate: Mutex::new(None), arm_gate: Mutex::new(None) });
         let clock = Arc::new(AtomicU64::new(0)); let ticking = clock.clone();
         (Arc::new(Session::with_clock(backend.clone(), Arc::new(move || ticking.load(Ordering::SeqCst)))), backend, clock)
@@ -668,6 +764,76 @@ mod tests {
         }
     }
     fn ready(client: &mut Client, session: &Session) { client.call(session, "snapshot").unwrap(); client.call(session, "arm").unwrap(); }
+    fn compose_call(client:&mut Client, session:&Session, job:&str, append:u64, text:&str, live:bool, finish:bool, origin:&str)->Result<Value,String> {
+        let snapshot=session.snapshot()?;client.sequence+=1;
+        session.request("main",&client.id,client.sequence,true,&json!({"action":"compose","expectedRevision":snapshot["revision"],"lease":snapshot["lease"],
+            "jobID":job,"appendSequence":append,"template":text,"live":live,"finish":finish,"inputOrigin":origin}))
+    }
+    #[test]
+    fn composition_appends_deltas_once_and_stop_retires_the_job() {
+        let (session,backend,_)=fixture();backend.target.lock().unwrap()["composition"]=json!(true);
+        let mut client=Client::new();ready(&mut client,&session);let job=uuid::Uuid::new_v4().to_string();
+        compose_call(&mut client,&session,&job,1,"CQ ",true,false,"typing").unwrap();
+        compose_call(&mut client,&session,&job,2,"DE OM0RX",true,false,"typing").unwrap();
+        compose_call(&mut client,&session,&job,2,"DE OM0RX",true,false,"typing").unwrap();
+        assert!(compose_call(&mut client,&session,&job,2,"CHANGED",true,false,"typing").is_err());
+        let sent:Vec<_>=backend.writes.lock().unwrap().iter().filter(|(a,_,_)|a=="send").map(|(_,s,_)|s.clone().unwrap()).collect();
+        assert_eq!(sent,vec!["CQ ","DE OM0RX"]);
+        assert_eq!(session.snapshot().unwrap()["composition"]["accepted"],"CQ DE OM0RX");
+        session.stop().unwrap();
+        assert!(compose_call(&mut client,&session,&job,3," LATE",true,false,"typing").is_err());
+        assert_eq!(backend.writes.lock().unwrap().iter().filter(|(a,_,_)|a=="send").count(),2);
+    }
+    #[test]
+    fn keyer_preference_apply_or_paddle_disarm_retires_native_arm_without_a_send(){
+        let(session,backend,_)=fixture();backend.target.lock().unwrap()["output"]=json!("winkeyer");
+        let mut client=Client::new();ready(&mut client,&session);
+        *backend.keyer_view.lock().unwrap()=Some(json!({"generation":7,"phase":"ready","armed_remaining_ms":0,"owns_output":false,"pending_characters":0}));
+        let snapshot=client.call(&session,"snapshot").unwrap();assert_eq!(snapshot["armed"],false);assert!(snapshot["lease"].is_null());
+        let writes=backend.writes.lock().unwrap();assert_eq!(writes.iter().filter(|(a,_,_)|a=="stop").count(),1);
+        assert!(!writes.iter().any(|(a,_,_)|a=="send"));
+    }
+    #[test]
+    fn open_workbench_cannot_mutate_a_contest_draft_through_esm(){
+        let(session,backend,mut client)=contest_ready();backend.target.lock().unwrap()["composition"]=json!(true);
+        // Re-arm the updated capability before beginning the workbench job.
+        session.stop().unwrap();ready(&mut client,&session);
+        let before=backend.canonical.lock().unwrap().clone();let job=uuid::Uuid::new_v4().to_string();
+        compose_call(&mut client,&session,&job,1,"CQ ",true,false,"typing").unwrap();
+        let result=contest_call(&mut client,&session,json!({}));
+        assert!(result["error"].as_str().unwrap().contains("workbench"));
+        assert_eq!(*backend.canonical.lock().unwrap(),before);assert!(backend.claims.lock().unwrap().is_empty());
+    }
+    #[test]
+    fn composition_requires_deliberate_origin_and_capabilities_before_output() {
+        let (session,backend,_)=fixture();let mut client=Client::new();ready(&mut client,&session);
+        let job=uuid::Uuid::new_v4().to_string();
+        for origin in ["paste","preedit","suggestion","reference-refresh","typing"] {
+            assert!(compose_call(&mut client,&session,&job,1,"CQ",true,false,origin).is_err());
+        }
+        for source in ["{WPM:18}CQ", "{PROSIGN:AR}", "CQ\u{1b}"] {
+            assert!(compose_call(&mut client,&session,&job,1,source,false,true,"explicit-send").is_err());
+        }
+        assert!(backend.writes.lock().unwrap().is_empty());
+        compose_call(&mut client,&session,&job,1,"{CALL} DE {MYCALL}",false,true,"explicit-send").unwrap();
+        assert_eq!(backend.writes.lock().unwrap()[0].1.as_deref(),Some("K1ABC DE OM0RX"));
+        // Text output does not mutate the canonical draft/serial/settings.
+        assert_eq!(backend.canonical.lock().unwrap()["draftRevision"],2);
+    }
+    #[test]
+    fn composition_draft_or_route_change_invalidates_old_append_and_lost_reply_never_replays() {
+        let (session,backend,_)=fixture();backend.target.lock().unwrap()["composition"]=json!(true);
+        let mut client=Client::new();ready(&mut client,&session);let job=uuid::Uuid::new_v4().to_string();
+        compose_call(&mut client,&session,&job,1,"CQ ",true,false,"typing").unwrap();
+        backend.canonical.lock().unwrap()["draftRevision"]=json!(3);
+        assert!(compose_call(&mut client,&session,&job,2,"LATE",true,false,"typing").is_err());
+        assert_eq!(backend.writes.lock().unwrap().iter().filter(|(a,_,_)|a=="send").count(),1);
+        ready(&mut client,&session);let next=uuid::Uuid::new_v4().to_string();backend.lost_send.store(true,Ordering::SeqCst);
+        assert!(compose_call(&mut client,&session,&next,1,"NEW",true,false,"typing").is_err());
+        assert!(!session.snapshot().unwrap()["owner"].is_null());
+        assert!(compose_call(&mut client,&session,&next,1,"NEW",true,false,"typing").is_err());
+        assert_eq!(backend.writes.lock().unwrap().iter().filter(|(a,_,_)|a=="send").count(),2);
+    }
     fn host_canonical(base: &Value, context: &Value) -> Value {
         let mut value = base.clone();
         value["contestSessionID"] = context["sessionID"].clone();

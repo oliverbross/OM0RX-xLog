@@ -29,6 +29,23 @@ class TLFCWHostTests(unittest.TestCase):
         self.assertEqual(before["reservedSerial"], sent["projection"]["reservedSerial"])
         self.assertEqual(self.call("log")["total"], 0)
 
+    def test_typed_prosign_preview_matches_actual_host_plan_without_serial_or_qso_mutation(self):
+        setup = self.call("setup_get")["setup"]
+        template = "{CALL} {WPM:18}{RST} {SENTNR}{WPM:BASE} {PROSIGN:AR}"
+        setup["macros"] = [{"mode":"R", "key":"F2", "label":"Typed", "template":template}]
+        self.mutate("setup_save", setup=setup)
+        self.mutate("run_state", run=True)
+        before = self.call("projection")["projection"]
+        preview = self.call("contest_message_preview", {"template":template,"serial":before["reservedSerial"]})
+        sent = self.mutate("function_key", key="F2")
+        expected = [{"kind":"text","text":"K1ABC "},{"kind":"speed","wpm":18},
+                    {"kind":"text","text":"5NN TT1"},{"kind":"restore"},{"kind":"text","text":" "},
+                    {"kind":"prosign","value":"AR"}]
+        self.assertEqual(preview["cwSequence"]["segments"], expected)
+        self.assertEqual(sent["actions"][0]["cwSequence"], preview["cwSequence"])
+        self.assertEqual(before["reservedSerial"], sent["projection"]["reservedSerial"])
+        self.assertEqual(self.call("log")["total"], 0)
+
     def early(self, method, stream, call, **extra):
         draft = self.call("projection")["projection"]["draftID"]
         return self.mutate(method, streamID=stream, draftID=draft, fields={"callsign": call},

@@ -9,6 +9,9 @@ export const normalActions = [
   {id:"open-band-maps",label:"Open Band Maps",context:"Normal Logging",defaultBinding:""},
   {id:"open-alerts",label:"Open Alerts",context:"Normal Logging",defaultBinding:""},
   {id:"open-awards",label:"Open Awards",context:"Normal Logging",defaultBinding:""},
+  {id:"open-cw-workbench",label:"Open CW workbench",context:"Normal Logging",defaultBinding:""},
+  {id:"cw-compose-preview",label:"Preview CW composition",context:"CW workbench",defaultBinding:""},
+  {id:"cw-compose-send",label:"Send CW composition",context:"Focused CW workbench · armed",defaultBinding:""},
 ] as const;
 export type NormalAction = typeof normalActions[number]["id"];
 export type NormalBindings = {version:1;overrides:Record<string,string>};

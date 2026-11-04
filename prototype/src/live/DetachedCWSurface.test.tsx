@@ -8,7 +8,7 @@ const taskStyles = readFileSync("src/live/DetachedTaskSurface.css", "utf8");
 
 const native = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), dispose: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke, isTauri: () => true }));
-vi.mock("@tauri-apps/api/event", () => ({ TauriEvent: { WINDOW_CLOSE_REQUESTED: "close-requested" } }));
+vi.mock("@tauri-apps/api/event", () => ({ TauriEvent: { WINDOW_CLOSE_REQUESTED: "close-requested" }, listen:async()=>()=>{} }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({ listen: native.listen }) }));
 let closeRequested: () => void;
 beforeEach(() => {

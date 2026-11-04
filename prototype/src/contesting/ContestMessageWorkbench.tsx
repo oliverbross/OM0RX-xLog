@@ -9,7 +9,7 @@ type ImportReport = { line: number; status: "supported" | "translated" | "warnin
 type ImportResult = { bank: MessageBank; report: ImportReport[]; canSave: boolean };
 type BankResult = { banks: MessageBank[]; activeBankID: string | null };
 type PreviewResult = { text: string; noOutput: boolean; warnings: string[]; rejections: string[];
-  cwSequence?: {schema:1;segments:({kind:"text";text:string}|{kind:"speed";wpm:number}|{kind:"restore"})[]} | null;
+  cwSequence?: {schema:1;segments:({kind:"text";text:string}|{kind:"speed";wpm:number}|{kind:"restore"}|{kind:"prosign";value:string})[]} | null;
   actions: { kind: string; token: string; executed: false }[]; binding: { draftID?: string; serial: number | null };
   nextESM: { keys: string[]; basis: string; warning: string; draftID?: string } };
 export type ContestMessageWorkbenchProps = {
@@ -110,7 +110,7 @@ export function ContestMessageWorkbench({ scope, effectiveMacros, draft, serial,
         <td><input aria-label={`${mode} ${row.key} message template`} value={row.template} maxLength={1024} onChange={event => edit(index, "template", event.target.value)}/></td></tr>)}</tbody></table></div>
     </fieldset>)}
     {scope.mode==="CW"&&<fieldset disabled={busy}><legend>CW speed sections</legend>
-      <p>Use {"{WPM:30}"} before a section and {"{WPM:BASE}"} to restore the captured base speed. WinKeyer supports queued speed sections; other adapters reject them before output. A final restore is added automatically. Plain + and − stay text.</p>
+      <p>Use {"{WPM:30}"} before a section and {"{WPM:BASE}"} to restore the captured base speed. Typed prosigns use {"{PROSIGN:AR}"} (AR, AS, BT, SK, KN). WinKeyer supports these typed operations; other adapters reject unsupported plans before output. A final speed restore is added automatically. Plain + and − stay text.</p>
       <label>Speed section message<select value={previewKey} onChange={event=>{setPreviewKey(event.target.value);setPreview(null);previewSequence.current++;}}>{bank.macros.map(row=><option key={`${row.mode}:${row.key}`} value={`${row.mode}:${row.key}`}>{row.mode==="R"?"Run":"S&P"} {row.key}</option>)}</select></label>
       <label>Section speed WPM<input aria-label="Section speed WPM" type="number" min={5} max={99} value={segmentSpeed} onChange={event=>setSegmentSpeed(Number(event.target.value))}/></label>
       <button type="button" disabled={!Number.isInteger(segmentSpeed)||segmentSpeed<5||segmentSpeed>99} onClick={()=>{const [mode,key]=previewKey.split(":");const index=bank.macros.findIndex(row=>row.mode===mode&&row.key===key);if(index>=0)edit(index,"template",bank.macros[index].template+`{WPM:${segmentSpeed}}`);}}>Append speed to selected message</button>
@@ -122,7 +122,7 @@ export function ContestMessageWorkbench({ scope, effectiveMacros, draft, serial,
       <label>Simulated serial <input type="number" min={1} max={999999999} value={testSerial} onChange={event => { setTestSerial(event.target.value); setPreview(null); previewSequence.current++; }}/></label>
       <button type="button" onClick={() => void previewDraft()}>Preview without output</button>
       {preview && <div role="status"><pre aria-label="Rendered message preview">{preview.text || "(No rendered text)"}</pre>
-        {preview.cwSequence&&<ol aria-label="Compiled CW speed sequence">{preview.cwSequence.segments.map((segment,index)=><li key={index}>{segment.kind==="text"?<code>{segment.text}</code>:segment.kind==="speed"?`${segment.wpm} WPM`:"Restore captured base speed"}</li>)}</ol>}
+        {preview.cwSequence&&<ol aria-label="Compiled CW speed sequence">{preview.cwSequence.segments.map((segment,index)=><li key={index}>{segment.kind==="text"?<code>{segment.text}</code>:segment.kind==="speed"?`${segment.wpm} WPM`:segment.kind==="prosign"?`Prosign <${segment.value}>`:"Restore captured base speed"}</li>)}</ol>}
         <p>Bound draft: {preview.binding.draftID ?? "synthetic"} · simulated serial: {preview.binding.serial ?? "unavailable"}</p>
         {preview.actions.map((action, index) => <p key={index}>{action.kind}: {action.token} · preview only</p>)}
         {[...preview.rejections, ...preview.warnings].map((item, index) => <p key={index}>{item}</p>)}

@@ -49,6 +49,7 @@ mod detached_geometry;
 mod window_geometry;
 mod winkeyer;
 mod cw_session;
+mod cw_message;
 mod cw_session_backend;
 mod cluster_session;
 mod workspace_navigation;
@@ -422,7 +423,7 @@ fn normal_shortcut_is_capturing(app:&tauri::AppHandle)->bool{
 }
 #[tauri::command]
 async fn normal_command_preferences(window:tauri::WebviewWindow)->Result<serde_json::Value,String>{
-    if !matches!(window.label(),"main"|"log-qso"|"settings"){return Err("Normal shortcuts unavailable in this window.".into());}
+    if !matches!(window.label(),"main"|"log-qso"|"settings"|"cw"){return Err("Normal shortcuts unavailable in this window.".into());}
     tauri::async_runtime::spawn_blocking(||radio_read::NativeBackend::call(worker::generation(),"workspace_preferences_load",serde_json::json!({}))).await.map_err(|_|"Shortcut preferences unavailable".to_string())?
 }
 #[tauri::command]
@@ -430,6 +431,7 @@ async fn normal_command_navigate(window:tauri::WebviewWindow,app:tauri::AppHandl
     if !matches!(window.label(),"main"|"log-qso"){return Err("Normal commands are unavailable in this window.".into());}
     let admission=operating_module::owner()?.admit_selected(operating_module::OperatingModule::NormalLogging)?;
     if action=="open-alerts" { let _admission=admission; return open_detached_workspace_with_presentation(app,"alerts".into(),PresentationRequest::claim(PresentationIntent::Focus)?).await; }
+    if action=="open-cw-workbench" { let _admission=admission; return open_detached_workspace_with_presentation(app,"cw".into(),PresentationRequest::claim(PresentationIntent::Focus)?).await; }
     let screen=match action.as_str(){"open-logbook"=>"logbook","open-world-map"=>"world-map","open-band-maps"=>"band-maps","open-awards"=>"awards",_=>return Err("Unknown normal navigation action.".into())};
     let _admission=admission; navigate_workspace(app,screen.into()).await
 }
@@ -2759,7 +2761,7 @@ async fn cw_session_request(app: tauri::AppHandle, window: tauri::WebviewWindow,
     if !test_simulation { runtime_profile::require_external_io_disabled()?; }
     runtime_profile::validate_contesting_test_cw(window.label(), action)?;
     cw_session::validate_invoker(window.label(), runtime_profile::isolated(state.path.is_some()) && !test_simulation, APP_EXITING.load(Ordering::Acquire), action)?;
-    let output_action = matches!(params["action"].as_str(), Some("arm" | "send" | "contest"));
+    let output_action = matches!(params["action"].as_str(), Some("arm" | "send" | "compose" | "contest"));
     let contest_context = contest_window_context::active().ok();
     cw_session::validate_contest_route(window.label(), &params, contest_context.as_ref().map(|context| context.session_id.as_str()))?;
     let _module_admission = if output_action && !test_simulation { Some(operating_module::owner()?.admit_current()?) } else { None };

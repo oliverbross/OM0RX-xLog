@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { Square } from "lucide-react";
 import { cwOutputLimit, defaultCWProfile, expandCWMacro, type CWContext, type CWMacro, type CWProfile } from "./cwMacros";
 import type { CWController, CWState } from "./cwController";
+import type { SharedCWSession, SharedCWState } from "./sharedCWSession";
+import CWComposition from "./CWComposition";
 import "./CW.css";
 
-export default function CWDesk({ profile = defaultCWProfile, context, controller, state, radioProvider = "direct_agent", releaseOnly = false }: { profile?: CWProfile; context: CWContext; controller: Pick<CWController, "arm" | "send" | "stop" | "acknowledgeStopped">; state: CWState & { lease?: string | null }; radioProvider?: string; releaseOnly?: boolean }) {
+export default function CWDesk({ profile = defaultCWProfile, context, controller, state, radioProvider = "direct_agent", releaseOnly = false }: { profile?: CWProfile; context: CWContext; controller: Pick<CWController, "arm" | "send" | "stop" | "acknowledgeStopped"> & Partial<Pick<SharedCWSession,"compose">>; state: CWState & Partial<SharedCWState>; radioProvider?: string; releaseOnly?: boolean }) {
   const ref = useRef<HTMLDivElement>(null), [width, setWidth] = useState(0);
   const [confirmed, setConfirmed] = useState(false);
   useEffect(() => { setConfirmed(false); }, [state.owner, state.error]);
@@ -22,6 +24,14 @@ export default function CWDesk({ profile = defaultCWProfile, context, controller
       {!chosen.length && <span className="cw-key-only">CW shortcuts</span>}
     </div>
     <p className={state.error ? "cw-error" : "cw-state"} role="status">{state.error || state.message}</p>
+    {profile.output === "winkeyer" && state.winkeyer && <p className="cw-keyer-feedback" role="status">
+      {state.winkeyer.speed_source === "pot"
+        ? state.winkeyer.pot_wpm != null && state.winkeyer.pot_age_ms <= 2000 ? `Pot reported ${state.winkeyer.pot_wpm} WPM` : "Pot speed unavailable or stale"
+        : `Software speed ${state.winkeyer.requested_wpm ?? profile.winkeyer?.wpm ?? "unknown"} WPM requested`}
+      {state.winkeyer.reported_echo ? <> · Keyer report (uncorrelated): <samp>{state.winkeyer.reported_echo}</samp></> : " · No keyer echo reported"}
+      {state.winkeyer.configuration_uncertain ? " · Configuration uncertain; reconnect and apply while idle" : " · RF not verified"}
+    </p>}
+    {controller.compose && <CWComposition context={context} state={state} mode={profile.composition?.mode} disabled={releaseOnly} compose={controller.compose} stop={controller.stop}/>}
     {state.error && state.owner && <div className="cw-recovery"><label><input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />I physically checked that CW has stopped</label><button type="button" disabled={!confirmed || state.pending} onClick={() => { controller.acknowledgeStopped(); setConfirmed(false); }}>Release CW guard</button></div>}
   </div>;
 }

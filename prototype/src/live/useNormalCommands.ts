@@ -2,8 +2,8 @@ import {useEffect,useRef} from "react";
 import {invoke,isTauri} from "@tauri-apps/api/core";
 import {listen} from "@tauri-apps/api/event";
 import {actionForEvent,setNormalBindings,currentNormalBindings,selectNormalBindingScope} from "./normalCommands";
-export function useNormalCommands(active:boolean,onError:(message:string)=>void,workspaceGeneration?:string){
-  const current=useRef({active,onError,workspaceGeneration});current.current={active,onError,workspaceGeneration};
+export function useNormalCommands(active:boolean,onError:(message:string)=>void,workspaceGeneration?:string,scope:"normal"|"cw"="normal"){
+  const current=useRef({active,onError,workspaceGeneration,scope});current.current={active,onError,workspaceGeneration,scope};
   selectNormalBindingScope(workspaceGeneration);
   useEffect(()=>{
     let live=true,readEpoch=0,stops:(()=>void)[]=[];
@@ -20,6 +20,12 @@ export function useNormalCommands(active:boolean,onError:(message:string)=>void,
       if(!current.current.active||event.defaultPrevented||document.documentElement.dataset.shortcutCapture==="true"||!document.hasFocus())return;
       const action=actionForEvent(event,currentNormalBindings());
       if(!action || action==="save-current-qso"||action==="focus-callsign")return;
+      if(current.current.scope==="cw"&&!["cw-compose-preview","cw-compose-send"].includes(action))return;
+      if(["cw-compose-preview","cw-compose-send"].includes(action)) {
+        if(document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]'))return;
+        event.preventDefault();event.stopPropagation();
+        window.dispatchEvent(new Event(`xlog:${action}`));return;
+      }
       if(action==="accept-nearby-callsign"){
         if(!document.querySelector('[aria-label="Nearby spotted callsigns"]'))return;
         event.preventDefault();event.stopPropagation();window.dispatchEvent(new Event("xlog:accept-nearby-callsign"));return;

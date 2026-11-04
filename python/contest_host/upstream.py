@@ -92,6 +92,8 @@ def adapt_cw_template(plugin_id, template):
             if PLUGIN_REGISTRY[plugin_id].modes != ("CW",):
                 raise RuntimeError("WPM directives require a CW-only message bank")
             return token == "WPM:BASE" or bool(re.fullmatch(r"WPM:(?:[5-9]|[1-9][0-9])", token))
+        if token.startswith("PROSIGN:"):
+            return PLUGIN_REGISTRY[plugin_id].modes == ("CW",) and token[8:] in {"AR", "AS", "BT", "SK", "KN"}
         return False
     if any(not supported_token(token) for token in tokens):
         raise RuntimeError("Not1MM macro uses an unsupported token")

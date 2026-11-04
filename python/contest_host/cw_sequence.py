@@ -62,7 +62,12 @@ def compile_sequence(template, values, preferences=None):
             if not speed or speed[1] != "BASE" and not 5 <= int(speed[1]) <= 99:
                 raise ValueError("CW speed must be {WPM:5}–{WPM:99} or {WPM:BASE}")
             segments.append({"kind": "restore"} if speed[1] == "BASE" else {"kind": "speed", "wpm": int(speed[1])})
-            used_speed = True
+            used_speed = speed[1] != "BASE"
+        elif token.startswith("PROSIGN:"):
+            value = token[8:]
+            if value not in {"AR", "AS", "BT", "SK", "KN"}:
+                raise ValueError("Unsupported typed CW prosign")
+            segments.append({"kind": "prosign", "value": value})
         elif token in {"LOGIT", "RUN", "SANDP", "WIPE"}:
             pass  # The existing host owns these actions, never this compiler.
         elif token in values:
@@ -74,14 +79,15 @@ def compile_sequence(template, values, preferences=None):
     append(template[cursor:])
     if used_speed and (not segments or segments[-1]["kind"] != "restore"):
         segments.append({"kind": "restore"})
-    rendered = "".join(segment["text"] for segment in segments if segment["kind"] == "text")
+    rendered = sequence_text({"segments": segments})
     if len(rendered) > 16384 or len(segments) > 128:
         raise ValueError("CW sequence exceeds its bounded size")
     return {"schema": 1, "segments": segments}
 
 
 def sequence_text(sequence):
-    return "".join(segment["text"] for segment in sequence["segments"] if segment["kind"] == "text")
+    return "".join(segment["text"] if segment["kind"] == "text" else f"<{segment['value']}>" if segment["kind"] == "prosign" else ""
+                   for segment in sequence["segments"])
 
 
 def action_values(action):

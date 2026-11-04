@@ -1,4 +1,5 @@
 import { cwOutputLimit, defaultCWProfile, expandCWMacro, validateCWProfile, type CWContext, type CWMacro, type CWProfile } from "./cwMacros";
+import { compileCWMessage } from "./cwMessagePlan";
 type Data = Record<string, any>;
 export type CWRequest = (method: string, params?: Data) => Promise<Data>;
 export type CWTarget = { output: "radio" | "winkeyer"; provider: string; generation: number; limit: number };
@@ -117,6 +118,8 @@ export class CWController {
       if (!target || !this.state.armed || this.armedUntil <= this.clock()) throw new Error("Arm CW before sending a macro.");
       const saved = this.profile.macros.find(item => item.id === macro.id && item.enabled);
       if (!saved) throw new Error("This macro is disabled or is not saved.");
+      if (compileCWMessage(saved.text, context, target.limit).segments.some(segment=>segment.kind!=="text"))
+        throw new Error("Typed speed and prosign plans require the shared native CW owner.");
       const text = expandCWMacro(saved.text, context, target.limit);
       this.publish({ pending: true, error: "" });
       const observed = await this.inspect(false); this.current(epoch);

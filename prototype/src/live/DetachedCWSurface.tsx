@@ -4,6 +4,7 @@ import { TauriEvent } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import CWDesk from "./CWDesk";
 import { useSharedCW } from "./useSharedCW";
+import { useNormalCommands } from "./useNormalCommands";
 import "./DetachedTaskSurface.css";
 
 /** A renderer of the existing native CW owner, not another station controller.
@@ -12,6 +13,7 @@ export function DetachedCWSurface() {
   const [transitioning, setTransitioning] = useState(false), [error, setError] = useState("");
   const busy = useRef(false), mounted = useRef(false);
   const { controller, state, profile, context, provider } = useSharedCW("cw-child", transitioning);
+  useNormalCommands(!transitioning && !state.canonical?.contestSessionID,setError,state.canonical?.generation,"cw");
   const transition = useCallback(async () => {
     if (busy.current) return;
     busy.current = true; setTransitioning(true); setError("");
@@ -34,6 +36,7 @@ export function DetachedCWSurface() {
   const controls = {
     arm: () => busy.current ? Promise.resolve() : controller.arm(),
     send: (...args: Parameters<typeof controller.send>) => busy.current ? Promise.resolve() : controller.send(...args),
+    compose: (...args: Parameters<typeof controller.compose>) => busy.current ? Promise.resolve(false) : controller.compose(...args),
     stop: controller.stop,
     acknowledgeStopped: () => { if (!busy.current) controller.acknowledgeStopped(); },
   };

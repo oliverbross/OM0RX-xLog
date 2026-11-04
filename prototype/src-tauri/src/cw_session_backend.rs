@@ -19,7 +19,7 @@ pub fn owner(app: &tauri::AppHandle) -> Arc<Session> {
 }
 struct Native { app: tauri::AppHandle }
 pub(crate) fn carrier_output_admission(output:&str, check:impl FnOnce()->Result<(),String>)->Result<(),String> {
-    match output {"radio"=>check(),"winkeyer"=>Ok(()),_=>Err("Unknown CW output".into())}
+    match output {"radio"|"winkeyer"=>check(),_=>Err("Unknown CW output".into())}
 }
 fn require_idle_carrier(value:&Value, require_rx:bool)->Result<(),String> {
     if value["carrier_tune"]["pending"]!=false || value["carrier_tune"]["release_required"]!=false || value["ptt"]["release_required"]!=false
@@ -56,7 +56,9 @@ fn output_selection(profile: &Value, read: impl FnOnce() -> Result<Value, String
     let provider = selection["provider"].as_str()
         .filter(|provider| matches!(*provider, "direct_agent" | "direct_flex_lan" | "hamlib"))
         .ok_or("Choose a CW-capable radio before using CW.")?;
-    Ok((provider.into(), json!({"generation":selection["generation"],"id":selection["selection_id"]})))
+    let mut identity=json!({"generation":selection["generation"],"id":selection["selection_id"]});
+    if selection["radio_id"].is_string(){identity["radio_id"]=selection["radio_id"].clone();}
+    Ok((provider.into(), identity))
 }
 fn radio_request(target: &Value, action: &str, text: Option<&str>) -> Result<Value, String> {
     let identity = generation(&target["generation"])?;
@@ -64,6 +66,7 @@ fn radio_request(target: &Value, action: &str, text: Option<&str>) -> Result<Val
     let mut params = if provider == "hamlib" { json!({"device":"radio","action":if action == "stop" { "cw_stop" } else { "cw" },"expected_generation":identity}) }
         else { json!({"provider":provider,"control":if action == "stop" { "clear_cw" } else { "send_cw" },"expected_generation":identity}) };
     if action == "send" { params["text"] = json!(text.ok_or("CW text unavailable")?); }
+    if target["radio_id"].is_string(){params["radio_id"]=target["radio_id"].clone();}
     Ok(request(if provider == "hamlib" { "hamlib_control" } else { "station_radio_control" }, params))
 }
 fn contesting_test_target(canonical: &Value) -> Result<Value, String> {
@@ -134,7 +137,7 @@ impl Backend for Native {
         let (provider, selection) = if crate::runtime_profile::CONTESTING_TEST {
             ("test-simulation".into(), Value::Null)
         } else {
-            output_selection(&profile, || crate::station_selection::owner(&self.app)?.snapshot())?
+            output_selection(&profile, || {let mut selected=crate::station_selection::owner(&self.app)?.snapshot()?;selected["radio_id"]=json!(crate::radio_slots::active(&self.app)?);Ok(selected)})?
         };
         if crate::runtime_profile::CONTESTING_TEST && crate::contest_window_context::active().is_err() {
             return Err("Contesting Test CW simulation is available only inside an active contest.".into());
@@ -176,11 +179,15 @@ impl Backend for Native {
         let output = canonical["profile"]["output"].as_str().ok_or("CW output unavailable")?;
         // The outer shared acquisition guard makes this durable veto and the
         // following backend ownership read atomic with carrier admission.
+        // Native TX obligations are process-wide, including an independent
+        // keyer. These journal reads need no CAT connection or radio selection.
         carrier_output_admission(output,||{crate::carrier_tune::require_cw_ready(&self.app)?;crate::ptt_session::require_idle(&self.app)})?;
         let worker = canonical["worker"].as_u64().ok_or("CW worker unavailable")?;
+        let mut speed_segments=output=="winkeyer";
         let (identity, limit, intent) = if output == "winkeyer" {
             let value = local("winkeyer_snapshot", json!({}))?;
             if value["phase"] != "ready" || !value["status"].is_object() || !value["status_age_ms"].as_f64().is_some_and(|age| age >= 0.0 && age <= 2_000.0) { return Err("Connect WinKeyer and wait for fresh status first.".into()); }
+            speed_segments=value["speed_source"]!="pot";
             (generation(&value["generation"])?, 128, value["last_intent"].as_u64().unwrap_or(0))
         } else if provider == "hamlib" {
             let value = local("hamlib_snapshot", json!({"device":"radio"}))?;
@@ -198,20 +205,26 @@ impl Backend for Native {
             if !matches!(value["radio"]["mode"].as_str(), Some("CW" | "CWR")) || !timestamp.is_some_and(|time| fresh(now() - time * 1_000.0, 5_000.0)) { return Err("Set the radio to CW and wait for fresh readback.".into()); }
             (generation(&value["generation"])?, 128, 0)
         };
-        Ok(json!({"output":output,"provider":if output == "winkeyer" { "winkeyer" } else { provider },"generation":identity,"limit":limit,"last_intent":intent,"worker":worker,"selection":canonical["selection"],
-            "speedSegments":output == "winkeyer", "streaming":output == "winkeyer", "progressEvidence":if output == "winkeyer" {"host-queue-and-device-status"} else {"command-acceptance-only"}}))
+        let mut target=json!({"output":output,"provider":if output == "winkeyer" { "winkeyer" } else { provider },"generation":identity,"limit":limit,"last_intent":intent,"worker":worker,"selection":canonical["selection"],
+            "speedSegments":speed_segments, "streaming":output == "winkeyer", "composition":output == "winkeyer", "prosigns":output == "winkeyer", "progressEvidence":if output == "winkeyer" {"host-queue-and-device-status"} else {"command-acceptance-only"}});
+        if canonical["selection"]["radio_id"].is_string(){target["radio_id"]=canonical["selection"]["radio_id"].clone();}
+        Ok(target)
     }
     fn sequence(&self, target: &Value, sequence: &crate::winkeyer::Sequence, intent: u64) -> Result<Value, String> {
         if target["output"] == "winkeyer" {
             return local("winkeyer_sequence", json!({"generation":generation(&target["generation"])?,"intent":intent,"sequence":sequence}));
         }
-        if sequence.variable_speed() { return Err("This adapter cannot execute buffered speed segments; explicitly choose a single-speed message.".into()); }
+        if sequence.variable_speed() || sequence.has_prosigns() { return Err("This adapter cannot execute typed speed/prosign segments; choose a supported message.".into()); }
         self.output(target, "send", Some(&sequence.text()), intent)
     }
     fn stream(&self, target: &Value, stream: &Value, intent: u64) -> Result<Value, String> {
         if target["output"] != "winkeyer" { return Err("This adapter does not support qualified owned CW append.".into()); }
         local("winkeyer_stream", json!({"generation":generation(&target["generation"])?,"intent":intent,"streamID":stream["streamID"],
             "revision":stream["revision"],"text":stream["call"],"finish":stream["complete"]}))
+    }
+    fn compose(&self,target:&Value,sequence:&crate::winkeyer::Sequence,job:&str,append:u64,finish:bool,intent:u64)->Result<Value,String>{
+        if target["output"]!="winkeyer"{return Err("This output does not support owned CW composition append".into());}
+        local("winkeyer_compose",json!({"generation":generation(&target["generation"])?,"intent":intent,"job":job,"append":append,"sequence":sequence,"finish":finish}))
     }
     fn continue_sequence(&self,target:&Value,sequence:&crate::winkeyer::Sequence,stream:&str,intent:u64)->Result<Value,String>{
         if target["output"]!="winkeyer"{return Err("This output cannot continue an owned callsign stream.".into());}
@@ -277,8 +290,11 @@ mod tests {
     }
     #[test]
     fn independent_winkeyer_needs_no_radio_and_radio_selection_stays_exact() {
-        assert!(carrier_output_admission("winkeyer",||panic!("Independent WinKeyer requested radio carrier authority")).is_ok());
-        assert!(carrier_output_admission("radio",||Err("Carrier active".into())).is_err());
+        for output in ["winkeyer","radio"] {
+            assert!(carrier_output_admission(output,||Err("Carrier active".into())).is_err());
+            assert!(carrier_output_admission(output,||Err("PTT owned".into())).is_err());
+            assert!(carrier_output_admission(output,||Ok(())).is_ok());
+        }
         let (provider, selection) = output_selection(&json!({"output":"winkeyer"}), || panic!("WinKeyer must not read or require radio selection")).unwrap();
         assert_eq!(provider, "winkeyer"); assert!(selection.is_null());
         assert!(output_selection(&json!({"output":"radio"}), || Ok(json!({"provider":null}))).is_err());
