@@ -18,7 +18,7 @@ and physical evidence remain separate.
 | Q03 | Windows EOL cause reproduced/fixed; 1.5.19 qualification pending | `1dd41330` supplies the two-scope recipe. [Exact-source diagnosis](windows-source-clean-1.5.18.md) identifies generated HM files at the first dirty boundary; actual-generator EOL regression reproduces the signature. `0d6ebf2a` pins only those outputs to LF and preserves the clean-source guard. [1.5.19](../../releases/v1.5.19-quality-candidate.md) must qualify actual installers. [Ordinary-user/UAC/upgrade cells](../../WINDOWS_INSTALLER_SCOPES.md) remain NOT RUN. |
 | Q04 | Hidden observer repair verified; per-feature package counters OPEN | `5fac0a06` + `afdef570`: hidden disarmed dispatches 40→0/30s in the focused fixture, holder heartbeat preserved, context-churn starvation corrected; 21 tests and TypeScript pass. [CW counters](runtime-cw-polling.md), [native lifecycle inventory](background-ledger.md), [desktop CPU/wakeup observations](desktop-idle-counters-1.5.18.md). Process counters do not attribute a specific timer. |
 | Q05 | POTA service repair and SQL/signed-RPC baselines verified | `1ab1f647`: cumulative POTA byte construction 3.807 GB→6.75 MB per synthetic transfer; exact Unicode/multi-park service checks pass. [POTA](runtime-pota-chunks.md), [SQL](sql-baseline.md), [signed 100k workflows](worker-workflows-1.5.18.md). Export/preview close/expiry memory and visible-save latency remain unqualified. No schema/durability tuning. |
-| Q06 | Bounded Mac and Linux package journeys PASS | [Mac native](native-1.5.18.md) and [Linux container runtime](ci-1.5.18-linux-runtime.md) record actual packages and persistence. Native Windows, ordinary Linux desktop and physical hardware remain NOT RUN. Browser/component tests cannot close those cells. |
+| Q06 | Bounded Mac and Linux package journeys PASS | [1.5.19 Mac native](native-1.5.19.md) and prior [1.5.18 Linux container runtime](ci-1.5.18-linux-runtime.md) record actual packages and persistence. Native Windows, ordinary Linux desktop and physical hardware remain NOT RUN. Browser/component tests cannot close those cells. |
 | Q07 | 1.5.19 preparation; phase OPEN | [1.5.16](native-1.5.16.md) found first-contact default loss; [1.5.17](native-1.5.17.md) exposed the editor-input race; both source fixes remain included. [Original 1.5.18 gate](ci-1.5.18-original.md) failed Windows provenance preflight; [independent Linux acceptance](ci-1.5.18-linux-runtime.md) passed with unchanged package bytes and strict QA correction. [1.5.19](../../releases/v1.5.19-quality-candidate.md) advances the version for the targeted LF checkout correction and requires new exact-source qualification. Old receipts are not relabelled. No daily install or public release. |
 
 ## Preservation baseline
@@ -42,20 +42,21 @@ private launch proofs stay outside Git.
 
 ## Qualification matrix
 
-Cells name the measured build/profile. Candidate 1.5.19 is pending qualification;
-the 1.5.18 results below retain their original source and limits.
+Cells name the measured build/profile. Candidate 1.5.19 local Mac native and
+worker checks pass; its cross-platform gate remains pending. Earlier 1.5.18
+results retain their original source and limits.
 
 | Journey | macOS arm64 | Windows x64 | Linux x64 |
 |---|---|---|---|
 | Current installed process memory | PASS: numeric native capture; incomplete WebKit ownership | NOT RUN | NOT RUN |
 | Released-worker repeated health / EOF | PASS on private empty fixture; growth reproduced | NOT RUN | NOT RUN |
-| New packaged worker memory / EOF | PASS: [signed 1.5.18 empty/100k/representative](memory-signed-1.5.18.md); full desktop budget open | NOT RUN | NOT RUN |
-| Native packaged skip setup → logging → restart | PASS: [1.5.18 offline journey](native-1.5.18.md), including first-save defaults/37 W, Unicode edit, native menu/Close guards and ADIF; earlier failures retained | NOT RUN | PASS in [non-root runtime container](ci-1.5.18-linux-runtime.md): four scripted embedded UI launches; ordinary desktop NOT RUN |
+| New packaged worker memory / EOF | PASS: [signed 1.5.19 empty/100k/representative](memory-signed-1.5.19.md); full desktop budget open | NOT RUN | NOT RUN |
+| Native packaged skip setup → logging → restart | PASS: [1.5.19 offline journey](native-1.5.19.md), including first-save defaults/37 W, Unicode edit, native menu/Close guards and ADIF; earlier failures retained | NOT RUN | PASS in [1.5.18 non-root runtime container](ci-1.5.18-linux-runtime.md): four scripted embedded UI launches; ordinary desktop NOT RUN |
 | Native radio / rotor Browse → Save → restart | NOT RUN | NOT RUN | NOT RUN |
 | Just me default path / no-admin / UAC cancellation | N/A | NOT RUN | N/A |
 | All users Program Files / ordinary first launch | N/A | NOT RUN | N/A |
 | Same-scope upgrade / cross-scope transition / uninstall retention | NOT RUN | NOT RUN | NOT RUN |
-| Native keyboard setup / clipboard / menu and Close guards | PASS within [1.5.18 recorded journey](native-1.5.18.md) | NOT RUN on ordinary desktop | NOT RUN on real desktop |
+| Native keyboard setup / clipboard / menu and Close guards | PASS within [1.5.19 recorded journey](native-1.5.19.md) | NOT RUN on ordinary desktop | NOT RUN on real desktop |
 | Scaling / multiple displays / native device permissions | NOT RUN | NOT RUN | NOT RUN |
 | Physical radio / rotor / audio / RF | NOT RUN | NOT RUN | NOT RUN |
 

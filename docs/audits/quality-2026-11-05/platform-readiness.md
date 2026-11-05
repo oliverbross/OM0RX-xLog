@@ -1,13 +1,14 @@
 # Platform scope and remaining acceptance
 
-This is the Q06 readiness contract for candidate 1.5.18, source
-`0b7c669663841c2e55569b0c21c76ad03805cad7`. A build target is not a claim that
-every provider or ordinary desktop journey is qualified. Older P1 runtime
-receipts remain historical and do not qualify this candidate.
+This is the Q06 readiness contract. Current candidate 1.5.19 has frozen source
+`72a5926c2878ceedf70789ff4bae619ae5e14511`; its cross-platform gate is pending.
+Earlier 1.5.18 receipts retain source `0b7c669663841c2e55569b0c21c76ad03805cad7`
+and their original scope. A build target is not a claim that every provider or
+ordinary desktop journey is qualified. Older P1 runtime receipts remain historical.
 
 | Target | Runtime / distribution | Current qualification boundary |
 |---|---|---|
-| macOS arm64, macOS 14+ | System WKWebView; app ZIP; bundled native worker, Python and Hamlib | Signed local candidate on macOS 27.2 build 26B123; [recorded offline journey PASS](native-1.5.18.md). Minimum-OS, physical station, full screen/scaling/multiple-display, notarization and complete memory budget unqualified. |
+| macOS arm64, macOS 14+ | System WKWebView; app ZIP; bundled native worker, Python and Hamlib | Signed local 1.5.19 on macOS 27.2 build 26B123; [recorded offline journey PASS](native-1.5.19.md). Minimum-OS, physical station, full screen/scaling/multiple-display, notarization and complete memory budget unqualified. |
 | Windows x64, intended Windows 11 | Evergreen WebView2; portable ZIP plus separate current-user and all-users NSIS installers; app-local worker/Swift/SQLite/Hamlib/Python | Canonical hosted reference is Windows Server 2022. Windows 10 is not accepted by the package contract. Ordinary Windows 11 account, UAC, prerequisites, upgrades and physical station remain NOT RUN. |
 | Ubuntu 24.04 amd64 | WebKitGTK 4.1 / GTK3; DEB plus relocatable archive; bundled worker/Swift/Hamlib and declared OS Python 3.12 | Native runtime-only container/Xvfb/nested Wayland gates are separate from a real desktop/GPU/session. Other distributions and architectures are not accepted here. |
 
