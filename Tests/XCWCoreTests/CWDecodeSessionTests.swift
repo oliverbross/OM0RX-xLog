@@ -417,6 +417,10 @@ final class CWDecodeSessionTests: XCTestCase {
         await session.stop()
     }
     func testQualifiedSignalResolutionDoesNotNeedCallsignAndCannotSurviveMuteOrStaleIQ() async throws {
+        // Stale IQ may legitimately make the monitor retire the track. Each
+        // rejection needs its own live track, rather than refreshing an old
+        // reference after a scheduling-dependent quarantine.
+        for staleIQ in [false, true] {
         let provider=CWSessionTestProvider(),compute=CWSessionTestCompute(),clock=CWSessionTestClock(),source=try source()
         let session=CWDecodeSession(provider:provider,compute:compute,clock:{clock.now()})
         try await session.start(configuration:CWDecodeConfiguration(sources:[source]),resources:resources)
@@ -437,13 +441,11 @@ final class CWDecodeSessionTests: XCTestCase {
         XCTAssertNil(view.selection)
         let result=try await session.resolveSignal(reference)
         XCTAssertEqual(result.frequencyHz,14025600);XCTAssertEqual(result.radioID,"radio1")
-        clock.advance(300_000_000)
-        do{_ = try await session.resolveSignal(reference);XCTFail("Stale signal accepted")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
-        _ = try await provider.emit(source.id,receipt:clock.now(),qualified:true)
-        try await wait{await compute.counts().sends==85}
-        try await session.mute(reference)
-        do{_ = try await session.resolveSignal(reference);XCTFail("Muted signal accepted")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
+        if staleIQ { clock.advance(300_000_000) }
+        else { try await session.mute(reference) }
+        do{_ = try await session.resolveSignal(reference);XCTFail(staleIQ ? "Stale signal accepted":"Muted signal accepted")}catch{XCTAssertEqual(error as? CWTrackSelectionError,.staleEvidence)}
         await session.stop()
+        }
     }
     func testSignalResolutionRefusesUnqualifiedMappingAndStopDuringReadback() async throws {
         let (session,provider,_,_,_,_)=try await selectionFixture()
