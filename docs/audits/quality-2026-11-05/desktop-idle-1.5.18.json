@@ -1,0 +1,472 @@
+{
+  "schema": 1,
+  "at": "2026-11-05T08:38:36.552674+00:00",
+  "status": "complete-generated-fixture-idle-observation",
+  "versions": [
+    {
+      "version": "1.5.15",
+      "sourceCommit": "1873dc1d1c4d1aa95b44d07f7af0482417680f5f",
+      "signedHostSHA256": "388114efe485ea83fc56256af0774d6ee6b4f4bd9561798ba215fdd025399ef2",
+      "signedWorkerSHA256": "0b4121e278d42546f793a7947af3ce3cf0b99b0cfc423f66ef1b3fb664202d6c",
+      "sealedBuildManifestSHA256": "4096bf02eb386fe76ba08c202305e7038db4b5e56ff520f3df5cd0565eff4a13",
+      "retainedGeneratedInput": {
+        "physicalRows": 100000,
+        "liveQSOs": 100000,
+        "generatedCommentRows": 100000,
+        "hashRows": 100000,
+        "orderedStoredQSOHash": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+        "hashColumns": [
+          "local_id",
+          "wavelog_id",
+          "call",
+          "qso_start",
+          "band",
+          "mode",
+          "frequency_hz",
+          "is_dirty",
+          "deleted_at",
+          "updated_at",
+          "record_json",
+          "baseline_json"
+        ],
+        "readMode": "readonly-WAL-honored",
+        "databaseSHA256": "e47729e0066468f25adfd6fa714d1b37403f441fe859ba7c0e0df21ec72b7ea2",
+        "databaseBytes": 171393024,
+        "walBytes": 0
+      },
+      "preparedClosedFixture": {
+        "physicalRows": 100000,
+        "liveQSOs": 100000,
+        "generatedCommentRows": 100000,
+        "hashRows": 100000,
+        "orderedStoredQSOHash": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+        "hashColumns": [
+          "local_id",
+          "wavelog_id",
+          "call",
+          "qso_start",
+          "band",
+          "mode",
+          "frequency_hz",
+          "is_dirty",
+          "deleted_at",
+          "updated_at",
+          "record_json",
+          "baseline_json"
+        ],
+        "readMode": "readonly-WAL-honored",
+        "databaseSHA256": "e6f5a4b3d6da3d960c8c0e1368ba412daeefe60ed72341e2769c0125664683b3",
+        "databaseBytes": 196788224,
+        "walBytes": 32768
+      },
+      "closedAfterOrdinaryQuitFixture": {
+        "physicalRows": 100000,
+        "liveQSOs": 100000,
+        "generatedCommentRows": 100000,
+        "hashRows": 100000,
+        "orderedStoredQSOHash": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+        "hashColumns": [
+          "local_id",
+          "wavelog_id",
+          "call",
+          "qso_start",
+          "band",
+          "mode",
+          "frequency_hz",
+          "is_dirty",
+          "deleted_at",
+          "updated_at",
+          "record_json",
+          "baseline_json"
+        ],
+        "readMode": "readonly-WAL-honored",
+        "databaseSHA256": "bff960168681cbcbfeba987077a5b7740a6e72b0b061b4e9141ec29fa24582bd",
+        "databaseBytes": 196788224,
+        "walBytes": 407912
+      },
+      "ordinaryQuitProcessOnlyVerified": true,
+      "storedQSOHashPreserved": true,
+      "processCoordinatesIndependentlyVerifiedBeforeAndAfterSamples": true,
+      "readyAt": "2026-11-05T08:04:03.252580+00:00",
+      "samplingCompletedAt": "2026-11-05T08:34:06.850800+00:00",
+      "samples": [
+        {
+          "requestedOffsetSeconds": 0,
+          "actualElapsedSeconds": 5.639020125003299,
+          "lateBySeconds": 5.639020125003299,
+          "at": "2026-11-05T08:04:08.891605+00:00",
+          "host": {
+            "rssKiB": 113008,
+            "rssBytes": 115720192,
+            "psCpuPercent": 0.1,
+            "cpuTimeDisplay": "0:01.35",
+            "cpuTimeSeconds": 1.35,
+            "sampledAt": "2026-11-05T08:04:08.895016+00:00",
+            "physicalFootprintBytesRounded": 39216742,
+            "physicalFootprintStatus": "available-vmmap-rounded"
+          },
+          "worker": {
+            "rssKiB": 50560,
+            "rssBytes": 51773440,
+            "psCpuPercent": 0.0,
+            "cpuTimeDisplay": "0:03.11",
+            "cpuTimeSeconds": 3.11,
+            "sampledAt": "2026-11-05T08:04:11.208598+00:00",
+            "physicalFootprintBytesRounded": 91960115,
+            "physicalFootprintStatus": "available-vmmap-rounded"
+          },
+          "RSSSummed": false
+        },
+        {
+          "requestedOffsetSeconds": 300,
+          "actualElapsedSeconds": 300.11878987497767,
+          "lateBySeconds": 0.11878987497766502,
+          "at": "2026-11-05T08:09:03.368759+00:00",
+          "host": {
+            "rssKiB": 63792,
+            "rssBytes": 65323008,
+            "psCpuPercent": 0.3,
+            "cpuTimeDisplay": "0:04.52",
+            "cpuTimeSeconds": 4.52,
+            "sampledAt": "2026-11-05T08:09:03.372637+00:00",
+            "physicalFootprintBytesRounded": 39216742,
+            "physicalFootprintStatus": "available-vmmap-rounded"
+          },
+          "worker": {
+            "rssKiB": 19792,
+            "rssBytes": 20267008,
+            "psCpuPercent": 0.0,
+            "cpuTimeDisplay": "0:03.52",
+            "cpuTimeSeconds": 3.52,
+            "sampledAt": "2026-11-05T08:09:05.260614+00:00",
+            "physicalFootprintBytesRounded": 93218406,
+            "physicalFootprintStatus": "available-vmmap-rounded"
+          },
+          "RSSSummed": false
+        },
+        {
+          "requestedOffsetSeconds": 900,
+          "actualElapsedSeconds": 900.1254219999828,
+          "lateBySeconds": 0.12542199998279102,
+          "at": "2026-11-05T08:19:03.374838+00:00",
+          "host": {
+            "rssKiB": 34528,
+            "rssBytes": 35356672,
+            "psCpuPercent": 0.0,
+            "cpuTimeDisplay": "0:11.31",
+            "cpuTimeSeconds": 11.31,
+            "sampledAt": "2026-11-05T08:19:03.378868+00:00",
+            "physicalFootprintBytesRounded": 39426457,
+            "physicalFootprintStatus": "available-vmmap-rounded"
+          },
+          "worker": {
+            "rssKiB": 17168,
+            "rssBytes": 17580032,
+            "psCpuPercent": 0.0,
+            "cpuTimeDisplay": "0:04.47",
+            "cpuTimeSeconds": 4.47,
+            "sampledAt": "2026-11-05T08:19:06.091340+00:00",
+            "physicalFootprintBytesRounded": 93008691,
+            "physicalFootprintStatus": "available-vmmap-rounded"
+          },
+          "RSSSummed": false
+        },
+        {
+          "requestedOffsetSeconds": 1800,
+          "actualElapsedSeconds": 1800.123541582987,
+          "lateBySeconds": 0.12354158298694529,
+          "at": "2026-11-05T08:34:03.369192+00:00",
+          "host": {
+            "rssKiB": 38496,
+            "rssBytes": 39419904,
+            "psCpuPercent": 1.0,
+            "cpuTimeDisplay": "0:21.67",
+            "cpuTimeSeconds": 21.67,
+            "sampledAt": "2026-11-05T08:34:03.373363+00:00",
+            "physicalFootprintBytesRounded": 40160460,
+            "physicalFootprintStatus": "available-vmmap-rounded"
+          },
+          "worker": {
+            "rssKiB": 17424,
+            "rssBytes": 17842176,
+            "psCpuPercent": 0.0,
+            "cpuTimeDisplay": "0:05.80",
+            "cpuTimeSeconds": 5.8,
+            "sampledAt": "2026-11-05T08:34:05.756685+00:00",
+            "physicalFootprintBytesRounded": 96888422,
+            "physicalFootprintStatus": "available-vmmap-rounded"
+          },
+          "RSSSummed": false
+        }
+      ]
+    },
+    {
+      "version": "1.5.18",
+      "sourceCommit": "0b7c669663841c2e55569b0c21c76ad03805cad7",
+      "signedHostSHA256": "4f95f35d234919d7bf81d5cba50f0f33041056a927bf362978c35d7a3bae8ffa",
+      "signedWorkerSHA256": "31ac2cdda0254df08b57058a07b29ceae1f83acd365debdcdb13f15eea639f67",
+      "sealedBuildManifestSHA256": "d7bad62ab9443270be1299a126d0447ff3c943261e2a057d187332da9f877d70",
+      "retainedGeneratedInput": {
+        "physicalRows": 100000,
+        "liveQSOs": 100000,
+        "generatedCommentRows": 100000,
+        "hashRows": 100000,
+        "orderedStoredQSOHash": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+        "hashColumns": [
+          "local_id",
+          "wavelog_id",
+          "call",
+          "qso_start",
+          "band",
+          "mode",
+          "frequency_hz",
+          "is_dirty",
+          "deleted_at",
+          "updated_at",
+          "record_json",
+          "baseline_json"
+        ],
+        "readMode": "readonly-WAL-honored",
+        "databaseSHA256": "e47729e0066468f25adfd6fa714d1b37403f441fe859ba7c0e0df21ec72b7ea2",
+        "databaseBytes": 171393024,
+        "walBytes": 0
+      },
+      "preparedClosedFixture": {
+        "physicalRows": 100000,
+        "liveQSOs": 100000,
+        "generatedCommentRows": 100000,
+        "hashRows": 100000,
+        "orderedStoredQSOHash": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+        "hashColumns": [
+          "local_id",
+          "wavelog_id",
+          "call",
+          "qso_start",
+          "band",
+          "mode",
+          "frequency_hz",
+          "is_dirty",
+          "deleted_at",
+          "updated_at",
+          "record_json",
+          "baseline_json"
+        ],
+        "readMode": "readonly-WAL-honored",
+        "databaseSHA256": "e6f5a4b3d6da3d960c8c0e1368ba412daeefe60ed72341e2769c0125664683b3",
+        "databaseBytes": 196788224,
+        "walBytes": 32768
+      },
+      "closedAfterOrdinaryQuitFixture": {
+        "physicalRows": 100000,
+        "liveQSOs": 100000,
+        "generatedCommentRows": 100000,
+        "hashRows": 100000,
+        "orderedStoredQSOHash": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+        "hashColumns": [
+          "local_id",
+          "wavelog_id",
+          "call",
+          "qso_start",
+          "band",
+          "mode",
+          "frequency_hz",
+          "is_dirty",
+          "deleted_at",
+          "updated_at",
+          "record_json",
+          "baseline_json"
+        ],
+        "readMode": "readonly-WAL-honored",
+        "databaseSHA256": "341db434fed7cf919b65c92cb49c7a4d5ac1f2dcc9373e7c3dc4d0ec63d74c5d",
+        "databaseBytes": 196788224,
+        "walBytes": 407912
+      },
+      "ordinaryQuitProcessOnlyVerified": true,
+      "storedQSOHashPreserved": true,
+      "processCoordinatesIndependentlyVerifiedBeforeAndAfterSamples": true,
+      "readyAt": "2026-11-05T08:04:03.641403+00:00",
+      "samplingCompletedAt": "2026-11-05T08:34:06.835167+00:00",
+      "samples": [
+        {
+          "requestedOffsetSeconds": 0,
+          "actualElapsedSeconds": 5.174316209013341,
+          "lateBySeconds": 5.174316209013341,
+          "at": "2026-11-05T08:04:08.815730+00:00",
+          "host": {
+            "rssKiB": 114160,
+            "rssBytes": 116899840,
+            "psCpuPercent": 0.4,
+            "cpuTimeDisplay": "0:01.52",
+            "cpuTimeSeconds": 1.52,
+            "sampledAt": "2026-11-05T08:04:08.819707+00:00",
+            "physicalFootprintBytesRounded": 39531315,
+            "physicalFootprintStatus": "available-vmmap-rounded"
+          },
+          "worker": {
+            "rssKiB": 49248,
+            "rssBytes": 50429952,
+            "psCpuPercent": 0.0,
+            "cpuTimeDisplay": "0:03.20",
+            "cpuTimeSeconds": 3.2,
+            "sampledAt": "2026-11-05T08:04:11.206807+00:00",
+            "physicalFootprintBytesRounded": 88394956,
+            "physicalFootprintStatus": "available-vmmap-rounded"
+          },
+          "RSSSummed": false
+        },
+        {
+          "requestedOffsetSeconds": 300,
+          "actualElapsedSeconds": 300.1190359170141,
+          "lateBySeconds": 0.11903591701411642,
+          "at": "2026-11-05T08:09:03.757831+00:00",
+          "host": {
+            "rssKiB": 63936,
+            "rssBytes": 65470464,
+            "psCpuPercent": 0.0,
+            "cpuTimeDisplay": "0:04.57",
+            "cpuTimeSeconds": 4.57,
+            "sampledAt": "2026-11-05T08:09:03.761620+00:00",
+            "physicalFootprintBytesRounded": 39741030,
+            "physicalFootprintStatus": "available-vmmap-rounded"
+          },
+          "worker": {
+            "rssKiB": 19088,
+            "rssBytes": 19546112,
+            "psCpuPercent": 0.0,
+            "cpuTimeDisplay": "0:03.62",
+            "cpuTimeSeconds": 3.62,
+            "sampledAt": "2026-11-05T08:09:05.260614+00:00",
+            "physicalFootprintBytesRounded": 88394956,
+            "physicalFootprintStatus": "available-vmmap-rounded"
+          },
+          "RSSSummed": false
+        },
+        {
+          "requestedOffsetSeconds": 900,
+          "actualElapsedSeconds": 900.141513709008,
+          "lateBySeconds": 0.1415137090079952,
+          "at": "2026-11-05T08:19:03.779754+00:00",
+          "host": {
+            "rssKiB": 34000,
+            "rssBytes": 34816000,
+            "psCpuPercent": 0.4,
+            "cpuTimeDisplay": "0:10.84",
+            "cpuTimeSeconds": 10.84,
+            "sampledAt": "2026-11-05T08:19:03.784911+00:00",
+            "physicalFootprintBytesRounded": 39845888,
+            "physicalFootprintStatus": "available-vmmap-rounded"
+          },
+          "worker": {
+            "rssKiB": 14320,
+            "rssBytes": 14663680,
+            "psCpuPercent": 0.0,
+            "cpuTimeDisplay": "0:04.47",
+            "cpuTimeSeconds": 4.47,
+            "sampledAt": "2026-11-05T08:19:06.091320+00:00",
+            "physicalFootprintBytesRounded": 88394956,
+            "physicalFootprintStatus": "available-vmmap-rounded"
+          },
+          "RSSSummed": false
+        },
+        {
+          "requestedOffsetSeconds": 1800,
+          "actualElapsedSeconds": 1800.1232395420084,
+          "lateBySeconds": 0.12323954200837761,
+          "at": "2026-11-05T08:34:03.757716+00:00",
+          "host": {
+            "rssKiB": 38048,
+            "rssBytes": 38961152,
+            "psCpuPercent": 0.4,
+            "cpuTimeDisplay": "0:20.44",
+            "cpuTimeSeconds": 20.44,
+            "sampledAt": "2026-11-05T08:34:03.761851+00:00",
+            "physicalFootprintBytesRounded": 40684748,
+            "physicalFootprintStatus": "available-vmmap-rounded"
+          },
+          "worker": {
+            "rssKiB": 14336,
+            "rssBytes": 14680064,
+            "psCpuPercent": 0.0,
+            "cpuTimeDisplay": "0:05.82",
+            "cpuTimeSeconds": 5.82,
+            "sampledAt": "2026-11-05T08:34:05.756685+00:00",
+            "physicalFootprintBytesRounded": 88394956,
+            "physicalFootprintStatus": "available-vmmap-rounded"
+          },
+          "RSSSummed": false
+        }
+      ]
+    }
+  ],
+  "derivedSeparateOwners": [
+    {
+      "version": "1.5.15",
+      "role": "host",
+      "sameProcessVerified": true,
+      "displayedCPUSecondsDelta": 20.32,
+      "metricIntervalSeconds": 1794.478347,
+      "approxMeanPercentOfOneCore": 1.1323625071303243,
+      "rssBytesDelta": -76300288,
+      "roundedPhysicalFootprintBytesDelta": 943718
+    },
+    {
+      "version": "1.5.15",
+      "role": "worker",
+      "sameProcessVerified": true,
+      "displayedCPUSecondsDelta": 2.69,
+      "metricIntervalSeconds": 1794.548087,
+      "approxMeanPercentOfOneCore": 0.14989846298835904,
+      "rssBytesDelta": -33931264,
+      "roundedPhysicalFootprintBytesDelta": 4928307
+    },
+    {
+      "version": "1.5.18",
+      "role": "host",
+      "sameProcessVerified": true,
+      "displayedCPUSecondsDelta": 18.92,
+      "metricIntervalSeconds": 1794.942144,
+      "approxMeanPercentOfOneCore": 1.054072971836133,
+      "rssBytesDelta": -77938688,
+      "roundedPhysicalFootprintBytesDelta": 1153433
+    },
+    {
+      "version": "1.5.18",
+      "role": "worker",
+      "sameProcessVerified": true,
+      "displayedCPUSecondsDelta": 2.62,
+      "metricIntervalSeconds": 1794.549878,
+      "approxMeanPercentOfOneCore": 0.14599761378156578,
+      "rssBytesDelta": -35749888,
+      "roundedPhysicalFootprintBytesDelta": 0
+    }
+  ],
+  "RSSSummed": false,
+  "wholeApplicationBudget": "not established",
+  "incidentAttribution": "not assessed",
+  "helperOwnership": "See separate attribution series; no helper included in these numeric rows",
+  "orderedStoredQSOHash": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+  "matchingPrivateSettingsFieldCount": 27,
+  "matchingPrivateSettingsSHA256": "73ff47b6287bd6e4612e126be2f001c68231df746c71cb23d1577d2e5babccbb",
+  "fixtureControls": [
+    "Generated comments verified on all 100000 physical/live QSOs; zero tombstones",
+    "Separate canonical 0700 offline roots, home directories and workspace identities",
+    "normal_logging enum validated against owner; loopback and external station I/O disabled",
+    "Worker-created empty workspace then SQLite backup API of generated fixture only",
+    "Supported worker migration/settings API and fenced blank draft clear; no QSO committed",
+    "Identical 27 private settings fields between versions; original input unchanged",
+    "Root observed marked blank Operator Desk; ordinary Quit then closed-store hash verification"
+  ],
+  "visibilityPolicy": "concurrent-uncertain",
+  "continuousVisibilityVerified": false,
+  "initialVisibility": "Both marked Desk windows observed; 1.5.18 observed last/frontmost. Later 1.5.15 focus/occlusion unknown.",
+  "limits": [
+    "No whole-app budget or reported high-memory incident attribution",
+    "OS/disk caches, ambient load and observer overhead uncontrolled",
+    "Adjacent host/worker observations, not simultaneous",
+    "RSS and rounded VMMap physical footprint are distinct; no RSS sums",
+    "CPU values have ps displayed precision; means use actual per-owner sample timestamps",
+    "No continuous focus, occlusion, minimization or GUI state verification",
+    "Helpers excluded; separate ownership/counter series preserves its own availability and initial lag",
+    "No network, GPU, JS heap, audio/IQ or SQL-cache budget inferred"
+  ]
+}

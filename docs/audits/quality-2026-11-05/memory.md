@@ -95,8 +95,17 @@ not lifetime/interval averages. New reports normalize them to `psCpuPercent`
 without rewriting the raw measurements. Negative footprint growth can reflect
 settling, compression or reclamation; it is not an app-wide memory saving.
 
-Next evidence: finish settled 5/15/30-minute desk samples and collect relevant
-operation close/expiry cycles with complete WebKit ownership. Current kernel
+The [5/15/30-minute generated-100k desktop observation](desktop-idle-1.5.18.md)
+completed with normal Quit and unchanged stored QSO hashes. Candidate worker
+footprint remained 84.3 MiB; its host rose 37.7→38.8 MiB. This is a concurrent,
+passive offline profile with unverified focus/occlusion after readiness.
+[Public per-process counters](desktop-idle-counters-1.5.18.md) record CPU,
+wakeups, pageins and kernel-accounted disk bytes with exact intervals. The
+candidate host alone averaged about 1.05% of one core, so the provisional
+under-1% idle goal is not met here. No CPU target was relaxed.
+
+Next evidence: relevant operation close/expiry cycles and complete WebKit
+ownership under a calibrated ordinary desktop profile. Current kernel
 responsibility/coalition probes identify a broader shared owner for both test
 hosts and WebKit candidates; those helpers remain shared/unattributed.
 The source fix explains a substantial observed owner and removes demonstrated
