@@ -68,21 +68,40 @@ struct QLogQueryWorkflowTests {
     @Test func pagedPOTAPreviewUsesFrozenTwoByThreeAndPreservesSource() throws {
         let (root,service)=try fixture(); defer { try? service.openedDatabase().close(); try? FileManager.default.removeItem(at:root) }
         let db=try service.openedDatabase()
-        let q=QSO(call:"K1PARK/P",start:Date(timeIntervalSince1970:1735732800),band:"20m",mode:"SSB",potaReference:"US-0001,US-0002,US-0003",myCall:"OM0RX/P",extraFields:["MY_POTA_REF":"SK-0001,SK-0002","MY_STATE":"SK-BL","APP_UNRELATED":"keep"])
+        let retainedText=String(repeating:"Žilina 🏞 ",count:600)
+        let q=QSO(call:"K1PARK/P",start:Date(timeIntervalSince1970:1735732800),band:"20m",mode:"SSB",potaReference:"US-0001,US-0002,US-0003",myCall:"OM0RX/P",extraFields:["MY_POTA_REF":"SK-0001,SK-0002","MY_STATE":"SK-BL","APP_UNRELATED":retainedText])
         try db.save(q)
         let token=try service.handle(method:"logbook_export_adif",params:["action":"begin","scope":"selected","ids":[q.id.uuidString]])["token"]!
         var changed=q; changed.potaReference="US-9999"; try db.save(changed)
         let response=try service.handle(method:"logbook_export_adif",params:["action":"pota_preview","token":token])
         let preview=response["preview"] as! [String:Any]
+        let expected=try POTAExportPreview.prepare(snapshot:ADIFExportSnapshot(contacts:[q],scope:.all))
         #expect(preview["physicalContacts"] as? Int == 1); #expect(preview["derivedRecords"] as? Int == 6); #expect(preview["fileCount"] as? Int == 2)
         #expect((preview["files"] as! [[String:Any]]).allSatisfy{$0["text"] as? String == ""})
         for index in 0..<2 {
-            let read=try service.handle(method:"logbook_export_adif",params:["action":"pota_read","token":token,"fileIndex":index])
-            let data=try #require(Data(base64Encoded:read["bytes"] as! String))
+            func read(_ offset:Int,_ limit:Int=12000) throws -> (Data,Int) {
+                let response=try service.handle(method:"logbook_export_adif",params:["action":"pota_read","token":token,"fileIndex":index,"offset":offset,"limit":limit])
+                let bytes=try #require(Data(base64Encoded:response["bytes"] as! String))
+                #expect(bytes.count == response["count"] as? Int)
+                return (bytes,try #require(response["total"] as? Int))
+            }
+            let first=try read(0)
+            #expect(first.1 > 12000)
+            var data=first.0
+            while data.count < first.1 { data.append(try read(data.count).0) }
+            #expect(data.count == first.1)
+            #expect(data == Data(expected.files[index].text.utf8))
+            #expect(try read(data.count).0.isEmpty)
+            #expect(throws:(any Error).self) { try read(data.count+1) }
+            // Request a single continuation byte to prove offsets are bytes,
+            // including when a chunk boundary falls within a UTF-8 scalar.
+            let continuation=try #require(data.firstIndex(where:{ $0 & 0xc0 == 0x80 }))
+            #expect(try read(continuation,1).0 == data.subdata(in:continuation..<continuation+1))
+            #expect(try read(data.count-1,12000).0 == data.suffix(1))
             let records=ADIFParser().records(in:String(decoding:data,as:UTF8.self))
             #expect(records.count == 3); #expect(Set(records.compactMap{$0["TIME_ON"]}).count == 1)
             #expect(Set(records.compactMap{$0["SIG_INFO"]}) == ["US-0001","US-0002","US-0003"])
-            #expect(records.allSatisfy{$0["CALL"] == "K1PARK/P" && $0["APP_UNRELATED"] == "keep"})
+            #expect(records.allSatisfy{$0["CALL"] == "K1PARK/P" && $0["APP_UNRELATED"] == retainedText})
         }
         #expect(try db.count() == 1); #expect(try db.fetchAll().first?.potaReference == "US-9999")
     }

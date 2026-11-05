@@ -1,0 +1,15 @@
+{
+  "date": "2026-11-05",
+  "baselineSource": "da6fefb394944b28be9533ab861be9026306fa8d",
+  "status": "fixed_in_source_not_packaged",
+  "environment": {"os": "macOS 27.2 26B123", "architecture": "arm64", "compiler": "Apple Swift 6.4.2", "optimization": "swiftc -O"},
+  "fixture": {"kind": "synthetic repeated Unicode ADIF-like text, no production records", "fileBytes": 6750000, "sha256": "ccab1f89bbd07fe462e4d90373934f439dc1e8cab31e1d0ef819de204e3799e8", "chunkLimitBytes": 12000, "chunks": 563},
+  "dataConstructionBytes": {"before": 3807000000, "after": 6750000, "reductionFactor": 564, "definition": "Instrumented bytes requested by whole-file Data plus subdata before, bounded chunk Data after; excludes common output/base64 reconstruction and does not count allocator internals"},
+  "compiledSamples": {
+    "before": [{"elapsedSeconds": 0.200935958, "maxRSSBytes": 27869184}, {"elapsedSeconds": 0.211746083, "maxRSSBytes": 27869184}, {"elapsedSeconds": 0.266607208, "maxRSSBytes": 27901952}],
+    "after": [{"elapsedSeconds": 0.009921042, "maxRSSBytes": 27869184}, {"elapsedSeconds": 0.008271625, "maxRSSBytes": 27852800}, {"elapsedSeconds": 0.008891833, "maxRSSBytes": 27901952}]
+  },
+  "exactReconstructedBytes": true,
+  "regression": {"command": "XLOG_PORTABLE_ONLY=1 swift test --scratch-path .build/prototype-tests --enable-swift-testing --filter QLogQueryWorkflowTests", "tests": 3, "result": "pass", "potaTestSeconds": 0.120, "suiteSeconds": 0.213},
+  "limits": ["Standalone algorithm benchmark, not full worker IPC latency", "First A/B sample pair ran concurrently; later pairs sequential; other quality builds active", "No peak RSS improvement observed; no retained-growth or idle-leak claim", "Actual packaged export acceptance not run"]
+}

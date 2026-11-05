@@ -2889,11 +2889,13 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         if action == "pota_read" {
             let index=try integer(params,"fileIndex",default:0,range:0...max(0,preview.files.count-1))
             guard index < preview.files.count else { throw invalid() }
-            let data=Data(preview.files[index].text.utf8)
-            let offset=try integer(params,"offset",default:0,range:0...data.count)
-            let limit=try integer(params,"limit",default:12000,range:1...12000)
-            let bytes=data.subdata(in:offset..<min(data.count,offset+limit))
-            return ["bytes":bytes.base64EncodedString(),"count":bytes.count,"total":data.count]
+            var text=preview.files[index].text
+            return try text.withUTF8 { buffer in
+                let offset=try integer(params,"offset",default:0,range:0...buffer.count)
+                let limit=try integer(params,"limit",default:12000,range:1...12000)
+                let bytes=Data(buffer[offset..<min(buffer.count,offset+limit)])
+                return ["bytes":bytes.base64EncodedString(),"count":bytes.count,"total":buffer.count]
+            }
         }
         let offset=try integer(params,"offset",default:0,range:0...Int(Int32.max))
         let limit=try integer(params,"limit",default:25,range:1...25)
