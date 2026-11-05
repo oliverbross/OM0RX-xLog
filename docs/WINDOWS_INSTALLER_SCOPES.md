@@ -43,14 +43,18 @@ Hosted CI explicitly passes `-AllowElevatedHarness` because its Windows Server a
 
 ## Q03 acceptance ledger
 
-Status at this source change: host-independent policy/parser checks pass; **no new Windows EXE was built or installed**. All native cells below remain **NOT RUN** until exact version, source SHA, EXE SHA-256, Windows build/WebView2 version, user/elevation and observed paths are attached. The repository currently exposes hosted `windows-2022` CI and no registered self-hosted runner; this is not a desktop acceptance result.
+At the original implementation source change, policy/parser checks passed and
+no new EXE had been built or installed. The latest [1.5.20 original gate](audits/quality-2026-11-05/ci-1.5.20-original.md)
+has **partial hosted passes and blocking installed-runtime failures**, recorded
+below. The repository exposes hosted `windows-2022` CI and no registered
+self-hosted runner; this does not qualify ordinary Windows 11 desktop behavior.
 
 | Cell | Required observation | Next evidence step |
 |---|---|---|
 | Standard user, current-user interactive defaults | No UAC; default resolves to LocalAppData; HKCU/user shortcut; ordinary app/helper launch | Build one integrated candidate; run the exact current-user EXE in a fresh Windows 11 standard account with no `/D` |
 | Standard user, current-user without WebView2 | No administrator credential required for supported prerequisite path; useful failure if policy prevents it | Repeat on a snapshot without Evergreen WebView2; retain bootstrapper result and actual runtime origin |
 | Standard user, all-users interactive defaults | UAC accepted/cancelled separately; Program Files x64; HKLM/common shortcut; first launch non-elevated | Run exact all-users EXE using separate admin credentials; then ordinary shortcut launch and process-token/helper checks |
-| Packaged default-path regression, each scope | Harness receipt passes for exact package and records account elevation | Run the supplied harness for each scope; hosted CI remains a narrower elevated-account result |
+| Packaged default-path regression, each scope | Exact package/path and account elevation recorded; full runtime/uninstall must pass separately | 1.5.20 defaults, registration, shortcuts and payload PASS on separate elevated hosts; installed worker FAIL, GUI/uninstall NOT REACHED. Diagnose the exact failure before requalification |
 | Upgrade previous per-user package | Same scope/path, saved synthetic workspace/settings/voice references retained, one active EXE/worker | Install retained previous package on disposable VM, save fixtures, upgrade interactively without `/D`, restart and compare |
 | Change from per-user to all-users | Explicit old-scope uninstall with data retained; new common shortcut; original user profile restored | Follow scope-change procedure above; capture old/new registration, resolved shortcut and actual worker |
 | Reinstall and rollback | Known active candidate/previous version, retained fixture contents and usable restart | Reinstall current scope, then supported rollback; hash the fixture/media before and after |
@@ -58,3 +62,35 @@ Status at this source change: host-independent policy/parser checks pass; **no n
 | Second ordinary user on all-users | Shared EXE available; independently writable user data, no profile leakage | Launch from a second standard account with synthetic identity and verify distinct profile/workspace |
 
 Run the packaged first-run radio/rotator procedure separately. A valid catalogue, saved provider settings and explicit read-only device connection are different outcomes; installer scope evidence cannot close those cells.
+
+## Original hosted 1.5.20 result — PARTIAL / FAILED
+
+Source `3d9cb0981c30764f1188db350ffebc22a5f328a7`,
+[run 42016723457](https://github.com/oliverbross/OM0RX-xLog/actions/runs/42016723457),
+on separate elevated Server 2022 hosts (Windows 10.0.20348 x64, PowerShell
+7.6.9; WebView2 **registry** version 131.0.2903.86).
+
+| Scope / installer SHA-256 | Observed default / hive | Outcome |
+|---|---|---|
+| Current user: `93ac5496ecc60dff77f405d6fa8e87a8947b21a66ee3d316678b82879a7d38f9` | `%LOCALAPPDATA%\OM0RX-xLog` / HKCU | `/S` only, no `/D`; default, shortcut and all 3,270 payload hashes PASS; installed local-logbook self-test FAIL. |
+| All users: `6120174e492d048fbe7e785fdcc4de04fbaef26f1e85c919f18f89fe50aed86d` | `%ProgramFiles%\OM0RX-xLog` / HKLM | `/S` only, no `/D`; default, shortcut and all 3,270 payload hashes PASS; installed local-logbook self-test FAIL. |
+
+Known-folder tokens normalize the observed paths; equality was checked against
+actual Windows folders. Raw coordinates stay private. Both wrappers share main
+executable SHA-256 `d6bad092ffbde54ba9b299087da4d40f7d35fd9bac9cdcb3c066650774b975a4`
+and payload-manifest SHA-256 `448ca94af62660acf51cd201eee791367fa0898a6ab355f3559e41d4a9c2060d`.
+[Independent package audit](audits/quality-2026-11-05/windows-package-1.5.20-audit.json).
+
+Portable native WebView2/worker checks passed on both hosts. Installed GUI,
+uninstall and harness-marker preservation were **NOT REACHED**. The original
+failed local-self-test reply was not retained, so its inner cause remains
+undetermined. QA-only `b3a72f06` moves reply persistence before unchanged
+validation. No app rebuild, catalogue-count change or deadline relaxation is
+used to obtain diagnosis. Original failure receipts remain failed.
+
+The pinned [Tauri template](https://github.com/tauri-apps/tauri/blob/tauri-cli-v2.12.2/crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi#L386-L393)
+calls `RunAsUser` from its interactive Finish action. This source intent does
+not prove an ordinary launch token; `/S` does not exercise that page. Standard
+user installation/runtime, interactive UAC/defaults, WebView2-absent behavior,
+upgrade/scope change/rollback, real workspace/external-media retention and a
+second user remain **NOT RUN**.

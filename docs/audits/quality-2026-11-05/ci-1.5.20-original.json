@@ -1,0 +1,4894 @@
+{
+  "schema": 1,
+  "disposition": "HELD / FAILED original1.5.20 canonical gate; both installed Windows local-logbook assertions failed",
+  "version": "1.5.20",
+  "source": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+  "runId": 42016723457,
+  "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42016723457",
+  "dispatch": {
+    "runId": 42016723457,
+    "source": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+    "version": "1.5.20",
+    "workflow": ".github/workflows/prototype.yml",
+    "workflowBlob": "9a0166323810c058d37f285e44fcb0f2c44491e2",
+    "explicitInputs": {
+      "build_platforms": "all",
+      "validation_only": false,
+      "package_macos": false
+    },
+    "runtimeRunIdDefault": "",
+    "sourceVerification": "HEAD, origin/main and live remote main all match; tracked checkout clean; package.json1.5.20; observed matrix macos-15/windows-2022/ubuntu-24.04",
+    "ordinaryCi": 42016577073,
+    "portability": 42016577154,
+    "macSignedPackage": "Separate root local build",
+    "request": "ONE canonical dispatch; no retries or duplicates"
+  },
+  "run": {
+    "conclusion": "failure",
+    "headSha": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+    "jobs": [
+      {
+        "completedAt": "2026-11-05T11:51:10Z",
+        "conclusion": "success",
+        "databaseId": 127209006672,
+        "name": "prototype (macos-15)",
+        "startedAt": "2026-11-05T11:10:09Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-05T11:10:13Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-05T11:10:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:10:13Z",
+            "conclusion": "skipped",
+            "name": "Enable Windows checkout long paths",
+            "number": 2,
+            "startedAt": "2026-11-05T11:10:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:10:20Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v4",
+            "number": 3,
+            "startedAt": "2026-11-05T11:10:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:10:20Z",
+            "conclusion": "success",
+            "name": "Select macOS Swift toolchain",
+            "number": 4,
+            "startedAt": "2026-11-05T11:10:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:10:21Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-node@v4",
+            "number": 5,
+            "startedAt": "2026-11-05T11:10:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:10:49Z",
+            "conclusion": "success",
+            "name": "Install supported contest Python before native tests",
+            "number": 6,
+            "startedAt": "2026-11-05T11:10:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:12:26Z",
+            "conclusion": "success",
+            "name": "Restore native dependency/build cache",
+            "number": 7,
+            "startedAt": "2026-11-05T11:10:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:12:26Z",
+            "conclusion": "skipped",
+            "name": "Linux build dependencies",
+            "number": 8,
+            "startedAt": "2026-11-05T11:12:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:12:26Z",
+            "conclusion": "skipped",
+            "name": "Swift toolchain (Linux)",
+            "number": 9,
+            "startedAt": "2026-11-05T11:12:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:12:26Z",
+            "conclusion": "skipped",
+            "name": "Swift toolchain (Windows)",
+            "number": 10,
+            "startedAt": "2026-11-05T11:12:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:12:26Z",
+            "conclusion": "skipped",
+            "name": "Windows SQLite",
+            "number": 11,
+            "startedAt": "2026-11-05T11:12:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:12:34Z",
+            "conclusion": "success",
+            "name": "Record native toolchains",
+            "number": 12,
+            "startedAt": "2026-11-05T11:12:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:12:43Z",
+            "conclusion": "success",
+            "name": "Install frontend dependencies",
+            "number": 13,
+            "startedAt": "2026-11-05T11:12:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:13:03Z",
+            "conclusion": "success",
+            "name": "Release payload guard tests",
+            "number": 14,
+            "startedAt": "2026-11-05T11:12:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:13:04Z",
+            "conclusion": "success",
+            "name": "Test atomic pinned contest catalog initialization",
+            "number": 15,
+            "startedAt": "2026-11-05T11:13:03Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:13:04Z",
+            "conclusion": "skipped",
+            "name": "Parse Windows installer scripts and validate scope policy",
+            "number": 16,
+            "startedAt": "2026-11-05T11:13:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:13:04Z",
+            "conclusion": "skipped",
+            "name": "Linux C vault in a private Secret Service session",
+            "number": 17,
+            "startedAt": "2026-11-05T11:13:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:17:28Z",
+            "conclusion": "success",
+            "name": "Compile portable native test fixtures early (Unix)",
+            "number": 18,
+            "startedAt": "2026-11-05T11:13:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:17:28Z",
+            "conclusion": "skipped",
+            "name": "Compile portable native test fixtures early (Windows)",
+            "number": 19,
+            "startedAt": "2026-11-05T11:17:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:28:46Z",
+            "conclusion": "success",
+            "name": "Frontend tests and build",
+            "number": 20,
+            "startedAt": "2026-11-05T11:17:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:29:11Z",
+            "conclusion": "success",
+            "name": "Test FLEX IQ loopback fixture (Mac)",
+            "number": 21,
+            "startedAt": "2026-11-05T11:28:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:35:41Z",
+            "conclusion": "success",
+            "name": "Test complete portable Swift core (Unix)",
+            "number": 22,
+            "startedAt": "2026-11-05T11:29:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:35:41Z",
+            "conclusion": "skipped",
+            "name": "Test portable Swift core (Windows)",
+            "number": 23,
+            "startedAt": "2026-11-05T11:35:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:35:41Z",
+            "conclusion": "skipped",
+            "name": "Linux credential vault in a private Secret Service session",
+            "number": 24,
+            "startedAt": "2026-11-05T11:35:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:42:35Z",
+            "conclusion": "success",
+            "name": "Build Swift worker (Unix)",
+            "number": 25,
+            "startedAt": "2026-11-05T11:35:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:42:35Z",
+            "conclusion": "skipped",
+            "name": "Build Swift worker (Windows)",
+            "number": 26,
+            "startedAt": "2026-11-05T11:42:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:42:40Z",
+            "conclusion": "success",
+            "name": "Stage isolated worker",
+            "number": 27,
+            "startedAt": "2026-11-05T11:42:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:44:53Z",
+            "conclusion": "success",
+            "name": "Build pinned Hamlib radio and rotor helpers (Mac integration)",
+            "number": 28,
+            "startedAt": "2026-11-05T11:42:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:44:53Z",
+            "conclusion": "skipped",
+            "name": "Build pinned Hamlib radio and rotor helpers (Linux integration)",
+            "number": 29,
+            "startedAt": "2026-11-05T11:44:53Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:44:53Z",
+            "conclusion": "skipped",
+            "name": "Stage pinned Hamlib radio and rotor helpers (Windows integration)",
+            "number": 30,
+            "startedAt": "2026-11-05T11:44:53Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:44:54Z",
+            "conclusion": "success",
+            "name": "Test worker process framing (Unix)",
+            "number": 31,
+            "startedAt": "2026-11-05T11:44:53Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:44:54Z",
+            "conclusion": "skipped",
+            "name": "Test worker process framing (Windows)",
+            "number": 32,
+            "startedAt": "2026-11-05T11:44:54Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:46:12Z",
+            "conclusion": "success",
+            "name": "Shell contract tests",
+            "number": 33,
+            "startedAt": "2026-11-05T11:44:54Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:46:55Z",
+            "conclusion": "success",
+            "name": "Bundled Hamlib dummy protocol and lifecycle tests",
+            "number": 34,
+            "startedAt": "2026-11-05T11:46:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:46:55Z",
+            "conclusion": "skipped",
+            "name": "Bundled Hamlib dummy protocol and lifecycle tests (Windows)",
+            "number": 35,
+            "startedAt": "2026-11-05T11:46:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:49:58Z",
+            "conclusion": "success",
+            "name": "Build desktop executable (not an installer acceptance claim)",
+            "number": 36,
+            "startedAt": "2026-11-05T11:46:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:50:00Z",
+            "conclusion": "success",
+            "name": "Collect resolved dependency inventory and notices",
+            "number": 37,
+            "startedAt": "2026-11-05T11:49:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:50:00Z",
+            "conclusion": "skipped",
+            "name": "Package macOS application",
+            "number": 38,
+            "startedAt": "2026-11-05T11:50:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:50:00Z",
+            "conclusion": "skipped",
+            "name": "Upload macOS package",
+            "number": 39,
+            "startedAt": "2026-11-05T11:50:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:50:00Z",
+            "conclusion": "skipped",
+            "name": "Package Linux runtime and Debian application",
+            "number": 40,
+            "startedAt": "2026-11-05T11:50:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:50:00Z",
+            "conclusion": "skipped",
+            "name": "Package Windows portable runtime",
+            "number": 41,
+            "startedAt": "2026-11-05T11:50:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:50:00Z",
+            "conclusion": "skipped",
+            "name": "Package current-user and all-users EXE installers from one audited runtime",
+            "number": 42,
+            "startedAt": "2026-11-05T11:50:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:50:00Z",
+            "conclusion": "skipped",
+            "name": "Upload Linux runtime packages",
+            "number": 43,
+            "startedAt": "2026-11-05T11:50:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:50:00Z",
+            "conclusion": "skipped",
+            "name": "Upload Windows runtime package",
+            "number": 44,
+            "startedAt": "2026-11-05T11:50:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:50:04Z",
+            "conclusion": "success",
+            "name": "Upload development executables and evidence inputs",
+            "number": 45,
+            "startedAt": "2026-11-05T11:50:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:50:04Z",
+            "conclusion": "skipped",
+            "name": "Upload portable Swift pin verification receipts",
+            "number": 46,
+            "startedAt": "2026-11-05T11:50:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:51:04Z",
+            "conclusion": "success",
+            "name": "Save native dependency/build cache",
+            "number": 47,
+            "startedAt": "2026-11-05T11:50:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:51:04Z",
+            "conclusion": "success",
+            "name": "Post Install supported contest Python before native tests",
+            "number": 92,
+            "startedAt": "2026-11-05T11:51:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:51:06Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-node@v4",
+            "number": 93,
+            "startedAt": "2026-11-05T11:51:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:51:07Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v4",
+            "number": 94,
+            "startedAt": "2026-11-05T11:51:06Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:51:08Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 95,
+            "startedAt": "2026-11-05T11:51:07Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42016723457/job/127209006672"
+      },
+      {
+        "completedAt": "2026-11-05T12:29:04Z",
+        "conclusion": "success",
+        "databaseId": 127209006909,
+        "name": "prototype (windows-2022)",
+        "startedAt": "2026-11-05T11:10:09Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-05T11:10:12Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-05T11:10:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:10:13Z",
+            "conclusion": "success",
+            "name": "Enable Windows checkout long paths",
+            "number": 2,
+            "startedAt": "2026-11-05T11:10:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:10:20Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v4",
+            "number": 3,
+            "startedAt": "2026-11-05T11:10:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:10:20Z",
+            "conclusion": "skipped",
+            "name": "Select macOS Swift toolchain",
+            "number": 4,
+            "startedAt": "2026-11-05T11:10:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:10:26Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-node@v4",
+            "number": 5,
+            "startedAt": "2026-11-05T11:10:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:11:15Z",
+            "conclusion": "success",
+            "name": "Install supported contest Python before native tests",
+            "number": 6,
+            "startedAt": "2026-11-05T11:10:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:12:06Z",
+            "conclusion": "success",
+            "name": "Restore native dependency/build cache",
+            "number": 7,
+            "startedAt": "2026-11-05T11:11:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:12:06Z",
+            "conclusion": "skipped",
+            "name": "Linux build dependencies",
+            "number": 8,
+            "startedAt": "2026-11-05T11:12:06Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:12:06Z",
+            "conclusion": "skipped",
+            "name": "Swift toolchain (Linux)",
+            "number": 9,
+            "startedAt": "2026-11-05T11:12:06Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:13:25Z",
+            "conclusion": "success",
+            "name": "Swift toolchain (Windows)",
+            "number": 10,
+            "startedAt": "2026-11-05T11:12:06Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:14:20Z",
+            "conclusion": "success",
+            "name": "Windows SQLite",
+            "number": 11,
+            "startedAt": "2026-11-05T11:13:25Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:14:23Z",
+            "conclusion": "success",
+            "name": "Record native toolchains",
+            "number": 12,
+            "startedAt": "2026-11-05T11:14:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:14:37Z",
+            "conclusion": "success",
+            "name": "Install frontend dependencies",
+            "number": 13,
+            "startedAt": "2026-11-05T11:14:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:15:07Z",
+            "conclusion": "success",
+            "name": "Release payload guard tests",
+            "number": 14,
+            "startedAt": "2026-11-05T11:14:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:15:09Z",
+            "conclusion": "success",
+            "name": "Test atomic pinned contest catalog initialization",
+            "number": 15,
+            "startedAt": "2026-11-05T11:15:07Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:15:10Z",
+            "conclusion": "success",
+            "name": "Parse Windows installer scripts and validate scope policy",
+            "number": 16,
+            "startedAt": "2026-11-05T11:15:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:15:10Z",
+            "conclusion": "skipped",
+            "name": "Linux C vault in a private Secret Service session",
+            "number": 17,
+            "startedAt": "2026-11-05T11:15:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:15:10Z",
+            "conclusion": "skipped",
+            "name": "Compile portable native test fixtures early (Unix)",
+            "number": 18,
+            "startedAt": "2026-11-05T11:15:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:23:17Z",
+            "conclusion": "success",
+            "name": "Compile portable native test fixtures early (Windows)",
+            "number": 19,
+            "startedAt": "2026-11-05T11:15:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:42:13Z",
+            "conclusion": "success",
+            "name": "Frontend tests and build",
+            "number": 20,
+            "startedAt": "2026-11-05T11:23:17Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:42:13Z",
+            "conclusion": "skipped",
+            "name": "Test FLEX IQ loopback fixture (Mac)",
+            "number": 21,
+            "startedAt": "2026-11-05T11:42:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:42:13Z",
+            "conclusion": "skipped",
+            "name": "Test complete portable Swift core (Unix)",
+            "number": 22,
+            "startedAt": "2026-11-05T11:42:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:08:20Z",
+            "conclusion": "success",
+            "name": "Test portable Swift core (Windows)",
+            "number": 23,
+            "startedAt": "2026-11-05T11:42:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:08:20Z",
+            "conclusion": "skipped",
+            "name": "Linux credential vault in a private Secret Service session",
+            "number": 24,
+            "startedAt": "2026-11-05T12:08:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:08:20Z",
+            "conclusion": "skipped",
+            "name": "Build Swift worker (Unix)",
+            "number": 25,
+            "startedAt": "2026-11-05T12:08:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:16:18Z",
+            "conclusion": "success",
+            "name": "Build Swift worker (Windows)",
+            "number": 26,
+            "startedAt": "2026-11-05T12:08:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:16:19Z",
+            "conclusion": "success",
+            "name": "Stage isolated worker",
+            "number": 27,
+            "startedAt": "2026-11-05T12:16:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:16:19Z",
+            "conclusion": "skipped",
+            "name": "Build pinned Hamlib radio and rotor helpers (Mac integration)",
+            "number": 28,
+            "startedAt": "2026-11-05T12:16:19Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:16:19Z",
+            "conclusion": "skipped",
+            "name": "Build pinned Hamlib radio and rotor helpers (Linux integration)",
+            "number": 29,
+            "startedAt": "2026-11-05T12:16:19Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:16:22Z",
+            "conclusion": "success",
+            "name": "Stage pinned Hamlib radio and rotor helpers (Windows integration)",
+            "number": 30,
+            "startedAt": "2026-11-05T12:16:19Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:16:22Z",
+            "conclusion": "skipped",
+            "name": "Test worker process framing (Unix)",
+            "number": 31,
+            "startedAt": "2026-11-05T12:16:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:16:23Z",
+            "conclusion": "success",
+            "name": "Test worker process framing (Windows)",
+            "number": 32,
+            "startedAt": "2026-11-05T12:16:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:18:17Z",
+            "conclusion": "success",
+            "name": "Shell contract tests",
+            "number": 33,
+            "startedAt": "2026-11-05T12:16:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:18:17Z",
+            "conclusion": "skipped",
+            "name": "Bundled Hamlib dummy protocol and lifecycle tests",
+            "number": 34,
+            "startedAt": "2026-11-05T12:18:17Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:18:20Z",
+            "conclusion": "success",
+            "name": "Bundled Hamlib dummy protocol and lifecycle tests (Windows)",
+            "number": 35,
+            "startedAt": "2026-11-05T12:18:17Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:22:40Z",
+            "conclusion": "success",
+            "name": "Build desktop executable (not an installer acceptance claim)",
+            "number": 36,
+            "startedAt": "2026-11-05T12:18:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:22:41Z",
+            "conclusion": "success",
+            "name": "Collect resolved dependency inventory and notices",
+            "number": 37,
+            "startedAt": "2026-11-05T12:22:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:22:41Z",
+            "conclusion": "skipped",
+            "name": "Package macOS application",
+            "number": 38,
+            "startedAt": "2026-11-05T12:22:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:22:41Z",
+            "conclusion": "skipped",
+            "name": "Upload macOS package",
+            "number": 39,
+            "startedAt": "2026-11-05T12:22:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:22:41Z",
+            "conclusion": "skipped",
+            "name": "Package Linux runtime and Debian application",
+            "number": 40,
+            "startedAt": "2026-11-05T12:22:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:23:15Z",
+            "conclusion": "success",
+            "name": "Package Windows portable runtime",
+            "number": 41,
+            "startedAt": "2026-11-05T12:22:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:26:24Z",
+            "conclusion": "success",
+            "name": "Package current-user and all-users EXE installers from one audited runtime",
+            "number": 42,
+            "startedAt": "2026-11-05T12:23:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:26:24Z",
+            "conclusion": "skipped",
+            "name": "Upload Linux runtime packages",
+            "number": 43,
+            "startedAt": "2026-11-05T12:26:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:26:32Z",
+            "conclusion": "success",
+            "name": "Upload Windows runtime package",
+            "number": 44,
+            "startedAt": "2026-11-05T12:26:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:26:38Z",
+            "conclusion": "success",
+            "name": "Upload development executables and evidence inputs",
+            "number": 45,
+            "startedAt": "2026-11-05T12:26:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:26:39Z",
+            "conclusion": "success",
+            "name": "Upload portable Swift pin verification receipts",
+            "number": 46,
+            "startedAt": "2026-11-05T12:26:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:28:55Z",
+            "conclusion": "success",
+            "name": "Save native dependency/build cache",
+            "number": 47,
+            "startedAt": "2026-11-05T12:26:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:28:55Z",
+            "conclusion": "success",
+            "name": "Post Install supported contest Python before native tests",
+            "number": 92,
+            "startedAt": "2026-11-05T12:28:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:29:00Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-node@v4",
+            "number": 93,
+            "startedAt": "2026-11-05T12:28:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:29:02Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v4",
+            "number": 94,
+            "startedAt": "2026-11-05T12:29:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:29:02Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 95,
+            "startedAt": "2026-11-05T12:29:02Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42016723457/job/127209006909"
+      },
+      {
+        "completedAt": "2026-11-05T11:55:03Z",
+        "conclusion": "success",
+        "databaseId": 127209007198,
+        "name": "prototype (ubuntu-24.04)",
+        "startedAt": "2026-11-05T11:10:08Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-05T11:10:11Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-05T11:10:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:10:11Z",
+            "conclusion": "skipped",
+            "name": "Enable Windows checkout long paths",
+            "number": 2,
+            "startedAt": "2026-11-05T11:10:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:10:14Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v4",
+            "number": 3,
+            "startedAt": "2026-11-05T11:10:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:10:14Z",
+            "conclusion": "skipped",
+            "name": "Select macOS Swift toolchain",
+            "number": 4,
+            "startedAt": "2026-11-05T11:10:14Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:10:16Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-node@v4",
+            "number": 5,
+            "startedAt": "2026-11-05T11:10:14Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:10:25Z",
+            "conclusion": "success",
+            "name": "Install supported contest Python before native tests",
+            "number": 6,
+            "startedAt": "2026-11-05T11:10:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:11:01Z",
+            "conclusion": "success",
+            "name": "Restore native dependency/build cache",
+            "number": 7,
+            "startedAt": "2026-11-05T11:10:25Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:11:36Z",
+            "conclusion": "success",
+            "name": "Linux build dependencies",
+            "number": 8,
+            "startedAt": "2026-11-05T11:11:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:12:00Z",
+            "conclusion": "success",
+            "name": "Swift toolchain (Linux)",
+            "number": 9,
+            "startedAt": "2026-11-05T11:11:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:12:00Z",
+            "conclusion": "skipped",
+            "name": "Swift toolchain (Windows)",
+            "number": 10,
+            "startedAt": "2026-11-05T11:12:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:12:00Z",
+            "conclusion": "skipped",
+            "name": "Windows SQLite",
+            "number": 11,
+            "startedAt": "2026-11-05T11:12:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:12:01Z",
+            "conclusion": "success",
+            "name": "Record native toolchains",
+            "number": 12,
+            "startedAt": "2026-11-05T11:12:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:12:07Z",
+            "conclusion": "success",
+            "name": "Install frontend dependencies",
+            "number": 13,
+            "startedAt": "2026-11-05T11:12:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:12:31Z",
+            "conclusion": "success",
+            "name": "Release payload guard tests",
+            "number": 14,
+            "startedAt": "2026-11-05T11:12:07Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:12:31Z",
+            "conclusion": "success",
+            "name": "Test atomic pinned contest catalog initialization",
+            "number": 15,
+            "startedAt": "2026-11-05T11:12:31Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:12:31Z",
+            "conclusion": "skipped",
+            "name": "Parse Windows installer scripts and validate scope policy",
+            "number": 16,
+            "startedAt": "2026-11-05T11:12:31Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:12:33Z",
+            "conclusion": "success",
+            "name": "Linux C vault in a private Secret Service session",
+            "number": 17,
+            "startedAt": "2026-11-05T11:12:31Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:15:43Z",
+            "conclusion": "success",
+            "name": "Compile portable native test fixtures early (Unix)",
+            "number": 18,
+            "startedAt": "2026-11-05T11:12:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:15:43Z",
+            "conclusion": "skipped",
+            "name": "Compile portable native test fixtures early (Windows)",
+            "number": 19,
+            "startedAt": "2026-11-05T11:15:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:28:13Z",
+            "conclusion": "success",
+            "name": "Frontend tests and build",
+            "number": 20,
+            "startedAt": "2026-11-05T11:15:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:28:13Z",
+            "conclusion": "skipped",
+            "name": "Test FLEX IQ loopback fixture (Mac)",
+            "number": 21,
+            "startedAt": "2026-11-05T11:28:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:42:38Z",
+            "conclusion": "success",
+            "name": "Test complete portable Swift core (Unix)",
+            "number": 22,
+            "startedAt": "2026-11-05T11:28:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:42:38Z",
+            "conclusion": "skipped",
+            "name": "Test portable Swift core (Windows)",
+            "number": 23,
+            "startedAt": "2026-11-05T11:42:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:42:45Z",
+            "conclusion": "success",
+            "name": "Linux credential vault in a private Secret Service session",
+            "number": 24,
+            "startedAt": "2026-11-05T11:42:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:46:35Z",
+            "conclusion": "success",
+            "name": "Build Swift worker (Unix)",
+            "number": 25,
+            "startedAt": "2026-11-05T11:42:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:46:35Z",
+            "conclusion": "skipped",
+            "name": "Build Swift worker (Windows)",
+            "number": 26,
+            "startedAt": "2026-11-05T11:46:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:46:35Z",
+            "conclusion": "success",
+            "name": "Stage isolated worker",
+            "number": 27,
+            "startedAt": "2026-11-05T11:46:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:46:35Z",
+            "conclusion": "skipped",
+            "name": "Build pinned Hamlib radio and rotor helpers (Mac integration)",
+            "number": 28,
+            "startedAt": "2026-11-05T11:46:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:48:05Z",
+            "conclusion": "success",
+            "name": "Build pinned Hamlib radio and rotor helpers (Linux integration)",
+            "number": 29,
+            "startedAt": "2026-11-05T11:46:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:48:05Z",
+            "conclusion": "skipped",
+            "name": "Stage pinned Hamlib radio and rotor helpers (Windows integration)",
+            "number": 30,
+            "startedAt": "2026-11-05T11:48:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:48:05Z",
+            "conclusion": "success",
+            "name": "Test worker process framing (Unix)",
+            "number": 31,
+            "startedAt": "2026-11-05T11:48:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:48:05Z",
+            "conclusion": "skipped",
+            "name": "Test worker process framing (Windows)",
+            "number": 32,
+            "startedAt": "2026-11-05T11:48:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:49:01Z",
+            "conclusion": "success",
+            "name": "Shell contract tests",
+            "number": 33,
+            "startedAt": "2026-11-05T11:48:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:49:34Z",
+            "conclusion": "success",
+            "name": "Bundled Hamlib dummy protocol and lifecycle tests",
+            "number": 34,
+            "startedAt": "2026-11-05T11:49:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:49:34Z",
+            "conclusion": "skipped",
+            "name": "Bundled Hamlib dummy protocol and lifecycle tests (Windows)",
+            "number": 35,
+            "startedAt": "2026-11-05T11:49:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:52:29Z",
+            "conclusion": "success",
+            "name": "Build desktop executable (not an installer acceptance claim)",
+            "number": 36,
+            "startedAt": "2026-11-05T11:49:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:52:29Z",
+            "conclusion": "success",
+            "name": "Collect resolved dependency inventory and notices",
+            "number": 37,
+            "startedAt": "2026-11-05T11:52:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:52:29Z",
+            "conclusion": "skipped",
+            "name": "Package macOS application",
+            "number": 38,
+            "startedAt": "2026-11-05T11:52:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:52:29Z",
+            "conclusion": "skipped",
+            "name": "Upload macOS package",
+            "number": 39,
+            "startedAt": "2026-11-05T11:52:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:53:56Z",
+            "conclusion": "success",
+            "name": "Package Linux runtime and Debian application",
+            "number": 40,
+            "startedAt": "2026-11-05T11:52:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:53:56Z",
+            "conclusion": "skipped",
+            "name": "Package Windows portable runtime",
+            "number": 41,
+            "startedAt": "2026-11-05T11:53:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:53:56Z",
+            "conclusion": "skipped",
+            "name": "Package current-user and all-users EXE installers from one audited runtime",
+            "number": 42,
+            "startedAt": "2026-11-05T11:53:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:54:17Z",
+            "conclusion": "success",
+            "name": "Upload Linux runtime packages",
+            "number": 43,
+            "startedAt": "2026-11-05T11:53:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:54:17Z",
+            "conclusion": "skipped",
+            "name": "Upload Windows runtime package",
+            "number": 44,
+            "startedAt": "2026-11-05T11:54:17Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:54:20Z",
+            "conclusion": "success",
+            "name": "Upload development executables and evidence inputs",
+            "number": 45,
+            "startedAt": "2026-11-05T11:54:17Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:54:21Z",
+            "conclusion": "success",
+            "name": "Upload portable Swift pin verification receipts",
+            "number": 46,
+            "startedAt": "2026-11-05T11:54:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:54:58Z",
+            "conclusion": "success",
+            "name": "Save native dependency/build cache",
+            "number": 47,
+            "startedAt": "2026-11-05T11:54:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:54:58Z",
+            "conclusion": "success",
+            "name": "Post Install supported contest Python before native tests",
+            "number": 92,
+            "startedAt": "2026-11-05T11:54:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:55:00Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-node@v4",
+            "number": 93,
+            "startedAt": "2026-11-05T11:54:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:55:01Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v4",
+            "number": 94,
+            "startedAt": "2026-11-05T11:55:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T11:55:01Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 95,
+            "startedAt": "2026-11-05T11:55:01Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42016723457/job/127209007198"
+      },
+      {
+        "completedAt": "2026-11-05T12:32:12Z",
+        "conclusion": "success",
+        "databaseId": 127245303338,
+        "name": "Linux runtime-only container acceptance",
+        "startedAt": "2026-11-05T12:29:06Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-05T12:29:08Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-05T12:29:07Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:29:12Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v4",
+            "number": 2,
+            "startedAt": "2026-11-05T12:29:08Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:29:21Z",
+            "conclusion": "success",
+            "name": "Run actions/download-artifact@v4",
+            "number": 3,
+            "startedAt": "2026-11-05T12:29:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:30:24Z",
+            "conclusion": "success",
+            "name": "Build runtime-only Ubuntu image with packaged deb",
+            "number": 4,
+            "startedAt": "2026-11-05T12:29:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:32:09Z",
+            "conclusion": "success",
+            "name": "Native WebKit GUI, worker, relaunch and relocation with network disabled",
+            "number": 5,
+            "startedAt": "2026-11-05T12:30:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:32:10Z",
+            "conclusion": "success",
+            "name": "Upload native Linux reports and screenshots",
+            "number": 6,
+            "startedAt": "2026-11-05T12:32:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:32:10Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v4",
+            "number": 12,
+            "startedAt": "2026-11-05T12:32:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:32:10Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 13,
+            "startedAt": "2026-11-05T12:32:10Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42016723457/job/127245303338"
+      },
+      {
+        "completedAt": "2026-11-05T12:31:26Z",
+        "conclusion": "failure",
+        "databaseId": 127245303413,
+        "name": "Windows fresh-runner runtime acceptance (currentUser)",
+        "startedAt": "2026-11-05T12:29:06Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-05T12:29:08Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-05T12:29:07Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:29:09Z",
+            "conclusion": "success",
+            "name": "Enable Windows checkout long paths",
+            "number": 2,
+            "startedAt": "2026-11-05T12:29:08Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:29:18Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v4",
+            "number": 3,
+            "startedAt": "2026-11-05T12:29:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:29:27Z",
+            "conclusion": "success",
+            "name": "Run actions/download-artifact@v4",
+            "number": 4,
+            "startedAt": "2026-11-05T12:29:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:29:34Z",
+            "conclusion": "success",
+            "name": "Extract isolated package",
+            "number": 5,
+            "startedAt": "2026-11-05T12:29:27Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:30:56Z",
+            "conclusion": "success",
+            "name": "Native WebView2 GUI and worker without installing Swift",
+            "number": 6,
+            "startedAt": "2026-11-05T12:29:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:31:20Z",
+            "conclusion": "failure",
+            "name": "Verify shared payload and accept selected scope at its real default path",
+            "number": 7,
+            "startedAt": "2026-11-05T12:30:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:31:22Z",
+            "conclusion": "success",
+            "name": "Upload native Windows reports and screenshots",
+            "number": 8,
+            "startedAt": "2026-11-05T12:31:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:31:24Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v4",
+            "number": 16,
+            "startedAt": "2026-11-05T12:31:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:31:24Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 17,
+            "startedAt": "2026-11-05T12:31:24Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42016723457/job/127245303413"
+      },
+      {
+        "completedAt": "2026-11-05T12:31:13Z",
+        "conclusion": "failure",
+        "databaseId": 127245303500,
+        "name": "Windows fresh-runner runtime acceptance (perMachine)",
+        "startedAt": "2026-11-05T12:29:07Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-05T12:29:08Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-05T12:29:07Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:29:09Z",
+            "conclusion": "success",
+            "name": "Enable Windows checkout long paths",
+            "number": 2,
+            "startedAt": "2026-11-05T12:29:08Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:29:17Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v4",
+            "number": 3,
+            "startedAt": "2026-11-05T12:29:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:29:28Z",
+            "conclusion": "success",
+            "name": "Run actions/download-artifact@v4",
+            "number": 4,
+            "startedAt": "2026-11-05T12:29:17Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:29:34Z",
+            "conclusion": "success",
+            "name": "Extract isolated package",
+            "number": 5,
+            "startedAt": "2026-11-05T12:29:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:30:48Z",
+            "conclusion": "success",
+            "name": "Native WebView2 GUI and worker without installing Swift",
+            "number": 6,
+            "startedAt": "2026-11-05T12:29:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:31:07Z",
+            "conclusion": "failure",
+            "name": "Verify shared payload and accept selected scope at its real default path",
+            "number": 7,
+            "startedAt": "2026-11-05T12:30:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:31:09Z",
+            "conclusion": "success",
+            "name": "Upload native Windows reports and screenshots",
+            "number": 8,
+            "startedAt": "2026-11-05T12:31:07Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:31:11Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v4",
+            "number": 16,
+            "startedAt": "2026-11-05T12:31:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T12:31:11Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 17,
+            "startedAt": "2026-11-05T12:31:11Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42016723457/job/127245303500"
+      }
+    ],
+    "status": "completed"
+  },
+  "jobs": [
+    {
+      "id": 127209006672,
+      "name": "prototype (macos-15)",
+      "status": "completed",
+      "conclusion": "success",
+      "run_id": 42016723457,
+      "logs_url": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Enable Windows checkout long paths",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 2
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Select macOS Swift toolchain",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Run actions/setup-node@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Install supported contest Python before native tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Restore native dependency/build cache",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7
+        },
+        {
+          "name": "Linux build dependencies",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 8
+        },
+        {
+          "name": "Swift toolchain (Linux)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 9
+        },
+        {
+          "name": "Swift toolchain (Windows)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 10
+        },
+        {
+          "name": "Windows SQLite",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 11
+        },
+        {
+          "name": "Record native toolchains",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12
+        },
+        {
+          "name": "Install frontend dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13
+        },
+        {
+          "name": "Release payload guard tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14
+        },
+        {
+          "name": "Test atomic pinned contest catalog initialization",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15
+        },
+        {
+          "name": "Parse Windows installer scripts and validate scope policy",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 16
+        },
+        {
+          "name": "Linux C vault in a private Secret Service session",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 17
+        },
+        {
+          "name": "Compile portable native test fixtures early (Unix)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 18
+        },
+        {
+          "name": "Compile portable native test fixtures early (Windows)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 19
+        },
+        {
+          "name": "Frontend tests and build",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 20
+        },
+        {
+          "name": "Test FLEX IQ loopback fixture (Mac)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 21
+        },
+        {
+          "name": "Test complete portable Swift core (Unix)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 22
+        },
+        {
+          "name": "Test portable Swift core (Windows)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 23
+        },
+        {
+          "name": "Linux credential vault in a private Secret Service session",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 24
+        },
+        {
+          "name": "Build Swift worker (Unix)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 25
+        },
+        {
+          "name": "Build Swift worker (Windows)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 26
+        },
+        {
+          "name": "Stage isolated worker",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 27
+        },
+        {
+          "name": "Build pinned Hamlib radio and rotor helpers (Mac integration)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 28
+        },
+        {
+          "name": "Build pinned Hamlib radio and rotor helpers (Linux integration)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 29
+        },
+        {
+          "name": "Stage pinned Hamlib radio and rotor helpers (Windows integration)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 30
+        },
+        {
+          "name": "Test worker process framing (Unix)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 31
+        },
+        {
+          "name": "Test worker process framing (Windows)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 32
+        },
+        {
+          "name": "Shell contract tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 33
+        },
+        {
+          "name": "Bundled Hamlib dummy protocol and lifecycle tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 34
+        },
+        {
+          "name": "Bundled Hamlib dummy protocol and lifecycle tests (Windows)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 35
+        },
+        {
+          "name": "Build desktop executable (not an installer acceptance claim)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 36
+        },
+        {
+          "name": "Collect resolved dependency inventory and notices",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 37
+        },
+        {
+          "name": "Package macOS application",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 38
+        },
+        {
+          "name": "Upload macOS package",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 39
+        },
+        {
+          "name": "Package Linux runtime and Debian application",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 40
+        },
+        {
+          "name": "Package Windows portable runtime",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 41
+        },
+        {
+          "name": "Package current-user and all-users EXE installers from one audited runtime",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 42
+        },
+        {
+          "name": "Upload Linux runtime packages",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 43
+        },
+        {
+          "name": "Upload Windows runtime package",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 44
+        },
+        {
+          "name": "Upload development executables and evidence inputs",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 45
+        },
+        {
+          "name": "Upload portable Swift pin verification receipts",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 46
+        },
+        {
+          "name": "Save native dependency/build cache",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 47
+        },
+        {
+          "name": "Post Install supported contest Python before native tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 92
+        },
+        {
+          "name": "Post Run actions/setup-node@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 93
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 94
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 95
+        }
+      ]
+    },
+    {
+      "id": 127209006909,
+      "name": "prototype (windows-2022)",
+      "status": "completed",
+      "conclusion": "success",
+      "run_id": 42016723457,
+      "logs_url": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Enable Windows checkout long paths",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Select macOS Swift toolchain",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 4
+        },
+        {
+          "name": "Run actions/setup-node@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Install supported contest Python before native tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Restore native dependency/build cache",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7
+        },
+        {
+          "name": "Linux build dependencies",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 8
+        },
+        {
+          "name": "Swift toolchain (Linux)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 9
+        },
+        {
+          "name": "Swift toolchain (Windows)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10
+        },
+        {
+          "name": "Windows SQLite",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11
+        },
+        {
+          "name": "Record native toolchains",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12
+        },
+        {
+          "name": "Install frontend dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13
+        },
+        {
+          "name": "Release payload guard tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14
+        },
+        {
+          "name": "Test atomic pinned contest catalog initialization",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15
+        },
+        {
+          "name": "Parse Windows installer scripts and validate scope policy",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16
+        },
+        {
+          "name": "Linux C vault in a private Secret Service session",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 17
+        },
+        {
+          "name": "Compile portable native test fixtures early (Unix)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 18
+        },
+        {
+          "name": "Compile portable native test fixtures early (Windows)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 19
+        },
+        {
+          "name": "Frontend tests and build",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 20
+        },
+        {
+          "name": "Test FLEX IQ loopback fixture (Mac)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 21
+        },
+        {
+          "name": "Test complete portable Swift core (Unix)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 22
+        },
+        {
+          "name": "Test portable Swift core (Windows)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 23
+        },
+        {
+          "name": "Linux credential vault in a private Secret Service session",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 24
+        },
+        {
+          "name": "Build Swift worker (Unix)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 25
+        },
+        {
+          "name": "Build Swift worker (Windows)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 26
+        },
+        {
+          "name": "Stage isolated worker",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 27
+        },
+        {
+          "name": "Build pinned Hamlib radio and rotor helpers (Mac integration)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 28
+        },
+        {
+          "name": "Build pinned Hamlib radio and rotor helpers (Linux integration)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 29
+        },
+        {
+          "name": "Stage pinned Hamlib radio and rotor helpers (Windows integration)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 30
+        },
+        {
+          "name": "Test worker process framing (Unix)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 31
+        },
+        {
+          "name": "Test worker process framing (Windows)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 32
+        },
+        {
+          "name": "Shell contract tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 33
+        },
+        {
+          "name": "Bundled Hamlib dummy protocol and lifecycle tests",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 34
+        },
+        {
+          "name": "Bundled Hamlib dummy protocol and lifecycle tests (Windows)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 35
+        },
+        {
+          "name": "Build desktop executable (not an installer acceptance claim)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 36
+        },
+        {
+          "name": "Collect resolved dependency inventory and notices",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 37
+        },
+        {
+          "name": "Package macOS application",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 38
+        },
+        {
+          "name": "Upload macOS package",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 39
+        },
+        {
+          "name": "Package Linux runtime and Debian application",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 40
+        },
+        {
+          "name": "Package Windows portable runtime",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 41
+        },
+        {
+          "name": "Package current-user and all-users EXE installers from one audited runtime",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 42
+        },
+        {
+          "name": "Upload Linux runtime packages",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 43
+        },
+        {
+          "name": "Upload Windows runtime package",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 44
+        },
+        {
+          "name": "Upload development executables and evidence inputs",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 45
+        },
+        {
+          "name": "Upload portable Swift pin verification receipts",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 46
+        },
+        {
+          "name": "Save native dependency/build cache",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 47
+        },
+        {
+          "name": "Post Install supported contest Python before native tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 92
+        },
+        {
+          "name": "Post Run actions/setup-node@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 93
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 94
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 95
+        }
+      ]
+    },
+    {
+      "id": 127209007198,
+      "name": "prototype (ubuntu-24.04)",
+      "status": "completed",
+      "conclusion": "success",
+      "run_id": 42016723457,
+      "logs_url": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Enable Windows checkout long paths",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 2
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Select macOS Swift toolchain",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 4
+        },
+        {
+          "name": "Run actions/setup-node@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Install supported contest Python before native tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Restore native dependency/build cache",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7
+        },
+        {
+          "name": "Linux build dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8
+        },
+        {
+          "name": "Swift toolchain (Linux)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9
+        },
+        {
+          "name": "Swift toolchain (Windows)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 10
+        },
+        {
+          "name": "Windows SQLite",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 11
+        },
+        {
+          "name": "Record native toolchains",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12
+        },
+        {
+          "name": "Install frontend dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13
+        },
+        {
+          "name": "Release payload guard tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14
+        },
+        {
+          "name": "Test atomic pinned contest catalog initialization",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15
+        },
+        {
+          "name": "Parse Windows installer scripts and validate scope policy",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 16
+        },
+        {
+          "name": "Linux C vault in a private Secret Service session",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 17
+        },
+        {
+          "name": "Compile portable native test fixtures early (Unix)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 18
+        },
+        {
+          "name": "Compile portable native test fixtures early (Windows)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 19
+        },
+        {
+          "name": "Frontend tests and build",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 20
+        },
+        {
+          "name": "Test FLEX IQ loopback fixture (Mac)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 21
+        },
+        {
+          "name": "Test complete portable Swift core (Unix)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 22
+        },
+        {
+          "name": "Test portable Swift core (Windows)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 23
+        },
+        {
+          "name": "Linux credential vault in a private Secret Service session",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 24
+        },
+        {
+          "name": "Build Swift worker (Unix)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 25
+        },
+        {
+          "name": "Build Swift worker (Windows)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 26
+        },
+        {
+          "name": "Stage isolated worker",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 27
+        },
+        {
+          "name": "Build pinned Hamlib radio and rotor helpers (Mac integration)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 28
+        },
+        {
+          "name": "Build pinned Hamlib radio and rotor helpers (Linux integration)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 29
+        },
+        {
+          "name": "Stage pinned Hamlib radio and rotor helpers (Windows integration)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 30
+        },
+        {
+          "name": "Test worker process framing (Unix)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 31
+        },
+        {
+          "name": "Test worker process framing (Windows)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 32
+        },
+        {
+          "name": "Shell contract tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 33
+        },
+        {
+          "name": "Bundled Hamlib dummy protocol and lifecycle tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 34
+        },
+        {
+          "name": "Bundled Hamlib dummy protocol and lifecycle tests (Windows)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 35
+        },
+        {
+          "name": "Build desktop executable (not an installer acceptance claim)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 36
+        },
+        {
+          "name": "Collect resolved dependency inventory and notices",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 37
+        },
+        {
+          "name": "Package macOS application",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 38
+        },
+        {
+          "name": "Upload macOS package",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 39
+        },
+        {
+          "name": "Package Linux runtime and Debian application",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 40
+        },
+        {
+          "name": "Package Windows portable runtime",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 41
+        },
+        {
+          "name": "Package current-user and all-users EXE installers from one audited runtime",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 42
+        },
+        {
+          "name": "Upload Linux runtime packages",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 43
+        },
+        {
+          "name": "Upload Windows runtime package",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 44
+        },
+        {
+          "name": "Upload development executables and evidence inputs",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 45
+        },
+        {
+          "name": "Upload portable Swift pin verification receipts",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 46
+        },
+        {
+          "name": "Save native dependency/build cache",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 47
+        },
+        {
+          "name": "Post Install supported contest Python before native tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 92
+        },
+        {
+          "name": "Post Run actions/setup-node@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 93
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 94
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 95
+        }
+      ]
+    },
+    {
+      "id": 127245303338,
+      "name": "Linux runtime-only container acceptance",
+      "status": "completed",
+      "conclusion": "success",
+      "run_id": 42016723457,
+      "logs_url": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/download-artifact@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Build runtime-only Ubuntu image with packaged deb",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Native WebKit GUI, worker, relaunch and relocation with network disabled",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Upload native Linux reports and screenshots",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13
+        }
+      ]
+    },
+    {
+      "id": 127245303413,
+      "name": "Windows fresh-runner runtime acceptance (currentUser)",
+      "status": "completed",
+      "conclusion": "failure",
+      "run_id": 42016723457,
+      "logs_url": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Enable Windows checkout long paths",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Run actions/download-artifact@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Extract isolated package",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Native WebView2 GUI and worker without installing Swift",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Verify shared payload and accept selected scope at its real default path",
+          "status": "completed",
+          "conclusion": "failure",
+          "number": 7
+        },
+        {
+          "name": "Upload native Windows reports and screenshots",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 17
+        }
+      ]
+    },
+    {
+      "id": 127245303500,
+      "name": "Windows fresh-runner runtime acceptance (perMachine)",
+      "status": "completed",
+      "conclusion": "failure",
+      "run_id": 42016723457,
+      "logs_url": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Enable Windows checkout long paths",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Run actions/download-artifact@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Extract isolated package",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Native WebView2 GUI and worker without installing Swift",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Verify shared payload and accept selected scope at its real default path",
+          "status": "completed",
+          "conclusion": "failure",
+          "number": 7
+        },
+        {
+          "name": "Upload native Windows reports and screenshots",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 17
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "id": 13415150735,
+      "name": "xlog-acceptance-linux-3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "size_in_bytes": 823590,
+      "url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13415150735",
+      "archive_download_url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13415150735/zip",
+      "expired": false,
+      "created_at": "2026-11-05T12:32:10Z",
+      "expires_at": "2026-12-05T12:32:09Z",
+      "updated_at": "2026-11-05T12:32:10Z",
+      "digest": "sha256:712b41d920024eb89aa7d796ba5cbd3dc405be96019358d1e0075228b04c0a7d",
+      "workflow_run": {
+        "id": 42016723457,
+        "repository_id": 1413914852,
+        "head_repository_id": 1413914852,
+        "head_branch": "main",
+        "head_sha": "3d9cb0981c30764f1188db350ffebc22a5f328a7"
+      }
+    },
+    {
+      "id": 13414886688,
+      "name": "xlog-acceptance-windows-currentUser-3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "size_in_bytes": 431088,
+      "url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13414886688",
+      "archive_download_url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13414886688/zip",
+      "expired": false,
+      "created_at": "2026-11-05T12:31:22Z",
+      "expires_at": "2026-12-05T12:31:21Z",
+      "updated_at": "2026-11-05T12:31:22Z",
+      "digest": "sha256:57b7abd695f4f16a8151b1f1ca641e8105127ac9aafbd40c91d39c74148e090f",
+      "workflow_run": {
+        "id": 42016723457,
+        "repository_id": 1413914852,
+        "head_repository_id": 1413914852,
+        "head_branch": "main",
+        "head_sha": "3d9cb0981c30764f1188db350ffebc22a5f328a7"
+      }
+    },
+    {
+      "id": 13414851897,
+      "name": "xlog-acceptance-windows-perMachine-3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "size_in_bytes": 324855,
+      "url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13414851897",
+      "archive_download_url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13414851897/zip",
+      "expired": false,
+      "created_at": "2026-11-05T12:31:09Z",
+      "expires_at": "2026-12-05T12:31:07Z",
+      "updated_at": "2026-11-05T12:31:09Z",
+      "digest": "sha256:5590f29e030c5cc4839b2817bb05fa6184390340c85db7b5268722b72ca9ef75",
+      "workflow_run": {
+        "id": 42016723457,
+        "repository_id": 1413914852,
+        "head_repository_id": 1413914852,
+        "head_branch": "main",
+        "head_sha": "3d9cb0981c30764f1188db350ffebc22a5f328a7"
+      }
+    },
+    {
+      "id": 13414527016,
+      "name": "portable-swift-pins-windows-2022-3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "size_in_bytes": 4262,
+      "url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13414527016",
+      "archive_download_url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13414527016/zip",
+      "expired": false,
+      "created_at": "2026-11-05T12:26:39Z",
+      "expires_at": "2027-02-03T11:10:06Z",
+      "updated_at": "2026-11-05T12:26:39Z",
+      "digest": "sha256:3dab526bfb04bd5053655700ee2840bf5259fd6a401124c74e8382e66d7b73a9",
+      "workflow_run": {
+        "id": 42016723457,
+        "repository_id": 1413914852,
+        "head_repository_id": 1413914852,
+        "head_branch": "main",
+        "head_sha": "3d9cb0981c30764f1188db350ffebc22a5f328a7"
+      }
+    },
+    {
+      "id": 13413349502,
+      "name": "xlog-runtime-windows-3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "size_in_bytes": 198594895,
+      "url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13413349502",
+      "archive_download_url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13413349502/zip",
+      "expired": false,
+      "created_at": "2026-11-05T12:26:32Z",
+      "expires_at": "2026-12-05T12:26:25Z",
+      "updated_at": "2026-11-05T12:26:32Z",
+      "digest": "sha256:3869a453e665320c4fe19662595b616cebb61d8217a1e6ea80a99ac99db3d41f",
+      "workflow_run": {
+        "id": 42016723457,
+        "repository_id": 1413914852,
+        "head_repository_id": 1413914852,
+        "head_branch": "main",
+        "head_sha": "3d9cb0981c30764f1188db350ffebc22a5f328a7"
+      }
+    },
+    {
+      "id": 13413199827,
+      "name": "xlog-prototype-windows-2022-3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "size_in_bytes": 35582390,
+      "url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13413199827",
+      "archive_download_url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13413199827/zip",
+      "expired": false,
+      "created_at": "2026-11-05T12:26:37Z",
+      "expires_at": "2027-02-03T11:10:06Z",
+      "updated_at": "2026-11-05T12:26:37Z",
+      "digest": "sha256:78de5ef0f45f792ea22071e068ced916a83c7fc12ef44dca16870f2f3219ee6d",
+      "workflow_run": {
+        "id": 42016723457,
+        "repository_id": 1413914852,
+        "head_repository_id": 1413914852,
+        "head_branch": "main",
+        "head_sha": "3d9cb0981c30764f1188db350ffebc22a5f328a7"
+      }
+    },
+    {
+      "id": 13412246760,
+      "name": "xlog-prototype-macos-15-3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "size_in_bytes": 27940730,
+      "url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13412246760",
+      "archive_download_url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13412246760/zip",
+      "expired": false,
+      "created_at": "2026-11-05T11:50:04Z",
+      "expires_at": "2027-02-03T11:10:06Z",
+      "updated_at": "2026-11-05T11:50:04Z",
+      "digest": "sha256:4151529b2fd262ca4c8c7e34fad8a48c93ca22f4a53a07b54948a467dedde868",
+      "workflow_run": {
+        "id": 42016723457,
+        "repository_id": 1413914852,
+        "head_repository_id": 1413914852,
+        "head_branch": "main",
+        "head_sha": "3d9cb0981c30764f1188db350ffebc22a5f328a7"
+      }
+    },
+    {
+      "id": 13411478765,
+      "name": "xlog-runtime-linux-3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "size_in_bytes": 315724479,
+      "url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13411478765",
+      "archive_download_url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13411478765/zip",
+      "expired": false,
+      "created_at": "2026-11-05T11:54:16Z",
+      "expires_at": "2026-12-05T11:53:57Z",
+      "updated_at": "2026-11-05T11:54:16Z",
+      "digest": "sha256:e7c61e124fa2832a2d6a8af43a70d6399915e0a3779fca1673fb6d8f709b18cd",
+      "workflow_run": {
+        "id": 42016723457,
+        "repository_id": 1413914852,
+        "head_repository_id": 1413914852,
+        "head_branch": "main",
+        "head_sha": "3d9cb0981c30764f1188db350ffebc22a5f328a7"
+      }
+    },
+    {
+      "id": 13411279024,
+      "name": "portable-swift-pins-ubuntu-24.04-3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "size_in_bytes": 5582,
+      "url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13411279024",
+      "archive_download_url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13411279024/zip",
+      "expired": false,
+      "created_at": "2026-11-05T11:54:21Z",
+      "expires_at": "2027-02-03T11:10:06Z",
+      "updated_at": "2026-11-05T11:54:21Z",
+      "digest": "sha256:3450520a2b96e69b68db59d82d097d95ad5c77168c8183da68740d0fe067ab6e",
+      "workflow_run": {
+        "id": 42016723457,
+        "repository_id": 1413914852,
+        "head_repository_id": 1413914852,
+        "head_branch": "main",
+        "head_sha": "3d9cb0981c30764f1188db350ffebc22a5f328a7"
+      }
+    },
+    {
+      "id": 13411139688,
+      "name": "xlog-prototype-ubuntu-24.04-3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "size_in_bytes": 38528248,
+      "url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13411139688",
+      "archive_download_url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13411139688/zip",
+      "expired": false,
+      "created_at": "2026-11-05T11:54:20Z",
+      "expires_at": "2027-02-03T11:10:06Z",
+      "updated_at": "2026-11-05T11:54:20Z",
+      "digest": "sha256:3a8972a6b189f9d91b53b6d87c0d1cc1b2e11577eb550820989a33e7ff569641",
+      "workflow_run": {
+        "id": 42016723457,
+        "repository_id": 1413914852,
+        "head_repository_id": 1413914852,
+        "head_branch": "main",
+        "head_sha": "3d9cb0981c30764f1188db350ffebc22a5f328a7"
+      }
+    }
+  ],
+  "packages": [
+    {
+      "path": "xlog-runtime-windows-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-installer/OM0RX-xLog-1.5.20-windows-x86_64-all-users-setup.exe",
+      "bytes": 58373847,
+      "sha256": "6120174e492d048fbe7e785fdcc4de04fbaef26f1e85c919f18f89fe50aed86d"
+    },
+    {
+      "path": "xlog-runtime-windows-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-installer/OM0RX-xLog-1.5.20-windows-x86_64-current-user-setup.exe",
+      "bytes": 58369691,
+      "sha256": "93ac5496ecc60dff77f405d6fa8e87a8947b21a66ee3d316678b82879a7d38f9"
+    },
+    {
+      "path": "xlog-runtime-windows-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-package/OM0RX-xLog-Prototype-windows-x86_64.zip",
+      "bytes": 83162611,
+      "sha256": "86fd424556409e2f8b296c9e3a54126fcbfa26fd5388a4e38c859715af962116"
+    },
+    {
+      "path": "xlog-runtime-linux-3d9cb0981c30764f1188db350ffebc22a5f328a7/3d9cb0981c30764f1188db350ffebc22a5f328a7/OM0RX-xLog-1.5.20-Beta-Linux-x64.tar.gz",
+      "bytes": 82539429,
+      "sha256": "2adf3832ffacd76cfba223a83dd87c9abc2839b4af7cd7d2821000fe5521e7c7"
+    },
+    {
+      "path": "xlog-runtime-linux-3d9cb0981c30764f1188db350ffebc22a5f328a7/3d9cb0981c30764f1188db350ffebc22a5f328a7/OM0RX-xLog-1.5.20-Beta-Linux-x64.deb",
+      "bytes": 62073116,
+      "sha256": "77806642d3d20baeea55c59245345cff17c577935f0db78ee46f21993e9e6982"
+    }
+  ],
+  "checksumSidecarsVerified": [
+    "xlog-runtime-windows-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-installer/OM0RX-xLog-1.5.20-windows-x86_64-current-user-setup.exe",
+    "xlog-runtime-windows-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-installer/OM0RX-xLog-1.5.20-windows-x86_64-all-users-setup.exe",
+    "xlog-runtime-windows-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-package/OM0RX-xLog-Prototype-windows-x86_64.zip",
+    "xlog-runtime-linux-3d9cb0981c30764f1188db350ffebc22a5f328a7/3d9cb0981c30764f1188db350ffebc22a5f328a7/OM0RX-xLog-1.5.20-Beta-Linux-x64.deb",
+    "xlog-runtime-linux-3d9cb0981c30764f1188db350ffebc22a5f328a7/3d9cb0981c30764f1188db350ffebc22a5f328a7/OM0RX-xLog-1.5.20-Beta-Linux-x64.tar.gz"
+  ],
+  "runtimeManifestsAndInstallerProvenance": [
+    {
+      "path": "xlog-runtime-windows-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-installer/OM0RX-xLog-1.5.20-windows-x86_64-all-users-setup.exe.provenance.json",
+      "source": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "version": "1.5.20",
+      "installation": {
+        "defaultDirectory": "%ProgramFiles%\\OM0RX-xLog",
+        "registryHive": "HKLM",
+        "artifactLabel": "all-users",
+        "requiresAdministrator": true,
+        "executionLevel": "admin",
+        "mode": "perMachine",
+        "startMenu": "CommonPrograms"
+      },
+      "mainExecutableSHA256": "d6bad092ffbde54ba9b299087da4d40f7d35fd9bac9cdcb3c066650774b975a4",
+      "payloadManifestSHA256": "448ca94af62660acf51cd201eee791367fa0898a6ab355f3559e41d4a9c2060d"
+    },
+    {
+      "path": "xlog-runtime-windows-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-installer/OM0RX-xLog-1.5.20-windows-x86_64-current-user-setup.exe.provenance.json",
+      "source": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "version": "1.5.20",
+      "installation": {
+        "defaultDirectory": "%LOCALAPPDATA%\\OM0RX-xLog",
+        "registryHive": "HKCU",
+        "artifactLabel": "current-user",
+        "requiresAdministrator": false,
+        "executionLevel": "user",
+        "mode": "currentUser",
+        "startMenu": "Programs"
+      },
+      "mainExecutableSHA256": "d6bad092ffbde54ba9b299087da4d40f7d35fd9bac9cdcb3c066650774b975a4",
+      "payloadManifestSHA256": "448ca94af62660acf51cd201eee791367fa0898a6ab355f3559e41d4a9c2060d"
+    },
+    {
+      "path": "xlog-acceptance-linux-3d9cb0981c30764f1188db350ffebc22a5f328a7/runtime-manifest.json",
+      "source": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "version": "1.5.20",
+      "installation": null,
+      "mainExecutableSHA256": null,
+      "payloadManifestSHA256": null
+    },
+    {
+      "path": "xlog-runtime-linux-3d9cb0981c30764f1188db350ffebc22a5f328a7/3d9cb0981c30764f1188db350ffebc22a5f328a7/deb-root/opt/om0rx-xlog-prototype/runtime-manifest.json",
+      "source": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "version": "1.5.20",
+      "installation": null,
+      "mainExecutableSHA256": null,
+      "payloadManifestSHA256": null
+    },
+    {
+      "path": "xlog-runtime-linux-3d9cb0981c30764f1188db350ffebc22a5f328a7/3d9cb0981c30764f1188db350ffebc22a5f328a7/om0rx-xlog-prototype-linux-amd64/runtime-manifest.json",
+      "source": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "version": "1.5.20",
+      "installation": null,
+      "mainExecutableSHA256": null,
+      "payloadManifestSHA256": null
+    }
+  ],
+  "windowsPayloadIdentity": {
+    "source": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+    "portableProvenance": {
+      "schema": 1,
+      "version": "1.5.20",
+      "commit": "3d9cb0981c30764f1188db350ffebc22a5f328a7"
+    },
+    "payloadFileCount": 3270,
+    "payloadManifestSHA256": "448ca94af62660acf51cd201eee791367fa0898a6ab355f3559e41d4a9c2060d",
+    "mainExecutableSHA256": "d6bad092ffbde54ba9b299087da4d40f7d35fd9bac9cdcb3c066650774b975a4",
+    "installers": [
+      {
+        "installer": "OM0RX-xLog-1.5.20-windows-x86_64-all-users-setup.exe",
+        "sha256": "6120174e492d048fbe7e785fdcc4de04fbaef26f1e85c919f18f89fe50aed86d",
+        "mode": "perMachine",
+        "mainExecutableSHA256": "d6bad092ffbde54ba9b299087da4d40f7d35fd9bac9cdcb3c066650774b975a4",
+        "payloadManifestSHA256": "448ca94af62660acf51cd201eee791367fa0898a6ab355f3559e41d4a9c2060d",
+        "installation": {
+          "defaultDirectory": "%ProgramFiles%\\OM0RX-xLog",
+          "registryHive": "HKLM",
+          "artifactLabel": "all-users",
+          "requiresAdministrator": true,
+          "executionLevel": "admin",
+          "mode": "perMachine",
+          "startMenu": "CommonPrograms"
+        }
+      },
+      {
+        "installer": "OM0RX-xLog-1.5.20-windows-x86_64-current-user-setup.exe",
+        "sha256": "93ac5496ecc60dff77f405d6fa8e87a8947b21a66ee3d316678b82879a7d38f9",
+        "mode": "currentUser",
+        "mainExecutableSHA256": "d6bad092ffbde54ba9b299087da4d40f7d35fd9bac9cdcb3c066650774b975a4",
+        "payloadManifestSHA256": "448ca94af62660acf51cd201eee791367fa0898a6ab355f3559e41d4a9c2060d",
+        "installation": {
+          "defaultDirectory": "%LOCALAPPDATA%\\OM0RX-xLog",
+          "registryHive": "HKCU",
+          "artifactLabel": "current-user",
+          "requiresAdministrator": false,
+          "executionLevel": "user",
+          "mode": "currentUser",
+          "startMenu": "Programs"
+        }
+      }
+    ],
+    "scope": "Downloaded package checksum/provenance agreement; actual installed payload hashes require native acceptance receipts."
+  },
+  "frontend": [
+    {
+      "platform": "macos",
+      "testsPassed": 5225,
+      "filesPassed": 381
+    },
+    {
+      "platform": "windows",
+      "testsPassed": 5225,
+      "filesPassed": 381
+    },
+    {
+      "platform": "linux",
+      "testsPassed": 5225,
+      "filesPassed": 381
+    }
+  ],
+  "nativeEOLRegression": [
+    {
+      "platform": "macos",
+      "report": "macos-hm-eol.json",
+      "receipt": {
+        "schema": 1,
+        "platform": "darwin",
+        "gitVersion": "git version 2.56.0",
+        "nodeVersion": "v22.23.4",
+        "sourceCommit": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+        "generatorSHA256": "cc06c0f77d3f713b949a100d1974ba2ab543e749607beeb10613febad9ec1227",
+        "trackedCanonicalBlobs": {
+          "prototype/hm-control/dashboard.css": {
+            "bytes": 15815,
+            "sha256": "f58bc9b8882e32992b6332b55e90d4947ed358ad239b4c9dca72c320fa95483b",
+            "lf": 169,
+            "crlf": 0,
+            "bareCR": 0
+          },
+          "prototype/hm-control/dashboard.js": {
+            "bytes": 49449,
+            "sha256": "2a25912cda76d562576194887bc9b56d5c1d008b5ebd80fca80a29e216b5d4d3",
+            "lf": 822,
+            "crlf": 0,
+            "bareCR": 0
+          },
+          "prototype/hm-control/index.html": {
+            "bytes": 3498,
+            "sha256": "dba049b4370aea4d12d2d146f8c75dca9824a2ee986d3f3eb09f493b5d47fee6",
+            "lf": 64,
+            "crlf": 0,
+            "bareCR": 0
+          }
+        },
+        "scope": "Actual generator and pinned local asset validation; disposable local Git autocrlf checkouts only. Not native Windows packaging, original CI raw-byte recovery, or whole-app acceptance.",
+        "before-policy": {
+          "checkout": {
+            "files": {
+              "prototype/hm-control/dashboard.css": {
+                "bytes": 15984,
+                "sha256": "7edc1d77473877ef40b185b4fe62b7dc0a2a3c3e60a0540ab4d18150744cc47f",
+                "lf": 169,
+                "crlf": 169,
+                "bareCR": 0
+              },
+              "prototype/hm-control/dashboard.js": {
+                "bytes": 50271,
+                "sha256": "3a2eb651f7a66f9a2e2e40e9eff717e956614909fa78f59bd0482f1aa7d64386",
+                "lf": 822,
+                "crlf": 822,
+                "bareCR": 0
+              },
+              "prototype/hm-control/index.html": {
+                "bytes": 3562,
+                "sha256": "92669648167e3d9fe09dccefbf33a5a23a55da6bcbc265fd70f71b63c7a23d92",
+                "lf": 64,
+                "crlf": 64,
+                "bareCR": 0
+              }
+            },
+            "status": [],
+            "diffBytes": 0,
+            "diffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "diffWarnings": []
+          },
+          "generation": {
+            "files": {
+              "prototype/hm-control/dashboard.css": {
+                "bytes": 15815,
+                "sha256": "f58bc9b8882e32992b6332b55e90d4947ed358ad239b4c9dca72c320fa95483b",
+                "lf": 169,
+                "crlf": 0,
+                "bareCR": 0
+              },
+              "prototype/hm-control/dashboard.js": {
+                "bytes": 49449,
+                "sha256": "2a25912cda76d562576194887bc9b56d5c1d008b5ebd80fca80a29e216b5d4d3",
+                "lf": 822,
+                "crlf": 0,
+                "bareCR": 0
+              },
+              "prototype/hm-control/index.html": {
+                "bytes": 3498,
+                "sha256": "dba049b4370aea4d12d2d146f8c75dca9824a2ee986d3f3eb09f493b5d47fee6",
+                "lf": 64,
+                "crlf": 0,
+                "bareCR": 0
+              }
+            },
+            "status": [
+              " M prototype/hm-control/dashboard.css",
+              " M prototype/hm-control/dashboard.js",
+              " M prototype/hm-control/index.html"
+            ],
+            "diffBytes": 0,
+            "diffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "diffWarnings": [
+              "warning: in the working copy of 'prototype/hm-control/dashboard.css', LF will be replaced by CRLF the next time Git touches it",
+              "warning: in the working copy of 'prototype/hm-control/dashboard.js', LF will be replaced by CRLF the next time Git touches it",
+              "warning: in the working copy of 'prototype/hm-control/index.html', LF will be replaced by CRLF the next time Git touches it"
+            ]
+          },
+          "generationMatchesTrackedBlobs": true
+        },
+        "targeted-lf": {
+          "checkout": {
+            "files": {
+              "prototype/hm-control/dashboard.css": {
+                "bytes": 15815,
+                "sha256": "f58bc9b8882e32992b6332b55e90d4947ed358ad239b4c9dca72c320fa95483b",
+                "lf": 169,
+                "crlf": 0,
+                "bareCR": 0
+              },
+              "prototype/hm-control/dashboard.js": {
+                "bytes": 49449,
+                "sha256": "2a25912cda76d562576194887bc9b56d5c1d008b5ebd80fca80a29e216b5d4d3",
+                "lf": 822,
+                "crlf": 0,
+                "bareCR": 0
+              },
+              "prototype/hm-control/index.html": {
+                "bytes": 3498,
+                "sha256": "dba049b4370aea4d12d2d146f8c75dca9824a2ee986d3f3eb09f493b5d47fee6",
+                "lf": 64,
+                "crlf": 0,
+                "bareCR": 0
+              }
+            },
+            "status": [],
+            "diffBytes": 0,
+            "diffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "diffWarnings": []
+          },
+          "generation": {
+            "files": {
+              "prototype/hm-control/dashboard.css": {
+                "bytes": 15815,
+                "sha256": "f58bc9b8882e32992b6332b55e90d4947ed358ad239b4c9dca72c320fa95483b",
+                "lf": 169,
+                "crlf": 0,
+                "bareCR": 0
+              },
+              "prototype/hm-control/dashboard.js": {
+                "bytes": 49449,
+                "sha256": "2a25912cda76d562576194887bc9b56d5c1d008b5ebd80fca80a29e216b5d4d3",
+                "lf": 822,
+                "crlf": 0,
+                "bareCR": 0
+              },
+              "prototype/hm-control/index.html": {
+                "bytes": 3498,
+                "sha256": "dba049b4370aea4d12d2d146f8c75dca9824a2ee986d3f3eb09f493b5d47fee6",
+                "lf": 64,
+                "crlf": 0,
+                "bareCR": 0
+              }
+            },
+            "status": [],
+            "diffBytes": 0,
+            "diffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "diffWarnings": []
+          },
+          "generationMatchesTrackedBlobs": true
+        },
+        "genuineContentChange": {
+          "files": {
+            "prototype/hm-control/dashboard.css": {
+              "bytes": 15815,
+              "sha256": "f58bc9b8882e32992b6332b55e90d4947ed358ad239b4c9dca72c320fa95483b",
+              "lf": 169,
+              "crlf": 0,
+              "bareCR": 0
+            },
+            "prototype/hm-control/dashboard.js": {
+              "bytes": 49489,
+              "sha256": "ff6ebe3d7ae4fe4d8546858ba2dc17d12de099a10af48c3e8e35396e5ef858f1",
+              "lf": 824,
+              "crlf": 0,
+              "bareCR": 0
+            },
+            "prototype/hm-control/index.html": {
+              "bytes": 3498,
+              "sha256": "dba049b4370aea4d12d2d146f8c75dca9824a2ee986d3f3eb09f493b5d47fee6",
+              "lf": 64,
+              "crlf": 0,
+              "bareCR": 0
+            }
+          },
+          "status": [
+            " M prototype/hm-control/dashboard.js"
+          ],
+          "diffBytes": 511,
+          "diffSHA256": "f7d4d6b8020b8f0d2b9029b37d3ed8f9aca7aaeb92d283689e4720d4955d8551",
+          "diffWarnings": []
+        }
+      }
+    },
+    {
+      "platform": "windows",
+      "report": "windows-hm-eol.json",
+      "receipt": {
+        "schema": 1,
+        "platform": "win32",
+        "gitVersion": "git version 2.56.0.windows.3",
+        "nodeVersion": "v22.23.4",
+        "sourceCommit": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+        "generatorSHA256": "65ec8cf8179bd6ae401e2b20f03f8d2b79f15bb6386f7b8f3cc3360529af8674",
+        "trackedCanonicalBlobs": {
+          "prototype/hm-control/dashboard.css": {
+            "bytes": 15815,
+            "sha256": "f58bc9b8882e32992b6332b55e90d4947ed358ad239b4c9dca72c320fa95483b",
+            "lf": 169,
+            "crlf": 0,
+            "bareCR": 0
+          },
+          "prototype/hm-control/dashboard.js": {
+            "bytes": 49449,
+            "sha256": "2a25912cda76d562576194887bc9b56d5c1d008b5ebd80fca80a29e216b5d4d3",
+            "lf": 822,
+            "crlf": 0,
+            "bareCR": 0
+          },
+          "prototype/hm-control/index.html": {
+            "bytes": 3498,
+            "sha256": "dba049b4370aea4d12d2d146f8c75dca9824a2ee986d3f3eb09f493b5d47fee6",
+            "lf": 64,
+            "crlf": 0,
+            "bareCR": 0
+          }
+        },
+        "scope": "Actual generator and pinned local asset validation; disposable local Git autocrlf checkouts only. Not native Windows packaging, original CI raw-byte recovery, or whole-app acceptance.",
+        "before-policy": {
+          "checkout": {
+            "files": {
+              "prototype/hm-control/dashboard.css": {
+                "bytes": 15984,
+                "sha256": "7edc1d77473877ef40b185b4fe62b7dc0a2a3c3e60a0540ab4d18150744cc47f",
+                "lf": 169,
+                "crlf": 169,
+                "bareCR": 0
+              },
+              "prototype/hm-control/dashboard.js": {
+                "bytes": 50271,
+                "sha256": "3a2eb651f7a66f9a2e2e40e9eff717e956614909fa78f59bd0482f1aa7d64386",
+                "lf": 822,
+                "crlf": 822,
+                "bareCR": 0
+              },
+              "prototype/hm-control/index.html": {
+                "bytes": 3562,
+                "sha256": "92669648167e3d9fe09dccefbf33a5a23a55da6bcbc265fd70f71b63c7a23d92",
+                "lf": 64,
+                "crlf": 64,
+                "bareCR": 0
+              }
+            },
+            "status": [],
+            "diffBytes": 0,
+            "diffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "diffWarnings": []
+          },
+          "generation": {
+            "files": {
+              "prototype/hm-control/dashboard.css": {
+                "bytes": 15815,
+                "sha256": "f58bc9b8882e32992b6332b55e90d4947ed358ad239b4c9dca72c320fa95483b",
+                "lf": 169,
+                "crlf": 0,
+                "bareCR": 0
+              },
+              "prototype/hm-control/dashboard.js": {
+                "bytes": 49449,
+                "sha256": "2a25912cda76d562576194887bc9b56d5c1d008b5ebd80fca80a29e216b5d4d3",
+                "lf": 822,
+                "crlf": 0,
+                "bareCR": 0
+              },
+              "prototype/hm-control/index.html": {
+                "bytes": 3498,
+                "sha256": "dba049b4370aea4d12d2d146f8c75dca9824a2ee986d3f3eb09f493b5d47fee6",
+                "lf": 64,
+                "crlf": 0,
+                "bareCR": 0
+              }
+            },
+            "status": [
+              " M prototype/hm-control/dashboard.css",
+              " M prototype/hm-control/dashboard.js",
+              " M prototype/hm-control/index.html"
+            ],
+            "diffBytes": 0,
+            "diffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "diffWarnings": [
+              "warning: in the working copy of 'prototype/hm-control/dashboard.css', LF will be replaced by CRLF the next time Git touches it",
+              "warning: in the working copy of 'prototype/hm-control/dashboard.js', LF will be replaced by CRLF the next time Git touches it",
+              "warning: in the working copy of 'prototype/hm-control/index.html', LF will be replaced by CRLF the next time Git touches it"
+            ]
+          },
+          "generationMatchesTrackedBlobs": true
+        },
+        "targeted-lf": {
+          "checkout": {
+            "files": {
+              "prototype/hm-control/dashboard.css": {
+                "bytes": 15815,
+                "sha256": "f58bc9b8882e32992b6332b55e90d4947ed358ad239b4c9dca72c320fa95483b",
+                "lf": 169,
+                "crlf": 0,
+                "bareCR": 0
+              },
+              "prototype/hm-control/dashboard.js": {
+                "bytes": 49449,
+                "sha256": "2a25912cda76d562576194887bc9b56d5c1d008b5ebd80fca80a29e216b5d4d3",
+                "lf": 822,
+                "crlf": 0,
+                "bareCR": 0
+              },
+              "prototype/hm-control/index.html": {
+                "bytes": 3498,
+                "sha256": "dba049b4370aea4d12d2d146f8c75dca9824a2ee986d3f3eb09f493b5d47fee6",
+                "lf": 64,
+                "crlf": 0,
+                "bareCR": 0
+              }
+            },
+            "status": [],
+            "diffBytes": 0,
+            "diffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "diffWarnings": []
+          },
+          "generation": {
+            "files": {
+              "prototype/hm-control/dashboard.css": {
+                "bytes": 15815,
+                "sha256": "f58bc9b8882e32992b6332b55e90d4947ed358ad239b4c9dca72c320fa95483b",
+                "lf": 169,
+                "crlf": 0,
+                "bareCR": 0
+              },
+              "prototype/hm-control/dashboard.js": {
+                "bytes": 49449,
+                "sha256": "2a25912cda76d562576194887bc9b56d5c1d008b5ebd80fca80a29e216b5d4d3",
+                "lf": 822,
+                "crlf": 0,
+                "bareCR": 0
+              },
+              "prototype/hm-control/index.html": {
+                "bytes": 3498,
+                "sha256": "dba049b4370aea4d12d2d146f8c75dca9824a2ee986d3f3eb09f493b5d47fee6",
+                "lf": 64,
+                "crlf": 0,
+                "bareCR": 0
+              }
+            },
+            "status": [],
+            "diffBytes": 0,
+            "diffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "diffWarnings": []
+          },
+          "generationMatchesTrackedBlobs": true
+        },
+        "genuineContentChange": {
+          "files": {
+            "prototype/hm-control/dashboard.css": {
+              "bytes": 15815,
+              "sha256": "f58bc9b8882e32992b6332b55e90d4947ed358ad239b4c9dca72c320fa95483b",
+              "lf": 169,
+              "crlf": 0,
+              "bareCR": 0
+            },
+            "prototype/hm-control/dashboard.js": {
+              "bytes": 49489,
+              "sha256": "ff6ebe3d7ae4fe4d8546858ba2dc17d12de099a10af48c3e8e35396e5ef858f1",
+              "lf": 824,
+              "crlf": 0,
+              "bareCR": 0
+            },
+            "prototype/hm-control/index.html": {
+              "bytes": 3498,
+              "sha256": "dba049b4370aea4d12d2d146f8c75dca9824a2ee986d3f3eb09f493b5d47fee6",
+              "lf": 64,
+              "crlf": 0,
+              "bareCR": 0
+            }
+          },
+          "status": [
+            " M prototype/hm-control/dashboard.js"
+          ],
+          "diffBytes": 511,
+          "diffSHA256": "f7d4d6b8020b8f0d2b9029b37d3ed8f9aca7aaeb92d283689e4720d4955d8551",
+          "diffWarnings": []
+        }
+      }
+    },
+    {
+      "platform": "linux",
+      "report": "linux-hm-eol.json",
+      "receipt": {
+        "schema": 1,
+        "platform": "linux",
+        "gitVersion": "git version 2.56.0",
+        "nodeVersion": "v22.23.4",
+        "sourceCommit": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+        "generatorSHA256": "cc06c0f77d3f713b949a100d1974ba2ab543e749607beeb10613febad9ec1227",
+        "trackedCanonicalBlobs": {
+          "prototype/hm-control/dashboard.css": {
+            "bytes": 15815,
+            "sha256": "f58bc9b8882e32992b6332b55e90d4947ed358ad239b4c9dca72c320fa95483b",
+            "lf": 169,
+            "crlf": 0,
+            "bareCR": 0
+          },
+          "prototype/hm-control/dashboard.js": {
+            "bytes": 49449,
+            "sha256": "2a25912cda76d562576194887bc9b56d5c1d008b5ebd80fca80a29e216b5d4d3",
+            "lf": 822,
+            "crlf": 0,
+            "bareCR": 0
+          },
+          "prototype/hm-control/index.html": {
+            "bytes": 3498,
+            "sha256": "dba049b4370aea4d12d2d146f8c75dca9824a2ee986d3f3eb09f493b5d47fee6",
+            "lf": 64,
+            "crlf": 0,
+            "bareCR": 0
+          }
+        },
+        "scope": "Actual generator and pinned local asset validation; disposable local Git autocrlf checkouts only. Not native Windows packaging, original CI raw-byte recovery, or whole-app acceptance.",
+        "before-policy": {
+          "checkout": {
+            "files": {
+              "prototype/hm-control/dashboard.css": {
+                "bytes": 15984,
+                "sha256": "7edc1d77473877ef40b185b4fe62b7dc0a2a3c3e60a0540ab4d18150744cc47f",
+                "lf": 169,
+                "crlf": 169,
+                "bareCR": 0
+              },
+              "prototype/hm-control/dashboard.js": {
+                "bytes": 50271,
+                "sha256": "3a2eb651f7a66f9a2e2e40e9eff717e956614909fa78f59bd0482f1aa7d64386",
+                "lf": 822,
+                "crlf": 822,
+                "bareCR": 0
+              },
+              "prototype/hm-control/index.html": {
+                "bytes": 3562,
+                "sha256": "92669648167e3d9fe09dccefbf33a5a23a55da6bcbc265fd70f71b63c7a23d92",
+                "lf": 64,
+                "crlf": 64,
+                "bareCR": 0
+              }
+            },
+            "status": [],
+            "diffBytes": 0,
+            "diffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "diffWarnings": []
+          },
+          "generation": {
+            "files": {
+              "prototype/hm-control/dashboard.css": {
+                "bytes": 15815,
+                "sha256": "f58bc9b8882e32992b6332b55e90d4947ed358ad239b4c9dca72c320fa95483b",
+                "lf": 169,
+                "crlf": 0,
+                "bareCR": 0
+              },
+              "prototype/hm-control/dashboard.js": {
+                "bytes": 49449,
+                "sha256": "2a25912cda76d562576194887bc9b56d5c1d008b5ebd80fca80a29e216b5d4d3",
+                "lf": 822,
+                "crlf": 0,
+                "bareCR": 0
+              },
+              "prototype/hm-control/index.html": {
+                "bytes": 3498,
+                "sha256": "dba049b4370aea4d12d2d146f8c75dca9824a2ee986d3f3eb09f493b5d47fee6",
+                "lf": 64,
+                "crlf": 0,
+                "bareCR": 0
+              }
+            },
+            "status": [
+              " M prototype/hm-control/dashboard.css",
+              " M prototype/hm-control/dashboard.js",
+              " M prototype/hm-control/index.html"
+            ],
+            "diffBytes": 0,
+            "diffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "diffWarnings": [
+              "warning: in the working copy of 'prototype/hm-control/dashboard.css', LF will be replaced by CRLF the next time Git touches it",
+              "warning: in the working copy of 'prototype/hm-control/dashboard.js', LF will be replaced by CRLF the next time Git touches it",
+              "warning: in the working copy of 'prototype/hm-control/index.html', LF will be replaced by CRLF the next time Git touches it"
+            ]
+          },
+          "generationMatchesTrackedBlobs": true
+        },
+        "targeted-lf": {
+          "checkout": {
+            "files": {
+              "prototype/hm-control/dashboard.css": {
+                "bytes": 15815,
+                "sha256": "f58bc9b8882e32992b6332b55e90d4947ed358ad239b4c9dca72c320fa95483b",
+                "lf": 169,
+                "crlf": 0,
+                "bareCR": 0
+              },
+              "prototype/hm-control/dashboard.js": {
+                "bytes": 49449,
+                "sha256": "2a25912cda76d562576194887bc9b56d5c1d008b5ebd80fca80a29e216b5d4d3",
+                "lf": 822,
+                "crlf": 0,
+                "bareCR": 0
+              },
+              "prototype/hm-control/index.html": {
+                "bytes": 3498,
+                "sha256": "dba049b4370aea4d12d2d146f8c75dca9824a2ee986d3f3eb09f493b5d47fee6",
+                "lf": 64,
+                "crlf": 0,
+                "bareCR": 0
+              }
+            },
+            "status": [],
+            "diffBytes": 0,
+            "diffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "diffWarnings": []
+          },
+          "generation": {
+            "files": {
+              "prototype/hm-control/dashboard.css": {
+                "bytes": 15815,
+                "sha256": "f58bc9b8882e32992b6332b55e90d4947ed358ad239b4c9dca72c320fa95483b",
+                "lf": 169,
+                "crlf": 0,
+                "bareCR": 0
+              },
+              "prototype/hm-control/dashboard.js": {
+                "bytes": 49449,
+                "sha256": "2a25912cda76d562576194887bc9b56d5c1d008b5ebd80fca80a29e216b5d4d3",
+                "lf": 822,
+                "crlf": 0,
+                "bareCR": 0
+              },
+              "prototype/hm-control/index.html": {
+                "bytes": 3498,
+                "sha256": "dba049b4370aea4d12d2d146f8c75dca9824a2ee986d3f3eb09f493b5d47fee6",
+                "lf": 64,
+                "crlf": 0,
+                "bareCR": 0
+              }
+            },
+            "status": [],
+            "diffBytes": 0,
+            "diffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "diffWarnings": []
+          },
+          "generationMatchesTrackedBlobs": true
+        },
+        "genuineContentChange": {
+          "files": {
+            "prototype/hm-control/dashboard.css": {
+              "bytes": 15815,
+              "sha256": "f58bc9b8882e32992b6332b55e90d4947ed358ad239b4c9dca72c320fa95483b",
+              "lf": 169,
+              "crlf": 0,
+              "bareCR": 0
+            },
+            "prototype/hm-control/dashboard.js": {
+              "bytes": 49489,
+              "sha256": "ff6ebe3d7ae4fe4d8546858ba2dc17d12de099a10af48c3e8e35396e5ef858f1",
+              "lf": 824,
+              "crlf": 0,
+              "bareCR": 0
+            },
+            "prototype/hm-control/index.html": {
+              "bytes": 3498,
+              "sha256": "dba049b4370aea4d12d2d146f8c75dca9824a2ee986d3f3eb09f493b5d47fee6",
+              "lf": 64,
+              "crlf": 0,
+              "bareCR": 0
+            }
+          },
+          "status": [
+            " M prototype/hm-control/dashboard.js"
+          ],
+          "diffBytes": 511,
+          "diffSHA256": "f7d4d6b8020b8f0d2b9029b37d3ed8f9aca7aaeb92d283689e4720d4955d8551",
+          "diffWarnings": []
+        }
+      }
+    }
+  ],
+  "linuxRuntime": {
+    "acceptance": {
+      "schema": 1,
+      "status": "passed",
+      "commit": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "platform": "ubuntu-24.04-amd64",
+      "developmentToolchainsPresent": false,
+      "nonRoot": true,
+      "framingTestCount": 2,
+      "embeddedUiLaunchCount": 4,
+      "contestRuntimeTest": {
+        "id": "contest-runtime-self-test",
+        "ok": true,
+        "result": {
+          "catalogue": true,
+          "catalogue_count": 98,
+          "checks": [
+            "bundled_locator",
+            "sanitized_environment",
+            "catalogue",
+            "create_cq_ww_cw",
+            "commit_read",
+            "restart_reopen",
+            "shipping_shutdown",
+            "temporary_cleanup"
+          ],
+          "credentials_accessed": false,
+          "engine": "not1mm-python",
+          "network_contact": false,
+          "passed": true,
+          "qso_count": 1,
+          "reopened": true,
+          "save_read": true,
+          "shipping_shutdown": true,
+          "station_io": false,
+          "synthetic_records": true,
+          "temporary_store_removed": true
+        }
+      },
+      "relocatedContestRuntimeTest": {
+        "id": "contest-runtime-self-test",
+        "ok": true,
+        "result": {
+          "catalogue": true,
+          "catalogue_count": 98,
+          "checks": [
+            "bundled_locator",
+            "sanitized_environment",
+            "catalogue",
+            "create_cq_ww_cw",
+            "commit_read",
+            "restart_reopen",
+            "shipping_shutdown",
+            "temporary_cleanup"
+          ],
+          "credentials_accessed": false,
+          "engine": "not1mm-python",
+          "network_contact": false,
+          "passed": true,
+          "qso_count": 1,
+          "reopened": true,
+          "save_read": true,
+          "shipping_shutdown": true,
+          "station_io": false,
+          "synthetic_records": true,
+          "temporary_store_removed": true
+        }
+      },
+      "installedDebLaunchCount": 3,
+      "relocatedArchiveLaunchCount": 1,
+      "x11LaunchCount": 3,
+      "waylandLaunchCount": 1,
+      "waylandCompositorBackend": "Weston nested X11 with pixman renderer",
+      "scope": "Synthetic core and embedded UI under Xvfb and nested Wayland; no hardware/accounts"
+    },
+    "ui": [
+      {
+        "report": "xlog-acceptance-linux-3d9cb0981c30764f1188db350ffebc22a5f328a7/ui-1.json",
+        "sha256": "c475e817c9a3b3e157b016f2c61e0a636518bf885bfa009802be1aa0c81598ea",
+        "status": "passed",
+        "checks": 36,
+        "radioSkipped": true,
+        "rotatorSkipped": true
+      },
+      {
+        "report": "xlog-acceptance-linux-3d9cb0981c30764f1188db350ffebc22a5f328a7/ui-2.json",
+        "sha256": "893a53406bb63af4d090264a21b132d7db523d9e38cae53d8461ab272a1bfda6",
+        "status": "passed",
+        "checks": 36,
+        "radioSkipped": true,
+        "rotatorSkipped": true
+      },
+      {
+        "report": "xlog-acceptance-linux-3d9cb0981c30764f1188db350ffebc22a5f328a7/ui-3.json",
+        "sha256": "0d9aae56333cbdde9018009fa90c33fdf1c4f3a04d40604c862bceb3ff28cc34",
+        "status": "passed",
+        "checks": 36,
+        "radioSkipped": true,
+        "rotatorSkipped": true
+      },
+      {
+        "report": "xlog-acceptance-linux-3d9cb0981c30764f1188db350ffebc22a5f328a7/ui-wayland.json",
+        "sha256": "8752475aef2bf93eee3ead82dd30cfcb8cd3d16814437ec6932bd04d201dfde4",
+        "status": "passed",
+        "checks": 36,
+        "radioSkipped": true,
+        "rotatorSkipped": true
+      }
+    ],
+    "actualUser": "uid=10001(acceptance) gid=10001(acceptance) groups=10001(acceptance)",
+    "osRelease": "PRETTY_NAME=\"Ubuntu 24.04.5 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"24.04\"\nVERSION=\"24.04.5 LTS (Noble Numbat)\"\nVERSION_CODENAME=noble\nID=ubuntu\nID_LIKE=debian\nHOME_URL=\"https://www.ubuntu.com/\"\nSUPPORT_URL=\"https://help.ubuntu.com/\"\nBUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"\nPRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"\nUBUNTU_CODENAME=noble\nLOGO=ubuntu-logo\n",
+    "runtimePackages": [
+      "libgtk-3-0t64:amd64\t3.24.41-4ubuntu1.3",
+      "libgtk-3-common\t3.24.41-4ubuntu1.3",
+      "libjavascriptcoregtk-4.1-0:amd64\t2.52.6-0ubuntu0.24.04.1",
+      "libwebkit2gtk-4.1-0:amd64\t2.52.6-0ubuntu0.24.04.1",
+      "weston\t13.0.0-4build3"
+    ],
+    "wayland": {
+      "schema": 1,
+      "status": "passed",
+      "applicationBackend": "wayland",
+      "applicationDisplayVariablePresent": false,
+      "compositor": "Weston",
+      "compositorBackend": "x11",
+      "compositorRenderer": "pixman",
+      "capture": "outer Xvfb X11 root showing nested Weston compositor",
+      "physicalDesktop": false,
+      "directHeadlessCompositor": false,
+      "report": "ui-wayland.json",
+      "checkCount": 36
+    },
+    "boundary": "Native WebKit under Xvfb/nested Weston container; no ordinary desktop/hardware/accounts."
+  },
+  "windowsRuntime": [
+    {
+      "scope": "currentUser",
+      "portable": {
+        "status": "passed",
+        "checks": [
+          {
+            "name": "payload-hashes",
+            "passed": true,
+            "evidence": {
+              "files": 3270,
+              "manifestSha256": "448ca94af62660acf51cd201eee791367fa0898a6ab355f3559e41d4a9c2060d"
+            }
+          },
+          {
+            "name": "native-isolation",
+            "passed": true,
+            "evidence": {
+              "noSwiftRequired": true,
+              "swiftAbsentFromProbes": true
+            }
+          },
+          {
+            "name": "webview-prerequisite",
+            "passed": true,
+            "evidence": [
+              {
+                "registry": "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+                "version": "131.0.2903.86"
+              }
+            ]
+          },
+          {
+            "name": "worker-valid-module-origins",
+            "passed": true,
+            "evidence": {
+              "manifest": "worker-valid-modules.json",
+              "appLocalRequired": true,
+              "count": 55
+            }
+          },
+          {
+            "name": "ndjson-open-stdin-fragment-correlation",
+            "passed": true,
+            "evidence": {
+              "shutdown": "EOF exit 0",
+              "responses": 3,
+              "localLogbook": true,
+              "stationIO": false,
+              "methods": [
+                "health",
+                "parse_adif",
+                "self_test"
+              ]
+            }
+          },
+          {
+            "name": "bundled-python-standard-library",
+            "passed": true,
+            "evidence": {
+              "python": "3.12.16 (main, Oct 26 2026, 14:10:56) [MSC v.1944 64 bit (AMD64)]",
+              "openssl": "OpenSSL 3.5.9 29 Sep 2026",
+              "sqlite": "3.53.1",
+              "certificateAuthorities": 417,
+              "certificateVerification": true
+            }
+          },
+          {
+            "name": "worker-contest-runtime-round-trip",
+            "passed": true,
+            "evidence": {
+              "stationIO": false,
+              "bundledLocator": true,
+              "sanitizedChild": true,
+              "restartReopen": true,
+              "syntheticRecords": true
+            }
+          },
+          {
+            "name": "ndjson-malformed-oversized-recovery",
+            "passed": true,
+            "evidence": {
+              "shutdown": "EOF exit 0",
+              "responses": 3
+            }
+          },
+          {
+            "name": "worker-local-logbook-round-trip",
+            "passed": true,
+            "evidence": {
+              "localFileIO": true,
+              "stationIO": false,
+              "syntheticRecords": true,
+              "shutdown": "exit 0"
+            }
+          },
+          {
+            "name": "worker-cli-self-test",
+            "passed": true,
+            "evidence": {
+              "shutdown": "exit 0",
+              "syntheticOnly": true
+            }
+          },
+          {
+            "name": "gui-run-1",
+            "passed": true,
+            "evidence": {
+              "reportSha256": "513c425c03fa821a571e4f0df28e6b2ff52008b8a33f39d8ba9d1fafe2d93368",
+              "screenshot": {
+                "limitation": "Full native CI desktop image; inspect for actual application rendering.",
+                "status": "captured",
+                "path": "gui-run-1-desktop.png",
+                "width": 1024,
+                "sha256": "6e573163e70caab3c80c1b436bb4ef255a1e9c23153b8e0f473a15eb96e201c2",
+                "height": 768
+              },
+              "exit": 0,
+              "nativeChecks": 36,
+              "report": "gui-run-1.json"
+            }
+          },
+          {
+            "name": "gui-run-2-module-origins",
+            "passed": true,
+            "evidence": {
+              "manifest": "gui-run-2-modules.json",
+              "appLocalRequired": false,
+              "count": 63
+            }
+          },
+          {
+            "name": "gui-run-2",
+            "passed": true,
+            "evidence": {
+              "reportSha256": "2f3b2dd79494a0973e0f619fac3dc33b3b4c2e257adabc3c5a8a8238e5c076bd",
+              "screenshot": {
+                "limitation": "Full native CI desktop image; inspect for actual application rendering.",
+                "status": "captured",
+                "path": "gui-run-2-desktop.png",
+                "width": 1024,
+                "sha256": "be0da69ff942f0203302708ca64f40b6f2fbeb3f35de3127e4ae4a6a5ede4548",
+                "height": 768
+              },
+              "exit": 0,
+              "nativeChecks": 36,
+              "report": "gui-run-2.json"
+            }
+          }
+        ],
+        "gui": [
+          {
+            "report": "xlog-acceptance-windows-currentUser-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-evidence/gui-run-1.json",
+            "sha256": "513c425c03fa821a571e4f0df28e6b2ff52008b8a33f39d8ba9d1fafe2d93368",
+            "checks": 36,
+            "radioSkipped": true,
+            "rotatorSkipped": true
+          },
+          {
+            "report": "xlog-acceptance-windows-currentUser-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-evidence/gui-run-2.json",
+            "sha256": "2f3b2dd79494a0973e0f619fac3dc33b3b4c2e257adabc3c5a8a8238e5c076bd",
+            "checks": 36,
+            "radioSkipped": true,
+            "rotatorSkipped": true
+          }
+        ],
+        "os": {
+          "description": "Microsoft Windows 10.0.20348",
+          "runnerImageVersion": "20261026.347.1",
+          "version": "Microsoft Windows NT 10.0.20348.0",
+          "architecture": "X64",
+          "powershell": "7.6.9",
+          "runnerImage": "win22"
+        },
+        "webview": {
+          "mode": "Evergreen prerequisite; acceptance does not install it",
+          "installations": [
+            {
+              "registry": "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+              "version": "131.0.2903.86"
+            }
+          ],
+          "installed": true
+        },
+        "swiftAbsentFromProbes": true,
+        "toolchainAbsenceLimit": "Command lookup, conventional installation paths and uninstall registry checked; not an exhaustive disk scan."
+      },
+      "installer": {
+        "schema": 2,
+        "passed": false,
+        "installer": "OM0RX-xLog-1.5.20-windows-x86_64-current-user-setup.exe",
+        "harnessElevated": true,
+        "interactiveUAC": "NOT RUN (silent harness)",
+        "ordinaryUserRuntime": "NOT RUN",
+        "interactiveDefaultPath": "NOT RUN (silent harness)",
+        "upgrade": "NOT RUN",
+        "reinstallRollback": "NOT RUN",
+        "externalMediaRetention": "NOT RUN",
+        "version": "1.5.20",
+        "sourceCommit": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+        "installerSHA256": "93ac5496ecc60dff77f405d6fa8e87a8947b21a66ee3d316678b82879a7d38f9",
+        "installationScope": "currentUser",
+        "expectedDefaultDirectory": "%LOCALAPPDATA%\\OM0RX-xLog",
+        "registryHive": "HKCU",
+        "payloadManifestSHA256": "448ca94af62660acf51cd201eee791367fa0898a6ab355f3559e41d4a9c2060d",
+        "actualDirectory": "%LOCALAPPDATA%\\OM0RX-xLog",
+        "shortcutTarget": "%LOCALAPPDATA%\\OM0RX-xLog\\xlog-prototype.exe",
+        "defaultPathPassed": true,
+        "registryScopePassed": true,
+        "startMenuScopePassed": true,
+        "error": "Packaged local logbook round trip failed."
+      },
+      "installedRuntime": {
+        "status": "failed",
+        "checks": [
+          {
+            "name": "installer-owned-uninstaller",
+            "passed": true,
+            "evidence": {
+              "excludedFromPortableManifest": true,
+              "name": "uninstall.exe"
+            }
+          },
+          {
+            "name": "payload-hashes",
+            "passed": true,
+            "evidence": {
+              "manifestSha256": "448ca94af62660acf51cd201eee791367fa0898a6ab355f3559e41d4a9c2060d",
+              "files": 3270
+            }
+          },
+          {
+            "name": "native-isolation",
+            "passed": true,
+            "evidence": {
+              "swiftAbsentFromProbes": true,
+              "noSwiftRequired": true
+            }
+          },
+          {
+            "name": "webview-prerequisite",
+            "passed": true,
+            "evidence": [
+              {
+                "registry": "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+                "version": "131.0.2903.86"
+              }
+            ]
+          },
+          {
+            "name": "worker-valid-module-origins",
+            "passed": true,
+            "evidence": {
+              "count": 55,
+              "appLocalRequired": true,
+              "manifest": "worker-valid-modules.json"
+            }
+          },
+          {
+            "name": "ndjson-open-stdin-fragment-correlation",
+            "passed": true,
+            "evidence": {
+              "stationIO": false,
+              "responses": 3,
+              "shutdown": "EOF exit 0",
+              "localLogbook": true,
+              "methods": [
+                "health",
+                "parse_adif",
+                "self_test"
+              ]
+            }
+          },
+          {
+            "name": "bundled-python-standard-library",
+            "passed": true,
+            "evidence": {
+              "python": "3.12.16 (main, Oct 26 2026, 14:10:56) [MSC v.1944 64 bit (AMD64)]",
+              "openssl": "OpenSSL 3.5.9 29 Sep 2026",
+              "sqlite": "3.53.1",
+              "certificateAuthorities": 417,
+              "certificateVerification": true
+            }
+          },
+          {
+            "name": "worker-contest-runtime-round-trip",
+            "passed": true,
+            "evidence": {
+              "stationIO": false,
+              "restartReopen": true,
+              "syntheticRecords": true,
+              "sanitizedChild": true,
+              "bundledLocator": true
+            }
+          },
+          {
+            "name": "ndjson-malformed-oversized-recovery",
+            "passed": true,
+            "evidence": {
+              "responses": 3,
+              "shutdown": "EOF exit 0"
+            }
+          }
+        ],
+        "error": "Packaged local logbook round trip failed.",
+        "os": {
+          "runnerImage": "win22",
+          "powershell": "7.6.9",
+          "architecture": "X64",
+          "runnerImageVersion": "20261026.347.1",
+          "version": "Microsoft Windows NT 10.0.20348.0",
+          "description": "Microsoft Windows 10.0.20348"
+        },
+        "webview": {
+          "mode": "Evergreen prerequisite; acceptance does not install it",
+          "installed": true,
+          "installations": [
+            {
+              "registry": "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+              "version": "131.0.2903.86"
+            }
+          ]
+        },
+        "isolation": {
+          "summary": "Task-owned private synthetic profile and temporary storage; child PATH restricted to accepted package plus Windows system directories. Raw coordinates withheld.",
+          "developerEnvironmentRemoved": true,
+          "parentEnvironmentChanged": false
+        }
+      },
+      "failure": {
+        "command": "xlog-prototype-worker.exe --local-logbook-self-test",
+        "sourceAssertion": "prototype/scripts/accept-windows.ps1:274",
+        "assertion": "ok AND passed true AND award_programmes = 192 AND network_contact/station_io false",
+        "message": "Packaged local logbook round trip failed.",
+        "rawReply": "NOT RETAINED: response write follows assertion at line276",
+        "classification": "Specific false field/cause UNDETERMINED; no app fix inferred from conjunction alone"
+      },
+      "notReached": [
+        "installedGUI",
+        "uninstall",
+        "marker preservation"
+      ],
+      "account": "Harness elevation actually true; token account name not recorded. Observed paths are normalized to verified known-folder tokens; raw receipts private.",
+      "boundaries": {
+        "ordinaryUserRuntime": "NOT RUN",
+        "interactiveUAC": "NOT RUN (silent harness)",
+        "interactiveDefaultPath": "NOT RUN (silent harness)",
+        "upgrade": "NOT RUN",
+        "reinstallRollback": "NOT RUN",
+        "externalMediaRetention": "NOT RUN"
+      },
+      "comparison": {
+        "scope": "currentUser",
+        "source": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+        "installerReceipt": "xlog-acceptance-windows-currentUser-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-installer-evidence/currentUser/installer-acceptance.json",
+        "installedRuntimeReceipt": "xlog-acceptance-windows-currentUser-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-installer-evidence/currentUser/native-runtime/acceptance.json",
+        "portableAcceptance": "xlog-acceptance-windows-currentUser-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-evidence/acceptance.json",
+        "portableRawLocalReply": {
+          "path": "xlog-acceptance-windows-currentUser-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-evidence/worker-local-logbook.json",
+          "sha256": "867dc5d0da0fa26be0fe4b23b018b1c5819e0f7e57bd0eeebbe0daa91d7b98d5",
+          "value": {
+            "id": "local-logbook-self-test",
+            "ok": true,
+            "result": {
+              "award_programmes": 192,
+              "checks": [
+                "workspace",
+                "settings",
+                "adif_unknown_fields",
+                "save_search",
+                "cty_resources",
+                "awards_resources",
+                "delete_undo",
+                "backup_restore",
+                "reopen_export"
+              ],
+              "credentials_accessed": false,
+              "local_file_io": true,
+              "network_contact": false,
+              "passed": true,
+              "qso_count": 1,
+              "station_io": false,
+              "synthetic_records": true
+            }
+          }
+        },
+        "installedRawLocalReply": "NOT RETAINED: accept-windows.ps1 line276 writes after failing assertion274",
+        "workerExeSHA256": "2dd9a007937b0cee8240bc73785a76ce2fbe4cc6a6dbe9dcde5114abce5593e5",
+        "workerModules": {
+          "portable": {
+            "name": "xlog-prototype-worker.exe",
+            "path": "<private portable package>\\xlog-prototype-worker.exe",
+            "fileVersion": null,
+            "sha256": "2dd9a007937b0cee8240bc73785a76ce2fbe4cc6a6dbe9dcde5114abce5593e5"
+          },
+          "installed": {
+            "name": "xlog-prototype-worker.exe",
+            "path": "%LOCALAPPDATA%\\OM0RX-xLog\\xlog-prototype-worker.exe",
+            "fileVersion": null,
+            "sha256": "2dd9a007937b0cee8240bc73785a76ce2fbe4cc6a6dbe9dcde5114abce5593e5"
+          }
+        },
+        "portable": {
+          "status": "passed",
+          "guiLaunches": 2,
+          "isolation": {
+            "summary": "Task-owned private synthetic profile and temporary storage; child PATH restricted to accepted package plus Windows system directories. Raw coordinates withheld.",
+            "developerEnvironmentRemoved": true,
+            "parentEnvironmentChanged": false
+          },
+          "os": {
+            "description": "Microsoft Windows 10.0.20348",
+            "runnerImageVersion": "20261026.347.1",
+            "version": "Microsoft Windows NT 10.0.20348.0",
+            "architecture": "X64",
+            "powershell": "7.6.9",
+            "runnerImage": "win22"
+          },
+          "webview": {
+            "mode": "Evergreen prerequisite; acceptance does not install it",
+            "installations": [
+              {
+                "registry": "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+                "version": "131.0.2903.86"
+              }
+            ],
+            "installed": true
+          },
+          "swiftAbsent": true
+        },
+        "installer": {
+          "schema": 2,
+          "passed": false,
+          "installer": "OM0RX-xLog-1.5.20-windows-x86_64-current-user-setup.exe",
+          "harnessElevated": true,
+          "interactiveUAC": "NOT RUN (silent harness)",
+          "ordinaryUserRuntime": "NOT RUN",
+          "interactiveDefaultPath": "NOT RUN (silent harness)",
+          "upgrade": "NOT RUN",
+          "reinstallRollback": "NOT RUN",
+          "externalMediaRetention": "NOT RUN",
+          "version": "1.5.20",
+          "sourceCommit": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+          "installerSHA256": "93ac5496ecc60dff77f405d6fa8e87a8947b21a66ee3d316678b82879a7d38f9",
+          "installationScope": "currentUser",
+          "expectedDefaultDirectory": "%LOCALAPPDATA%\\OM0RX-xLog",
+          "registryHive": "HKCU",
+          "payloadManifestSHA256": "448ca94af62660acf51cd201eee791367fa0898a6ab355f3559e41d4a9c2060d",
+          "actualDirectory": "%LOCALAPPDATA%\\OM0RX-xLog",
+          "shortcutTarget": "%LOCALAPPDATA%\\OM0RX-xLog\\xlog-prototype.exe",
+          "defaultPathPassed": true,
+          "registryScopePassed": true,
+          "startMenuScopePassed": true,
+          "error": "Packaged local logbook round trip failed."
+        },
+        "installed": {
+          "status": "failed",
+          "error": "Packaged local logbook round trip failed.",
+          "isolation": {
+            "summary": "Task-owned private synthetic profile and temporary storage; child PATH restricted to accepted package plus Windows system directories. Raw coordinates withheld.",
+            "developerEnvironmentRemoved": true,
+            "parentEnvironmentChanged": false
+          },
+          "os": {
+            "runnerImage": "win22",
+            "powershell": "7.6.9",
+            "architecture": "X64",
+            "runnerImageVersion": "20261026.347.1",
+            "version": "Microsoft Windows NT 10.0.20348.0",
+            "description": "Microsoft Windows 10.0.20348"
+          },
+          "webview": {
+            "mode": "Evergreen prerequisite; acceptance does not install it",
+            "installed": true,
+            "installations": [
+              {
+                "registry": "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+                "version": "131.0.2903.86"
+              }
+            ]
+          },
+          "swiftAbsent": true,
+          "passedChecks": [
+            "installer-owned-uninstaller",
+            "payload-hashes",
+            "native-isolation",
+            "webview-prerequisite",
+            "worker-valid-module-origins",
+            "ndjson-open-stdin-fragment-correlation",
+            "bundled-python-standard-library",
+            "worker-contest-runtime-round-trip",
+            "ndjson-malformed-oversized-recovery"
+          ]
+        },
+        "unreached": [
+          "installedGUI",
+          "uninstall",
+          "marker preservation"
+        ],
+        "command": "xlog-prototype-worker.exe --local-logbook-self-test",
+        "assertion": "ok true AND result.passed true AND award_programmes192 AND network_contact false AND station_io false"
+      }
+    },
+    {
+      "scope": "perMachine",
+      "portable": {
+        "status": "passed",
+        "checks": [
+          {
+            "name": "payload-hashes",
+            "passed": true,
+            "evidence": {
+              "manifestSha256": "448ca94af62660acf51cd201eee791367fa0898a6ab355f3559e41d4a9c2060d",
+              "files": 3270
+            }
+          },
+          {
+            "name": "native-isolation",
+            "passed": true,
+            "evidence": {
+              "noSwiftRequired": true,
+              "swiftAbsentFromProbes": true
+            }
+          },
+          {
+            "name": "webview-prerequisite",
+            "passed": true,
+            "evidence": [
+              {
+                "registry": "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+                "version": "131.0.2903.86"
+              }
+            ]
+          },
+          {
+            "name": "worker-valid-module-origins",
+            "passed": true,
+            "evidence": {
+              "count": 55,
+              "appLocalRequired": true,
+              "manifest": "worker-valid-modules.json"
+            }
+          },
+          {
+            "name": "ndjson-open-stdin-fragment-correlation",
+            "passed": true,
+            "evidence": {
+              "stationIO": false,
+              "responses": 3,
+              "methods": [
+                "health",
+                "parse_adif",
+                "self_test"
+              ],
+              "localLogbook": true,
+              "shutdown": "EOF exit 0"
+            }
+          },
+          {
+            "name": "bundled-python-standard-library",
+            "passed": true,
+            "evidence": {
+              "python": "3.12.16 (main, Oct 26 2026, 14:10:56) [MSC v.1944 64 bit (AMD64)]",
+              "openssl": "OpenSSL 3.5.9 29 Sep 2026",
+              "sqlite": "3.53.1",
+              "certificateAuthorities": 417,
+              "certificateVerification": true
+            }
+          },
+          {
+            "name": "worker-contest-runtime-round-trip",
+            "passed": true,
+            "evidence": {
+              "syntheticRecords": true,
+              "restartReopen": true,
+              "bundledLocator": true,
+              "stationIO": false,
+              "sanitizedChild": true
+            }
+          },
+          {
+            "name": "ndjson-malformed-oversized-recovery",
+            "passed": true,
+            "evidence": {
+              "responses": 3,
+              "shutdown": "EOF exit 0"
+            }
+          },
+          {
+            "name": "worker-local-logbook-round-trip",
+            "passed": true,
+            "evidence": {
+              "localFileIO": true,
+              "syntheticRecords": true,
+              "stationIO": false,
+              "shutdown": "exit 0"
+            }
+          },
+          {
+            "name": "worker-cli-self-test",
+            "passed": true,
+            "evidence": {
+              "shutdown": "exit 0",
+              "syntheticOnly": true
+            }
+          },
+          {
+            "name": "gui-run-1-module-origins",
+            "passed": true,
+            "evidence": {
+              "count": 68,
+              "appLocalRequired": false,
+              "manifest": "gui-run-1-modules.json"
+            }
+          },
+          {
+            "name": "gui-run-1",
+            "passed": true,
+            "evidence": {
+              "reportSha256": "eaa3ef55da5bf490c9ae6aa556cfec286c54c5a027c29928c1720607ff603ba8",
+              "nativeChecks": 36,
+              "exit": 0,
+              "screenshot": {
+                "width": 1024,
+                "height": 768,
+                "status": "captured",
+                "sha256": "31e5d14d0251262df49450f3fbc6f6ae48414537c5c24e01d089af36ba8d3bbb",
+                "path": "gui-run-1-desktop.png",
+                "limitation": "Full native CI desktop image; inspect for actual application rendering."
+              },
+              "report": "gui-run-1.json"
+            }
+          },
+          {
+            "name": "gui-run-2-module-origins",
+            "passed": true,
+            "evidence": {
+              "count": 63,
+              "appLocalRequired": false,
+              "manifest": "gui-run-2-modules.json"
+            }
+          },
+          {
+            "name": "gui-run-2",
+            "passed": true,
+            "evidence": {
+              "reportSha256": "2e5234ffcdfea6f2fc06c3a7ffc1308c67069a1721e45ad37184055f8fdb7ce4",
+              "nativeChecks": 36,
+              "exit": 0,
+              "screenshot": {
+                "width": 1024,
+                "height": 768,
+                "status": "captured",
+                "sha256": "3c7f046a021ff6c8587bf000484f0d679e939e7e809ba383f2b040660a09630c",
+                "path": "gui-run-2-desktop.png",
+                "limitation": "Full native CI desktop image; inspect for actual application rendering."
+              },
+              "report": "gui-run-2.json"
+            }
+          }
+        ],
+        "gui": [
+          {
+            "report": "xlog-acceptance-windows-perMachine-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-evidence/gui-run-1.json",
+            "sha256": "eaa3ef55da5bf490c9ae6aa556cfec286c54c5a027c29928c1720607ff603ba8",
+            "checks": 36,
+            "radioSkipped": true,
+            "rotatorSkipped": true
+          },
+          {
+            "report": "xlog-acceptance-windows-perMachine-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-evidence/gui-run-2.json",
+            "sha256": "2e5234ffcdfea6f2fc06c3a7ffc1308c67069a1721e45ad37184055f8fdb7ce4",
+            "checks": 36,
+            "radioSkipped": true,
+            "rotatorSkipped": true
+          }
+        ],
+        "os": {
+          "version": "Microsoft Windows NT 10.0.20348.0",
+          "runnerImage": "win22",
+          "powershell": "7.6.9",
+          "architecture": "X64",
+          "runnerImageVersion": "20261026.347.1",
+          "description": "Microsoft Windows 10.0.20348"
+        },
+        "webview": {
+          "installations": [
+            {
+              "registry": "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+              "version": "131.0.2903.86"
+            }
+          ],
+          "installed": true,
+          "mode": "Evergreen prerequisite; acceptance does not install it"
+        },
+        "swiftAbsentFromProbes": true,
+        "toolchainAbsenceLimit": "Command lookup, conventional installation paths and uninstall registry checked; not an exhaustive disk scan."
+      },
+      "installer": {
+        "schema": 2,
+        "passed": false,
+        "installer": "OM0RX-xLog-1.5.20-windows-x86_64-all-users-setup.exe",
+        "harnessElevated": true,
+        "interactiveUAC": "NOT RUN (silent harness)",
+        "ordinaryUserRuntime": "NOT RUN",
+        "interactiveDefaultPath": "NOT RUN (silent harness)",
+        "upgrade": "NOT RUN",
+        "reinstallRollback": "NOT RUN",
+        "externalMediaRetention": "NOT RUN",
+        "version": "1.5.20",
+        "sourceCommit": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+        "installerSHA256": "6120174e492d048fbe7e785fdcc4de04fbaef26f1e85c919f18f89fe50aed86d",
+        "installationScope": "perMachine",
+        "expectedDefaultDirectory": "%ProgramFiles%\\OM0RX-xLog",
+        "registryHive": "HKLM",
+        "payloadManifestSHA256": "448ca94af62660acf51cd201eee791367fa0898a6ab355f3559e41d4a9c2060d",
+        "actualDirectory": "%ProgramFiles%\\OM0RX-xLog",
+        "shortcutTarget": "%ProgramFiles%\\OM0RX-xLog\\xlog-prototype.exe",
+        "defaultPathPassed": true,
+        "registryScopePassed": true,
+        "startMenuScopePassed": true,
+        "error": "Packaged local logbook round trip failed."
+      },
+      "installedRuntime": {
+        "status": "failed",
+        "checks": [
+          {
+            "name": "installer-owned-uninstaller",
+            "passed": true,
+            "evidence": {
+              "excludedFromPortableManifest": true,
+              "name": "uninstall.exe"
+            }
+          },
+          {
+            "name": "payload-hashes",
+            "passed": true,
+            "evidence": {
+              "manifestSha256": "448ca94af62660acf51cd201eee791367fa0898a6ab355f3559e41d4a9c2060d",
+              "files": 3270
+            }
+          },
+          {
+            "name": "native-isolation",
+            "passed": true,
+            "evidence": {
+              "swiftAbsentFromProbes": true,
+              "noSwiftRequired": true
+            }
+          },
+          {
+            "name": "webview-prerequisite",
+            "passed": true,
+            "evidence": [
+              {
+                "registry": "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+                "version": "131.0.2903.86"
+              }
+            ]
+          },
+          {
+            "name": "worker-valid-module-origins",
+            "passed": true,
+            "evidence": {
+              "appLocalRequired": true,
+              "manifest": "worker-valid-modules.json",
+              "count": 55
+            }
+          },
+          {
+            "name": "ndjson-open-stdin-fragment-correlation",
+            "passed": true,
+            "evidence": {
+              "stationIO": false,
+              "localLogbook": true,
+              "shutdown": "EOF exit 0",
+              "methods": [
+                "health",
+                "parse_adif",
+                "self_test"
+              ],
+              "responses": 3
+            }
+          },
+          {
+            "name": "bundled-python-standard-library",
+            "passed": true,
+            "evidence": {
+              "python": "3.12.16 (main, Oct 26 2026, 14:10:56) [MSC v.1944 64 bit (AMD64)]",
+              "openssl": "OpenSSL 3.5.9 29 Sep 2026",
+              "sqlite": "3.53.1",
+              "certificateAuthorities": 417,
+              "certificateVerification": true
+            }
+          },
+          {
+            "name": "worker-contest-runtime-round-trip",
+            "passed": true,
+            "evidence": {
+              "syntheticRecords": true,
+              "sanitizedChild": true,
+              "bundledLocator": true,
+              "restartReopen": true,
+              "stationIO": false
+            }
+          },
+          {
+            "name": "ndjson-malformed-oversized-recovery",
+            "passed": true,
+            "evidence": {
+              "shutdown": "EOF exit 0",
+              "responses": 3
+            }
+          }
+        ],
+        "error": "Packaged local logbook round trip failed.",
+        "os": {
+          "runnerImage": "win22",
+          "version": "Microsoft Windows NT 10.0.20348.0",
+          "description": "Microsoft Windows 10.0.20348",
+          "runnerImageVersion": "20261026.347.1",
+          "architecture": "X64",
+          "powershell": "7.6.9"
+        },
+        "webview": {
+          "installations": [
+            {
+              "registry": "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+              "version": "131.0.2903.86"
+            }
+          ],
+          "mode": "Evergreen prerequisite; acceptance does not install it",
+          "installed": true
+        },
+        "isolation": {
+          "summary": "Task-owned private synthetic profile and temporary storage; child PATH restricted to accepted package plus Windows system directories. Raw coordinates withheld.",
+          "developerEnvironmentRemoved": true,
+          "parentEnvironmentChanged": false
+        }
+      },
+      "failure": {
+        "command": "xlog-prototype-worker.exe --local-logbook-self-test",
+        "sourceAssertion": "prototype/scripts/accept-windows.ps1:274",
+        "assertion": "ok AND passed true AND award_programmes = 192 AND network_contact/station_io false",
+        "message": "Packaged local logbook round trip failed.",
+        "rawReply": "NOT RETAINED: response write follows assertion at line276",
+        "classification": "Specific false field/cause UNDETERMINED; no app fix inferred from conjunction alone"
+      },
+      "notReached": [
+        "installedGUI",
+        "uninstall",
+        "marker preservation"
+      ],
+      "account": "Harness elevation actually true; token account name not recorded. Observed paths are normalized to verified known-folder tokens; raw receipts private.",
+      "boundaries": {
+        "ordinaryUserRuntime": "NOT RUN",
+        "interactiveUAC": "NOT RUN (silent harness)",
+        "interactiveDefaultPath": "NOT RUN (silent harness)",
+        "upgrade": "NOT RUN",
+        "reinstallRollback": "NOT RUN",
+        "externalMediaRetention": "NOT RUN"
+      },
+      "comparison": {
+        "scope": "perMachine",
+        "source": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+        "installerReceipt": "xlog-acceptance-windows-perMachine-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-installer-evidence/perMachine/installer-acceptance.json",
+        "installedRuntimeReceipt": "xlog-acceptance-windows-perMachine-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-installer-evidence/perMachine/native-runtime/acceptance.json",
+        "portableAcceptance": "xlog-acceptance-windows-perMachine-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-evidence/acceptance.json",
+        "portableRawLocalReply": {
+          "path": "xlog-acceptance-windows-perMachine-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-evidence/worker-local-logbook.json",
+          "sha256": "867dc5d0da0fa26be0fe4b23b018b1c5819e0f7e57bd0eeebbe0daa91d7b98d5",
+          "value": {
+            "id": "local-logbook-self-test",
+            "ok": true,
+            "result": {
+              "award_programmes": 192,
+              "checks": [
+                "workspace",
+                "settings",
+                "adif_unknown_fields",
+                "save_search",
+                "cty_resources",
+                "awards_resources",
+                "delete_undo",
+                "backup_restore",
+                "reopen_export"
+              ],
+              "credentials_accessed": false,
+              "local_file_io": true,
+              "network_contact": false,
+              "passed": true,
+              "qso_count": 1,
+              "station_io": false,
+              "synthetic_records": true
+            }
+          }
+        },
+        "installedRawLocalReply": "NOT RETAINED: accept-windows.ps1 line276 writes after failing assertion274",
+        "workerExeSHA256": "2dd9a007937b0cee8240bc73785a76ce2fbe4cc6a6dbe9dcde5114abce5593e5",
+        "workerModules": {
+          "portable": {
+            "name": "xlog-prototype-worker.exe",
+            "path": "<private portable package>\\xlog-prototype-worker.exe",
+            "fileVersion": null,
+            "sha256": "2dd9a007937b0cee8240bc73785a76ce2fbe4cc6a6dbe9dcde5114abce5593e5"
+          },
+          "installed": {
+            "name": "xlog-prototype-worker.exe",
+            "path": "%ProgramFiles%\\OM0RX-xLog\\xlog-prototype-worker.exe",
+            "fileVersion": null,
+            "sha256": "2dd9a007937b0cee8240bc73785a76ce2fbe4cc6a6dbe9dcde5114abce5593e5"
+          }
+        },
+        "portable": {
+          "status": "passed",
+          "guiLaunches": 2,
+          "isolation": {
+            "summary": "Task-owned private synthetic profile and temporary storage; child PATH restricted to accepted package plus Windows system directories. Raw coordinates withheld.",
+            "developerEnvironmentRemoved": true,
+            "parentEnvironmentChanged": false
+          },
+          "os": {
+            "version": "Microsoft Windows NT 10.0.20348.0",
+            "runnerImage": "win22",
+            "powershell": "7.6.9",
+            "architecture": "X64",
+            "runnerImageVersion": "20261026.347.1",
+            "description": "Microsoft Windows 10.0.20348"
+          },
+          "webview": {
+            "installations": [
+              {
+                "registry": "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+                "version": "131.0.2903.86"
+              }
+            ],
+            "installed": true,
+            "mode": "Evergreen prerequisite; acceptance does not install it"
+          },
+          "swiftAbsent": true
+        },
+        "installer": {
+          "schema": 2,
+          "passed": false,
+          "installer": "OM0RX-xLog-1.5.20-windows-x86_64-all-users-setup.exe",
+          "harnessElevated": true,
+          "interactiveUAC": "NOT RUN (silent harness)",
+          "ordinaryUserRuntime": "NOT RUN",
+          "interactiveDefaultPath": "NOT RUN (silent harness)",
+          "upgrade": "NOT RUN",
+          "reinstallRollback": "NOT RUN",
+          "externalMediaRetention": "NOT RUN",
+          "version": "1.5.20",
+          "sourceCommit": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+          "installerSHA256": "6120174e492d048fbe7e785fdcc4de04fbaef26f1e85c919f18f89fe50aed86d",
+          "installationScope": "perMachine",
+          "expectedDefaultDirectory": "%ProgramFiles%\\OM0RX-xLog",
+          "registryHive": "HKLM",
+          "payloadManifestSHA256": "448ca94af62660acf51cd201eee791367fa0898a6ab355f3559e41d4a9c2060d",
+          "actualDirectory": "%ProgramFiles%\\OM0RX-xLog",
+          "shortcutTarget": "%ProgramFiles%\\OM0RX-xLog\\xlog-prototype.exe",
+          "defaultPathPassed": true,
+          "registryScopePassed": true,
+          "startMenuScopePassed": true,
+          "error": "Packaged local logbook round trip failed."
+        },
+        "installed": {
+          "status": "failed",
+          "error": "Packaged local logbook round trip failed.",
+          "isolation": {
+            "summary": "Task-owned private synthetic profile and temporary storage; child PATH restricted to accepted package plus Windows system directories. Raw coordinates withheld.",
+            "developerEnvironmentRemoved": true,
+            "parentEnvironmentChanged": false
+          },
+          "os": {
+            "runnerImage": "win22",
+            "version": "Microsoft Windows NT 10.0.20348.0",
+            "description": "Microsoft Windows 10.0.20348",
+            "runnerImageVersion": "20261026.347.1",
+            "architecture": "X64",
+            "powershell": "7.6.9"
+          },
+          "webview": {
+            "installations": [
+              {
+                "registry": "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+                "version": "131.0.2903.86"
+              }
+            ],
+            "mode": "Evergreen prerequisite; acceptance does not install it",
+            "installed": true
+          },
+          "swiftAbsent": true,
+          "passedChecks": [
+            "installer-owned-uninstaller",
+            "payload-hashes",
+            "native-isolation",
+            "webview-prerequisite",
+            "worker-valid-module-origins",
+            "ndjson-open-stdin-fragment-correlation",
+            "bundled-python-standard-library",
+            "worker-contest-runtime-round-trip",
+            "ndjson-malformed-oversized-recovery"
+          ]
+        },
+        "unreached": [
+          "installedGUI",
+          "uninstall",
+          "marker preservation"
+        ],
+        "command": "xlog-prototype-worker.exe --local-logbook-self-test",
+        "assertion": "ok true AND result.passed true AND award_programmes192 AND network_contact false AND station_io false"
+      }
+    }
+  ],
+  "screenshots": {
+    "linux": [
+      "ui-1.png and ui-wayland.png inspected: app rendered; isolated rotor-unavailable banner visible"
+    ],
+    "windowsCurrentUser": [
+      "Both portable desktop PNGs inspected: GitHub hosted-agent console occludes app; no visual app claim from those captures"
+    ],
+    "windowsPerMachine": [
+      "Portable gui-run-1-desktop.png inspected: app rendered at1024x768; isolated rotor-unavailable banner visible"
+    ],
+    "installedWindows": "No GUI reached or screenshot"
+  },
+  "logs": [
+    {
+      "job": 127209006672,
+      "path": "job-127209006672-full.log",
+      "bytes": 2539091,
+      "sha256": "a6e839da4bc811de7d93204692380a373e003c512db10c85f05c5d985112e2a5"
+    },
+    {
+      "job": 127209006909,
+      "path": "job-127209006909-full.log",
+      "bytes": 2178090,
+      "sha256": "7f1f58fc491d2c21bc148dd83f8f5db0ec92c23aa469dc4df88949014c78d43c"
+    },
+    {
+      "job": 127209007198,
+      "path": "job-127209007198-full.log",
+      "bytes": 1734859,
+      "sha256": "a969e46c8d4682019ab963fef0dc23a6619ccd2661c2527c8263873933becb03"
+    },
+    {
+      "job": 127245303338,
+      "path": "job-127245303338-full.log",
+      "bytes": 274920,
+      "sha256": "cbf55192beb19ee97a688bba76ee618beea741a9a7f6d136d935e817f7e70fbe"
+    },
+    {
+      "job": 127245303413,
+      "path": "job-127245303413-full.log",
+      "bytes": 25679,
+      "sha256": "24dedb96b7477500a0ceef6611b25ee4fcda5ce3d1c875398f912b5d51cfa19e"
+    },
+    {
+      "job": 127245303500,
+      "path": "job-127245303500-full.log",
+      "bytes": 24783,
+      "sha256": "2e962ec418926ef8d78be5c836bd216d43e39e50af9ce420e720907584566a99"
+    }
+  ],
+  "supportingGates": [
+    {
+      "run": 42016577073,
+      "conclusion": "success",
+      "source": "3d9cb0981c30764f1188db350ffebc22a5f328a7"
+    },
+    {
+      "run": 42016577154,
+      "conclusion": "success",
+      "source": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "jobsPassed": 7
+    }
+  ],
+  "redundantPush": {
+    "run": 42016577155,
+    "conclusion": "cancelled",
+    "source": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+    "reason": "Explicitly authorized duplicate Mac-only validation; not a pass"
+  },
+  "rootLocalMac": {
+    "source": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+    "nativeDocsCommit": "e7f4d0263d98a47fad0de1b43cf20241c722b717",
+    "heapCorrectionDocsCommit": "aa1a338ef4597aae932438586e875e9eaa1a5849",
+    "scope": "Separate signed native20 journey/ADIF and retention evidence owned by root; not inferred from CI"
+  },
+  "boundaries": [
+    "No retries, rebuilds, deadline changes or guard relaxations by this task",
+    "Linux acceptance is synthetic native container coverage, not physical desktop",
+    "Windows scopes reached true silent defaults without /D; installed local-logbook assertionFAIL; GUI/uninstall/marker retention NOTREACHED",
+    "Windows portable2UIruns per fresh host PASS; currentUser screenshots occluded by hosted-agent console",
+    "Ordinary-user/UAC, upgrades, external media, physical radio/rotor and real accounts remain NOTRUN",
+    "No production installation/public release by this evidence task"
+  ],
+  "preservedHistory": [
+    {
+      "run": 42008808018,
+      "status": "FAILED Windows frontend/QTC firstclick; runtimesSKIPPED"
+    },
+    {
+      "run": 41987734820,
+      "status": "FAILED Windows sourceclean guard; runtimesSKIPPED"
+    },
+    {
+      "run": 41983234450,
+      "status": "Linux frontendFAIL; other unfinished jobs superseded/cancelled"
+    },
+    {
+      "run": 41978769883,
+      "status": "Superseded/cancelled after native firstQSO own-identity defect; not a pass"
+    }
+  ],
+  "coordinateSanitization": {
+    "method": "Normalize actually observed currentUser/perMachine installation roots to verified Windows known-folder tokens; retain raw equality/default/registry/shortcut/payload checks. Remove CWD/TEMP/profile/process/marker coordinates. Raw receipts remain private.",
+    "knownFolderNormalization": {
+      "currentUser": "%LOCALAPPDATA%\\OM0RX-xLog",
+      "perMachine": "%ProgramFiles%\\OM0RX-xLog"
+    },
+    "proof": "Raw actualDirectory matched expectedDefaultDirectory; defaultPathPassed, registryScopePassed, startMenuScopePassed and installed payload hash checks true in both scope receipts.",
+    "rawCoordinatesPublished": false
+  }
+}

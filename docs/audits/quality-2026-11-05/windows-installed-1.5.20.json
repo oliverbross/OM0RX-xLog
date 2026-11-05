@@ -1,0 +1,316 @@
+{
+  "workerExeSHA256": "2dd9a007937b0cee8240bc73785a76ce2fbe4cc6a6dbe9dcde5114abce5593e5",
+  "records": [
+    {
+      "scope": "currentUser",
+      "source": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "installerReceipt": "xlog-acceptance-windows-currentUser-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-installer-evidence/currentUser/installer-acceptance.json",
+      "installedRuntimeReceipt": "xlog-acceptance-windows-currentUser-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-installer-evidence/currentUser/native-runtime/acceptance.json",
+      "portableAcceptance": "xlog-acceptance-windows-currentUser-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-evidence/acceptance.json",
+      "portableRawLocalReply": {
+        "path": "xlog-acceptance-windows-currentUser-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-evidence/worker-local-logbook.json",
+        "sha256": "867dc5d0da0fa26be0fe4b23b018b1c5819e0f7e57bd0eeebbe0daa91d7b98d5",
+        "value": {
+          "id": "local-logbook-self-test",
+          "ok": true,
+          "result": {
+            "award_programmes": 192,
+            "checks": [
+              "workspace",
+              "settings",
+              "adif_unknown_fields",
+              "save_search",
+              "cty_resources",
+              "awards_resources",
+              "delete_undo",
+              "backup_restore",
+              "reopen_export"
+            ],
+            "credentials_accessed": false,
+            "local_file_io": true,
+            "network_contact": false,
+            "passed": true,
+            "qso_count": 1,
+            "station_io": false,
+            "synthetic_records": true
+          }
+        }
+      },
+      "installedRawLocalReply": "NOT RETAINED: accept-windows.ps1 line276 writes after failing assertion274",
+      "workerExeSHA256": "2dd9a007937b0cee8240bc73785a76ce2fbe4cc6a6dbe9dcde5114abce5593e5",
+      "workerModules": {
+        "portable": {
+          "name": "xlog-prototype-worker.exe",
+          "path": "<private portable package>\\xlog-prototype-worker.exe",
+          "fileVersion": null,
+          "sha256": "2dd9a007937b0cee8240bc73785a76ce2fbe4cc6a6dbe9dcde5114abce5593e5"
+        },
+        "installed": {
+          "name": "xlog-prototype-worker.exe",
+          "path": "%LOCALAPPDATA%\\OM0RX-xLog\\xlog-prototype-worker.exe",
+          "fileVersion": null,
+          "sha256": "2dd9a007937b0cee8240bc73785a76ce2fbe4cc6a6dbe9dcde5114abce5593e5"
+        }
+      },
+      "portable": {
+        "status": "passed",
+        "guiLaunches": 2,
+        "isolation": {
+          "summary": "Task-owned private synthetic profile and temporary storage; child PATH restricted to accepted package plus Windows system directories. Raw coordinates withheld.",
+          "developerEnvironmentRemoved": true,
+          "parentEnvironmentChanged": false
+        },
+        "os": {
+          "description": "Microsoft Windows 10.0.20348",
+          "runnerImageVersion": "20261026.347.1",
+          "version": "Microsoft Windows NT 10.0.20348.0",
+          "architecture": "X64",
+          "powershell": "7.6.9",
+          "runnerImage": "win22"
+        },
+        "webview": {
+          "mode": "Evergreen prerequisite; acceptance does not install it",
+          "installations": [
+            {
+              "registry": "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+              "version": "131.0.2903.86"
+            }
+          ],
+          "installed": true
+        },
+        "swiftAbsent": true
+      },
+      "installer": {
+        "schema": 2,
+        "passed": false,
+        "installer": "OM0RX-xLog-1.5.20-windows-x86_64-current-user-setup.exe",
+        "harnessElevated": true,
+        "interactiveUAC": "NOT RUN (silent harness)",
+        "ordinaryUserRuntime": "NOT RUN",
+        "interactiveDefaultPath": "NOT RUN (silent harness)",
+        "upgrade": "NOT RUN",
+        "reinstallRollback": "NOT RUN",
+        "externalMediaRetention": "NOT RUN",
+        "version": "1.5.20",
+        "sourceCommit": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+        "installerSHA256": "93ac5496ecc60dff77f405d6fa8e87a8947b21a66ee3d316678b82879a7d38f9",
+        "installationScope": "currentUser",
+        "expectedDefaultDirectory": "%LOCALAPPDATA%\\OM0RX-xLog",
+        "registryHive": "HKCU",
+        "payloadManifestSHA256": "448ca94af62660acf51cd201eee791367fa0898a6ab355f3559e41d4a9c2060d",
+        "actualDirectory": "%LOCALAPPDATA%\\OM0RX-xLog",
+        "shortcutTarget": "%LOCALAPPDATA%\\OM0RX-xLog\\xlog-prototype.exe",
+        "defaultPathPassed": true,
+        "registryScopePassed": true,
+        "startMenuScopePassed": true,
+        "error": "Packaged local logbook round trip failed."
+      },
+      "installed": {
+        "status": "failed",
+        "error": "Packaged local logbook round trip failed.",
+        "isolation": {
+          "summary": "Task-owned private synthetic profile and temporary storage; child PATH restricted to accepted package plus Windows system directories. Raw coordinates withheld.",
+          "developerEnvironmentRemoved": true,
+          "parentEnvironmentChanged": false
+        },
+        "os": {
+          "runnerImage": "win22",
+          "powershell": "7.6.9",
+          "architecture": "X64",
+          "runnerImageVersion": "20261026.347.1",
+          "version": "Microsoft Windows NT 10.0.20348.0",
+          "description": "Microsoft Windows 10.0.20348"
+        },
+        "webview": {
+          "mode": "Evergreen prerequisite; acceptance does not install it",
+          "installed": true,
+          "installations": [
+            {
+              "registry": "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+              "version": "131.0.2903.86"
+            }
+          ]
+        },
+        "swiftAbsent": true,
+        "passedChecks": [
+          "installer-owned-uninstaller",
+          "payload-hashes",
+          "native-isolation",
+          "webview-prerequisite",
+          "worker-valid-module-origins",
+          "ndjson-open-stdin-fragment-correlation",
+          "bundled-python-standard-library",
+          "worker-contest-runtime-round-trip",
+          "ndjson-malformed-oversized-recovery"
+        ]
+      },
+      "unreached": [
+        "installedGUI",
+        "uninstall",
+        "marker preservation"
+      ],
+      "command": "xlog-prototype-worker.exe --local-logbook-self-test",
+      "assertion": "ok true AND result.passed true AND award_programmes192 AND network_contact false AND station_io false"
+    },
+    {
+      "scope": "perMachine",
+      "source": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "installerReceipt": "xlog-acceptance-windows-perMachine-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-installer-evidence/perMachine/installer-acceptance.json",
+      "installedRuntimeReceipt": "xlog-acceptance-windows-perMachine-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-installer-evidence/perMachine/native-runtime/acceptance.json",
+      "portableAcceptance": "xlog-acceptance-windows-perMachine-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-evidence/acceptance.json",
+      "portableRawLocalReply": {
+        "path": "xlog-acceptance-windows-perMachine-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-evidence/worker-local-logbook.json",
+        "sha256": "867dc5d0da0fa26be0fe4b23b018b1c5819e0f7e57bd0eeebbe0daa91d7b98d5",
+        "value": {
+          "id": "local-logbook-self-test",
+          "ok": true,
+          "result": {
+            "award_programmes": 192,
+            "checks": [
+              "workspace",
+              "settings",
+              "adif_unknown_fields",
+              "save_search",
+              "cty_resources",
+              "awards_resources",
+              "delete_undo",
+              "backup_restore",
+              "reopen_export"
+            ],
+            "credentials_accessed": false,
+            "local_file_io": true,
+            "network_contact": false,
+            "passed": true,
+            "qso_count": 1,
+            "station_io": false,
+            "synthetic_records": true
+          }
+        }
+      },
+      "installedRawLocalReply": "NOT RETAINED: accept-windows.ps1 line276 writes after failing assertion274",
+      "workerExeSHA256": "2dd9a007937b0cee8240bc73785a76ce2fbe4cc6a6dbe9dcde5114abce5593e5",
+      "workerModules": {
+        "portable": {
+          "name": "xlog-prototype-worker.exe",
+          "path": "<private portable package>\\xlog-prototype-worker.exe",
+          "fileVersion": null,
+          "sha256": "2dd9a007937b0cee8240bc73785a76ce2fbe4cc6a6dbe9dcde5114abce5593e5"
+        },
+        "installed": {
+          "name": "xlog-prototype-worker.exe",
+          "path": "%ProgramFiles%\\OM0RX-xLog\\xlog-prototype-worker.exe",
+          "fileVersion": null,
+          "sha256": "2dd9a007937b0cee8240bc73785a76ce2fbe4cc6a6dbe9dcde5114abce5593e5"
+        }
+      },
+      "portable": {
+        "status": "passed",
+        "guiLaunches": 2,
+        "isolation": {
+          "summary": "Task-owned private synthetic profile and temporary storage; child PATH restricted to accepted package plus Windows system directories. Raw coordinates withheld.",
+          "developerEnvironmentRemoved": true,
+          "parentEnvironmentChanged": false
+        },
+        "os": {
+          "version": "Microsoft Windows NT 10.0.20348.0",
+          "runnerImage": "win22",
+          "powershell": "7.6.9",
+          "architecture": "X64",
+          "runnerImageVersion": "20261026.347.1",
+          "description": "Microsoft Windows 10.0.20348"
+        },
+        "webview": {
+          "installations": [
+            {
+              "registry": "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+              "version": "131.0.2903.86"
+            }
+          ],
+          "installed": true,
+          "mode": "Evergreen prerequisite; acceptance does not install it"
+        },
+        "swiftAbsent": true
+      },
+      "installer": {
+        "schema": 2,
+        "passed": false,
+        "installer": "OM0RX-xLog-1.5.20-windows-x86_64-all-users-setup.exe",
+        "harnessElevated": true,
+        "interactiveUAC": "NOT RUN (silent harness)",
+        "ordinaryUserRuntime": "NOT RUN",
+        "interactiveDefaultPath": "NOT RUN (silent harness)",
+        "upgrade": "NOT RUN",
+        "reinstallRollback": "NOT RUN",
+        "externalMediaRetention": "NOT RUN",
+        "version": "1.5.20",
+        "sourceCommit": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+        "installerSHA256": "6120174e492d048fbe7e785fdcc4de04fbaef26f1e85c919f18f89fe50aed86d",
+        "installationScope": "perMachine",
+        "expectedDefaultDirectory": "%ProgramFiles%\\OM0RX-xLog",
+        "registryHive": "HKLM",
+        "payloadManifestSHA256": "448ca94af62660acf51cd201eee791367fa0898a6ab355f3559e41d4a9c2060d",
+        "actualDirectory": "%ProgramFiles%\\OM0RX-xLog",
+        "shortcutTarget": "%ProgramFiles%\\OM0RX-xLog\\xlog-prototype.exe",
+        "defaultPathPassed": true,
+        "registryScopePassed": true,
+        "startMenuScopePassed": true,
+        "error": "Packaged local logbook round trip failed."
+      },
+      "installed": {
+        "status": "failed",
+        "error": "Packaged local logbook round trip failed.",
+        "isolation": {
+          "summary": "Task-owned private synthetic profile and temporary storage; child PATH restricted to accepted package plus Windows system directories. Raw coordinates withheld.",
+          "developerEnvironmentRemoved": true,
+          "parentEnvironmentChanged": false
+        },
+        "os": {
+          "runnerImage": "win22",
+          "version": "Microsoft Windows NT 10.0.20348.0",
+          "description": "Microsoft Windows 10.0.20348",
+          "runnerImageVersion": "20261026.347.1",
+          "architecture": "X64",
+          "powershell": "7.6.9"
+        },
+        "webview": {
+          "installations": [
+            {
+              "registry": "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+              "version": "131.0.2903.86"
+            }
+          ],
+          "mode": "Evergreen prerequisite; acceptance does not install it",
+          "installed": true
+        },
+        "swiftAbsent": true,
+        "passedChecks": [
+          "installer-owned-uninstaller",
+          "payload-hashes",
+          "native-isolation",
+          "webview-prerequisite",
+          "worker-valid-module-origins",
+          "ndjson-open-stdin-fragment-correlation",
+          "bundled-python-standard-library",
+          "worker-contest-runtime-round-trip",
+          "ndjson-malformed-oversized-recovery"
+        ]
+      },
+      "unreached": [
+        "installedGUI",
+        "uninstall",
+        "marker preservation"
+      ],
+      "command": "xlog-prototype-worker.exe --local-logbook-self-test",
+      "assertion": "ok true AND result.passed true AND award_programmes192 AND network_contact false AND station_io false"
+    }
+  ],
+  "coordinateSanitization": {
+    "method": "Normalize actually observed currentUser/perMachine installation roots to verified Windows known-folder tokens; retain raw equality/default/registry/shortcut/payload checks. Remove CWD/TEMP/profile/process/marker coordinates. Raw receipts remain private.",
+    "knownFolderNormalization": {
+      "currentUser": "%LOCALAPPDATA%\\OM0RX-xLog",
+      "perMachine": "%ProgramFiles%\\OM0RX-xLog"
+    },
+    "proof": "Raw actualDirectory matched expectedDefaultDirectory; defaultPathPassed, registryScopePassed, startMenuScopePassed and installed payload hash checks true in both scope receipts.",
+    "rawCoordinatesPublished": false
+  }
+}

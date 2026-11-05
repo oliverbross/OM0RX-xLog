@@ -2,7 +2,9 @@
 
 This is the Q06 readiness contract. Successor 1.5.20, source
 `3d9cb0981c30764f1188db350ffebc22a5f328a7`, passed the local signed Mac journey;
-its all-platform gate `42016723457` is pending. Measured candidate 1.5.19 has
+its [original all-platform gate](ci-1.5.20-original.md) passed builds/Linux native
+runtime but failed both Windows installed local-logbook self-tests after
+portable/default-path partial passes. Candidate 1.5.20 is HELD. Measured 1.5.19 has
 frozen source `72a5926c2878ceedf70789ff4bae619ae5e14511`; its cross-platform
 gate failed Windows frontend before packaging.
 Earlier 1.5.18 receipts retain source `0b7c669663841c2e55569b0c21c76ad03805cad7`
@@ -12,8 +14,8 @@ ordinary desktop journey is qualified. Older P1 runtime receipts remain historic
 | Target | Runtime / distribution | Current qualification boundary |
 |---|---|---|
 | macOS arm64, macOS 14+ | System WKWebView; app ZIP; bundled native worker, Python and Hamlib | Signed local 1.5.20 on macOS 27.2 build 26B123; [recorded offline journey PASS](native-1.5.20.md). Minimum-OS, physical station, full screen/scaling/multiple-display, notarization and complete memory budget unqualified. |
-| Windows x64, intended Windows 11 | Evergreen WebView2; portable ZIP plus separate current-user and all-users NSIS installers; app-local worker/Swift/SQLite/Hamlib/Python | Canonical hosted reference is Windows Server 2022. Windows 10 is not accepted by the package contract. Ordinary Windows 11 account, UAC, prerequisites, upgrades and physical station remain NOT RUN. |
-| Ubuntu 24.04 amd64 | WebKitGTK 4.1 / GTK3; DEB plus relocatable archive; bundled worker/Swift/Hamlib and declared OS Python 3.12 | Native runtime-only container/Xvfb/nested Wayland gates are separate from a real desktop/GPU/session. Other distributions and architectures are not accepted here. |
+| Windows x64, intended Windows 11 | Evergreen WebView2; portable ZIP plus separate current-user and all-users NSIS installers; app-local worker/Swift/SQLite/Hamlib/Python | Hosted 1.5.20 Server 2022 portable native checks PASS; real silent defaults/hives/shortcuts/payload PASS, installed local-logbook self-test FAIL before GUI/uninstall. WebView2 registry version 131.0.2903.86 is recorded separately from active-engine proof. Ordinary Windows 11 account, UAC, prerequisites, upgrades and physical station remain NOT RUN. |
+| Ubuntu 24.04 amd64 | WebKitGTK 4.1 / GTK3; DEB plus relocatable archive; bundled worker/Swift/Hamlib and declared OS Python 3.12 | 1.5.20 runtime-only container PASS: non-root, four embedded UI launches across Xvfb/nested Wayland and relocation; WebKitGTK 2.52.6. Real desktop/GPU/session remains separate. Other distributions and architectures are not accepted here. |
 
 Linux runtime dependencies are maintained in the canonical
 [`linux-runtime-dependencies.txt`](../../../prototype/scripts/linux-runtime-dependencies.txt),
@@ -40,6 +42,7 @@ physical operation are separate evidence cells.
 | P2 runtime | Preview/export retained storage | [Signed 1.5.19 worker-only lifetime](preview-export-lifetime-1.5.19.md) measured ~525 MiB allocated structures while owners remained valid and 559.11 MiB footprint after expired reads; source guards reject without clearing. Define explicit close/release and expiry ownership while preserving frozen snapshots, duplicate matching and in-flight readers; capture live owners and settled memory after release/replacement. Twenty cycles were nonmonotonic, not an unbounded-leak proof. The original harness error and missing replacement sample remain recorded. |
 | P1 Windows desktop | Q02 actual equipment setup | Run [WIN-SETUP-01](../../reviews/QUALITY_FIRST_RUN_2026-11-05.md#native-windows-handoff-win-setup-01) on exact installers: actual bundled radio/rotor Browse, separate save receipts, restart/readback, failure/retry; explicit read-only connection with suitable equipment separately. |
 | P1 Windows packaging | Q03 standard-user and Program Files acceptance | Execute the [scope matrix](../../WINDOWS_INSTALLER_SCOPES.md#q03-acceptance-ledger) on fresh Windows 11 snapshots. Record paths without `/D`, token/elevation, UAC approve/cancel, prerequisite outcome, both hives/shortcuts, upgrade/rollback, retained workspace/external media and a second user. |
+| P1 Windows runtime | Installed local-logbook self-test | Preserve [original 1.5.20 failures](ci-1.5.20-original.md); capture failed replies before validation and compare unchanged installed/portable workers under controlled temporary roots. Both payloads/default paths are verified, but no particular inner operation or path hypothesis is proven yet. No constant or deadline change. |
 | P1 desktop QA | Common native outcomes | On exact supported packages, run keyboard create/edit/search/recovery, ADIF/backup round trip, large-log paging, cluster/map/awards/contest and orderly shutdown. Keep container simulations distinct from ordinary desktop runs. |
 | P2 desktop QA | Native display/accessibility | Exercise 1024×768 where supported, Windows 100/125/150/200%, Retina/Linux scales, light/dark, clipboard, file dialogs, focus/screen-reader labels, detached windows, removed displays and geometry recovery. Capture a screenshot only for an observed defect. |
 | P2 platform owner | Missing native providers | Publish provider-specific support decisions and prioritize enablement separately. Shared local logging must work independently of optional direct station providers. No new provider feature is added during this quality cycle. |

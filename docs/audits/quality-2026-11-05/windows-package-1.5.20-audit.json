@@ -1,0 +1,115 @@
+{
+  "schema": 1,
+  "method": "Read-only ZIP/config/provenance/receipt audit; no Windows executable execution",
+  "sourceCommit": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+  "version": "1.5.20",
+  "staticIntegrity": "PASS",
+  "portableZipSHA256": "86fd424556409e2f8b296c9e3a54126fcbfa26fd5388a4e38c859715af962116",
+  "payloadManifestSHA256": "448ca94af62660acf51cd201eee791367fa0898a6ab355f3559e41d4a9c2060d",
+  "mainExecutableSHA256": "d6bad092ffbde54ba9b299087da4d40f7d35fd9bac9cdcb3c066650774b975a4",
+  "workerSHA256": "2dd9a007937b0cee8240bc73785a76ce2fbe4cc6a6dbe9dcde5114abce5593e5",
+  "manifestFilesHashed": 3270,
+  "portablePhysicalFiles": 3271,
+  "configurationsEqualExceptScope": true,
+  "installers": [
+    {
+      "mode": "currentUser",
+      "artifact": "OM0RX-xLog-1.5.20-windows-x86_64-current-user-setup.exe",
+      "sha256": "93ac5496ecc60dff77f405d6fa8e87a8947b21a66ee3d316678b82879a7d38f9",
+      "configurationSHA256": "db1b0cc97691ff8ebd990dc5b46fdd7495b940a9ea92e6e4b6d9b13efd84117c",
+      "expectedDefaultDirectory": "%LOCALAPPDATA%\\OM0RX-xLog",
+      "registryHive": "HKCU",
+      "executionLevel": "user",
+      "resources": 3270
+    },
+    {
+      "mode": "perMachine",
+      "artifact": "OM0RX-xLog-1.5.20-windows-x86_64-all-users-setup.exe",
+      "sha256": "6120174e492d048fbe7e785fdcc4de04fbaef26f1e85c919f18f89fe50aed86d",
+      "configurationSHA256": "f110eefe5c1ed7e4a0d6c1e937ac3e21ff53f1d3a957f0aa91f77c88112c104f",
+      "expectedDefaultDirectory": "%ProgramFiles%\\OM0RX-xLog",
+      "registryHive": "HKLM",
+      "executionLevel": "admin",
+      "resources": 3270
+    }
+  ],
+  "privacyReceipt": {
+    "passed": true,
+    "filesChecked": 3271,
+    "sha256": "29bd383de98f37e1de62f497d35ddd5509976c0387ae37c8f9d12d8d892d34f7"
+  },
+  "runtimeReceipts": [
+    {
+      "scope": "currentUser",
+      "overall": "FAILED",
+      "harnessElevated": true,
+      "actualDefaultPathEqualsExpected": true,
+      "defaultPath": "PASS (silent, no /D)",
+      "registry": "PASS",
+      "startMenu": "PASS",
+      "payloadFilesVerified": 3270,
+      "passedInstalledRuntimeChecks": [
+        "installer-owned-uninstaller",
+        "payload-hashes",
+        "native-isolation",
+        "webview-prerequisite",
+        "worker-valid-module-origins",
+        "ndjson-open-stdin-fragment-correlation",
+        "bundled-python-standard-library",
+        "worker-contest-runtime-round-trip",
+        "ndjson-malformed-oversized-recovery"
+      ],
+      "failure": "Packaged local logbook round trip failed.",
+      "rawFailedSelfTestReply": "UNAVAILABLE (assertion precedes persistence)",
+      "installedGUI": "NOT REACHED",
+      "uninstall": "NOT REACHED",
+      "ordinaryUserRuntime": "NOT RUN",
+      "interactiveUAC": "NOT RUN (silent harness)",
+      "upgrade": "NOT RUN",
+      "reinstallRollback": "NOT RUN",
+      "externalMediaRetention": "NOT RUN",
+      "portableRuntime": "PASS",
+      "portableGUILaunches": 2
+    },
+    {
+      "scope": "perMachine",
+      "overall": "FAILED",
+      "harnessElevated": true,
+      "actualDefaultPathEqualsExpected": true,
+      "defaultPath": "PASS (silent, no /D)",
+      "registry": "PASS",
+      "startMenu": "PASS",
+      "payloadFilesVerified": 3270,
+      "passedInstalledRuntimeChecks": [
+        "installer-owned-uninstaller",
+        "payload-hashes",
+        "native-isolation",
+        "webview-prerequisite",
+        "worker-valid-module-origins",
+        "ndjson-open-stdin-fragment-correlation",
+        "bundled-python-standard-library",
+        "worker-contest-runtime-round-trip",
+        "ndjson-malformed-oversized-recovery"
+      ],
+      "failure": "Packaged local logbook round trip failed.",
+      "rawFailedSelfTestReply": "UNAVAILABLE (assertion precedes persistence)",
+      "installedGUI": "NOT REACHED",
+      "uninstall": "NOT REACHED",
+      "ordinaryUserRuntime": "NOT RUN",
+      "interactiveUAC": "NOT RUN (silent harness)",
+      "upgrade": "NOT RUN",
+      "reinstallRollback": "NOT RUN",
+      "externalMediaRetention": "NOT RUN",
+      "portableRuntime": "PASS",
+      "portableGUILaunches": 2
+    }
+  ],
+  "limitations": [
+    "Unsigned Windows beta; hashes establish integrity, not an authenticity signature.",
+    "Both installed acceptance jobs failed; no whole Windows qualification PASS.",
+    "Hosted elevated silent installation does not prove ordinary-user UAC or Finish-page launch token behavior.",
+    "No upgrade, real logbook/media retention, equipment or consumer Windows desktop acceptance inferred.",
+    "Expected path tokens are metadata; actual matching default paths are separately recorded only by native receipts.",
+    "Failure stage is known; inner local-self-test failing operation is unavailable because the failed reply was not persisted."
+  ]
+}

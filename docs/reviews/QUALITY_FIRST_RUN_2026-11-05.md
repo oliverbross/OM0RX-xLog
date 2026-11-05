@@ -1,6 +1,6 @@
 # Q02 first-run equipment repair — 5 November 2026
 
-Source starting point: `da6fefb394944b28be9533ab861be9026306fa8d`. This is source/component and native unit-test evidence. Native Windows packaged wizard, installer, restart and physical device acceptance remain **NOT RUN** here. No application was installed or released for this work.
+Source starting point: `da6fefb394944b28be9533ab861be9026306fa8d`. This report records the original source/component and native unit-test work package; no app was installed or released by that repair. Later [1.5.20 hosted installer/runtime evidence](../audits/quality-2026-11-05/ci-1.5.20-original.md) has separate partial passes and an installed-worker failure. It skips equipment and does not qualify WIN-SETUP-01. Actual packaged equipment Browse/Save/restart/readback and physical device acceptance remain **NOT RUN**.
 
 ## Defect and repair
 
