@@ -23,7 +23,7 @@ Generated active-cycle sampled footprints ranged 511.02–1031.85 MiB and were n
 
 After more than 300 seconds without further RPCs, ADIF, import-preview and POTA reads rejected expired tokens. The rejection is eligibility evidence, not evidence of memory release. Source guards do not clear `adifPreview`, `adifExport` or `potaExport`. The sole-client trace and unchanged source therefore imply those owners remain until replacement/worker retirement. A fresh ADIF Begin replaced the generated export with one selected record and created a fresh two-record tiny export. Owning code clears POTA on Begin; the corresponding read returned confirmed `invalid_params`, as that code specifies when no retained preview matches. Post-replacement footprint/RSS is explicitly unavailable because the harness then stopped on its wrong expected label. No actual GUI close/cancel was tested.
 
-One bounded heap/vmmap observation ran during post-20 quiet after the 60-second sample, before expiry requests. It found 807,016 current allocated blocks totaling 550,446,624 bytes (524.95 MiB). This is substantial allocated storage, not just an inference from process footprint. It is not a full ARC retaining-path graph. Source/heap types support the existing-import-index and frozen-export owners:
+One bounded heap/vmmap observation of the generated 100k worker ran during post-20 quiet after the 60-second sample, before expiry requests. It found 807,016 current allocated blocks totaling 550,446,624 bytes (524.95 MiB). This is substantial allocated storage, not just an inference from process footprint. It is not a full ARC retaining-path graph. Source/heap types support the existing-import-index and frozen-export owners:
 
 | Heap type | Allocations | Allocated MiB |
 |---|---:|---:|
@@ -34,12 +34,14 @@ One bounded heap/vmmap observation ran during post-20 quiet after the 60-second 
 | `Swift._DictionaryStorage<XLogCore.SemanticQSOIdentity, Swift.Array<XLogCore.QSO>>` | 1 | 22.047 |
 | `Swift._ContiguousArrayStorage<XLogCore.ADIFRecord>` | 1 | 4.000 |
 | `Swift._ContiguousArrayStorage<Foundation.UUID>` | 1 | 1.531 |
-| `Task stack` | 5 | 0.006 |
+| `Task stack` | 8 | 0.007 |
 
 The general string dictionary type is shared and cannot all be charged to export. Heap/vmmap were an observer-on phase; they can affect pages/timing/residency. Later expiry samples carry that history. No unbounded leak or original high-memory incident is established.
 
-The generated fixture had blank recorded station/operator fields, so successful POTA used a separately authorized two-QSO root. It produced two 40,914-byte files, 12 derived records, four bounded reads per file plus a final empty chunk; all 20 reconstructions had identical hashes. Full 100k POTA preparation was intentionally rejected under the existing 32 MiB/50,000-derived-record budget; it is not counted as successful full-log POTA export. Only 76-byte incoming preview text was needed to retain the existing 100k duplicate indexes; exact bytes are in JSON.
+The generated fixture had blank recorded station/operator fields, so successful POTA used a separately authorized two-QSO root. It produced two 40,914-byte files, 12 derived records, four bounded reads per file plus a final empty chunk; all 20 reconstructions had identical hashes. Full 100k POTA preparation was intentionally rejected under the existing 32 MiB/50,000-derived-record budget; it is not counted as successful full-log POTA export. Only 76-byte incoming preview text was needed to retain the existing 100k duplicate indexes; the exact byte count is in JSON.
 
 Both fixtures passed recovered post-EOF integrity and ordered stored-QSO hash checks through normal readonly/query-only SQLite backup with WAL honored. All 100,000 original rows and the two synthetic rows were preserved; original generated input main-file hash still matched its pinned source. Each stopped measurement source main/WAL remained unchanged during the backup checks. No production store, GUI, network or station output was used, and no source change/rebuild was made.
 
 Artifact source `72a5926c2878ceedf70789ff4bae619ae5e14511`, version `1.5.19`; worker SHA256 `a34ca68f95b8a03b27e9eb9ea09034cfc83b7f4c7593fbc0bf615e7dbfe93c43`. Exact host/ZIP/sealed-manifest hashes, units, all samples, expiry receipts, byte hashes and fixture checks are retained in sanitized JSON. Private PID/root/marker/traffic and raw observer evidence remain local.
+
+Report v2 correction: every matching heap row is aggregated for each selected type. Task stacks total 8 allocations/7,104 bytes (two rows), versus v1’s first-row-only 5/6,144. The other seven selected type totals and overall 807,016 blocks/550,446,624 bytes are unchanged. This heap observer is exclusively the generated 100k worker; no tiny-POTA heap was captured. The 76-byte incoming preview figure is an exact byte count; incoming text bytes are not included in the public JSON. No workload was rerun.

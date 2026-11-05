@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "status": "recovered-bounded-evidence-original-harness-exit1",
   "artifact": {
     "sourceCommit": "72a5926c2878ceedf70789ff4bae619ae5e14511",
@@ -756,48 +756,82 @@
       {
         "type": "Swift._DictionaryStorage<Foundation.UUID, XLogCore.QSO>",
         "allocationCount": 1,
-        "allocatedBytes": 222347264
+        "allocatedBytes": 222347264,
+        "matchingHeapRows": 1,
+        "sourceHeapRowNumbers": [
+          34
+        ]
       },
       {
         "type": "Swift._DictionaryStorage<Swift.String, Swift.String>",
         "allocationCount": 200003,
-        "allocatedBytes": 128046080
+        "allocatedBytes": 128046080,
+        "matchingHeapRows": 1,
+        "sourceHeapRowNumbers": [
+          35
+        ]
       },
       {
         "type": "Swift._ContiguousArrayStorage<XLogCore.QSO>",
         "allocationCount": 100000,
-        "allocatedBytes": 89600000
+        "allocatedBytes": 89600000,
+        "matchingHeapRows": 1,
+        "sourceHeapRowNumbers": [
+          36
+        ]
       },
       {
         "type": "Swift._DictionaryStorage<XLogCore.SemanticQSOIdentity, Swift.Int>",
         "allocationCount": 1,
-        "allocatedBytes": 33554432
+        "allocatedBytes": 33554432,
+        "matchingHeapRows": 1,
+        "sourceHeapRowNumbers": [
+          37
+        ]
       },
       {
         "type": "Swift._DictionaryStorage<XLogCore.SemanticQSOIdentity, Swift.Array<XLogCore.QSO>>",
         "allocationCount": 1,
-        "allocatedBytes": 23117824
+        "allocatedBytes": 23117824,
+        "matchingHeapRows": 1,
+        "sourceHeapRowNumbers": [
+          39
+        ]
       },
       {
         "type": "Swift._ContiguousArrayStorage<XLogCore.ADIFRecord>",
         "allocationCount": 1,
-        "allocatedBytes": 4194304
+        "allocatedBytes": 4194304,
+        "matchingHeapRows": 1,
+        "sourceHeapRowNumbers": [
+          42
+        ]
       },
       {
         "type": "Swift._ContiguousArrayStorage<Foundation.UUID>",
         "allocationCount": 1,
-        "allocatedBytes": 1605632
+        "allocatedBytes": 1605632,
+        "matchingHeapRows": 1,
+        "sourceHeapRowNumbers": [
+          43
+        ]
       },
       {
         "type": "Task stack",
-        "allocationCount": 5,
-        "allocatedBytes": 6144
+        "allocationCount": 8,
+        "allocatedBytes": 7104,
+        "matchingHeapRows": 2,
+        "sourceHeapRowNumbers": [
+          60,
+          98
+        ]
       }
     ],
     "sharedTypeLimit": "String-to-string dictionaries and other general types are shared; their bytes are not exclusively assigned to export.",
     "unboundedLeakConclusion": "Not established: settled samples are nonmonotonic, and one session per property remains."
   },
   "heapObserver": {
+    "scope": "generated100k",
     "phase": "post20 quiet, after60s settled sample, before expiry guard requests",
     "startedAt": "2026-11-05T10:52:11.849004+00:00",
     "endedAt": "2026-11-05T10:52:15.989592+00:00",
@@ -947,5 +981,18 @@
     "Post-replacement footprint/RSS is unavailable; no new probe/repeat was performed",
     "No code fix, rebuild, production inspection, whole-app budget, idle leak or reported7GB incident conclusion"
   ],
-  "RSSSummed": false
+  "RSSSummed": false,
+  "reportCorrection": {
+    "version": 2,
+    "workloadRerun": false,
+    "reason": "v1 selected only first matching row for each heap type; v2 sums every matching raw row",
+    "originalGeneratorSHA256": "32c7665dfbcd85f49d70a07ded5e59dc5ae93a4fbb2b7e76f8335706e22070f1",
+    "originalMarkdownSHA256": "40f81dc462155aef6d68d5e3bb10c96db721092ec8c4758d77f9cd2dc13b2b6b",
+    "originalJSONSHA256": "869b581bdea2969fcd5dc83dc2a6e9a399a66b18f926c4f41d6f51966c228125",
+    "rawHeapSHA256": "97b9a71f0ee62a94ab00a0faf7b88cb67532d249cac6ebbdb561447ba4e87112",
+    "generatorV2SHA256": "60839a1db6e6da8f0b61cfe341645e08dc94e98e815c471c77393102bd5e12f1",
+    "allSelectedHeapTypesCheckedForDuplicates": true,
+    "overallHeapTotalsUnchanged": true,
+    "heapScope": "generated100k"
+  }
 }
