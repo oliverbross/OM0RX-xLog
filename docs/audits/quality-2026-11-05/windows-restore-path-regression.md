@@ -66,6 +66,19 @@ Focused Mac checks passed 18 XCTest cases and 15 Swift Testing tests; the final
 eight rename cases passed again after that fixture-setup correction. Independent
 review found no remaining actionable issue. The Windows-only validation will
 select the path-boundary, rename, atomicity, envelope and restore-authority
-suites through the existing native-core workflow. Native Windows verification
-and a newly versioned application candidate remain pending. No 1.5.20 package
-was rebuilt and no daily app was installed.
+suites through the existing native-core workflow. No 1.5.20 package was rebuilt
+and no daily app was installed.
+
+## Native Windows result
+
+[Run 42052034057](ci-windows-restore-boundary-fixed.md), source
+`d2d22afb419fe13710f71d36a27281e6879970a0`, passed **19 XCTest and 17 Swift
+Testing cases**. The four original regression fixtures remain byte-identical to
+the failed baseline and now pass all 68 stage receipts, including final selected
+data, sealed-backup and rollback invariants. All nine Windows rename-safety
+cases passed, including long-source return, collisions and recovery blocking.
+
+This verifies the source repair on the native test host. The original 1.5.20
+packages and their failed acceptance remain unchanged. Successor 1.5.21 still
+requires exact-source packaging and fresh installed-scope/runtime validation
+with the original nested TEMP; native unit success does not qualify that package.

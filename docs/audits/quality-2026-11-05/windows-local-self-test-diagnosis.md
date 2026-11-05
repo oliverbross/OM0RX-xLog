@@ -272,3 +272,29 @@ underlying Win32 code or path-limit threshold, does not establish why Foundation
 returned516, and does not prove the generic direct worker error is the identical
 exception. Final reopen/data/rollback-byte verification was not reached. No
 application package, installed data, version or acceptance claim changed.
+
+## Native source-fix qualification passes the unchanged regressions
+
+[Native Windows run 42052034057](ci-windows-restore-boundary-fixed.md) tested
+application fix source d2d22afb419fe13710f71d36a27281e6879970a0. Actual execution was **19 XCTest
+and 17 Swift Testing tests**, all passed; selection records 36 completed names
+and child exit0. This is filtered source qualification, not packaged acceptance.
+
+The four original WindowsRestorePathBoundaryTests are byte-identical to the red
+47ee6cda baseline (SHA-256 9ddc1d4e16a8fc08ca187e084d085a515a5d96472e3c5a2174be4427bd186362). All four now pass
+17 stages each, yielding 68 sanitized JSON receipts. Final reopen verifies
+selected contact/settings/Unicode/unknown ADIF/reference bytes, retained previous
+database/reference rollback bytes and unchanged selected backup seal.
+
+Native rename coverage also passed long Unicode file/directory and long-source
+return, occupied-file/no-overwrite and occupied-directory/no-merge failures,
+missing source, Windows invalid name, unchanged short injected failure dispatch,
+late full database/reference rollback, and real occupied native rollback retaining
+all copies and the recovery marker while blocking current and subsequent owners.
+Restore atomicity, envelope and authority suites passed with exact executed
+names retained in the linked report.
+
+The red baseline and all original 1.5.20 package failures remain preserved.
+No versioned candidate/package, installer or GUI was built by this test run;
+ordinary-account/UAC/hardware qualification remains open. No monitoring retry,
+source edit, version change or commit occurred.
