@@ -19,8 +19,10 @@ Large and 15 MB to allocator metadata. SQLite's tagged cache was 384 KB dirty
 and about 8.5 MB reclaimable. `vmmap` showed about 3 GB swapped allocation.
 These tools use different units/sampling times; their rows are not a sum of
 app-wide physical memory. WebKit/XPC services outside the parent tree remain
-unassigned. The user identified htop as the original observation tool, but its
-exact ~7 GB column, timestamp and workload remain unknown.
+unassigned. The user identified htop and later specified its **MEM column**.
+That exact label is retained; the process identity, field definition/units,
+timestamp and workload behind the reported ~7 GB remain unknown. MEM is not
+silently reinterpreted as RSS, virtual memory or macOS physical footprint.
 
 The native heap summary's leading class was **897,311 Swift Task stacks,
 2,053,251,840 bytes**, plus another 181,693 task-stack allocations using
