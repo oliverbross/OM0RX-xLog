@@ -1,0 +1,193 @@
+{
+  "schema": 1,
+  "platform": "darwin",
+  "gitVersion": "git version 2.54.0 (Apple Git-157)",
+  "nodeVersion": "v24.11.1",
+  "sourceCommit": "1084e3d42d0feb5e03841504689e8fc584ee7673",
+  "generatorSHA256": "cc06c0f77d3f713b949a100d1974ba2ab543e749607beeb10613febad9ec1227",
+  "trackedCanonicalBlobs": {
+    "prototype/hm-control/dashboard.css": {
+      "bytes": 15815,
+      "sha256": "f58bc9b8882e32992b6332b55e90d4947ed358ad239b4c9dca72c320fa95483b",
+      "lf": 169,
+      "crlf": 0,
+      "bareCR": 0
+    },
+    "prototype/hm-control/dashboard.js": {
+      "bytes": 49449,
+      "sha256": "2a25912cda76d562576194887bc9b56d5c1d008b5ebd80fca80a29e216b5d4d3",
+      "lf": 822,
+      "crlf": 0,
+      "bareCR": 0
+    },
+    "prototype/hm-control/index.html": {
+      "bytes": 3498,
+      "sha256": "dba049b4370aea4d12d2d146f8c75dca9824a2ee986d3f3eb09f493b5d47fee6",
+      "lf": 64,
+      "crlf": 0,
+      "bareCR": 0
+    }
+  },
+  "scope": "Actual generator and pinned local asset validation; disposable local Git autocrlf checkouts only. Not native Windows packaging, original CI raw-byte recovery, or whole-app acceptance.",
+  "before-policy": {
+    "checkout": {
+      "files": {
+        "prototype/hm-control/dashboard.css": {
+          "bytes": 15984,
+          "sha256": "7edc1d77473877ef40b185b4fe62b7dc0a2a3c3e60a0540ab4d18150744cc47f",
+          "lf": 169,
+          "crlf": 169,
+          "bareCR": 0
+        },
+        "prototype/hm-control/dashboard.js": {
+          "bytes": 50271,
+          "sha256": "3a2eb651f7a66f9a2e2e40e9eff717e956614909fa78f59bd0482f1aa7d64386",
+          "lf": 822,
+          "crlf": 822,
+          "bareCR": 0
+        },
+        "prototype/hm-control/index.html": {
+          "bytes": 3562,
+          "sha256": "92669648167e3d9fe09dccefbf33a5a23a55da6bcbc265fd70f71b63c7a23d92",
+          "lf": 64,
+          "crlf": 64,
+          "bareCR": 0
+        }
+      },
+      "status": [],
+      "diffBytes": 0,
+      "diffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "diffWarnings": []
+    },
+    "generation": {
+      "files": {
+        "prototype/hm-control/dashboard.css": {
+          "bytes": 15815,
+          "sha256": "f58bc9b8882e32992b6332b55e90d4947ed358ad239b4c9dca72c320fa95483b",
+          "lf": 169,
+          "crlf": 0,
+          "bareCR": 0
+        },
+        "prototype/hm-control/dashboard.js": {
+          "bytes": 49449,
+          "sha256": "2a25912cda76d562576194887bc9b56d5c1d008b5ebd80fca80a29e216b5d4d3",
+          "lf": 822,
+          "crlf": 0,
+          "bareCR": 0
+        },
+        "prototype/hm-control/index.html": {
+          "bytes": 3498,
+          "sha256": "dba049b4370aea4d12d2d146f8c75dca9824a2ee986d3f3eb09f493b5d47fee6",
+          "lf": 64,
+          "crlf": 0,
+          "bareCR": 0
+        }
+      },
+      "status": [
+        " M prototype/hm-control/dashboard.css",
+        " M prototype/hm-control/dashboard.js",
+        " M prototype/hm-control/index.html"
+      ],
+      "diffBytes": 0,
+      "diffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "diffWarnings": [
+        "warning: in the working copy of 'prototype/hm-control/dashboard.css', LF will be replaced by CRLF the next time Git touches it",
+        "warning: in the working copy of 'prototype/hm-control/dashboard.js', LF will be replaced by CRLF the next time Git touches it",
+        "warning: in the working copy of 'prototype/hm-control/index.html', LF will be replaced by CRLF the next time Git touches it"
+      ]
+    },
+    "generationMatchesTrackedBlobs": true
+  },
+  "targeted-lf": {
+    "checkout": {
+      "files": {
+        "prototype/hm-control/dashboard.css": {
+          "bytes": 15815,
+          "sha256": "f58bc9b8882e32992b6332b55e90d4947ed358ad239b4c9dca72c320fa95483b",
+          "lf": 169,
+          "crlf": 0,
+          "bareCR": 0
+        },
+        "prototype/hm-control/dashboard.js": {
+          "bytes": 49449,
+          "sha256": "2a25912cda76d562576194887bc9b56d5c1d008b5ebd80fca80a29e216b5d4d3",
+          "lf": 822,
+          "crlf": 0,
+          "bareCR": 0
+        },
+        "prototype/hm-control/index.html": {
+          "bytes": 3498,
+          "sha256": "dba049b4370aea4d12d2d146f8c75dca9824a2ee986d3f3eb09f493b5d47fee6",
+          "lf": 64,
+          "crlf": 0,
+          "bareCR": 0
+        }
+      },
+      "status": [],
+      "diffBytes": 0,
+      "diffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "diffWarnings": []
+    },
+    "generation": {
+      "files": {
+        "prototype/hm-control/dashboard.css": {
+          "bytes": 15815,
+          "sha256": "f58bc9b8882e32992b6332b55e90d4947ed358ad239b4c9dca72c320fa95483b",
+          "lf": 169,
+          "crlf": 0,
+          "bareCR": 0
+        },
+        "prototype/hm-control/dashboard.js": {
+          "bytes": 49449,
+          "sha256": "2a25912cda76d562576194887bc9b56d5c1d008b5ebd80fca80a29e216b5d4d3",
+          "lf": 822,
+          "crlf": 0,
+          "bareCR": 0
+        },
+        "prototype/hm-control/index.html": {
+          "bytes": 3498,
+          "sha256": "dba049b4370aea4d12d2d146f8c75dca9824a2ee986d3f3eb09f493b5d47fee6",
+          "lf": 64,
+          "crlf": 0,
+          "bareCR": 0
+        }
+      },
+      "status": [],
+      "diffBytes": 0,
+      "diffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "diffWarnings": []
+    },
+    "generationMatchesTrackedBlobs": true
+  },
+  "genuineContentChange": {
+    "files": {
+      "prototype/hm-control/dashboard.css": {
+        "bytes": 15815,
+        "sha256": "f58bc9b8882e32992b6332b55e90d4947ed358ad239b4c9dca72c320fa95483b",
+        "lf": 169,
+        "crlf": 0,
+        "bareCR": 0
+      },
+      "prototype/hm-control/dashboard.js": {
+        "bytes": 49489,
+        "sha256": "ff6ebe3d7ae4fe4d8546858ba2dc17d12de099a10af48c3e8e35396e5ef858f1",
+        "lf": 824,
+        "crlf": 0,
+        "bareCR": 0
+      },
+      "prototype/hm-control/index.html": {
+        "bytes": 3498,
+        "sha256": "dba049b4370aea4d12d2d146f8c75dca9824a2ee986d3f3eb09f493b5d47fee6",
+        "lf": 64,
+        "crlf": 0,
+        "bareCR": 0
+      }
+    },
+    "status": [
+      " M prototype/hm-control/dashboard.js"
+    ],
+    "diffBytes": 511,
+    "diffSHA256": "f7d4d6b8020b8f0d2b9029b37d3ed8f9aca7aaeb92d283689e4720d4955d8551",
+    "diffWarnings": []
+  }
+}

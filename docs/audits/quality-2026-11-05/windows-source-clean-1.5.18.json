@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "runID": "42002496324",
+  "runURL": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42002496324",
+  "runConclusion": "failure",
+  "executorWorkflowSHA": "d52ce261e386255dbb0d3c832ad8054d7de227af",
+  "executorHeadSHA": "d52ce261e386255dbb0d3c832ad8054d7de227af",
+  "appSourceCommit": "0b7c669663841c2e55569b0c21c76ad03805cad7",
+  "artifact": {
+    "id": 13404776574,
+    "name": "windows-source-clean-diagnostic-42002496324-1",
+    "archiveSHA256": "19f9f158fadae8e55e98bfa880414144d8aa4044cb4381da5d9cc82c0b279d3b",
+    "bytes": 36347
+  },
+  "priorCleanBoundaries": [
+    "00-checkout",
+    "01-node-setup",
+    "02-python-setup",
+    "03-native-cache",
+    "04-swift-setup",
+    "05-sqlite",
+    "06-toolchains",
+    "07-npm-ci",
+    "08-payload-guards",
+    "09-catalog-test",
+    "10-installer-policy",
+    "11-swift-test-build"
+  ],
+  "firstNoncleanBoundary": {
+    "stage": "12-frontend",
+    "clean": false,
+    "sourceCommit": "0b7c669663841c2e55569b0c21c76ad03805cad7",
+    "stageExitCode": 0,
+    "stageFailure": "",
+    "gitExitCodes": {
+      "head": 0,
+      "tree": 0,
+      "status": 0,
+      "diff": 0,
+      "changed": 0,
+      "untracked": 0
+    },
+    "statusEntries": [
+      " M prototype/hm-control/dashboard.css",
+      " M prototype/hm-control/dashboard.js",
+      " M prototype/hm-control/index.html"
+    ],
+    "files": [],
+    "receiptSHA256": "8360981f831f19b245789533b2d5ec975ab21f161ba23c7af355610025447ec6",
+    "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "GitEOLWarningsFor": [
+    "prototype/hm-control/dashboard.css",
+    "prototype/hm-control/dashboard.js",
+    "prototype/hm-control/index.html"
+  ],
+  "classification": "Reproduced Git-status dirtiness after successful frontend commands; no native tool failure or NSIS/download failure.",
+  "contentBoundary": "Git tracked diff and changed-name output are empty after normalization; raw per-file hashes were not captured for status-only entries, so raw byte equivalence is unavailable.",
+  "causeEvidence": "Generator writes these three tracked files with LF; no explicit LF attributes exist for them; Git warns LF will become CRLF. A checkout/generated EOL mismatch is supported. Further byte-level reproduction is needed before claiming the exact mechanism or applying a fix.",
+  "GITHUB_SHA_binding": "Configured only inside portable stage22 to match the fixed app source, with real executor SHAs separately retained. Stage22 was not reached, so that assignment was not executed in this run.",
+  "portableStageReached": false,
+  "installerInvoked": false,
+  "distributionPublished": false,
+  "retryOrSourceFixPerformed": false,
+  "evidenceBoundary": "The original41987734820 failed guard did not record paths. This diagnostic identifies a repeatable dirty-source boundary for the same original source, without proving no additional later-stage changes occurred in the original run."
+}
