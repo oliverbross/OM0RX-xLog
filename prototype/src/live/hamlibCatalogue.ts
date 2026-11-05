@@ -29,7 +29,9 @@ export function loadHamlibCatalogue(request: (method: string, params: Record<str
     promise = request("hamlib_models", { device }).then(result => normalizeHamlibModels(result?.models));
     cache.set(device, promise);
     const attempted = promise;
-    void promise.catch(() => { if (cache?.get(device) === attempted) cache.delete(device); });
+    const forget = () => { if (cache?.get(device) === attempted) cache.delete(device); };
+    // An empty or unusable inventory must not make every later Browse return empty.
+    void promise.then(models => { if (!models.length) forget(); }, forget);
   }
   return promise;
 }

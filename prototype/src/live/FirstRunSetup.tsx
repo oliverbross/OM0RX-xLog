@@ -9,7 +9,7 @@ type Props = { initialSettings?: Record<string, any> | null; onFinish: (values: 
   loadModels?: (device: "radio" | "rotor") => Promise<HamlibModel[]>; loadCapabilities?: () => Promise<unknown> };
 const catalogueRequest = (_method: string, params: Record<string, unknown>) => params.device === "radio"
   ? stationSessionRequest<{ models: unknown[] }>("radio1", { action: "hamlib_catalogue" })
-  : import("../worker").then(({ workerRequest }) => workerRequest("hamlib_models", { device: "rotor" }));
+  : import("../worker").then(async ({ workerRequest }) => (await workerRequest("hamlib_models", { device: "rotor" })).result);
 const titles = ["Station identity", "Radio (optional)", "Rotator (optional)", "Logbook"];
 const nativeCapabilities = () => import("../worker").then(async ({ workerRequest }) => (await workerRequest("health")).result);
 
