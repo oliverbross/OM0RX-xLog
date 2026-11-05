@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import LogbookPanel from "./LogbookPanel";
 import { LogbookMutationSession } from "./logbookMutationSession";
+import { useDeferredPanelReads } from "./deferredPanelReads";
 
 const native = vi.hoisted(() => ({ invoke: vi.fn(), isTauri: vi.fn(() => false) }));
 vi.mock("@tauri-apps/api/core", () => native);
@@ -16,20 +17,21 @@ function blobText(blob: Blob): Promise<string> {
   });
 }
 function setup(issue = false, contacts = [contact]) {
-  const request = vi.fn(async (method: string, params?: Record<string, unknown>) => {
+  const request = vi.fn(async (method: string, params?: Record<string, unknown>): Promise<object> => {
     if (method === "logbook_import_adif" && params?.action === "update") return { updated: 1 };
     if (method === "logbook_import_adif") return params?.action === "preview"
       ? { records: 1, duplicates: 0, inserts: 1, generation: "workspace-1", token: "preview-1", issues: issue ? [{ record: 1, message: "Invalid UTC date" }] : [] }
       : { imported: 1, skipped_duplicates: 0 };
-    if (method === "logbook_export_adif") return params?.action === "begin" ? { token: "frozen", total: 1 } : { text: adif, count: 1 };
+    if (method === "logbook_export_adif") return params?.action === "begin" ? { token: "frozen", workspace_generation: "workspace-1", total: 1 } : { text: adif, count: 1 };
     return { qsos: contacts, total: contacts.length, offset: 0, limit: 20 };
   });
-  const view = render(<LogbookPanel mutations={new LogbookMutationSession(request, () => {})} onRequest={request} onEdit={vi.fn()} refreshKey={0} />);
+  const props = { mutations: new LogbookMutationSession(request, () => {}), onRequest: request, onEdit: vi.fn(), refreshKey: 0 };
+  const view = render(<LogbookPanel {...props} />);
   async function pick(bytes = new TextEncoder().encode(adif)) {
     const file = new File([], "review.adi"); Object.defineProperty(file, "arrayBuffer", { value: async () => bytes.buffer });
     await act(async () => { fireEvent.change(view.container.querySelector('input[type="file"]')!, { target: { files: [file] } }); });
   }
-  return { request, pick };
+  return { request, pick, view, props };
 }
 
 it.each([["all","adi"],["filtered","adi"],["selected","adi"],["all","adx"],["filtered","adx"],["selected","adx"]] as const)(
@@ -71,7 +73,7 @@ it("retains browser preview downloads for sixty seconds through the shared helpe
   Object.defineProperty(URL, "createObjectURL", { configurable: true, value: objectURL });
   Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: revoke });
   vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
-  setup(); await screen.findByText("W1AW");
+  const { request } = setup(); await screen.findByText("W1AW");
   const timer = vi.spyOn(globalThis, "setTimeout");
   fireEvent.click(screen.getByRole("button", { name: "Export all" }));
   await screen.findByText("1 QSOs exported from the integrated logbook.");
@@ -95,6 +97,7 @@ it("keeps one native export pending until the chooser acknowledges its save", as
   expect(request.mock.calls.filter(([method, params]) => method === "logbook_export_adif" && params?.action === "begin")).toHaveLength(1);
   await act(async () => finish({ saved: true, cancelled: false }));
   expect(screen.getByText("1 QSOs exported from the integrated logbook.")).toBeTruthy();
+  await waitFor(() => expect(request).toHaveBeenCalledWith("logbook_export_adif", { action: "retire", token: "frozen", generation: "workspace-1" }));
   expect(button).toHaveProperty("disabled", false);
 });
 
@@ -104,7 +107,7 @@ it.each([["all","cancelled"],["filtered","cancelled"],["selected","cancelled"],[
   if (outcome === "failed") native.invoke.mockRejectedValueOnce(new Error("Choose another destination."));
   else native.invoke.mockResolvedValueOnce(outcome === "cancelled" ? { saved: false, cancelled: true } : { saved: false, cancelled: false });
   native.invoke.mockResolvedValue({ saved: true, cancelled: false });
-  setup(); await screen.findByText("W1AW");
+  const { request } = setup(); await screen.findByText("W1AW");
   if (scope === "filtered") {
     fireEvent.change(screen.getByRole("textbox", { name: "Search logbook" }), { target: { value: "W1AW" } });
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
@@ -118,6 +121,7 @@ it.each([["all","cancelled"],["filtered","cancelled"],["selected","cancelled"],[
   } else expect((await screen.findByRole("alert")).textContent).toContain(outcome === "failed"
     ? "Choose another destination." : "The export did not complete. Please try again.");
   expect(screen.queryByText("1 QSOs exported from the integrated logbook.")).toBeNull();
+  await waitFor(() => expect(request).toHaveBeenCalledWith("logbook_export_adif", { action: "retire", token: "frozen", generation: "workspace-1" }));
   expect(button).toHaveProperty("disabled", false);
   fireEvent.click(button);
   await screen.findByText("1 QSOs exported from the integrated logbook.");
@@ -130,10 +134,156 @@ it("validates before consent and imports only after explicit confirmation", asyn
   expect(request.mock.calls.filter(([method, params]) => method === "logbook_import_adif" && !params?.action)).toHaveLength(0);
   fireEvent.click(screen.getByRole("button", { name: "Cancel import" }));
   expect(screen.queryByRole("button", { name: "Confirm import" })).toBeNull();
+  await waitFor(() => expect(request).toHaveBeenCalledWith("logbook_import_adif", { action: "retire", token: "preview-1", generation: "workspace-1" }));
   await pick(); fireEvent.click(await screen.findByRole("button", { name: "Confirm import" }));
   await screen.findByText("1 QSOs imported; 0 duplicates skipped.");
   expect(request.mock.calls.filter(([method, params]) => method === "logbook_import_adif" && !params?.action)).toHaveLength(1);
   expect(request).toHaveBeenCalledWith("logbook_import_adif", { text: adif, generation: "workspace-1" });
+  await waitFor(() => expect(request.mock.calls.filter(([, p]) => p?.action === "retire")).toHaveLength(2));
+});
+
+it("retires a replaced import review without a late retirement clearing its replacement", async () => {
+  const { request, pick } = setup(); await screen.findByText("W1AW");
+  const original = request.getMockImplementation()!;
+  let previews = 0, finishRetirement!: (value: object) => void;
+  request.mockImplementation(async (method, params) => {
+    if (method === "logbook_import_adif" && params?.action === "preview")
+      return { ...await original(method, params), token: ++previews === 1 ? "old-review" : "replacement-review" };
+    if (params?.action === "retire" && params.token === "old-review") return new Promise(resolve => { finishRetirement = resolve; });
+    return original(method, params);
+  });
+  await pick(); await screen.findByRole("group", { name: "Review ADIF import" });
+  await pick(); await screen.findByRole("group", { name: "Review ADIF import" });
+  await waitFor(() => expect(request).toHaveBeenCalledWith("logbook_import_adif", { action: "retire", token: "old-review", generation: "workspace-1" }));
+  await act(async () => finishRetirement({ retired: false }));
+  expect(screen.getByRole("button", { name: "Confirm import" })).toBeTruthy();
+  fireEvent.click(screen.getByLabelText("Update selected fields of reviewed duplicates instead"));
+  fireEvent.click(screen.getByLabelText("NAME")); fireEvent.click(screen.getByText("Confirm duplicate updates"));
+  await screen.findByText("1 duplicate QSOs updated. New and repeated records were skipped.");
+  expect(request).toHaveBeenCalledWith("logbook_import_adif", { action: "update", token: "replacement-review", generation: "workspace-1", chunk: 0, fields: ["NAME"], confirmed: true });
+});
+
+it("retires the exact late preview after unmount without admitting another preview chunk", async () => {
+  const { request, pick, view } = setup(); await screen.findByText("W1AW");
+  const original = request.getMockImplementation()!;
+  let finish!: (value: object) => void;
+  request.mockImplementation(async (method, params) => method === "logbook_import_adif" && params?.action === "preview"
+    ? new Promise(resolve => { finish = resolve; }) : original(method, params));
+  await pick(new TextEncoder().encode(adif.repeat(101)));
+  await waitFor(() => expect(finish).toBeTypeOf("function"));
+  view.unmount(); expect(request.mock.calls.some(([, p]) => p?.action === "retire")).toBe(false);
+  await act(async () => finish({ token: "late-preview", generation: "old-workspace", issues: [], records: 100, duplicates: 0 }));
+  await waitFor(() => expect(request).toHaveBeenCalledWith("logbook_import_adif", { action: "retire", token: "late-preview", generation: "old-workspace" }));
+  expect(request.mock.calls.filter(([, p]) => p?.action === "preview")).toHaveLength(1);
+  expect(request.mock.calls.filter(([m, p]) => m === "logbook_import_adif" && !p?.action)).toHaveLength(0);
+});
+
+it.each(["unmount", "scope replacement"] as const)("waits for an admitted duplicate update before retiring after %s and stops later batches", async departure => {
+  const { request, pick, view, props } = setup(); await screen.findByText("W1AW");
+  await pick(new TextEncoder().encode(adif.repeat(101))); await screen.findByRole("group", { name: "Review ADIF import" });
+  const original = request.getMockImplementation()!;
+  let finish!: (value: object) => void;
+  request.mockImplementation(async (method, params) => params?.action === "update"
+    ? new Promise(resolve => { finish = resolve; }) : original(method, params));
+  fireEvent.click(screen.getByLabelText("Update selected fields of reviewed duplicates instead"));
+  fireEvent.click(screen.getByLabelText("NAME")); fireEvent.click(screen.getByText("Confirm duplicate updates"));
+  await waitFor(() => expect(finish).toBeTypeOf("function"));
+  if (departure === "unmount") view.unmount();
+  else {
+    view.rerender(<LogbookPanel {...props} readScope="replacement-workspace" />);
+    const exportButton = screen.getByText("Export all");
+    expect(exportButton).toHaveProperty("disabled", true); fireEvent.click(exportButton);
+    expect(request.mock.calls.some(([, p]) => p?.action === "begin")).toBe(false);
+  }
+  expect(request.mock.calls.some(([, p]) => p?.action === "retire")).toBe(false);
+  await act(async () => finish({ updated: 1 }));
+  await waitFor(() => expect(request).toHaveBeenCalledWith("logbook_import_adif", { action: "retire", token: "preview-1", generation: "workspace-1" }));
+  expect(request.mock.calls.filter(([, p]) => p?.action === "update")).toHaveLength(1);
+  if (departure === "scope replacement") expect(screen.getByText("Export all")).toHaveProperty("disabled", false);
+});
+
+it("cancels the old request owner's review when the panel authority is replaced", async () => {
+  const { request, pick, view, props } = setup(); await screen.findByText("W1AW"); await pick();
+  await screen.findByRole("group", { name: "Review ADIF import" });
+  const replacement = vi.fn(async (_method: string) => ({ qsos: [], total: 0, offset: 0, limit: 20 }));
+  view.rerender(<LogbookPanel {...props} onRequest={replacement} readScope="replacement-workspace" />);
+  expect(screen.queryByRole("group", { name: "Review ADIF import" })).toBeNull();
+  await waitFor(() => expect(request).toHaveBeenCalledWith("logbook_import_adif", { action: "retire", token: "preview-1", generation: "workspace-1" }));
+  expect(replacement.mock.calls.some(([method]) => method === "logbook_import_adif")).toBe(false);
+});
+
+it("preserves reviewed import and POTA snapshots across actual deferred-parent refresh, then drains only the replaced scope", async () => {
+  const { request, props, view: initial } = setup(); initial.unmount();
+  const original = request.getMockImplementation()!;
+  const file = { filename: "OM0RX@SK-0001.adi", stationCall: "OM0RX", ownPark: "SK-0001", state: "", physicalContacts: 1, derivedRecords: 1 };
+  let finishRead!: (value: object) => void;
+  request.mockImplementation(async (method, params) => {
+    if (params?.action === "pota_preview") return { version: 1, rulesVersion: "frozen POTA", capturedAt: "before-refresh", sourceURLs: [], physicalContacts: 1, includedContacts: 1, derivedRecords: 1, files: [file], issues: [], warnings: [] };
+    if (params?.action === "pota_files") return { files: [file], total: 1 };
+    if (params?.action === "pota_read") return new Promise(resolve => { finishRead = resolve; });
+    return original(method, params);
+  });
+  function Parent({ revision, scope }: { revision: number; scope: string }) {
+    const panelRequest = useDeferredPanelReads(request, `${scope}:${revision}`, false, scope);
+    return <LogbookPanel {...props} onRequest={panelRequest} readScope={scope} refreshKey={revision} />;
+  }
+  const view = render(<Parent revision={0} scope="workspace-1" />); await screen.findByText("W1AW");
+  const source = new File([], "review.adi"); Object.defineProperty(source, "arrayBuffer", { value: async () => new TextEncoder().encode(adif).buffer });
+  await act(async () => fireEvent.change(view.container.querySelector('input[type="file"]')!, { target: { files: [source] } }));
+  await screen.findByRole("group", { name: "Review ADIF import" });
+  fireEvent.click(screen.getByText("Export POTA logs")); fireEvent.click(await screen.findByText("Freeze selection and preview"));
+  await screen.findByText("frozen POTA · captured before-refresh");
+  fireEvent.click(screen.getByLabelText("I reviewed own park identities and the correct subdivision for parks spanning locations"));
+  view.rerender(<Parent revision={1} scope="workspace-1" />); await screen.findByText("W1AW");
+  expect(screen.getByRole("group", { name: "Review ADIF import" })).toBeTruthy();
+  expect(screen.getByText("frozen POTA · captured before-refresh")).toBeTruthy();
+  expect(screen.getByLabelText("I reviewed own park identities and the correct subdivision for parks spanning locations")).toHaveProperty("checked", true);
+  expect(request.mock.calls.some(([, p]) => p?.action === "retire")).toBe(false);
+  expect(request.mock.calls.filter(([, p]) => p?.action === "preview")).toHaveLength(1);
+  expect(request.mock.calls.filter(([, p]) => p?.action === "begin")).toHaveLength(1);
+  fireEvent.click(screen.getByText("Save reviewed file set")); await waitFor(() => expect(finishRead).toBeTypeOf("function"));
+  view.rerender(<Parent revision={0} scope="workspace-2" />);
+  expect(screen.queryByRole("group", { name: "Review ADIF import" })).toBeNull();
+  expect(screen.queryByRole("dialog", { name: "POTA activation export" })).toBeNull();
+  await waitFor(() => expect(request).toHaveBeenCalledWith("logbook_import_adif", { action: "retire", token: "preview-1", generation: "workspace-1" }));
+  expect(request.mock.calls.some(([method, p]) => method === "logbook_export_adif" && p?.action === "retire")).toBe(false);
+  await act(async () => finishRead({ bytes: btoa(adif), count: adif.length, total: adif.length }));
+  await waitFor(() => expect(request).toHaveBeenCalledWith("logbook_export_adif", { action: "retire", token: "frozen", generation: "workspace-1" }));
+  expect(native.invoke).not.toHaveBeenCalled();
+  expect(request.mock.calls.filter(([, p]) => p?.action === "pota_read")).toHaveLength(1);
+});
+
+it("retires a late frozen export after unmount without reading or opening a chooser", async () => {
+  native.isTauri.mockReturnValue(true);
+  const { request, view } = setup(); await screen.findByText("W1AW");
+  const original = request.getMockImplementation()!;
+  let finish!: (value: object) => void;
+  request.mockImplementation(async (method, params) => params?.action === "begin"
+    ? new Promise(resolve => { finish = resolve; }) : original(method, params));
+  fireEvent.click(screen.getByText("Export all")); await waitFor(() => expect(finish).toBeTypeOf("function")); view.unmount();
+  await act(async () => finish({ token: "late-export", workspace_generation: "old-workspace", total: 1 }));
+  await waitFor(() => expect(request).toHaveBeenCalledWith("logbook_export_adif", { action: "retire", token: "late-export", generation: "old-workspace" }));
+  expect(request.mock.calls.some(([, p]) => p?.action === "read")).toBe(false); expect(native.invoke).not.toHaveBeenCalled();
+});
+
+it("keeps export ownership until an admitted chooser cancels, then retires the frozen session", async () => {
+  native.isTauri.mockReturnValue(true);
+  let finish!: (value: object) => void;
+  native.invoke.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  const { request, view } = setup(); await screen.findByText("W1AW"); fireEvent.click(screen.getByText("Export all"));
+  await waitFor(() => expect(native.invoke).toHaveBeenCalledOnce()); view.unmount();
+  expect(request.mock.calls.some(([, p]) => p?.action === "retire")).toBe(false);
+  await act(async () => finish({ saved: false, cancelled: true }));
+  await waitFor(() => expect(request).toHaveBeenCalledWith("logbook_export_adif", { action: "retire", token: "frozen", generation: "workspace-1" }));
+});
+
+it("retires expired export evidence without publishing partial bytes", async () => {
+  native.isTauri.mockReturnValue(true);
+  const { request } = setup(); await screen.findByText("W1AW"); const original = request.getMockImplementation()!;
+  request.mockImplementation(async (method, params) => { if (params?.action === "read") throw new Error("The export snapshot expired. Start again."); return original(method, params); });
+  fireEvent.click(screen.getByText("Export all")); await screen.findByText(/export snapshot expired/);
+  await waitFor(() => expect(request).toHaveBeenCalledWith("logbook_export_adif", { action: "retire", token: "frozen", generation: "workspace-1" }));
+  expect(native.invoke).not.toHaveBeenCalled();
 });
 
 it("exports exactly checked identities while row actions keep their single active contact", async () => {
@@ -294,6 +444,7 @@ it("requires selected fields and explicit update consent and sends the reviewed 
   fireEvent.click(screen.getByRole("button", { name: "Confirm duplicate updates" }));
   await screen.findByText("1 duplicate QSOs updated. New and repeated records were skipped.");
   expect(request).toHaveBeenCalledWith("logbook_import_adif", { action: "update", token: "preview-1", generation: "workspace-1", chunk: 0, fields: ["NAME", "POTA_REF"], confirmed: true });
+  await waitFor(() => expect(request).toHaveBeenCalledWith("logbook_import_adif", { action: "retire", token: "preview-1", generation: "workspace-1" }));
 });
 
 it("offers modeled metadata fields for ADX updates and sends exact ADIF names only", async () => {
@@ -402,7 +553,7 @@ it("assembles multiple ADX frames from one frozen token and bounds each native r
   const { request } = setup(); await screen.findByText("W1AW");
   const original = request.getMockImplementation()!;
   request.mockImplementation(async (method, params) => {
-    if (method === "logbook_export_adif" && params?.action === "begin") return { token: "frozen-multi", total: 21 };
+    if (method === "logbook_export_adif" && params?.action === "begin") return { token: "frozen-multi", workspace_generation: "workspace-1", total: 21 };
     if (method === "logbook_export_adif" && params?.action === "read") return params.offset === 0
       ? { text: "<ADIF_VER:5>3.1.7<EOH>" + adif.repeat(20), count: 20 }
       : { text: adif.replace("W1AW", "K1AB"), count: 1 };

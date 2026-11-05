@@ -7,6 +7,7 @@ import { useLogbookCapacity } from "./logbookCapacity";
 import { LogbookColumnHeader, LogbookColumns, useLogbookColumns } from "./LogbookColumns";
 import { orderedLogbookColumns, type LogbookColumn, type LogbookColumnContext } from "./logbookColumnPreferences";
 import { adifImportBatches, decodeADIFDocument, ADIFExportDocument, type ADIFExportFormat, type ADIFImportEncoding, type ADIFFieldMetadata } from "./adifTransfer";
+import { ADIFSessionOwner } from "./adifSessionOwner";
 import { emptyLogbookQuery, logbookQuerySummary, type LogbookQuery } from "./logbookQuery";
 import { clusterBandColors, clusterModeColors, paletteColor } from "./clusterPalette";
 import { countryDisplay } from "./countryDisplay";
@@ -124,8 +125,9 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
   const [details, setDetails] = useState(false);
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const readIdentity = readScope ?? onRequest;
   const [potaExportSelection, setPotaExportSelection] = useState<Record<string, unknown> | null>(null);
-  useLayoutEffect(() => { setPotaExportSelection(null); }, [readScope, onRequest]);
+  useLayoutEffect(() => { setPotaExportSelection(null); }, [readIdentity]);
   const [ctyPreviewOpen, setCTYPreviewOpen] = useState(false);
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const columnsID = useId();
@@ -169,7 +171,6 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
   useEffect(() => { onBusyChange?.(busy); }, [busy, onBusyChange]);
   const [error, setError] = useState("");
   const [readRetry, setReadRetry] = useState(0);
-  const readIdentity = readScope ?? onRequest;
   const loadedPage = useRef<readonly [string, number, number, string | Request] | null>(null);
   const [notice, setNotice] = useState("");
   const [importReview, setImportReview] = useState<{ name: string; encoding: ADIFImportEncoding; batches: string[]; fieldMetadata: (ADIFFieldMetadata | null)[][]; records: number; duplicates: number; generation: string; token: string } | null>(null);
@@ -206,6 +207,25 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
   }, [pageSize, page, selectedID]);
   const preparation = useRef(0);
   const fileInput = useRef<HTMLInputElement>(null);
+  const transferOwners = useRef(new Set<ADIFSessionOwner>());
+  const importOwner = useRef<ADIFSessionOwner | null>(null);
+  function retireTransfer(owner: ADIFSessionOwner | null) {
+    owner?.retire();
+    if (owner) transferOwners.current.delete(owner);
+    if (importOwner.current === owner) importOwner.current = null;
+  }
+  function newTransfer(method: "logbook_import_adif" | "logbook_export_adif") {
+    const owner = new ADIFSessionOwner(onRequest, method);
+    transferOwners.current.add(owner);
+    return owner;
+  }
+  useLayoutEffect(() => {
+    setImportReview(null);
+    return () => {
+      for (const owner of transferOwners.current) owner.retire();
+      transferOwners.current.clear(); importOwner.current = null;
+    };
+  }, [readIdentity]);
   function cancelDelete() { preparation.current++; setConfirmDelete(null); }
   useEffect(() => {
     // Changing the selected identity or query cancels consent. A passive table
@@ -348,10 +368,15 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
 
   async function importFile(file: File) {
     if (!beginWorking()) return;
+    retireTransfer(importOwner.current);
+    const owner = newTransfer("logbook_import_adif"); importOwner.current = owner;
+    const release = owner.hold();
+    let retained = false;
     setError(""); setNotice(""); setImportReview(null); setUpdateDuplicates(false); setUpdateFields([]);
     try {
       if (file.size > 32 * 1024 * 1024) throw new Error("Choose an ADIF file smaller than 32 MiB.");
       const document = decodeADIFDocument(await file.arrayBuffer(), importEncoding);
+      if (!owner.active) return;
       const frames = adifImportBatches(document);
       const batches = frames.map(frame => frame.text);
       const fieldMetadata = frames.map(frame => frame.fieldMetadata ?? []);
@@ -360,6 +385,8 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
         const preview = result<{ records: number; duplicates: number; generation: string; token: string; issues: { record: number; message: string }[] }>(
           await onRequest("logbook_import_adif", { action: "preview", text, chunk: index,
             ...(fieldMetadata[index].some(Boolean) ? { fieldMetadata: fieldMetadata[index] } : {}), ...(token ? { token, generation } : {}) }));
+        if (preview.token && preview.generation) owner.bind(preview.token, preview.generation);
+        if (!owner.active) return;
         if (!Array.isArray(preview.issues)) throw new Error("ADIF preview is unavailable. No contacts were imported.");
         if (preview.issues.length) throw new Error(`Batch ${index + 1}, record ${preview.issues[0].record}: ${preview.issues[0].message}`);
         if (!preview.token || !preview.generation || (generation && generation !== preview.generation)) throw new Error("The workspace changed during preview. Review the file again.");
@@ -368,13 +395,14 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
         records += preview.records; duplicates += preview.duplicates;
         setNotice(`Validating ADIF · ${index + 1} of ${batches.length} batches`);
       }
-      if (mounted.current) { setImportReview({ name: file.name, encoding: importEncoding, batches, fieldMetadata, records, duplicates, generation, token }); setNotice(""); }
-    } catch (cause) { if (mounted.current) setError(errorMessage(cause)); }
-    finally { finishWorking(); }
+      if (mounted.current && owner.active) { setImportReview({ name: file.name, encoding: importEncoding, batches, fieldMetadata, records, duplicates, generation, token }); setNotice(""); retained = true; }
+    } catch (cause) { if (mounted.current && owner.active) setError(errorMessage(cause)); }
+    finally { release(); if (!retained) retireTransfer(owner); finishWorking(); }
   }
 
   async function confirmImport() {
-    if (!importReview || (updateDuplicates && !updateFields.length) || !beginWorking()) return;
+    if (!importReview || !importOwner.current?.active || (updateDuplicates && !updateFields.length) || !beginWorking()) return;
+    const owner = importOwner.current, release = owner.hold();
     const { batches, fieldMetadata, generation, token } = importReview;
     setImportReview(null); setError(""); setNotice("");
     let imported = 0;
@@ -382,13 +410,14 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
     let updated = 0;
     try {
       for (const [index, batch] of batches.entries()) {
+        if (!owner.active) return;
         if (updateDuplicates) {
           const response = result<{ updated: number }>(await onRequest("logbook_import_adif", {
             action: "update", token, generation, chunk: index, fields: updateFields, confirmed: true,
           }));
           if (!Number.isSafeInteger(response.updated) || response.updated < 0) throw new Error("The update result could not be verified.");
           updated += response.updated;
-          setNotice(`Updating ${index + 1} of ${batches.length} batches · ${updated} changed`);
+          if (owner.active) setNotice(`Updating ${index + 1} of ${batches.length} batches · ${updated} changed`);
           continue;
         }
         const response = result<{ imported: number; skipped_duplicates: number }>(
@@ -396,15 +425,19 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
         );
         imported += response.imported;
         skipped += response.skipped_duplicates;
-        setNotice(`Importing ${index + 1} of ${batches.length} batches · ${imported} added`);
+        if (owner.active) setNotice(`Importing ${index + 1} of ${batches.length} batches · ${imported} added`);
       }
+      if (!owner.active) return;
       setOffset(0);
       await reload(0);
+      if (!owner.active) return;
       setNotice(updateDuplicates ? `${updated} duplicate QSOs updated. New and repeated records were skipped.` : `${imported} QSOs imported; ${skipped} duplicates skipped.`);
     } catch (cause) {
+      if (!owner.active) return;
       setError(`${imported} QSOs imported; ${updated} updates acknowledged before the operation stopped. The last batch may have committed if its reply was lost; inspect the logbook before reviewing again. ${errorMessage(cause)}`);
       await reload(0);
     } finally {
+      release(); retireTransfer(owner);
       finishWorking();
       if (fileInput.current) fileInput.current.value = "";
     }
@@ -415,11 +448,14 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
     const ids = (page?.qsos ?? []).filter(qso => exportSelection.includes(qso.id)).map(qso => qso.id);
     if (scope === "selected" && (loading || !ids.length)) return;
     if (!beginWorking()) return;
+    const owner = newTransfer("logbook_export_adif"), release = owner.hold();
     setError(""); setNotice("");
     try {
-      const snapshot = result<{ token: string; total: number }>(await onRequest("logbook_export_adif", {
+      const snapshot = result<{ token: string; total: number; workspace_generation: string }>(await onRequest("logbook_export_adif", {
         action: "begin", scope, ...(scope === "filtered" ? { search, ...queryParams } : scope === "selected" ? { ids } : {}),
       }));
+      owner.bind(snapshot.token, snapshot.workspace_generation);
+      if (!owner.active) return;
       const total = snapshot.total;
       if (!Number.isSafeInteger(total) || total < 0 || typeof snapshot.token !== "string" || !snapshot.token) throw new Error("Export snapshot could not be verified.");
       if (!total) throw new Error("There are no QSOs to export.");
@@ -429,6 +465,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
         const response = result<{ text: string; count: number; fieldMetadata?: (ADIFFieldMetadata | null)[] }>(
           await onRequest("logbook_export_adif", { action: "read", token: snapshot.token, offset: exported, limit: requestPageSize }),
         );
+        if (!owner.active) return;
         if (!Number.isSafeInteger(response.count) || response.count <= 0 || response.count > Math.min(requestPageSize, total - exported) || typeof response.text !== "string") {
           throw new Error("Export stopped before the end of the logbook; its frame could not be verified.");
         }
@@ -437,12 +474,16 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
         setNotice(`Preparing ADIF · ${exported.toLocaleString()} of ${total.toLocaleString()} QSOs`);
       }
       setNotice("Choose where to save the export…");
-      const outcome = await (await import("../contesting/contestAnalyticsExport")).saveLogbookFile(exportDocument.finish(), format);
+      const { saveLogbookFile } = await import("../contesting/contestAnalyticsExport");
+      if (!owner.active) return;
+      const outcome = await saveLogbookFile(exportDocument.finish(), format);
+      if (!owner.active) return;
       if (outcome === "Export cancelled.") { setNotice(outcome); return; }
       setNotice(`${exported.toLocaleString()} QSOs exported from the integrated logbook.`);
     } catch (cause) {
+      if (!owner.active) return;
       setNotice(""); setError(errorMessage(cause));
-    } finally { finishWorking(); }
+    } finally { release(); retireTransfer(owner); finishWorking(); }
   }
 
   const total = page?.total ?? 0;
@@ -520,7 +561,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
         <button type="button" disabled={busy} onClick={() => { setQuery(""); setFilterDraft(emptyLogbookQuery()); applyFilter("", emptyLogbookQuery()); }}>Reset filter and search</button></p>}
       {error && <p className="live-logbook-feedback error" role="alert">{error} <button type="button" disabled={loading} onClick={() => setReadRetry(value => value + 1)}>Retry logbook</button></p>}
       {notice && <p className="live-logbook-feedback" role="status">{notice}</p>}
-      {potaExportSelection && <Suspense fallback={<p role="status">Loading POTA export controls…</p>}><POTAExportPanel request={onRequest} selection={potaExportSelection} onClose={() => setPotaExportSelection(null)} onWorking={value => { setBusy(value); localWorking.current=value; workingChanged.current?.(value); }} /></Suspense>}
+      {potaExportSelection && <Suspense fallback={<p role="status">Loading POTA export controls…</p>}><POTAExportPanel request={onRequest} readScope={readScope} selection={potaExportSelection} onClose={() => setPotaExportSelection(null)} onWorking={value => { setBusy(value); localWorking.current=value; workingChanged.current?.(value); }} /></Suspense>}
     {readStale && !loading && <p className="live-logbook-feedback" role="status">Refresh unavailable. Showing the previous page. <button type="button" onClick={() => setReadRetry(value => value + 1)}>Retry logbook</button></p>}
       {importReview && <div className="live-logbook-feedback" role="group" aria-label="Review ADIF import">
         <p>Source encoding: {importReview.encoding === "utf-8" ? "UTF-8" : importReview.encoding === "windows-1252" ? "Windows-1252" : "ISO-8859-1"}. Review uses normalized UTF-8 ADI.</p>
@@ -533,7 +574,7 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
           {updateFieldOptions.map(([field, label]) => <label key={field}><input type="checkbox" checked={updateFields.includes(field)} onChange={event => setUpdateFields(current => event.target.checked ? [...current, field] : current.filter(value => value !== field))} />{label}</label>)}
         </fieldset>}
         <button type="button" disabled={busy || (updateDuplicates && !updateFields.length)} onClick={() => void confirmImport()}>{updateDuplicates ? "Confirm duplicate updates" : "Confirm import"}</button>
-        <button type="button" disabled={busy} onClick={() => setImportReview(null)}>Cancel import</button>
+        <button type="button" disabled={busy} onClick={() => { retireTransfer(importOwner.current); setImportReview(null); }}>Cancel import</button>
       </div>}
       {deleting && <div className="live-logbook-feedback" role="group" aria-label={`Delete ${deleting.call}`}>
         <span>Delete {deleting.call} · {utcTime(deleting.start)}? You can undo this deletion.</span>

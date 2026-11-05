@@ -97,7 +97,7 @@ export function createDeferredPanelReads(request: Request, warmLogbook = false) 
       }
       // Import batches can change rows before the parent receives its revision
       // notification, including an uncertain reply. Never replay their old page.
-      if (method === "logbook_import_adif") {
+      if (method === "logbook_import_adif" && params?.action !== "retire") {
         invalidate();
         return request(method, params).finally(invalidate);
       }

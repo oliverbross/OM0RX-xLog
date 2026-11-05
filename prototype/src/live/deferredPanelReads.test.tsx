@@ -20,6 +20,29 @@ function scheduledFrames() {
 }
 
 describe("deferred local panel reads", () => {
+  it.each([true, false])("retains valid QSO reads when exact-session retirement reports retired=%s", async retired => {
+    const request = vi.fn(async (method: string, values?: Record<string, unknown>) => {
+      if (method === "logbook_import_adif") return values?.action === "retire" ? { retired } : { updated: 1 };
+      return method === "logbook_list" ? firstPage : method === "opportunities_snapshot" ? snapshot : catalogue;
+    });
+    const reads = createDeferredPanelReads(request);
+    const pageParams = { search: "", offset: 0, limit: 20 };
+    expect(await reads.request("logbook_list", pageParams)).toBe(firstPage);
+    expect(await reads.request("logbook_catalog", params)).toBe(catalogue);
+    expect(await reads.request("opportunities_snapshot")).toBe(snapshot);
+    const coordinates = { action: "retire", token: "review-owner", generation: "workspace-owner" };
+    expect(await reads.request("logbook_import_adif", coordinates)).toEqual({ retired });
+    expect(request).toHaveBeenCalledWith("logbook_import_adif", coordinates);
+    expect(await reads.request("logbook_list", pageParams)).toBe(firstPage);
+    expect(await reads.request("logbook_catalog", params)).toBe(catalogue);
+    expect(await reads.request("opportunities_snapshot")).toBe(snapshot);
+    expect(request).toHaveBeenCalledTimes(4);
+    // A real duplicate update still invalidates the same retained QSO frame.
+    await reads.request("logbook_import_adif", { action: "update", token: "review-owner", generation: "workspace-owner", chunk: 0, fields: ["NAME"], confirmed: true });
+    await reads.request("logbook_list", pageParams);
+    expect(request.mock.calls.filter(([method]) => method === "logbook_list")).toHaveLength(2);
+  });
+
   it("moves a 500ms local read before navigation and avoids all three calls on a second visit", async () => {
     vi.useFakeTimers();
     const request = vi.fn((method: string) => new Promise(resolve => window.setTimeout(() => resolve({
