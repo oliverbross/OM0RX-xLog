@@ -22,6 +22,14 @@ Each Python query records its first execute/fetch separately, then five execute/
 
 `sqlite3_stmt_status` supplies fullscan steps, sort operations, auto-index rows, VM steps, runs and prepared-statement memory. This runtime exports and enables `SQLITE_ENABLE_STMT_SCANSTATUS`; a separate single counter run additionally captured actual per-loop NLOOP/NVISIT for every query. Exact loop counts are in JSON. OS physical I/O, lock waits, concurrent mutation/WAL growth, Swift allocations, cancellation and view-close/expiry reclamation were not measured. No missing counter was replaced by an estimate of visited rows.
 
+For final 1.5.18, `otool -L` independently confirms the signed worker links
+`/usr/lib/libsqlite3.dylib`. A standalone read of that same system library on
+the reference Mac reports the same 3.54.0 source ID and 73 compile options;
+[exact metadata and worker hash](system-sqlite-1.5.18.json) are retained.
+The controlled private launch has no DYLD override. This establishes expected
+library identity, not in-worker connection/cache counters or UI timings.
+No database connection or application attach was used for the metadata read.
+
 ## Results
 
 Times below are milliseconds, shown as median / p95. Payload counts include only returned text/blob bytes, excluding numbers, container/object overhead and decoded representations.
