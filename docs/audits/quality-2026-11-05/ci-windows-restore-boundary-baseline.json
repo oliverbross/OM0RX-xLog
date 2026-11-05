@@ -1,0 +1,1786 @@
+{
+  "schema": 1,
+  "runId": 42047371176,
+  "job": 127313896884,
+  "workflow": "Native core diagnosis",
+  "conclusion": "failure",
+  "sourceCommit": "47ee6cdaf3235c05aa797e8017751b9fe898bb34",
+  "scope": "TESTS ONLY; no application candidate/package built",
+  "applicationPackageSourceUnchanged": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+  "applicationVersionUnchanged": "1.5.20",
+  "owningSourcesAndPackageManifestChangedFromPackageSource": false,
+  "selection": {
+    "sourceCommit": "47ee6cdaf3235c05aa797e8017751b9fe898bb34",
+    "scope": "filtered-native-core",
+    "filter": "WindowsRestorePathBoundaryTests",
+    "fullProductQualification": false,
+    "completedTests": [
+      {
+        "name": "'WindowsRestorePathBoundaryTests.testDirectRestoreAtTemp91'",
+        "outcome": "failed"
+      },
+      {
+        "name": "'WindowsRestorePathBoundaryTests.testDirectRestoreAtTemp92'",
+        "outcome": "failed"
+      },
+      {
+        "name": "'WindowsRestorePathBoundaryTests.testRPCRestoreAtTemp91'",
+        "outcome": "failed"
+      },
+      {
+        "name": "'WindowsRestorePathBoundaryTests.testRPCRestoreAtTemp92'",
+        "outcome": "failed"
+      }
+    ],
+    "childExitCode": 1,
+    "state": "failed",
+    "exitCode": 1,
+    "actualCompletedTestRecords": 4
+  },
+  "draftPrecisionPhases": false,
+  "draftPrecisionEvidence": "Workflow observation step skipped",
+  "platform": "windows-2022",
+  "nativeTestCommand": "swift test --force-resolved-versions --scratch-path .build/prototype-tests --no-parallel --filter WindowsRestorePathBoundaryTests, pinned portable lock wrapper and Windows SQLite flags",
+  "executionSummary": {
+    "tests": 4,
+    "failures": 4,
+    "unexpectedFailures": 4,
+    "seconds": 1.876,
+    "selectionReceiptSHA256": "54b40e0867a4e906e3a71e2075afd4fed1576a7a9fed30a92d1753a844d4db07"
+  },
+  "cases": [
+    {
+      "case": "temp91-direct",
+      "passedStages": [
+        "fixture-create",
+        "fixture-dimension-verify",
+        "database-open",
+        "seed-contact-settings-reference",
+        "reference-lease",
+        "backup-create",
+        "selected-backup-verify",
+        "capture-selected-backup-bytes",
+        "prepare-restore-envelope",
+        "envelope-settings-verify",
+        "reference-preflight",
+        "change-live-before-restore",
+        "recovery-snapshot-create",
+        "recovery-snapshot-verify",
+        "install-database"
+      ],
+      "firstFailedStage": {
+        "case": "temp91-direct",
+        "errorCodes": [
+          {
+            "code": 2,
+            "domain": "XLogPortableCore.XLogBackupError"
+          }
+        ],
+        "filesystem": [
+          {
+            "errorCodes": [
+              {
+                "code": 516,
+                "domain": "NSCocoaErrorDomain"
+              }
+            ],
+            "operation": "Foundation.moveItem",
+            "pathUTF16Lengths": [
+              189,
+              262
+            ],
+            "status": "failed"
+          }
+        ],
+        "pathUTF16Lengths": {
+          "databaseRollback": 265,
+          "liveDatabase": 192,
+          "recoveryPackage": 243,
+          "recoveryReference": 258,
+          "recoveryStagedReference": 247,
+          "referenceLive": 189,
+          "referenceRollback": 262,
+          "support": 144,
+          "temp": 91,
+          "workspace": 174
+        },
+        "stage": "install-reference",
+        "status": "failed"
+      },
+      "notReached": [
+        "reopen-verify-selected-data",
+        "selected contact/settings/reference/unknown-field/rollback-byte assertions after restore"
+      ]
+    },
+    {
+      "case": "temp92-direct",
+      "passedStages": [
+        "fixture-create",
+        "fixture-dimension-verify",
+        "database-open",
+        "seed-contact-settings-reference",
+        "reference-lease",
+        "backup-create",
+        "selected-backup-verify",
+        "capture-selected-backup-bytes",
+        "prepare-restore-envelope",
+        "envelope-settings-verify",
+        "reference-preflight",
+        "change-live-before-restore",
+        "recovery-snapshot-create",
+        "recovery-snapshot-verify",
+        "install-database"
+      ],
+      "firstFailedStage": {
+        "case": "temp92-direct",
+        "errorCodes": [
+          {
+            "code": 2,
+            "domain": "XLogPortableCore.XLogBackupError"
+          }
+        ],
+        "filesystem": [
+          {
+            "errorCodes": [
+              {
+                "code": 516,
+                "domain": "NSCocoaErrorDomain"
+              }
+            ],
+            "operation": "Foundation.moveItem",
+            "pathUTF16Lengths": [
+              190,
+              263
+            ],
+            "status": "failed"
+          }
+        ],
+        "pathUTF16Lengths": {
+          "databaseRollback": 266,
+          "liveDatabase": 193,
+          "recoveryPackage": 244,
+          "recoveryReference": 259,
+          "recoveryStagedReference": 248,
+          "referenceLive": 190,
+          "referenceRollback": 263,
+          "support": 145,
+          "temp": 92,
+          "workspace": 175
+        },
+        "stage": "install-reference",
+        "status": "failed"
+      },
+      "notReached": [
+        "reopen-verify-selected-data",
+        "selected contact/settings/reference/unknown-field/rollback-byte assertions after restore"
+      ]
+    },
+    {
+      "case": "temp91-rpc",
+      "passedStages": [
+        "fixture-create",
+        "fixture-dimension-verify",
+        "database-open",
+        "seed-contact-settings-reference",
+        "reference-lease",
+        "backup-create",
+        "selected-backup-verify",
+        "capture-selected-backup-bytes",
+        "prepare-restore-envelope",
+        "envelope-settings-verify",
+        "reference-preflight",
+        "change-live-before-restore",
+        "recovery-snapshot-create",
+        "recovery-snapshot-verify",
+        "install-database"
+      ],
+      "firstFailedStage": {
+        "case": "temp91-rpc",
+        "errorCodes": [
+          {
+            "code": 2,
+            "domain": "XLogPortableCore.XLogBackupError"
+          }
+        ],
+        "filesystem": [
+          {
+            "errorCodes": [
+              {
+                "code": 516,
+                "domain": "NSCocoaErrorDomain"
+              }
+            ],
+            "operation": "Foundation.moveItem",
+            "pathUTF16Lengths": [
+              192,
+              265
+            ],
+            "status": "failed"
+          }
+        ],
+        "pathUTF16Lengths": {
+          "databaseRollback": 268,
+          "liveDatabase": 195,
+          "recoveryPackage": 246,
+          "recoveryReference": 261,
+          "recoveryStagedReference": 250,
+          "referenceLive": 192,
+          "referenceRollback": 265,
+          "support": 147,
+          "temp": 91,
+          "workspace": 177
+        },
+        "stage": "install-reference",
+        "status": "failed"
+      },
+      "notReached": [
+        "reopen-verify-selected-data",
+        "selected contact/settings/reference/unknown-field/rollback-byte assertions after restore"
+      ]
+    },
+    {
+      "case": "temp92-rpc",
+      "passedStages": [
+        "fixture-create",
+        "fixture-dimension-verify",
+        "database-open",
+        "seed-contact-settings-reference",
+        "reference-lease",
+        "backup-create",
+        "selected-backup-verify",
+        "capture-selected-backup-bytes",
+        "prepare-restore-envelope",
+        "envelope-settings-verify",
+        "reference-preflight",
+        "change-live-before-restore",
+        "recovery-snapshot-create",
+        "recovery-snapshot-verify",
+        "install-database"
+      ],
+      "firstFailedStage": {
+        "case": "temp92-rpc",
+        "errorCodes": [
+          {
+            "code": 2,
+            "domain": "XLogPortableCore.XLogBackupError"
+          }
+        ],
+        "filesystem": [
+          {
+            "errorCodes": [
+              {
+                "code": 516,
+                "domain": "NSCocoaErrorDomain"
+              }
+            ],
+            "operation": "Foundation.moveItem",
+            "pathUTF16Lengths": [
+              193,
+              266
+            ],
+            "status": "failed"
+          }
+        ],
+        "pathUTF16Lengths": {
+          "databaseRollback": 269,
+          "liveDatabase": 196,
+          "recoveryPackage": 247,
+          "recoveryReference": 262,
+          "recoveryStagedReference": 251,
+          "referenceLive": 193,
+          "referenceRollback": 266,
+          "support": 148,
+          "temp": 92,
+          "workspace": 178
+        },
+        "stage": "install-reference",
+        "status": "failed"
+      },
+      "notReached": [
+        "reopen-verify-selected-data",
+        "selected contact/settings/reference/unknown-field/rollback-byte assertions after restore"
+      ]
+    }
+  ],
+  "allSanitizedStageReceipts": [
+    {
+      "case": "temp91-direct",
+      "filesystem": [
+        {
+          "operation": "Foundation.createDirectory",
+          "pathUTF16Lengths": [
+            174
+          ],
+          "status": "passed"
+        }
+      ],
+      "pathUTF16Lengths": {
+        "databaseRollback": 265,
+        "liveDatabase": 192,
+        "recoveryPackage": 243,
+        "recoveryReference": 258,
+        "recoveryStagedReference": 247,
+        "referenceLive": 189,
+        "referenceRollback": 262,
+        "support": 144,
+        "temp": 91,
+        "workspace": 174
+      },
+      "stage": "fixture-create",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-direct",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 265,
+        "liveDatabase": 192,
+        "recoveryPackage": 243,
+        "recoveryReference": 258,
+        "recoveryStagedReference": 247,
+        "referenceLive": 189,
+        "referenceRollback": 262,
+        "support": 144,
+        "temp": 91,
+        "workspace": 174
+      },
+      "stage": "fixture-dimension-verify",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-direct",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 265,
+        "liveDatabase": 192,
+        "recoveryPackage": 243,
+        "recoveryReference": 258,
+        "recoveryStagedReference": 247,
+        "referenceLive": 189,
+        "referenceRollback": 262,
+        "support": 144,
+        "temp": 91,
+        "workspace": 174
+      },
+      "stage": "database-open",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-direct",
+      "filesystem": [
+        {
+          "operation": "Foundation.createDirectory",
+          "pathUTF16Lengths": [
+            189
+          ],
+          "status": "passed"
+        }
+      ],
+      "pathUTF16Lengths": {
+        "databaseRollback": 265,
+        "liveDatabase": 192,
+        "recoveryPackage": 243,
+        "recoveryReference": 258,
+        "recoveryStagedReference": 247,
+        "referenceLive": 189,
+        "referenceRollback": 262,
+        "support": 144,
+        "temp": 91,
+        "workspace": 174
+      },
+      "stage": "seed-contact-settings-reference",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-direct",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 265,
+        "liveDatabase": 192,
+        "recoveryPackage": 243,
+        "recoveryReference": 258,
+        "recoveryStagedReference": 247,
+        "referenceLive": 189,
+        "referenceRollback": 262,
+        "support": 144,
+        "temp": 91,
+        "workspace": 174
+      },
+      "stage": "reference-lease",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-direct",
+      "filesystem": [
+        {
+          "operation": "Foundation.moveItem",
+          "pathUTF16Lengths": [
+            231,
+            204
+          ],
+          "status": "passed"
+        }
+      ],
+      "pathUTF16Lengths": {
+        "databaseRollback": 265,
+        "liveDatabase": 192,
+        "recoveryPackage": 243,
+        "recoveryReference": 258,
+        "recoveryStagedReference": 247,
+        "referenceLive": 189,
+        "referenceRollback": 262,
+        "support": 144,
+        "temp": 91,
+        "workspace": 174
+      },
+      "stage": "backup-create",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-direct",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 265,
+        "liveDatabase": 192,
+        "recoveryPackage": 243,
+        "recoveryReference": 258,
+        "recoveryStagedReference": 247,
+        "referenceLive": 189,
+        "referenceRollback": 262,
+        "support": 144,
+        "temp": 91,
+        "workspace": 174
+      },
+      "stage": "selected-backup-verify",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-direct",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 265,
+        "liveDatabase": 192,
+        "recoveryPackage": 243,
+        "recoveryReference": 258,
+        "recoveryStagedReference": 247,
+        "referenceLive": 189,
+        "referenceRollback": 262,
+        "support": 144,
+        "temp": 91,
+        "workspace": 174
+      },
+      "stage": "capture-selected-backup-bytes",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-direct",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 265,
+        "liveDatabase": 192,
+        "recoveryPackage": 243,
+        "recoveryReference": 258,
+        "recoveryStagedReference": 247,
+        "referenceLive": 189,
+        "referenceRollback": 262,
+        "support": 144,
+        "temp": 91,
+        "workspace": 174
+      },
+      "stage": "prepare-restore-envelope",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-direct",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 265,
+        "liveDatabase": 192,
+        "recoveryPackage": 243,
+        "recoveryReference": 258,
+        "recoveryStagedReference": 247,
+        "referenceLive": 189,
+        "referenceRollback": 262,
+        "support": 144,
+        "temp": 91,
+        "workspace": 174
+      },
+      "stage": "envelope-settings-verify",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-direct",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 265,
+        "liveDatabase": 192,
+        "recoveryPackage": 243,
+        "recoveryReference": 258,
+        "recoveryStagedReference": 247,
+        "referenceLive": 189,
+        "referenceRollback": 262,
+        "support": 144,
+        "temp": 91,
+        "workspace": 174
+      },
+      "stage": "reference-preflight",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-direct",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 265,
+        "liveDatabase": 192,
+        "recoveryPackage": 243,
+        "recoveryReference": 258,
+        "recoveryStagedReference": 247,
+        "referenceLive": 189,
+        "referenceRollback": 262,
+        "support": 144,
+        "temp": 91,
+        "workspace": 174
+      },
+      "stage": "change-live-before-restore",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-direct",
+      "filesystem": [
+        {
+          "operation": "Foundation.moveItem",
+          "pathUTF16Lengths": [
+            232,
+            243
+          ],
+          "status": "passed"
+        }
+      ],
+      "pathUTF16Lengths": {
+        "databaseRollback": 265,
+        "liveDatabase": 192,
+        "recoveryPackage": 243,
+        "recoveryReference": 258,
+        "recoveryStagedReference": 247,
+        "referenceLive": 189,
+        "referenceRollback": 262,
+        "support": 144,
+        "temp": 91,
+        "workspace": 174
+      },
+      "stage": "recovery-snapshot-create",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-direct",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 265,
+        "liveDatabase": 192,
+        "recoveryPackage": 243,
+        "recoveryReference": 258,
+        "recoveryStagedReference": 247,
+        "referenceLive": 189,
+        "referenceRollback": 262,
+        "support": 144,
+        "temp": 91,
+        "workspace": 174
+      },
+      "stage": "recovery-snapshot-verify",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-direct",
+      "filesystem": [
+        {
+          "operation": "Foundation.moveItem",
+          "pathUTF16Lengths": [
+            192,
+            265
+          ],
+          "status": "passed"
+        },
+        {
+          "operation": "Foundation.moveItem",
+          "pathUTF16Lengths": [
+            227,
+            192
+          ],
+          "status": "passed"
+        }
+      ],
+      "pathUTF16Lengths": {
+        "databaseRollback": 265,
+        "liveDatabase": 192,
+        "recoveryPackage": 243,
+        "recoveryReference": 258,
+        "recoveryStagedReference": 247,
+        "referenceLive": 189,
+        "referenceRollback": 262,
+        "support": 144,
+        "temp": 91,
+        "workspace": 174
+      },
+      "stage": "install-database",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-direct",
+      "errorCodes": [
+        {
+          "code": 2,
+          "domain": "XLogPortableCore.XLogBackupError"
+        }
+      ],
+      "filesystem": [
+        {
+          "errorCodes": [
+            {
+              "code": 516,
+              "domain": "NSCocoaErrorDomain"
+            }
+          ],
+          "operation": "Foundation.moveItem",
+          "pathUTF16Lengths": [
+            189,
+            262
+          ],
+          "status": "failed"
+        }
+      ],
+      "pathUTF16Lengths": {
+        "databaseRollback": 265,
+        "liveDatabase": 192,
+        "recoveryPackage": 243,
+        "recoveryReference": 258,
+        "recoveryStagedReference": 247,
+        "referenceLive": 189,
+        "referenceRollback": 262,
+        "support": 144,
+        "temp": 91,
+        "workspace": 174
+      },
+      "stage": "install-reference",
+      "status": "failed"
+    },
+    {
+      "case": "temp92-direct",
+      "filesystem": [
+        {
+          "operation": "Foundation.createDirectory",
+          "pathUTF16Lengths": [
+            175
+          ],
+          "status": "passed"
+        }
+      ],
+      "pathUTF16Lengths": {
+        "databaseRollback": 266,
+        "liveDatabase": 193,
+        "recoveryPackage": 244,
+        "recoveryReference": 259,
+        "recoveryStagedReference": 248,
+        "referenceLive": 190,
+        "referenceRollback": 263,
+        "support": 145,
+        "temp": 92,
+        "workspace": 175
+      },
+      "stage": "fixture-create",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-direct",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 266,
+        "liveDatabase": 193,
+        "recoveryPackage": 244,
+        "recoveryReference": 259,
+        "recoveryStagedReference": 248,
+        "referenceLive": 190,
+        "referenceRollback": 263,
+        "support": 145,
+        "temp": 92,
+        "workspace": 175
+      },
+      "stage": "fixture-dimension-verify",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-direct",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 266,
+        "liveDatabase": 193,
+        "recoveryPackage": 244,
+        "recoveryReference": 259,
+        "recoveryStagedReference": 248,
+        "referenceLive": 190,
+        "referenceRollback": 263,
+        "support": 145,
+        "temp": 92,
+        "workspace": 175
+      },
+      "stage": "database-open",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-direct",
+      "filesystem": [
+        {
+          "operation": "Foundation.createDirectory",
+          "pathUTF16Lengths": [
+            190
+          ],
+          "status": "passed"
+        }
+      ],
+      "pathUTF16Lengths": {
+        "databaseRollback": 266,
+        "liveDatabase": 193,
+        "recoveryPackage": 244,
+        "recoveryReference": 259,
+        "recoveryStagedReference": 248,
+        "referenceLive": 190,
+        "referenceRollback": 263,
+        "support": 145,
+        "temp": 92,
+        "workspace": 175
+      },
+      "stage": "seed-contact-settings-reference",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-direct",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 266,
+        "liveDatabase": 193,
+        "recoveryPackage": 244,
+        "recoveryReference": 259,
+        "recoveryStagedReference": 248,
+        "referenceLive": 190,
+        "referenceRollback": 263,
+        "support": 145,
+        "temp": 92,
+        "workspace": 175
+      },
+      "stage": "reference-lease",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-direct",
+      "filesystem": [
+        {
+          "operation": "Foundation.moveItem",
+          "pathUTF16Lengths": [
+            232,
+            205
+          ],
+          "status": "passed"
+        }
+      ],
+      "pathUTF16Lengths": {
+        "databaseRollback": 266,
+        "liveDatabase": 193,
+        "recoveryPackage": 244,
+        "recoveryReference": 259,
+        "recoveryStagedReference": 248,
+        "referenceLive": 190,
+        "referenceRollback": 263,
+        "support": 145,
+        "temp": 92,
+        "workspace": 175
+      },
+      "stage": "backup-create",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-direct",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 266,
+        "liveDatabase": 193,
+        "recoveryPackage": 244,
+        "recoveryReference": 259,
+        "recoveryStagedReference": 248,
+        "referenceLive": 190,
+        "referenceRollback": 263,
+        "support": 145,
+        "temp": 92,
+        "workspace": 175
+      },
+      "stage": "selected-backup-verify",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-direct",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 266,
+        "liveDatabase": 193,
+        "recoveryPackage": 244,
+        "recoveryReference": 259,
+        "recoveryStagedReference": 248,
+        "referenceLive": 190,
+        "referenceRollback": 263,
+        "support": 145,
+        "temp": 92,
+        "workspace": 175
+      },
+      "stage": "capture-selected-backup-bytes",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-direct",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 266,
+        "liveDatabase": 193,
+        "recoveryPackage": 244,
+        "recoveryReference": 259,
+        "recoveryStagedReference": 248,
+        "referenceLive": 190,
+        "referenceRollback": 263,
+        "support": 145,
+        "temp": 92,
+        "workspace": 175
+      },
+      "stage": "prepare-restore-envelope",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-direct",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 266,
+        "liveDatabase": 193,
+        "recoveryPackage": 244,
+        "recoveryReference": 259,
+        "recoveryStagedReference": 248,
+        "referenceLive": 190,
+        "referenceRollback": 263,
+        "support": 145,
+        "temp": 92,
+        "workspace": 175
+      },
+      "stage": "envelope-settings-verify",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-direct",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 266,
+        "liveDatabase": 193,
+        "recoveryPackage": 244,
+        "recoveryReference": 259,
+        "recoveryStagedReference": 248,
+        "referenceLive": 190,
+        "referenceRollback": 263,
+        "support": 145,
+        "temp": 92,
+        "workspace": 175
+      },
+      "stage": "reference-preflight",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-direct",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 266,
+        "liveDatabase": 193,
+        "recoveryPackage": 244,
+        "recoveryReference": 259,
+        "recoveryStagedReference": 248,
+        "referenceLive": 190,
+        "referenceRollback": 263,
+        "support": 145,
+        "temp": 92,
+        "workspace": 175
+      },
+      "stage": "change-live-before-restore",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-direct",
+      "filesystem": [
+        {
+          "operation": "Foundation.moveItem",
+          "pathUTF16Lengths": [
+            233,
+            244
+          ],
+          "status": "passed"
+        }
+      ],
+      "pathUTF16Lengths": {
+        "databaseRollback": 266,
+        "liveDatabase": 193,
+        "recoveryPackage": 244,
+        "recoveryReference": 259,
+        "recoveryStagedReference": 248,
+        "referenceLive": 190,
+        "referenceRollback": 263,
+        "support": 145,
+        "temp": 92,
+        "workspace": 175
+      },
+      "stage": "recovery-snapshot-create",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-direct",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 266,
+        "liveDatabase": 193,
+        "recoveryPackage": 244,
+        "recoveryReference": 259,
+        "recoveryStagedReference": 248,
+        "referenceLive": 190,
+        "referenceRollback": 263,
+        "support": 145,
+        "temp": 92,
+        "workspace": 175
+      },
+      "stage": "recovery-snapshot-verify",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-direct",
+      "filesystem": [
+        {
+          "operation": "Foundation.moveItem",
+          "pathUTF16Lengths": [
+            193,
+            266
+          ],
+          "status": "passed"
+        },
+        {
+          "operation": "Foundation.moveItem",
+          "pathUTF16Lengths": [
+            228,
+            193
+          ],
+          "status": "passed"
+        }
+      ],
+      "pathUTF16Lengths": {
+        "databaseRollback": 266,
+        "liveDatabase": 193,
+        "recoveryPackage": 244,
+        "recoveryReference": 259,
+        "recoveryStagedReference": 248,
+        "referenceLive": 190,
+        "referenceRollback": 263,
+        "support": 145,
+        "temp": 92,
+        "workspace": 175
+      },
+      "stage": "install-database",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-direct",
+      "errorCodes": [
+        {
+          "code": 2,
+          "domain": "XLogPortableCore.XLogBackupError"
+        }
+      ],
+      "filesystem": [
+        {
+          "errorCodes": [
+            {
+              "code": 516,
+              "domain": "NSCocoaErrorDomain"
+            }
+          ],
+          "operation": "Foundation.moveItem",
+          "pathUTF16Lengths": [
+            190,
+            263
+          ],
+          "status": "failed"
+        }
+      ],
+      "pathUTF16Lengths": {
+        "databaseRollback": 266,
+        "liveDatabase": 193,
+        "recoveryPackage": 244,
+        "recoveryReference": 259,
+        "recoveryStagedReference": 248,
+        "referenceLive": 190,
+        "referenceRollback": 263,
+        "support": 145,
+        "temp": 92,
+        "workspace": 175
+      },
+      "stage": "install-reference",
+      "status": "failed"
+    },
+    {
+      "case": "temp91-rpc",
+      "filesystem": [
+        {
+          "operation": "Foundation.createDirectory",
+          "pathUTF16Lengths": [
+            177
+          ],
+          "status": "passed"
+        }
+      ],
+      "pathUTF16Lengths": {
+        "databaseRollback": 268,
+        "liveDatabase": 195,
+        "recoveryPackage": 246,
+        "recoveryReference": 261,
+        "recoveryStagedReference": 250,
+        "referenceLive": 192,
+        "referenceRollback": 265,
+        "support": 147,
+        "temp": 91,
+        "workspace": 177
+      },
+      "stage": "fixture-create",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-rpc",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 268,
+        "liveDatabase": 195,
+        "recoveryPackage": 246,
+        "recoveryReference": 261,
+        "recoveryStagedReference": 250,
+        "referenceLive": 192,
+        "referenceRollback": 265,
+        "support": 147,
+        "temp": 91,
+        "workspace": 177
+      },
+      "stage": "fixture-dimension-verify",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-rpc",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 268,
+        "liveDatabase": 195,
+        "recoveryPackage": 246,
+        "recoveryReference": 261,
+        "recoveryStagedReference": 250,
+        "referenceLive": 192,
+        "referenceRollback": 265,
+        "support": 147,
+        "temp": 91,
+        "workspace": 177
+      },
+      "stage": "database-open",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-rpc",
+      "filesystem": [
+        {
+          "operation": "Foundation.createDirectory",
+          "pathUTF16Lengths": [
+            192
+          ],
+          "status": "passed"
+        }
+      ],
+      "pathUTF16Lengths": {
+        "databaseRollback": 268,
+        "liveDatabase": 195,
+        "recoveryPackage": 246,
+        "recoveryReference": 261,
+        "recoveryStagedReference": 250,
+        "referenceLive": 192,
+        "referenceRollback": 265,
+        "support": 147,
+        "temp": 91,
+        "workspace": 177
+      },
+      "stage": "seed-contact-settings-reference",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-rpc",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 268,
+        "liveDatabase": 195,
+        "recoveryPackage": 246,
+        "recoveryReference": 261,
+        "recoveryStagedReference": 250,
+        "referenceLive": 192,
+        "referenceRollback": 265,
+        "support": 147,
+        "temp": 91,
+        "workspace": 177
+      },
+      "stage": "reference-lease",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-rpc",
+      "filesystem": [
+        {
+          "operation": "Foundation.moveItem",
+          "pathUTF16Lengths": [
+            234,
+            207
+          ],
+          "status": "passed"
+        }
+      ],
+      "pathUTF16Lengths": {
+        "databaseRollback": 268,
+        "liveDatabase": 195,
+        "recoveryPackage": 246,
+        "recoveryReference": 261,
+        "recoveryStagedReference": 250,
+        "referenceLive": 192,
+        "referenceRollback": 265,
+        "support": 147,
+        "temp": 91,
+        "workspace": 177
+      },
+      "stage": "backup-create",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-rpc",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 268,
+        "liveDatabase": 195,
+        "recoveryPackage": 246,
+        "recoveryReference": 261,
+        "recoveryStagedReference": 250,
+        "referenceLive": 192,
+        "referenceRollback": 265,
+        "support": 147,
+        "temp": 91,
+        "workspace": 177
+      },
+      "stage": "selected-backup-verify",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-rpc",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 268,
+        "liveDatabase": 195,
+        "recoveryPackage": 246,
+        "recoveryReference": 261,
+        "recoveryStagedReference": 250,
+        "referenceLive": 192,
+        "referenceRollback": 265,
+        "support": 147,
+        "temp": 91,
+        "workspace": 177
+      },
+      "stage": "capture-selected-backup-bytes",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-rpc",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 268,
+        "liveDatabase": 195,
+        "recoveryPackage": 246,
+        "recoveryReference": 261,
+        "recoveryStagedReference": 250,
+        "referenceLive": 192,
+        "referenceRollback": 265,
+        "support": 147,
+        "temp": 91,
+        "workspace": 177
+      },
+      "stage": "prepare-restore-envelope",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-rpc",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 268,
+        "liveDatabase": 195,
+        "recoveryPackage": 246,
+        "recoveryReference": 261,
+        "recoveryStagedReference": 250,
+        "referenceLive": 192,
+        "referenceRollback": 265,
+        "support": 147,
+        "temp": 91,
+        "workspace": 177
+      },
+      "stage": "envelope-settings-verify",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-rpc",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 268,
+        "liveDatabase": 195,
+        "recoveryPackage": 246,
+        "recoveryReference": 261,
+        "recoveryStagedReference": 250,
+        "referenceLive": 192,
+        "referenceRollback": 265,
+        "support": 147,
+        "temp": 91,
+        "workspace": 177
+      },
+      "stage": "reference-preflight",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-rpc",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 268,
+        "liveDatabase": 195,
+        "recoveryPackage": 246,
+        "recoveryReference": 261,
+        "recoveryStagedReference": 250,
+        "referenceLive": 192,
+        "referenceRollback": 265,
+        "support": 147,
+        "temp": 91,
+        "workspace": 177
+      },
+      "stage": "change-live-before-restore",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-rpc",
+      "filesystem": [
+        {
+          "operation": "Foundation.moveItem",
+          "pathUTF16Lengths": [
+            235,
+            246
+          ],
+          "status": "passed"
+        }
+      ],
+      "pathUTF16Lengths": {
+        "databaseRollback": 268,
+        "liveDatabase": 195,
+        "recoveryPackage": 246,
+        "recoveryReference": 261,
+        "recoveryStagedReference": 250,
+        "referenceLive": 192,
+        "referenceRollback": 265,
+        "support": 147,
+        "temp": 91,
+        "workspace": 177
+      },
+      "stage": "recovery-snapshot-create",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-rpc",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 268,
+        "liveDatabase": 195,
+        "recoveryPackage": 246,
+        "recoveryReference": 261,
+        "recoveryStagedReference": 250,
+        "referenceLive": 192,
+        "referenceRollback": 265,
+        "support": 147,
+        "temp": 91,
+        "workspace": 177
+      },
+      "stage": "recovery-snapshot-verify",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-rpc",
+      "filesystem": [
+        {
+          "operation": "Foundation.moveItem",
+          "pathUTF16Lengths": [
+            195,
+            268
+          ],
+          "status": "passed"
+        },
+        {
+          "operation": "Foundation.moveItem",
+          "pathUTF16Lengths": [
+            230,
+            195
+          ],
+          "status": "passed"
+        }
+      ],
+      "pathUTF16Lengths": {
+        "databaseRollback": 268,
+        "liveDatabase": 195,
+        "recoveryPackage": 246,
+        "recoveryReference": 261,
+        "recoveryStagedReference": 250,
+        "referenceLive": 192,
+        "referenceRollback": 265,
+        "support": 147,
+        "temp": 91,
+        "workspace": 177
+      },
+      "stage": "install-database",
+      "status": "passed"
+    },
+    {
+      "case": "temp91-rpc",
+      "errorCodes": [
+        {
+          "code": 2,
+          "domain": "XLogPortableCore.XLogBackupError"
+        }
+      ],
+      "filesystem": [
+        {
+          "errorCodes": [
+            {
+              "code": 516,
+              "domain": "NSCocoaErrorDomain"
+            }
+          ],
+          "operation": "Foundation.moveItem",
+          "pathUTF16Lengths": [
+            192,
+            265
+          ],
+          "status": "failed"
+        }
+      ],
+      "pathUTF16Lengths": {
+        "databaseRollback": 268,
+        "liveDatabase": 195,
+        "recoveryPackage": 246,
+        "recoveryReference": 261,
+        "recoveryStagedReference": 250,
+        "referenceLive": 192,
+        "referenceRollback": 265,
+        "support": 147,
+        "temp": 91,
+        "workspace": 177
+      },
+      "stage": "install-reference",
+      "status": "failed"
+    },
+    {
+      "case": "temp92-rpc",
+      "filesystem": [
+        {
+          "operation": "Foundation.createDirectory",
+          "pathUTF16Lengths": [
+            178
+          ],
+          "status": "passed"
+        }
+      ],
+      "pathUTF16Lengths": {
+        "databaseRollback": 269,
+        "liveDatabase": 196,
+        "recoveryPackage": 247,
+        "recoveryReference": 262,
+        "recoveryStagedReference": 251,
+        "referenceLive": 193,
+        "referenceRollback": 266,
+        "support": 148,
+        "temp": 92,
+        "workspace": 178
+      },
+      "stage": "fixture-create",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-rpc",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 269,
+        "liveDatabase": 196,
+        "recoveryPackage": 247,
+        "recoveryReference": 262,
+        "recoveryStagedReference": 251,
+        "referenceLive": 193,
+        "referenceRollback": 266,
+        "support": 148,
+        "temp": 92,
+        "workspace": 178
+      },
+      "stage": "fixture-dimension-verify",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-rpc",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 269,
+        "liveDatabase": 196,
+        "recoveryPackage": 247,
+        "recoveryReference": 262,
+        "recoveryStagedReference": 251,
+        "referenceLive": 193,
+        "referenceRollback": 266,
+        "support": 148,
+        "temp": 92,
+        "workspace": 178
+      },
+      "stage": "database-open",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-rpc",
+      "filesystem": [
+        {
+          "operation": "Foundation.createDirectory",
+          "pathUTF16Lengths": [
+            193
+          ],
+          "status": "passed"
+        }
+      ],
+      "pathUTF16Lengths": {
+        "databaseRollback": 269,
+        "liveDatabase": 196,
+        "recoveryPackage": 247,
+        "recoveryReference": 262,
+        "recoveryStagedReference": 251,
+        "referenceLive": 193,
+        "referenceRollback": 266,
+        "support": 148,
+        "temp": 92,
+        "workspace": 178
+      },
+      "stage": "seed-contact-settings-reference",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-rpc",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 269,
+        "liveDatabase": 196,
+        "recoveryPackage": 247,
+        "recoveryReference": 262,
+        "recoveryStagedReference": 251,
+        "referenceLive": 193,
+        "referenceRollback": 266,
+        "support": 148,
+        "temp": 92,
+        "workspace": 178
+      },
+      "stage": "reference-lease",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-rpc",
+      "filesystem": [
+        {
+          "operation": "Foundation.moveItem",
+          "pathUTF16Lengths": [
+            235,
+            208
+          ],
+          "status": "passed"
+        }
+      ],
+      "pathUTF16Lengths": {
+        "databaseRollback": 269,
+        "liveDatabase": 196,
+        "recoveryPackage": 247,
+        "recoveryReference": 262,
+        "recoveryStagedReference": 251,
+        "referenceLive": 193,
+        "referenceRollback": 266,
+        "support": 148,
+        "temp": 92,
+        "workspace": 178
+      },
+      "stage": "backup-create",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-rpc",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 269,
+        "liveDatabase": 196,
+        "recoveryPackage": 247,
+        "recoveryReference": 262,
+        "recoveryStagedReference": 251,
+        "referenceLive": 193,
+        "referenceRollback": 266,
+        "support": 148,
+        "temp": 92,
+        "workspace": 178
+      },
+      "stage": "selected-backup-verify",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-rpc",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 269,
+        "liveDatabase": 196,
+        "recoveryPackage": 247,
+        "recoveryReference": 262,
+        "recoveryStagedReference": 251,
+        "referenceLive": 193,
+        "referenceRollback": 266,
+        "support": 148,
+        "temp": 92,
+        "workspace": 178
+      },
+      "stage": "capture-selected-backup-bytes",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-rpc",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 269,
+        "liveDatabase": 196,
+        "recoveryPackage": 247,
+        "recoveryReference": 262,
+        "recoveryStagedReference": 251,
+        "referenceLive": 193,
+        "referenceRollback": 266,
+        "support": 148,
+        "temp": 92,
+        "workspace": 178
+      },
+      "stage": "prepare-restore-envelope",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-rpc",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 269,
+        "liveDatabase": 196,
+        "recoveryPackage": 247,
+        "recoveryReference": 262,
+        "recoveryStagedReference": 251,
+        "referenceLive": 193,
+        "referenceRollback": 266,
+        "support": 148,
+        "temp": 92,
+        "workspace": 178
+      },
+      "stage": "envelope-settings-verify",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-rpc",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 269,
+        "liveDatabase": 196,
+        "recoveryPackage": 247,
+        "recoveryReference": 262,
+        "recoveryStagedReference": 251,
+        "referenceLive": 193,
+        "referenceRollback": 266,
+        "support": 148,
+        "temp": 92,
+        "workspace": 178
+      },
+      "stage": "reference-preflight",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-rpc",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 269,
+        "liveDatabase": 196,
+        "recoveryPackage": 247,
+        "recoveryReference": 262,
+        "recoveryStagedReference": 251,
+        "referenceLive": 193,
+        "referenceRollback": 266,
+        "support": 148,
+        "temp": 92,
+        "workspace": 178
+      },
+      "stage": "change-live-before-restore",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-rpc",
+      "filesystem": [
+        {
+          "operation": "Foundation.moveItem",
+          "pathUTF16Lengths": [
+            236,
+            247
+          ],
+          "status": "passed"
+        }
+      ],
+      "pathUTF16Lengths": {
+        "databaseRollback": 269,
+        "liveDatabase": 196,
+        "recoveryPackage": 247,
+        "recoveryReference": 262,
+        "recoveryStagedReference": 251,
+        "referenceLive": 193,
+        "referenceRollback": 266,
+        "support": 148,
+        "temp": 92,
+        "workspace": 178
+      },
+      "stage": "recovery-snapshot-create",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-rpc",
+      "filesystem": [],
+      "pathUTF16Lengths": {
+        "databaseRollback": 269,
+        "liveDatabase": 196,
+        "recoveryPackage": 247,
+        "recoveryReference": 262,
+        "recoveryStagedReference": 251,
+        "referenceLive": 193,
+        "referenceRollback": 266,
+        "support": 148,
+        "temp": 92,
+        "workspace": 178
+      },
+      "stage": "recovery-snapshot-verify",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-rpc",
+      "filesystem": [
+        {
+          "operation": "Foundation.moveItem",
+          "pathUTF16Lengths": [
+            196,
+            269
+          ],
+          "status": "passed"
+        },
+        {
+          "operation": "Foundation.moveItem",
+          "pathUTF16Lengths": [
+            231,
+            196
+          ],
+          "status": "passed"
+        }
+      ],
+      "pathUTF16Lengths": {
+        "databaseRollback": 269,
+        "liveDatabase": 196,
+        "recoveryPackage": 247,
+        "recoveryReference": 262,
+        "recoveryStagedReference": 251,
+        "referenceLive": 193,
+        "referenceRollback": 266,
+        "support": 148,
+        "temp": 92,
+        "workspace": 178
+      },
+      "stage": "install-database",
+      "status": "passed"
+    },
+    {
+      "case": "temp92-rpc",
+      "errorCodes": [
+        {
+          "code": 2,
+          "domain": "XLogPortableCore.XLogBackupError"
+        }
+      ],
+      "filesystem": [
+        {
+          "errorCodes": [
+            {
+              "code": 516,
+              "domain": "NSCocoaErrorDomain"
+            }
+          ],
+          "operation": "Foundation.moveItem",
+          "pathUTF16Lengths": [
+            193,
+            266
+          ],
+          "status": "failed"
+        }
+      ],
+      "pathUTF16Lengths": {
+        "databaseRollback": 269,
+        "liveDatabase": 196,
+        "recoveryPackage": 247,
+        "recoveryReference": 262,
+        "recoveryStagedReference": 251,
+        "referenceLive": 193,
+        "referenceRollback": 266,
+        "support": 148,
+        "temp": 92,
+        "workspace": 178
+      },
+      "stage": "install-reference",
+      "status": "failed"
+    }
+  ],
+  "artifacts": [
+    {
+      "id": 13426670165,
+      "name": "portable-swift-pins-Windows-47ee6cdaf3235c05aa797e8017751b9fe898bb34",
+      "bytes": 896,
+      "sha256": "fcb90e4ffd44ecad979f06442fbd6737572c58072e769747ab98b8cecf30b320"
+    },
+    {
+      "id": 13426131203,
+      "name": "native-core-selection-Windows-47ee6cdaf3235c05aa797e8017751b9fe898bb34",
+      "bytes": 697,
+      "sha256": "5340f25926f1325ed2271764771280aca798d08c1c4c0bf12dd0711b788bbabe"
+    }
+  ],
+  "log": {
+    "job": 127313896884,
+    "bytes": 754778,
+    "sha256": "5a913dfb577d71f31254de4d81ceaf664c2bda6cee8a89c2e549dc37e6eb1bad"
+  },
+  "portablePinReceiptSHA256": "c5b2499b9fb4042aaa9d5a059b1551aed750217c8e7fbf5450bd1e921afe398d",
+  "ordinaryCI": {
+    "run": 42047369123,
+    "conclusion": "success"
+  },
+  "redundantPush": {
+    "run": 42047369404,
+    "conclusion": "cancelled",
+    "reason": "Verified exact-source push/single-Mac prototype run; not a pass"
+  },
+  "interpretation": [
+    "All four positive round-trip regressions failed without expected-failure assertions",
+    "First observed primitive failure: Foundation.moveItem of live reference directory to restore rollback path, destination262-266 native UTF16 units",
+    "Database install, recovery snapshot and reference preflight passed before reference installation failed",
+    "NSCocoaErrorDomain516 is the recorded primitive error; no underlying Win32 error or path-limit threshold was recorded",
+    "The primitive/path-length correlation does not by itself establish why Foundation reported516 or the exact direct worker exception",
+    "Reopen and data/rollback preservation assertions after installation were not reached; no durability acceptance claim",
+    "No application source/version/package/installed data/hardware change or retry occurred",
+    "Raw roots/UUIDs/runner paths/exception descriptions omitted; emitted paths represented only by native UTF16 lengths"
+  ]
+}

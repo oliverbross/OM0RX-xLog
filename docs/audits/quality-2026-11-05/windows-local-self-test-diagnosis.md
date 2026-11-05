@@ -248,3 +248,27 @@ reopen. These differences and the generic reply leave the underlying mechanism
 unproven; no path-length threshold or Windows long-path cause is claimed.
 Installed GUI/uninstall/marker preservation and ordinary-user/UAC qualification
 remain open. No retry, application edit or acceptance-policy change occurred.
+
+## Native positive regressions expose the filesystem primitive
+
+[Native core run 42047371176](ci-windows-restore-boundary-baseline.md) built
+tests-only source 47ee6cda, with owning application Sources and Package.swift
+unchanged from the original 1.5.20 package source. The selection receipt and
+XCTest output prove all four WindowsRestorePathBoundaryTests ran: direct and
+RPC basename cases at TEMP lengths 91 and 92. All four positive round-trip
+tests failed unexpectedly; no expected-failure marker or retry was used.
+
+All four passed 15 stages through real database installation, after reference
+preflight and recovery-snapshot creation/verification. The next stage,
+install-reference, failed at Foundation.moveItem of the live reference directory
+to its rollback location. Source/destination native UTF-16 lengths were 189/262,
+190/263, 192/265 and 193/266 respectively. The observed primitive NSError was
+NSCocoaErrorDomain code516; the stage wrapped it as XLogBackupError code2.
+All 64 sanitized stage receipts retain operation, lengths and error domains/codes
+without roots, UUIDs, exception descriptions or userInfo.
+
+This identifies the failing primitive at the measured dimensions. It records no
+underlying Win32 code or path-limit threshold, does not establish why Foundation
+returned516, and does not prove the generic direct worker error is the identical
+exception. Final reopen/data/rollback-byte verification was not reached. No
+application package, installed data, version or acceptance claim changed.

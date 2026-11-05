@@ -30,4 +30,12 @@ after compilation. Independent review found no remaining actionable issue.
 Windows execution uses the existing `native-core-validation.yml`, with
 `platform=windows` and `test_filter=WindowsRestorePathBoundaryTests`.
 This is a tests-only source change: application sources/version and all 1.5.20
-packages remain unchanged. Windows results and the repair decision are pending.
+packages remain unchanged.
+
+The [native Windows baseline](ci-windows-restore-boundary-baseline.md) ran all
+four cases and failed all four at `install-reference`: Foundation's move from
+the live Reference Data directory to its rollback name returned Cocoa error 516.
+The destination lengths were 262, 263, 265 and 266 native UTF-16 units.
+Database installation and Recovery snapshot creation passed first. Final reopen
+and preservation checks were not reached. These failed expectations remain
+unchanged while a narrowly scoped rename repair is prepared.
