@@ -1,0 +1,334 @@
+name: Diagnose original Windows source cleanliness
+
+# Execution tooling only. Never builds a different-source 1.5.18 candidate.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: diagnose-windows-source-clean-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    runs-on: windows-2022
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      XLOG_DIAGNOSTIC_SOURCE: 0b7c669663841c2e55569b0c21c76ad03805cad7
+      XLOG_EXECUTOR_WORKFLOW_SHA: ${{ github.workflow_sha }}
+      XLOG_EXECUTOR_REF_SHA: ${{ github.sha }}
+    steps:
+      - name: Enable Windows checkout long paths
+        run: git config --global core.longpaths true
+      - uses: actions/checkout@v4
+        with:
+          ref: 0b7c669663841c2e55569b0c21c76ad03805cad7
+          persist-credentials: false
+      - name: Initialize external diagnostic receipts and check original checkout
+        id: initialize
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $helper = Join-Path $env:RUNNER_TEMP 'xlog-source-clean-diagnostic.ps1'
+          if (Test-Path -LiteralPath $helper) { throw 'Preserve an existing diagnostic helper.' }
+          @'
+          $ErrorActionPreference = 'Stop'
+          Set-StrictMode -Version Latest
+          $script:ReceiptRoot = Join-Path $env:RUNNER_TEMP 'xlog-source-clean-receipts'
+          $script:SourceRoot = [IO.Path]::GetFullPath($env:GITHUB_WORKSPACE)
+          if ([IO.Path]::GetRelativePath($script:SourceRoot, $script:ReceiptRoot) -notmatch '^\.\.[\\/]') {
+              throw 'Diagnostic evidence must be outside the source checkout.'
+          }
+          New-Item -ItemType Directory -Path $script:ReceiptRoot -Force | Out-Null
+
+          function Save-Json([string]$Path, $Value) {
+              $Value | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $Path -Encoding utf8NoBOM
+          }
+          function File-Hash([string]$Path) {
+              (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+          }
+          function Capture-Git([string]$Directory, [string]$Name, [string[]]$Arguments) {
+              $output = Join-Path $Directory "$Name.stdout"
+              $errorPath = Join-Path $Directory "$Name.stderr"
+              $start = [Diagnostics.ProcessStartInfo]::new('git')
+              $start.WorkingDirectory = $script:SourceRoot
+              $start.UseShellExecute = $false
+              $start.CreateNoWindow = $true
+              $start.RedirectStandardOutput = $true
+              $start.RedirectStandardError = $true
+              foreach ($argument in $Arguments) { $start.ArgumentList.Add($argument) }
+              $process = [Diagnostics.Process]::new()
+              $process.StartInfo = $start
+              $stream = [IO.File]::Create($output)
+              try {
+                  if (-not $process.Start()) { throw 'Could not start diagnostic Git read.' }
+                  $stdout = $process.StandardOutput.BaseStream.CopyToAsync($stream)
+                  $stderr = $process.StandardError.ReadToEndAsync()
+                  $process.WaitForExit()
+                  $null = $stdout.GetAwaiter().GetResult()
+                  [IO.File]::WriteAllText($errorPath, $stderr.GetAwaiter().GetResult(), [Text.UTF8Encoding]::new($false))
+                  $exitCode = $process.ExitCode
+              } finally { $stream.Dispose(); $process.Dispose() }
+              return @{ exitCode = $exitCode; stdout = [IO.Path]::GetFileName($output)
+                  stderr = [IO.Path]::GetFileName($errorPath); stdoutSHA256 = File-Hash $output
+                  stderrSHA256 = File-Hash $errorPath }
+          }
+          function Complete-XLogDiagnosticStage([string]$Stage, [int]$StageExitCode = 0, [string]$Failure = '') {
+              if ($Stage -notmatch '^\d{2}-[a-z0-9-]+$') { throw 'Invalid diagnostic stage identity.' }
+              $directory = Join-Path $script:ReceiptRoot $Stage
+              if (Test-Path -LiteralPath $directory) { throw 'Preserve existing stage receipts.' }
+              New-Item -ItemType Directory -Path $directory | Out-Null
+              $git = [ordered]@{}
+              $git.head = Capture-Git $directory 'head' @('rev-parse', 'HEAD')
+              $git.tree = Capture-Git $directory 'tree' @('rev-parse', 'HEAD^{tree}')
+              $git.status = Capture-Git $directory 'status' @('status', '--porcelain=v1', '--untracked-files=all', '-z')
+              $git.diff = Capture-Git $directory 'tracked-diff' @('diff', '--binary', '--no-ext-diff', '--no-textconv', 'HEAD', '--')
+              $git.changed = Capture-Git $directory 'changed-paths' @('diff', '--name-only', '--no-renames', '-z', 'HEAD', '--')
+              $git.untracked = Capture-Git $directory 'untracked-paths' @('ls-files', '--others', '--exclude-standard', '-z')
+              $gitFailed = @($git.Values | Where-Object { $_.exitCode -ne 0 }).Count -gt 0
+              $head = [IO.File]::ReadAllText((Join-Path $directory 'head.stdout')).Trim()
+              $status = [IO.File]::ReadAllText((Join-Path $directory 'status.stdout'))
+              $files = @()
+              foreach ($kind in @('changed', 'untracked')) {
+                  $paths = [IO.File]::ReadAllText((Join-Path $directory $git[$kind].stdout)).Split([char]0, [StringSplitOptions]::RemoveEmptyEntries)
+                  foreach ($relative in $paths) {
+                      $path = [IO.Path]::GetFullPath((Join-Path $script:SourceRoot $relative))
+                      $safe = [IO.Path]::GetRelativePath($script:SourceRoot, $path) -notmatch '^\.\.([\\/]|$)'
+                      $entry = @{ path = $relative; kind = $kind; exists = $false; bytes = $null; sha256 = $null }
+                      if ($safe -and (Test-Path -LiteralPath $path)) {
+                          $file = Get-Item -LiteralPath $path -Force
+                          $entry.exists = $true
+                          if (-not $file.PSIsContainer -and -not ($file.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+                              $entry.bytes = $file.Length
+                              $entry.sha256 = File-Hash $path
+                          } else { $entry.hashUnavailable = 'Directory or reparse point; not followed.' }
+                      }
+                      $files += $entry
+                  }
+              }
+              $clean = -not $gitFailed -and $head -eq $env:XLOG_DIAGNOSTIC_SOURCE -and $status.Length -eq 0
+              $receipt = [ordered]@{ schema = 1; stage = $Stage; capturedUTC = [DateTime]::UtcNow.ToString('o')
+                  sourceCommit = $head; expectedSourceCommit = $env:XLOG_DIAGNOSTIC_SOURCE
+                  executorWorkflowSHA = $env:XLOG_EXECUTOR_WORKFLOW_SHA; executorRefSHA = $env:XLOG_EXECUTOR_REF_SHA
+                  helperSHA256 = File-Hash (Join-Path $env:RUNNER_TEMP 'xlog-source-clean-diagnostic.ps1')
+                  stageExitCode = $StageExitCode; stageFailure = $Failure; clean = $clean
+                  git = $git; statusEntries = @($status.Split([char]0, [StringSplitOptions]::RemoveEmptyEntries))
+                  files = $files; untrackedBodiesCopied = $false
+                  scope = 'Original-source diagnostic only; no installer, install, GUI or distribution qualification.' }
+              Save-Json (Join-Path $directory 'receipt.json') $receipt
+              Write-Host "Diagnostic boundary ${Stage}: clean=$clean; stageExit=$StageExitCode; statusExit=$($git.status.exitCode)"
+              foreach ($entry in $receipt.statusEntries) { Write-Host "Git status: $entry" }
+              if (-not $clean) { throw "Stopped at nonclean or unverifiable source boundary $Stage; preserve receipts." }
+              if ($StageExitCode -ne 0) { throw "Original stage failed at $Stage; preserve receipts." }
+          }
+          function Invoke-XLogNative([string]$Program, [string[]]$Arguments = @()) {
+              $global:LASTEXITCODE = 0
+              & $Program @Arguments
+              if ($LASTEXITCODE -ne 0) {
+                  $script:StageExitCode = $LASTEXITCODE
+                  throw "Original command failed with exit code $LASTEXITCODE."
+              }
+          }
+          function Invoke-XLogDiagnosticStage([string]$Stage, [scriptblock]$Action) {
+              $script:StageExitCode = 0
+              $failure = ''
+              try { & $Action } catch {
+                  if ($script:StageExitCode -eq 0) { $script:StageExitCode = 1 }
+                  $failure = $_.Exception.Message
+              }
+              Complete-XLogDiagnosticStage $Stage $script:StageExitCode $failure
+          }
+          '@ | Set-Content -LiteralPath $helper -Encoding utf8NoBOM
+          . $helper
+          Complete-XLogDiagnosticStage '00-checkout'
+
+      - uses: actions/setup-node@v4
+        id: node
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: prototype/package-lock.json
+      - name: Check source after Node setup
+        if: ${{ !cancelled() && steps.node.outcome != 'skipped' }}
+        run: |
+          . "$env:RUNNER_TEMP/xlog-source-clean-diagnostic.ps1"
+          Complete-XLogDiagnosticStage '01-node-setup' $(if ('${{ steps.node.outcome }}' -eq 'success') { 0 } else { 1 })
+      - uses: actions/setup-python@v5
+        id: contest-python
+        with:
+          python-version: '3.12.4'
+      - name: Check source after Python setup
+        if: ${{ !cancelled() && steps.contest-python.outcome != 'skipped' }}
+        run: |
+          . "$env:RUNNER_TEMP/xlog-source-clean-diagnostic.ps1"
+          Complete-XLogDiagnosticStage '02-python-setup' $(if ('${{ steps.contest-python.outcome }}' -eq 'success') { 0 } else { 1 })
+      - uses: actions/cache/restore@v4
+        id: native-cache
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            prototype/src-tauri/target
+            .build/prototype-tests
+            .build/prototype-worker
+          key: xlog-p1b-${{ runner.os }}-${{ hashFiles('prototype/src-tauri/Cargo.lock', 'Package.swift') }}-0b7c669663841c2e55569b0c21c76ad03805cad7
+          restore-keys: |
+            xlog-p1b-${{ runner.os }}-${{ hashFiles('prototype/src-tauri/Cargo.lock', 'Package.swift') }}-
+            xlog-p1b-${{ runner.os }}-
+      - name: Check source after native cache restore
+        if: ${{ !cancelled() && steps.native-cache.outcome != 'skipped' }}
+        run: |
+          . "$env:RUNNER_TEMP/xlog-source-clean-diagnostic.ps1"
+          Complete-XLogDiagnosticStage '03-native-cache' $(if ('${{ steps.native-cache.outcome }}' -eq 'success') { 0 } else { 1 })
+      - name: Swift toolchain (original pinned Windows action)
+        id: swift
+        uses: compnerd/gha-setup-swift@bbae8ce86bac5a3449f3992b3d88bc4ca25f2057
+        with:
+          swift-version: swift-6.3.3-release
+          swift-build: 6.3.3-RELEASE
+      - name: Check source after Swift setup
+        if: ${{ !cancelled() && steps.swift.outcome != 'skipped' }}
+        run: |
+          . "$env:RUNNER_TEMP/xlog-source-clean-diagnostic.ps1"
+          Complete-XLogDiagnosticStage '04-swift-setup' $(if ('${{ steps.swift.outcome }}' -eq 'success') { 0 } else { 1 })
+      - name: Windows SQLite
+        run: |
+          . "$env:RUNNER_TEMP/xlog-source-clean-diagnostic.ps1"
+          Invoke-XLogDiagnosticStage '05-sqlite' {
+            Invoke-XLogNative "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" @('install', 'sqlite3:x64-windows')
+            "XLOG_SQLITE_PREFIX=$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows" >> $env:GITHUB_ENV
+            "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin" >> $env:GITHUB_PATH
+          }
+      - name: Record native toolchains
+        run: |
+          . "$env:RUNNER_TEMP/xlog-source-clean-diagnostic.ps1"
+          Invoke-XLogDiagnosticStage '06-toolchains' {
+            Invoke-XLogNative swift @('--version')
+            Invoke-XLogNative rustc @('--version')
+            Invoke-XLogNative node @('--version')
+          }
+      - name: Install frontend dependencies
+        working-directory: prototype
+        run: |
+          . "$env:RUNNER_TEMP/xlog-source-clean-diagnostic.ps1"
+          Invoke-XLogDiagnosticStage '07-npm-ci' { Invoke-XLogNative npm.cmd @('ci') }
+      - name: Release payload guard tests
+        run: |
+          . "$env:RUNNER_TEMP/xlog-source-clean-diagnostic.ps1"
+          Invoke-XLogDiagnosticStage '08-payload-guards' {
+            foreach ($test in @('test-release-payload.py', 'test-runtime-artifacts.py', 'test-contest-host-staging.py', 'test-linux-vault-harness.py', 'test-portable-swift-lock.py')) {
+              Invoke-XLogNative python3 @("prototype/scripts/$test")
+            }
+          }
+      - name: Test atomic pinned contest catalog initialization
+        env:
+          PYTHONPATH: ${{ github.workspace }}/python
+        run: |
+          . "$env:RUNNER_TEMP/xlog-source-clean-diagnostic.ps1"
+          Invoke-XLogDiagnosticStage '09-catalog-test' { Invoke-XLogNative python3 @('-m', 'unittest', 'discover', '-s', 'python/tests', '-p', 'test_store_catalog_seed.py', '-v') }
+      - name: Parse Windows installer scripts and validate scope policy
+        run: |
+          . "$env:RUNNER_TEMP/xlog-source-clean-diagnostic.ps1"
+          Invoke-XLogDiagnosticStage '10-installer-policy' { Invoke-XLogNative ./prototype/scripts/test-installer-syntax.ps1 }
+      - name: Compile portable native test fixtures early
+        env:
+          XLOG_PORTABLE_ONLY: '1'
+          XLOG_CONTEST_PYTHON: ${{ steps.contest-python.outputs.python-path }}
+          XLOG_TEST_NATIVE_VAULT: '1'
+        run: |
+          . "$env:RUNNER_TEMP/xlog-source-clean-diagnostic.ps1"
+          Invoke-XLogDiagnosticStage '11-swift-test-build' {
+            Invoke-XLogNative python3 @('prototype/scripts/portable-swift-lock.py', 'run', '--', 'swift', 'build', '--force-resolved-versions', '--build-tests', '--scratch-path', '.build/prototype-tests', '--jobs', '2', '-Xcc', "-I$env:XLOG_SQLITE_PREFIX/include", '-Xlinker', "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib")
+          }
+      - name: Frontend tests and build
+        working-directory: prototype
+        env:
+          XLOG_CONTEST_PYTHON: ${{ steps.contest-python.outputs.python-path }}
+        run: |
+          . "$env:RUNNER_TEMP/xlog-source-clean-diagnostic.ps1"
+          Invoke-XLogDiagnosticStage '12-frontend' {
+            Invoke-XLogNative npm.cmd @('test')
+            Invoke-XLogNative npm.cmd @('run', 'build')
+          }
+      - name: Test portable Swift core
+        env:
+          XLOG_PORTABLE_ONLY: '1'
+          XLOG_CONTEST_PYTHON: ${{ steps.contest-python.outputs.python-path }}
+          XLOG_TEST_NATIVE_VAULT: '1'
+        run: |
+          . "$env:RUNNER_TEMP/xlog-source-clean-diagnostic.ps1"
+          Invoke-XLogDiagnosticStage '13-swift-tests' {
+            Invoke-XLogNative python3 @('prototype/scripts/portable-swift-lock.py', 'run', '--', 'swift', 'test', '--force-resolved-versions', '--scratch-path', '.build/prototype-tests', '--no-parallel', '-Xcc', "-I$env:XLOG_SQLITE_PREFIX/include", '-Xlinker', "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib")
+          }
+      - name: Build Swift worker
+        run: |
+          . "$env:RUNNER_TEMP/xlog-source-clean-diagnostic.ps1"
+          Invoke-XLogDiagnosticStage '14-worker-build' { Invoke-XLogNative ./prototype/scripts/build-worker.ps1 }
+      - name: Stage isolated worker
+        run: |
+          . "$env:RUNNER_TEMP/xlog-source-clean-diagnostic.ps1"
+          Invoke-XLogDiagnosticStage '15-stage-worker' { Invoke-XLogNative node @('prototype/scripts/stage-worker.mjs') }
+      - name: Stage pinned Hamlib radio and rotor helpers
+        run: |
+          . "$env:RUNNER_TEMP/xlog-source-clean-diagnostic.ps1"
+          Invoke-XLogDiagnosticStage '16-stage-hamlib' { Invoke-XLogNative ./prototype/scripts/stage-hamlib-windows.ps1 }
+      - name: Test worker process framing
+        run: |
+          . "$env:RUNNER_TEMP/xlog-source-clean-diagnostic.ps1"
+          Invoke-XLogDiagnosticStage '17-worker-framing' {
+            Invoke-XLogNative node @('Tests/XLogPrototypeTests/worker-process.test.mjs', 'prototype/src-tauri/target/release/xlog-prototype-worker.exe')
+          }
+      - name: Shell contract tests
+        working-directory: prototype/src-tauri
+        env:
+          XLOG_TEST_PYTHON: ${{ steps.contest-python.outputs.python-path }}
+        run: |
+          . "$env:RUNNER_TEMP/xlog-source-clean-diagnostic.ps1"
+          Invoke-XLogDiagnosticStage '18-rust-tests' { Invoke-XLogNative cargo @('test', '--locked') }
+      - name: Bundled Hamlib dummy protocol and lifecycle tests
+        working-directory: prototype/src-tauri
+        run: |
+          . "$env:RUNNER_TEMP/xlog-source-clean-diagnostic.ps1"
+          Invoke-XLogDiagnosticStage '19-hamlib-tests' {
+            $env:XLOG_TEST_RIGCTLD = Join-Path $PWD 'binaries/rigctld-x86_64-pc-windows-msvc.exe'
+            $env:XLOG_TEST_ROTCTLD = Join-Path $PWD 'binaries/rotctld-x86_64-pc-windows-msvc.exe'
+            Invoke-XLogNative cargo @('test', '--locked', '--test', 'hamlib_dummy')
+          }
+      - name: Build desktop executable without bundle
+        working-directory: prototype
+        run: |
+          . "$env:RUNNER_TEMP/xlog-source-clean-diagnostic.ps1"
+          Invoke-XLogDiagnosticStage '20-desktop-no-bundle' { Invoke-XLogNative npx.cmd @('tauri', 'build', '--no-bundle') }
+      - name: Collect resolved dependency inventory and notices
+        run: |
+          . "$env:RUNNER_TEMP/xlog-source-clean-diagnostic.ps1"
+          Invoke-XLogDiagnosticStage '21-distribution-metadata' { Invoke-XLogNative node @('prototype/scripts/distribution-metadata.mjs') }
+      - name: Diagnose original portable packaging only after all prior clean boundaries
+        # Same original source and command as the failed run. Disposable output
+        # stays on this runner; no distribution artifact or installer is produced.
+        run: |
+          . "$env:RUNNER_TEMP/xlog-source-clean-diagnostic.ps1"
+          Invoke-XLogDiagnosticStage '22-portable-package' {
+            # This process reproduces the original source coordinate expected
+            # by package-windows.ps1. Executor SHAs remain separately recorded.
+            $env:GITHUB_SHA = $env:XLOG_DIAGNOSTIC_SOURCE
+            Invoke-XLogNative ./prototype/scripts/package-windows.ps1 @('-SkipBuild', '-OutputRoot', "$env:RUNNER_TEMP/xlog-windows-package")
+          }
+          Save-Json (Join-Path $script:ReceiptRoot 'stopped-before-installer.json') @{
+            sourceCommit = $env:XLOG_DIAGNOSTIC_SOURCE
+            executorWorkflowSHA = $env:XLOG_EXECUTOR_WORKFLOW_SHA
+            allBoundariesClean = $true; installerInvoked = $false
+            distributionPublished = $false; portableOutput = 'Disposable runner only; not uploaded.'
+          }
+      - name: Upload source status, diffs and hash receipts only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-source-clean-diagnostic-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/xlog-source-clean-receipts/
+          if-no-files-found: warn
+          retention-days: 30
