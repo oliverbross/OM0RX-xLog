@@ -309,12 +309,65 @@ it("routes a QTC-only dupe marker to silent fenced review instead of spot select
     qtcOpportunities:{schema:1,revision:9,opportunities:{DL1ABC:{eligibility:"eligible",reason:null,direction:"send",remaining:7,
       confirmed:2,reserved:3,availableSources:4,observation:{status:"available"},opportunity:true}}},spots:[{...sharedSpot,contestDupe:true}],busy:false};
   native.invoke.mockImplementation(async(command,args)=>command==="contest_surface_snapshot"?{...snapshot,panelID:"band-maps",projection:view}:
-    command==="contest_surface_action"?{requestID:args.requestID,status:"applied",projectionRevision:7}:Promise.reject(new Error(`unexpected ${command}`)));
+    command==="contest_surface_action"?{requestID:args.requestID,status:"applied"}:Promise.reject(new Error(`unexpected ${command}`)));
   render(<DetachedContestSurface/>);fireEvent.click(await screen.findByRole("checkbox",{name:"QTC opportunities"}));
   fireEvent.click(screen.getByRole("button",{name:/^DL1ABC ·/}));
   await waitFor(()=>expect(native.invoke.mock.calls.find(([command,args])=>command==="contest_surface_action"&&args.action==="spot_qtc_review")?.[1])
     .toMatchObject({panelID:"band-maps",action:"spot_qtc_review",params:{draftID:"draft-1",expectedDraftRevision:5,spotID:"spot-1"}}));
   expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_action"&&args.action==="spot_select")).toBe(false);
+  expect(native.invoke.mock.calls.filter(([command,args])=>command==="contest_surface_diagnostic_report"&&
+    args.message==="The contest surface action receipt could not be verified.")).toEqual([]);
+});
+
+it.each(["initial", "replacement namespace"] as const)("retains the first-committed QTC click at the %s boundary",async boundary=>{
+  window.history.replaceState({},"",search.replace("view=active-qso","view=band-maps"));
+  const qtcView=(draftID:string,draftRevision:number,callsign:string,spotID:string,selected=false)=>({
+    schemaVersion:2,status:"ready",draftID,draftRevision,radioFrequencyHz:14025000,connectedClusters:1,
+    loadedSpots:1,selectedSpotID:selected?spotID:null,configuredClusters:[],connections:[],markedOnly:false,showWorked:false,
+    qtcOpportunities:{schema:1,revision:9,opportunities:{[callsign]:{eligibility:"eligible",reason:null,direction:"send",remaining:7,
+      confirmed:2,reserved:3,availableSources:4,observation:{status:"available"},opportunity:true}}},
+    spots:[{...sharedSpot,id:spotID,callsign,receivedAt:Math.floor(Date.now()/1000)-978_307_200,contestDupe:true}],busy:false});
+  let view=qtcView("draft-1",5,"DL1ABC","spot-1"),revision=6;
+  native.invoke.mockImplementation(async(command,args)=>command==="contest_surface_snapshot"?{...snapshot,panelID:"band-maps",projectionRevision:revision,projection:view}:
+    command==="contest_surface_action"?{requestID:args.requestID,status:"applied"}:Promise.reject(new Error(`unexpected ${command}`)));
+  if(boundary==="replacement namespace"){
+    render(<DetachedContestSurface/>);
+    const previous=await screen.findByRole("checkbox",{name:"QTC opportunities"}) as HTMLInputElement;
+    // Settle the old namespace before testing the next namespace's first commit.
+    await act(async()=>{});
+    fireEvent.click(previous);
+    expect(previous.checked).toBe(true);
+    expect(screen.getByRole("button",{name:/^DL1ABC ·/})).toBeTruthy();
+    // A projection without contestSessionID uses draftID for its storage scope.
+    view=qtcView("draft-2",6,"DL2ABC","spot-2",true);revision=7;
+  }
+  let input:HTMLInputElement|undefined,checkedAtCommit:boolean|undefined;
+  const observer=new MutationObserver(()=>{
+    if(boundary==="replacement namespace"&&!screen.queryByText("Selected DL2ABC"))return;
+    const candidate=screen.queryByRole("checkbox",{name:"QTC opportunities"}) as HTMLInputElement|null;
+    if(!candidate||input)return;
+    input=candidate;checkedAtCommit=candidate.checked;observer.disconnect();
+    // Accept the first operator click as soon as the real checkbox is committed,
+    // before a later passive presentation effect can replace that intent.
+    fireEvent.click(candidate);
+  });
+  try{
+    observer.observe(document.body,{childList:true,subtree:true,characterData:true});
+    if(boundary==="initial")render(<DetachedContestSurface/>);
+    else await act(async()=>{native.wake?.();});
+    await waitFor(()=>expect(input).toBeDefined());
+    expect(checkedAtCommit).toBe(false);
+    expect(input!.checked).toBe(true);
+    const callsign=boundary==="initial"?"DL1ABC":"DL2ABC";
+    const reviewStart=native.invoke.mock.calls.length;
+    fireEvent.click(screen.getByRole("button",{name:new RegExp(`^${callsign} ·`)}));
+    await waitFor(()=>expect(native.invoke.mock.calls.filter(([command])=>command==="contest_surface_action").map(([,args])=>args))
+      .toEqual([expect.objectContaining({operatingContext,scope:"contesting",sessionID,workspaceGeneration,panelID:"band-maps",
+        projectionRevision:revision,action:"spot_qtc_review",params:{draftID:view.draftID,expectedDraftRevision:view.draftRevision,spotID:view.spots[0].id}})]));
+    expect(native.invoke.mock.calls.some(([command,args])=>command==="contest_surface_action"&&args.action==="spot_select")).toBe(false);
+    expect(native.invoke.mock.calls.slice(reviewStart).filter(([command])=>
+      ["contest_surface_diagnostic_report","contest_lane_output_request","cw_session_request"].includes(command))).toEqual([]);
+  }finally{observer.disconnect();}
 });
 
 it("keeps equal-time cluster rows and DOM nodes stable through classification refreshes",async()=>{

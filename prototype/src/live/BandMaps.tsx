@@ -1,7 +1,7 @@
 import { formatSpotFrequency } from "../spotFrequency";
 import { contestBandMapMultiplierLabel, contestBandMapSpotColor, contestBandMapSpotPending, contestBandMapSpotWorked, contestNeededMultiplierCount } from "./contestSpotPresentation";
 export { contestBandMapMultiplierLabel, contestBandMapSpotColor, contestBandMapSpotPending, contestBandMapSpotWorked, contestNeededMultiplierCount } from "./contestSpotPresentation";
-import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 import { ArrowDown, ArrowUp, RotateCcw, Settings, X, ZoomIn, ZoomOut } from "lucide-react";
@@ -589,7 +589,8 @@ export function BandMaps({ spots, onSelect, radioFrequencyHz, observedReceiveBan
   };
   const [selected, setSelected] = useState<BandMapSpot | null>(null);
   const [qtcOnly,setQTCOnly]=useState(false);
-  useEffect(()=>setQTCOnly(false),[storageNamespace]);
+  // Finish identity resets before a newly committed control can accept input.
+  useLayoutEffect(()=>setQTCOnly(false),[storageNamespace]);
   useEffect(() => {
     if (!contestPresentation) return;
     setContestBand(current => radioBand && availableContestBands.includes(radioBand) ? radioBand : availableContestBands.includes(current) ? current : availableContestBands[0] ?? "20m");
