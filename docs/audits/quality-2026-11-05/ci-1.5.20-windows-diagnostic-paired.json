@@ -1,0 +1,858 @@
+{
+  "schema": 1,
+  "runId": 42040743706,
+  "disposition": "FAILED acceptance; completed diagnostic matrix shows reversible TEMP/TMP-root sensitivity in both portable and installed workers",
+  "qaExecutorSource": "038d542b8c35dbd8e47451f4849e8f3a600a4e4b",
+  "packageSource": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+  "version": "1.5.20",
+  "packageRun": 42016723457,
+  "packageArtifactId": 13413349502,
+  "packageArtifactSHA256": "3869a453e665320c4fe19662595b616cebb61d8217a1e6ea80a99ac99db3d41f",
+  "workerSHA256": "2dd9a007937b0cee8240bc73785a76ce2fbe4cc6a6dbe9dcde5114abce5593e5",
+  "applicationRebuilt": false,
+  "jobs": [
+    {
+      "id": 127290619632,
+      "name": "Windows fresh-runner runtime acceptance (currentUser)",
+      "conclusion": "failure",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Enable Windows checkout long paths",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate failed worker reply retention",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/download-artifact@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Extract isolated package",
+          "conclusion": "success"
+        },
+        {
+          "name": "Native WebView2 GUI and worker without installing Swift",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify shared payload and accept selected scope at its real default path",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Diagnose failed 1.5.20 installed local self-test with controlled temporary roots",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload native Windows reports and screenshots",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 127290620105,
+      "name": "Windows fresh-runner runtime acceptance (perMachine)",
+      "conclusion": "failure",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Enable Windows checkout long paths",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate failed worker reply retention",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/download-artifact@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Extract isolated package",
+          "conclusion": "success"
+        },
+        {
+          "name": "Native WebView2 GUI and worker without installing Swift",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify shared payload and accept selected scope at its real default path",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Diagnose failed 1.5.20 installed local self-test with controlled temporary roots",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload native Windows reports and screenshots",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 127290621607,
+      "name": "Linux runtime-only container acceptance",
+      "conclusion": "skipped",
+      "steps": []
+    },
+    {
+      "id": 127290622098,
+      "name": "prototype",
+      "conclusion": "skipped",
+      "steps": []
+    }
+  ],
+  "scopes": [
+    {
+      "scope": "currentUser",
+      "job": 127290619632,
+      "acceptanceConclusion": "failure",
+      "diagnosticConclusion": "success; complete diagnostic, not acceptance",
+      "normalizedObservedDefault": "%LOCALAPPDATA%\\OM0RX-xLog",
+      "defaultPathPassed": true,
+      "registryScopePassed": true,
+      "startMenuScopePassed": true,
+      "harnessElevated": true,
+      "ordinaryUserRuntime": "NOT RUN",
+      "interactiveUAC": "NOT RUN (silent harness)",
+      "earlyInstalledReply": {
+        "id": "local-logbook-self-test",
+        "ok": false,
+        "error": {
+          "code": "local_self_test_failed",
+          "message": "Local logbook acceptance failed."
+        }
+      },
+      "earlyInstalledReplySHA256": "5ef8c6c6ffd142991cd5f02021c699a59058ea6d848d10db0fb250003c1e0b3e",
+      "originalInstalledWorkerExit": "UNOBSERVED; unchanged assertion scope exit1 observed",
+      "diagnostic": {
+        "responseDeadlineSeconds": 10,
+        "maximumRuns": 6,
+        "resumedProbes": 6,
+        "allExitsConfirmed": true,
+        "parentEnvironmentChanged": false,
+        "commonNonTempEnvironmentSHA256": "30fe8c5c0a1ed2433f58516846d1d4645623c8922af712224b2a6109e8ec38d3",
+        "controlledEnvironmentComparison": {
+          "onlyDifferingKeys": [
+            "TEMP",
+            "TMP"
+          ],
+          "commonKeys": [
+            "PATH",
+            "USERPROFILE",
+            "APPDATA",
+            "LOCALAPPDATA",
+            "WEBVIEW2_USER_DATA_FOLDER"
+          ],
+          "workingDirectorySame": true,
+          "allInheritedNonTempValueLengthsSame": true,
+          "nonTempFullEnvironmentHashAssertedSameBeforeEveryLaunch": true,
+          "originalAEqualsRepeatedA": true,
+          "A": "Original nested disposable acceptance-profile Temp",
+          "B": "New strictly shorter marked root owned under RUNNER_TEMP",
+          "causalBoundary": "Root value/content/length changed together; no path-length threshold or Windows long-path mechanism isolated."
+        },
+        "launch": "Common owned CreateProcessW suspended/unicode/no-window; mandatory matching owned-handle image, reject nonempty CIM contradiction; PID/parent/full args/creation/hash proof before resume-once;10s from Resume includes loader; differs from original acceptance launch.",
+        "packageProofBefore": {
+          "installed": {
+            "provenanceSHA256": "ebbefc0195184138eb7bae825ee25dcd6c786eacaa6e2294ea05be48b3ed1bdc",
+            "manifestFiles": 3270,
+            "manifestSHA256": "448ca94af62660acf51cd201eee791367fa0898a6ab355f3559e41d4a9c2060d"
+          },
+          "portable": {
+            "provenanceSHA256": "ebbefc0195184138eb7bae825ee25dcd6c786eacaa6e2294ea05be48b3ed1bdc",
+            "manifestFiles": 3270,
+            "manifestSHA256": "448ca94af62660acf51cd201eee791367fa0898a6ab355f3559e41d4a9c2060d"
+          }
+        },
+        "payloadsRevalidatedAfterAllProbes": true,
+        "runs": [
+          {
+            "ordinal": 1,
+            "package": "portable",
+            "condition": "A",
+            "tempUtf16Length": 92,
+            "identityVerifiedBeforeResume": true,
+            "cimPIDMatches": true,
+            "cimParentPIDMatches": true,
+            "cimFullCommandLineMatches": true,
+            "cimExecutablePathNull": true,
+            "ownedHandleImageMatches": true,
+            "ownedHandleCreationPositive": true,
+            "exitCode": 1,
+            "exitConfirmed": true,
+            "timedOut": false,
+            "drainComplete": true,
+            "outputTruncated": false,
+            "contractPassed": false,
+            "reply": {
+              "id": "local-logbook-self-test",
+              "ok": false,
+              "error": {
+                "code": "local_self_test_failed",
+                "message": "Local logbook acceptance failed."
+              }
+            },
+            "stdoutBytes": 131,
+            "stderrBytes": 0,
+            "stdoutSHA256": "01cd1cb4051b2c70584abc0d5e86534bc1925c98bb4809c57f456057b923670c",
+            "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "cleanup": {
+              "exitCode": 1,
+              "resumed": true,
+              "timedOut": false,
+              "exitConfirmed": true,
+              "abortedBeforeResume": false
+            }
+          },
+          {
+            "ordinal": 2,
+            "package": "installed",
+            "condition": "A",
+            "tempUtf16Length": 92,
+            "identityVerifiedBeforeResume": true,
+            "cimPIDMatches": true,
+            "cimParentPIDMatches": true,
+            "cimFullCommandLineMatches": true,
+            "cimExecutablePathNull": true,
+            "ownedHandleImageMatches": true,
+            "ownedHandleCreationPositive": true,
+            "exitCode": 1,
+            "exitConfirmed": true,
+            "timedOut": false,
+            "drainComplete": true,
+            "outputTruncated": false,
+            "contractPassed": false,
+            "reply": {
+              "id": "local-logbook-self-test",
+              "ok": false,
+              "error": {
+                "code": "local_self_test_failed",
+                "message": "Local logbook acceptance failed."
+              }
+            },
+            "stdoutBytes": 131,
+            "stderrBytes": 0,
+            "stdoutSHA256": "01cd1cb4051b2c70584abc0d5e86534bc1925c98bb4809c57f456057b923670c",
+            "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "cleanup": {
+              "exitCode": 1,
+              "resumed": true,
+              "timedOut": false,
+              "exitConfirmed": true,
+              "abortedBeforeResume": false
+            }
+          },
+          {
+            "ordinal": 3,
+            "package": "portable",
+            "condition": "B",
+            "tempUtf16Length": 23,
+            "identityVerifiedBeforeResume": true,
+            "cimPIDMatches": true,
+            "cimParentPIDMatches": true,
+            "cimFullCommandLineMatches": true,
+            "cimExecutablePathNull": true,
+            "ownedHandleImageMatches": true,
+            "ownedHandleCreationPositive": true,
+            "exitCode": 0,
+            "exitConfirmed": true,
+            "timedOut": false,
+            "drainComplete": true,
+            "outputTruncated": false,
+            "contractPassed": true,
+            "reply": {
+              "id": "local-logbook-self-test",
+              "ok": true,
+              "result": {
+                "award_programmes": 192,
+                "checks": [
+                  "workspace",
+                  "settings",
+                  "adif_unknown_fields",
+                  "save_search",
+                  "cty_resources",
+                  "awards_resources",
+                  "delete_undo",
+                  "backup_restore",
+                  "reopen_export"
+                ],
+                "credentials_accessed": false,
+                "local_file_io": true,
+                "network_contact": false,
+                "passed": true,
+                "qso_count": 1,
+                "station_io": false,
+                "synthetic_records": true
+              }
+            },
+            "stdoutBytes": 375,
+            "stderrBytes": 0,
+            "stdoutSHA256": "786f83193d600541f12e3ba03d41a389368eb87fafa9508d992a50eac56ac4a8",
+            "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "cleanup": {
+              "exitCode": 0,
+              "resumed": true,
+              "timedOut": false,
+              "exitConfirmed": true,
+              "abortedBeforeResume": false
+            }
+          },
+          {
+            "ordinal": 4,
+            "package": "installed",
+            "condition": "B",
+            "tempUtf16Length": 23,
+            "identityVerifiedBeforeResume": true,
+            "cimPIDMatches": true,
+            "cimParentPIDMatches": true,
+            "cimFullCommandLineMatches": true,
+            "cimExecutablePathNull": true,
+            "ownedHandleImageMatches": true,
+            "ownedHandleCreationPositive": true,
+            "exitCode": 0,
+            "exitConfirmed": true,
+            "timedOut": false,
+            "drainComplete": true,
+            "outputTruncated": false,
+            "contractPassed": true,
+            "reply": {
+              "id": "local-logbook-self-test",
+              "ok": true,
+              "result": {
+                "award_programmes": 192,
+                "checks": [
+                  "workspace",
+                  "settings",
+                  "adif_unknown_fields",
+                  "save_search",
+                  "cty_resources",
+                  "awards_resources",
+                  "delete_undo",
+                  "backup_restore",
+                  "reopen_export"
+                ],
+                "credentials_accessed": false,
+                "local_file_io": true,
+                "network_contact": false,
+                "passed": true,
+                "qso_count": 1,
+                "station_io": false,
+                "synthetic_records": true
+              }
+            },
+            "stdoutBytes": 375,
+            "stderrBytes": 0,
+            "stdoutSHA256": "786f83193d600541f12e3ba03d41a389368eb87fafa9508d992a50eac56ac4a8",
+            "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "cleanup": {
+              "exitCode": 0,
+              "resumed": true,
+              "timedOut": false,
+              "exitConfirmed": true,
+              "abortedBeforeResume": false
+            }
+          },
+          {
+            "ordinal": 5,
+            "package": "portable",
+            "condition": "A",
+            "tempUtf16Length": 92,
+            "identityVerifiedBeforeResume": true,
+            "cimPIDMatches": true,
+            "cimParentPIDMatches": true,
+            "cimFullCommandLineMatches": true,
+            "cimExecutablePathNull": true,
+            "ownedHandleImageMatches": true,
+            "ownedHandleCreationPositive": true,
+            "exitCode": 1,
+            "exitConfirmed": true,
+            "timedOut": false,
+            "drainComplete": true,
+            "outputTruncated": false,
+            "contractPassed": false,
+            "reply": {
+              "id": "local-logbook-self-test",
+              "ok": false,
+              "error": {
+                "code": "local_self_test_failed",
+                "message": "Local logbook acceptance failed."
+              }
+            },
+            "stdoutBytes": 131,
+            "stderrBytes": 0,
+            "stdoutSHA256": "01cd1cb4051b2c70584abc0d5e86534bc1925c98bb4809c57f456057b923670c",
+            "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "cleanup": {
+              "exitCode": 1,
+              "resumed": true,
+              "timedOut": false,
+              "exitConfirmed": true,
+              "abortedBeforeResume": false
+            }
+          },
+          {
+            "ordinal": 6,
+            "package": "installed",
+            "condition": "A",
+            "tempUtf16Length": 92,
+            "identityVerifiedBeforeResume": true,
+            "cimPIDMatches": true,
+            "cimParentPIDMatches": true,
+            "cimFullCommandLineMatches": true,
+            "cimExecutablePathNull": true,
+            "ownedHandleImageMatches": true,
+            "ownedHandleCreationPositive": true,
+            "exitCode": 1,
+            "exitConfirmed": true,
+            "timedOut": false,
+            "drainComplete": true,
+            "outputTruncated": false,
+            "contractPassed": false,
+            "reply": {
+              "id": "local-logbook-self-test",
+              "ok": false,
+              "error": {
+                "code": "local_self_test_failed",
+                "message": "Local logbook acceptance failed."
+              }
+            },
+            "stdoutBytes": 131,
+            "stderrBytes": 0,
+            "stdoutSHA256": "01cd1cb4051b2c70584abc0d5e86534bc1925c98bb4809c57f456057b923670c",
+            "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "cleanup": {
+              "exitCode": 1,
+              "resumed": true,
+              "timedOut": false,
+              "exitConfirmed": true,
+              "abortedBeforeResume": false
+            }
+          }
+        ]
+      },
+      "notReached": [
+        "installed GUI",
+        "uninstall",
+        "marker preservation"
+      ]
+    },
+    {
+      "scope": "perMachine",
+      "job": 127290620105,
+      "acceptanceConclusion": "failure",
+      "diagnosticConclusion": "success; complete diagnostic, not acceptance",
+      "normalizedObservedDefault": "%ProgramFiles%\\OM0RX-xLog",
+      "defaultPathPassed": true,
+      "registryScopePassed": true,
+      "startMenuScopePassed": true,
+      "harnessElevated": true,
+      "ordinaryUserRuntime": "NOT RUN",
+      "interactiveUAC": "NOT RUN (silent harness)",
+      "earlyInstalledReply": {
+        "id": "local-logbook-self-test",
+        "ok": false,
+        "error": {
+          "code": "local_self_test_failed",
+          "message": "Local logbook acceptance failed."
+        }
+      },
+      "earlyInstalledReplySHA256": "5ef8c6c6ffd142991cd5f02021c699a59058ea6d848d10db0fb250003c1e0b3e",
+      "originalInstalledWorkerExit": "UNOBSERVED; unchanged assertion scope exit1 observed",
+      "diagnostic": {
+        "responseDeadlineSeconds": 10,
+        "maximumRuns": 6,
+        "resumedProbes": 6,
+        "allExitsConfirmed": true,
+        "parentEnvironmentChanged": false,
+        "commonNonTempEnvironmentSHA256": "afbc65b5ea203b95685ce703d713cfd77dda48ff3cbadcc542b904397c982076",
+        "controlledEnvironmentComparison": {
+          "onlyDifferingKeys": [
+            "TEMP",
+            "TMP"
+          ],
+          "commonKeys": [
+            "PATH",
+            "USERPROFILE",
+            "APPDATA",
+            "LOCALAPPDATA",
+            "WEBVIEW2_USER_DATA_FOLDER"
+          ],
+          "workingDirectorySame": true,
+          "allInheritedNonTempValueLengthsSame": true,
+          "nonTempFullEnvironmentHashAssertedSameBeforeEveryLaunch": true,
+          "originalAEqualsRepeatedA": true,
+          "A": "Original nested disposable acceptance-profile Temp",
+          "B": "New strictly shorter marked root owned under RUNNER_TEMP",
+          "causalBoundary": "Root value/content/length changed together; no path-length threshold or Windows long-path mechanism isolated."
+        },
+        "launch": "Common owned CreateProcessW suspended/unicode/no-window; mandatory matching owned-handle image, reject nonempty CIM contradiction; PID/parent/full args/creation/hash proof before resume-once;10s from Resume includes loader; differs from original acceptance launch.",
+        "packageProofBefore": {
+          "installed": {
+            "manifestSHA256": "448ca94af62660acf51cd201eee791367fa0898a6ab355f3559e41d4a9c2060d",
+            "provenanceSHA256": "ebbefc0195184138eb7bae825ee25dcd6c786eacaa6e2294ea05be48b3ed1bdc",
+            "manifestFiles": 3270
+          },
+          "portable": {
+            "manifestSHA256": "448ca94af62660acf51cd201eee791367fa0898a6ab355f3559e41d4a9c2060d",
+            "provenanceSHA256": "ebbefc0195184138eb7bae825ee25dcd6c786eacaa6e2294ea05be48b3ed1bdc",
+            "manifestFiles": 3270
+          }
+        },
+        "payloadsRevalidatedAfterAllProbes": true,
+        "runs": [
+          {
+            "ordinal": 1,
+            "package": "portable",
+            "condition": "A",
+            "tempUtf16Length": 91,
+            "identityVerifiedBeforeResume": true,
+            "cimPIDMatches": true,
+            "cimParentPIDMatches": true,
+            "cimFullCommandLineMatches": true,
+            "cimExecutablePathNull": true,
+            "ownedHandleImageMatches": true,
+            "ownedHandleCreationPositive": true,
+            "exitCode": 1,
+            "exitConfirmed": true,
+            "timedOut": false,
+            "drainComplete": true,
+            "outputTruncated": false,
+            "contractPassed": false,
+            "reply": {
+              "id": "local-logbook-self-test",
+              "ok": false,
+              "error": {
+                "code": "local_self_test_failed",
+                "message": "Local logbook acceptance failed."
+              }
+            },
+            "stdoutBytes": 131,
+            "stderrBytes": 0,
+            "stdoutSHA256": "01cd1cb4051b2c70584abc0d5e86534bc1925c98bb4809c57f456057b923670c",
+            "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "cleanup": {
+              "exitConfirmed": true,
+              "exitCode": 1,
+              "abortedBeforeResume": false,
+              "timedOut": false,
+              "resumed": true
+            }
+          },
+          {
+            "ordinal": 2,
+            "package": "installed",
+            "condition": "A",
+            "tempUtf16Length": 91,
+            "identityVerifiedBeforeResume": true,
+            "cimPIDMatches": true,
+            "cimParentPIDMatches": true,
+            "cimFullCommandLineMatches": true,
+            "cimExecutablePathNull": true,
+            "ownedHandleImageMatches": true,
+            "ownedHandleCreationPositive": true,
+            "exitCode": 1,
+            "exitConfirmed": true,
+            "timedOut": false,
+            "drainComplete": true,
+            "outputTruncated": false,
+            "contractPassed": false,
+            "reply": {
+              "id": "local-logbook-self-test",
+              "ok": false,
+              "error": {
+                "code": "local_self_test_failed",
+                "message": "Local logbook acceptance failed."
+              }
+            },
+            "stdoutBytes": 131,
+            "stderrBytes": 0,
+            "stdoutSHA256": "01cd1cb4051b2c70584abc0d5e86534bc1925c98bb4809c57f456057b923670c",
+            "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "cleanup": {
+              "exitConfirmed": true,
+              "exitCode": 1,
+              "abortedBeforeResume": false,
+              "timedOut": false,
+              "resumed": true
+            }
+          },
+          {
+            "ordinal": 3,
+            "package": "portable",
+            "condition": "B",
+            "tempUtf16Length": 23,
+            "identityVerifiedBeforeResume": true,
+            "cimPIDMatches": true,
+            "cimParentPIDMatches": true,
+            "cimFullCommandLineMatches": true,
+            "cimExecutablePathNull": true,
+            "ownedHandleImageMatches": true,
+            "ownedHandleCreationPositive": true,
+            "exitCode": 0,
+            "exitConfirmed": true,
+            "timedOut": false,
+            "drainComplete": true,
+            "outputTruncated": false,
+            "contractPassed": true,
+            "reply": {
+              "id": "local-logbook-self-test",
+              "ok": true,
+              "result": {
+                "award_programmes": 192,
+                "checks": [
+                  "workspace",
+                  "settings",
+                  "adif_unknown_fields",
+                  "save_search",
+                  "cty_resources",
+                  "awards_resources",
+                  "delete_undo",
+                  "backup_restore",
+                  "reopen_export"
+                ],
+                "credentials_accessed": false,
+                "local_file_io": true,
+                "network_contact": false,
+                "passed": true,
+                "qso_count": 1,
+                "station_io": false,
+                "synthetic_records": true
+              }
+            },
+            "stdoutBytes": 375,
+            "stderrBytes": 0,
+            "stdoutSHA256": "786f83193d600541f12e3ba03d41a389368eb87fafa9508d992a50eac56ac4a8",
+            "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "cleanup": {
+              "exitConfirmed": true,
+              "exitCode": 0,
+              "abortedBeforeResume": false,
+              "timedOut": false,
+              "resumed": true
+            }
+          },
+          {
+            "ordinal": 4,
+            "package": "installed",
+            "condition": "B",
+            "tempUtf16Length": 23,
+            "identityVerifiedBeforeResume": true,
+            "cimPIDMatches": true,
+            "cimParentPIDMatches": true,
+            "cimFullCommandLineMatches": true,
+            "cimExecutablePathNull": true,
+            "ownedHandleImageMatches": true,
+            "ownedHandleCreationPositive": true,
+            "exitCode": 0,
+            "exitConfirmed": true,
+            "timedOut": false,
+            "drainComplete": true,
+            "outputTruncated": false,
+            "contractPassed": true,
+            "reply": {
+              "id": "local-logbook-self-test",
+              "ok": true,
+              "result": {
+                "award_programmes": 192,
+                "checks": [
+                  "workspace",
+                  "settings",
+                  "adif_unknown_fields",
+                  "save_search",
+                  "cty_resources",
+                  "awards_resources",
+                  "delete_undo",
+                  "backup_restore",
+                  "reopen_export"
+                ],
+                "credentials_accessed": false,
+                "local_file_io": true,
+                "network_contact": false,
+                "passed": true,
+                "qso_count": 1,
+                "station_io": false,
+                "synthetic_records": true
+              }
+            },
+            "stdoutBytes": 375,
+            "stderrBytes": 0,
+            "stdoutSHA256": "786f83193d600541f12e3ba03d41a389368eb87fafa9508d992a50eac56ac4a8",
+            "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "cleanup": {
+              "exitConfirmed": true,
+              "exitCode": 0,
+              "abortedBeforeResume": false,
+              "timedOut": false,
+              "resumed": true
+            }
+          },
+          {
+            "ordinal": 5,
+            "package": "portable",
+            "condition": "A",
+            "tempUtf16Length": 91,
+            "identityVerifiedBeforeResume": true,
+            "cimPIDMatches": true,
+            "cimParentPIDMatches": true,
+            "cimFullCommandLineMatches": true,
+            "cimExecutablePathNull": true,
+            "ownedHandleImageMatches": true,
+            "ownedHandleCreationPositive": true,
+            "exitCode": 1,
+            "exitConfirmed": true,
+            "timedOut": false,
+            "drainComplete": true,
+            "outputTruncated": false,
+            "contractPassed": false,
+            "reply": {
+              "id": "local-logbook-self-test",
+              "ok": false,
+              "error": {
+                "code": "local_self_test_failed",
+                "message": "Local logbook acceptance failed."
+              }
+            },
+            "stdoutBytes": 131,
+            "stderrBytes": 0,
+            "stdoutSHA256": "01cd1cb4051b2c70584abc0d5e86534bc1925c98bb4809c57f456057b923670c",
+            "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "cleanup": {
+              "exitConfirmed": true,
+              "exitCode": 1,
+              "abortedBeforeResume": false,
+              "timedOut": false,
+              "resumed": true
+            }
+          },
+          {
+            "ordinal": 6,
+            "package": "installed",
+            "condition": "A",
+            "tempUtf16Length": 91,
+            "identityVerifiedBeforeResume": true,
+            "cimPIDMatches": true,
+            "cimParentPIDMatches": true,
+            "cimFullCommandLineMatches": true,
+            "cimExecutablePathNull": true,
+            "ownedHandleImageMatches": true,
+            "ownedHandleCreationPositive": true,
+            "exitCode": 1,
+            "exitConfirmed": true,
+            "timedOut": false,
+            "drainComplete": true,
+            "outputTruncated": false,
+            "contractPassed": false,
+            "reply": {
+              "id": "local-logbook-self-test",
+              "ok": false,
+              "error": {
+                "code": "local_self_test_failed",
+                "message": "Local logbook acceptance failed."
+              }
+            },
+            "stdoutBytes": 131,
+            "stderrBytes": 0,
+            "stdoutSHA256": "01cd1cb4051b2c70584abc0d5e86534bc1925c98bb4809c57f456057b923670c",
+            "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "cleanup": {
+              "exitConfirmed": true,
+              "exitCode": 1,
+              "abortedBeforeResume": false,
+              "timedOut": false,
+              "resumed": true
+            }
+          }
+        ]
+      },
+      "notReached": [
+        "installed GUI",
+        "uninstall",
+        "marker preservation"
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "id": 13420891691,
+      "name": "xlog-acceptance-windows-perMachine-3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "bytes": 369183,
+      "sha256": "7898f1b9544628eb55f7098a16de08fb7c184bb7631c0c4d2c91212f6b0d34a0"
+    },
+    {
+      "id": 13420349503,
+      "name": "xlog-acceptance-windows-currentUser-3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "bytes": 473848,
+      "sha256": "4eab5ded248dbd21557a7567126205b3ca142976b3c9a00215f21f858e5da8d2"
+    }
+  ],
+  "logs": [
+    {
+      "job": 127290619632,
+      "file": "job-127290619632-full.log",
+      "bytes": 36403,
+      "sha256": "28fb25e8d7b2f16eaf398725e89c1d303c4287817c3fbb060f1f0d187df51b3a"
+    },
+    {
+      "job": 127290620105,
+      "file": "job-127290620105-full.log",
+      "bytes": 36444,
+      "sha256": "9ff515ca8ab9cc7344044ab25dfdb1bbb03cefcf86d9533c0bf385cb74a38428"
+    }
+  ],
+  "ordinaryQAci": {
+    "run": 42040740696,
+    "conclusion": "success"
+  },
+  "redundantPush": {
+    "run": 42040740653,
+    "conclusion": "cancelled",
+    "reason": "Verified redundant single-Mac push, no package; not a pass"
+  },
+  "preservedFailedRuns": [
+    42016723457,
+    42034725192,
+    42036670843,
+    42039550660
+  ],
+  "interpretation": [
+    "Within each host and worker, only TEMP/TMP differ; A1 fail1 \u2192 B pass0 \u2192 A2 fail1 is reproduced on portable and installed bytes",
+    "This is evidence of TEMP/TMP-root-sensitive self-test behavior under the controlled launch, not an install-only defect or proven Windows long-path mechanism",
+    "Original installed self-test assertion remains failed; diagnostic B success is not full installed acceptance",
+    "Generic caught worker errors do not expose the underlying failing operation",
+    "No new application build, acceptance policy/path/deadline/count change or retry by this monitoring agent",
+    "Hosted elevated account results do not qualify ordinary-user/UAC/physical hardware operation"
+  ]
+}

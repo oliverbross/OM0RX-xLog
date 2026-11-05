@@ -148,5 +148,36 @@ The next QA-only source 038d542b8c35dbd8e47451f4849e8f3a600a4e4b requires
 the matching owned-handle image and rejects any nonempty contradicting CIM image.
 This changes the redundant CIM availability requirement; PID/parent, full
 arguments, creation/hash and cleanup requirements remain. Its Windows-only
-run42040743706 is a separate pending outcome against the same package bytes.
-This failed f68 run does not qualify that correction or any A/B/A result.
+run 42040743706 was pending when the f68 report was published; the completed
+outcome follows below. This failed f68 run does not qualify that correction
+or any A/B/A result.
+
+## Completed controlled A/B/A matrix, acceptance still failed
+
+[Run 42040743706](ci-1.5.20-windows-diagnostic-paired.md) used QA 038d542b
+and the unchanged 1.5.20 package source 3d9cb098. Both fresh installed-scope
+assertions failed again. The diagnostic completed six verified/resumed children
+per host, with all actual exits confirmed and no timeout or pipe truncation.
+
+For both portable and installed workers on both hosts, original nested TEMP/TMP
+(A1) failed exit 1, short owned TEMP/TMP (B) passed exit 0 with award_programmes 192,
+and restored original TEMP/TMP (A2) failed exit 1 again. A roots measured 92 UTF-16
+characters for currentUser and 91 for perMachine; B roots measured 23. All A
+responses were generic local_self_test_failed; all B responses passed with
+network_contact=false and station_io=false. Every stderr stream was empty.
+
+Within each host only TEMP/TMP changed. CWD, PATH, USERPROFILE, APPDATA,
+LOCALAPPDATA and WEBVIEW2_USER_DATA_FOLDER stayed common. Captured controlled
+values/non-TEMP variable lengths agree, the full non-TEMP environment hash was
+asserted equal before every launch, and the parent environment stayed unchanged.
+Both 3270-file payloads were validated before and after all probes. All 12 children
+passed the mandatory owned-handle image and other pre-resume identity guards.
+
+This establishes reversible TEMP/TMP-root sensitivity under the controlled
+diagnostic launch for both byte-identical portable and installed workers. Root
+length, content, location, state and other filesystem properties changed together;
+no threshold, Windows long-path mechanism or underlying caught operation is
+established. The common suspended-create/resume-once diagnostic launch differs
+from original acceptance. Diagnostic B success does not turn either failed
+installed acceptance into a pass. Installed GUI/uninstall/marker preservation
+remain not reached, and ordinary-user/UAC/hardware qualification remains open.
