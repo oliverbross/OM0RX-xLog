@@ -1,0 +1,120 @@
+{
+  "schema": 1,
+  "version": "1.5.18",
+  "sourceCommit": "0b7c669663841c2e55569b0c21c76ad03805cad7",
+  "signedWorkerSHA256": "31ac2cdda0254df08b57058a07b29ceae1f83acd365debdcdb13f15eea639f67",
+  "scope": "Signed macOS arm64 worker; generated 100k fixture; no GUI, station or hardware; OS caches/ambient load uncontrolled",
+  "status": "PASS within recorded workflows",
+  "fixture": {
+    "liveQSOs": 100000,
+    "orderedStoredQSOHash": "08984dd16f2701b51150deb6505e5c1b8f0850e6faf6a588d2db281949a57231",
+    "hashColumns": [
+      "local_id",
+      "wavelog_id",
+      "call",
+      "qso_start",
+      "band",
+      "mode",
+      "frequency_hz",
+      "is_dirty",
+      "deleted_at",
+      "updated_at",
+      "record_json",
+      "baseline_json"
+    ],
+    "integrity": "ok",
+    "foreignKeys": "ok",
+    "readMode": "readonly, WAL honored"
+  },
+  "hashEncoding": "SHA256 over local_id-ordered compact UTF8 JSON row lists plus LF; SQLite BLOBs use explicit sqliteBlobBase64 objects. Compare only hashes using this same encoder.",
+  "country": {
+    "timingsMs": {
+      "open": 7147.137,
+      "firstPage": 9.76,
+      "warmPage": 3.378,
+      "coldCountrySnapshotAndLookup": 282.303,
+      "healthDuringCountryReview": 0.299,
+      "complete100kCountryReview": 17864.911
+    },
+    "warmLookupMs": {
+      "count": 40,
+      "median": 0.806,
+      "maximum": 3.179
+    },
+    "review": {
+      "comparedCount": 100000,
+      "affectedCount": 100000,
+      "unresolvedCount": 28000,
+      "referenceRevision": "xlog-country-facts-v2:c04689ac8cf530672a98df3d1ecd132a150d13e7583f88037928b75a09ff1731:entity-catalogue:e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d"
+    },
+    "referenceRevision": "xlog-country-facts-v2:c04689ac8cf530672a98df3d1ecd132a150d13e7583f88037928b75a09ff1731:entity-catalogue:e5d907fb16842cfa3dd8502c20ebe6bfc2039c6f5b2cc73f9ea6d3f5915f6d6d",
+    "healthRepliedBeforeScan": true
+  },
+  "qlogRuns": [
+    {
+      "phase": "first-process",
+      "timingsMs": {
+        "open": 6968.443,
+        "firstPage": 9.54,
+        "warmPage": 3.454,
+        "legacyText": 105.557,
+        "statistics": 689.752,
+        "typedFirstPageAndCount": 403.569,
+        "typedWarmPageAndCount": 3.532,
+        "typedFilteredSnapshot": 1557.61,
+        "exportFirstChunk": 0.781,
+        "globalAwardCold": 2568.224,
+        "globalAwardWarm": 1.877,
+        "filteredSnapshot": 953.488
+      }
+    },
+    {
+      "phase": "reopened-process",
+      "timingsMs": {
+        "open": 1059.99,
+        "firstPage": 9.152,
+        "warmPage": 3.646,
+        "legacyText": 105.674,
+        "statistics": 223.878,
+        "typedFirstPageAndCount": 404.307,
+        "typedWarmPageAndCount": 3.636,
+        "typedFilteredSnapshot": 1593.837,
+        "exportFirstChunk": 0.666,
+        "globalAwardCold": 2539.49,
+        "globalAwardWarm": 1.728,
+        "filteredSnapshot": 948.509
+      }
+    }
+  ],
+  "correctness": {
+    "firstAndWarmPageTotal": 100000,
+    "literalSearchTotal": 25000,
+    "typedBandModeQueryTotal": 33334,
+    "typedFilteredExportTotal": 33334,
+    "firstExportChunkCount": 20,
+    "globalAwardWorkedUnits": 8,
+    "globalAwardSupportingQSOs": 100000,
+    "eachCaseAuthoritativeQSOUnchanged": true,
+    "eachCaseCleanEOFAndNoOwnedWorker": true,
+    "concurrentHealthBudgetMs": 2000,
+    "concurrentHealthBudgetMet": true,
+    "fixtureIntegrityAndForeignKeys": "ok",
+    "productionDataAccessed": false
+  },
+  "rawReportSHA256": {
+    "result.json": "0b5c791fa0516b9775267109560e610b4fafa8a7e70047144f072bb514ff607c",
+    "country.json": "46644e817c467a0265d66ae08fc170f7179017fc5142c3f24adb3ed7c3d3835a",
+    "qlog.json": "24c252ba4b20a0fc1b9943163094c2a99264a116af3680bdfb0dd8dbd89ac0e1"
+  },
+  "diagnosticScriptsSHA256": {
+    "benchmark-country-workflows.py": "0805f14fc5b38bf01c57d14b80285e48583c8813c27bf68de20ea9477682e1e8",
+    "benchmark-qlog-workflows.py": "961915227aa4905f9e0ce3ab404c94c656fb4565d4cc9d1275784836e4a34a04"
+  },
+  "limits": [
+    "Functional and worker RPC timings, not visible-save latency or cross-platform performance",
+    "Two QLog process runs; one country review and forty country lookups; no p95 inferred for tiny samples",
+    "First open includes supported migration from the older generated fixture; process fresh is not disk cold",
+    "No close/expiry retention, cancellation, whole-app peak or physical hardware qualification"
+  ],
+  "excludedPreflight": "An initial diagnostic encoder omitted SQLite BLOB handling and failed before launching any worker. Original script/failure evidence retained; a fresh v2 directory used a type-preserving encoder."
+}

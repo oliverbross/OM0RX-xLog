@@ -60,4 +60,9 @@ Cold statistics and award progress each visit all 100,000 compact-projection row
 4. **Cold aggregate frequency:** stats/progress are global compact scans with bounded SQLite cache use. Confirm existing cache hit/revision behavior in the signed worker before investing. No evidence here justifies a new index, larger cache or durability change.
 5. **Deep OFFSET:** it does visit skipped entries, but observed low-single-digit milliseconds is much smaller than the measured heavy paths. Preserve the existing first-page index; a pagination redesign is not supported as the leading priority by this fixture.
 
-Next integration evidence is the actual signed-worker QLog/country benchmark, with its own exact candidate identity. Outside this SQL-only measurement: packaged UI/native journey results, concurrent-save/health responsiveness under these SQL routes, allocations and cleanup, and Windows/Linux runtime equivalence. No application fix or performance acceptance is claimed by this baseline.
+The [signed 1.5.18 worker checks](worker-workflows-1.5.18.md) now record actual
+QLog/country RPCs on the generated fixture, exact candidate identity, output
+counts, unchanged authoritative QSO rows and concurrent health responsiveness.
+Those checks do not establish visible-save latency, concurrent durable-save
+latency, allocation/close/expiry behavior or Windows/Linux timing equivalence.
+No application tuning or performance acceptance is claimed by this SQL baseline.
