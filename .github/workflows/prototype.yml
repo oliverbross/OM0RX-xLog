@@ -387,10 +387,28 @@ jobs:
     env:
       XLOG_EXPECTED_PACKAGE_SOURCE_SHA: ${{ inputs.runtime_source_sha || github.sha }}
       XLOG_INSTALLER_SCOPE: ${{ matrix.installer_scope }}
+      XLOG_PACKAGE_RUN_ID: ${{ inputs.runtime_run_id || github.run_id }}
+      XLOG_QA_EXECUTOR_SOURCE_SHA: ${{ github.sha }}
     steps:
       - name: Enable Windows checkout long paths
         run: git config --global core.longpaths true
       - uses: actions/checkout@v4
+      - name: Validate failed worker reply retention
+        shell: pwsh
+        run: |
+          $evidence = "$env:RUNNER_TEMP/xlog-windows-installer-evidence"
+          New-Item -ItemType Directory -Path $evidence -Force | Out-Null
+          $qaSource = (git rev-parse HEAD).Trim()
+          if ($qaSource -ne $env:XLOG_QA_EXECUTOR_SOURCE_SHA -or $qaSource -notmatch '^[0-9a-f]{40}$' -or
+              $env:XLOG_EXPECTED_PACKAGE_SOURCE_SHA -notmatch '^[0-9a-f]{40}$' -or $env:XLOG_PACKAGE_RUN_ID -notmatch '^\d+$') {
+            throw 'Runtime QA/package source identity is invalid.'
+          }
+          [ordered]@{
+            schema = 1; qaExecutorSource = $qaSource
+            packageSource = $env:XLOG_EXPECTED_PACKAGE_SOURCE_SHA; packageRunId = $env:XLOG_PACKAGE_RUN_ID
+            installerScope = $env:XLOG_INSTALLER_SCOPE; applicationRebuiltInThisJob = $false
+          } | ConvertTo-Json | Set-Content -LiteralPath "$evidence/qa-executor.json" -Encoding utf8NoBOM
+          ./prototype/scripts/test-installer-syntax.ps1 -WorkerReceiptResultPath "$evidence/worker-receipt-contracts.json"
       - uses: actions/download-artifact@v4
         with:
           name: xlog-runtime-windows-${{ inputs.runtime_source_sha || github.sha }}
@@ -438,6 +456,29 @@ jobs:
           $installer = ($installers | Where-Object Name -EQ $seenScopes[$scope].installer).FullName
           # Hosted runner is elevated: receipts explicitly leave ordinary-user/UAC qualification open.
           ./prototype/scripts/accept-windows-installer.ps1 -Installer $installer -EvidenceDirectory "$env:RUNNER_TEMP/xlog-windows-installer-evidence/$scope" -AllowElevatedHarness
+      - name: Diagnose failed 1.5.20 installed local self-test with controlled temporary roots
+        if: ${{ failure() && env.XLOG_EXPECTED_PACKAGE_SOURCE_SHA == '3d9cb0981c30764f1188db350ffebc22a5f328a7' }}
+        shell: pwsh
+        run: |
+          $scope = $env:XLOG_INSTALLER_SCOPE
+          $scopeEvidence = "$env:RUNNER_TEMP/xlog-windows-installer-evidence/$scope"
+          $receiptPath = "$scopeEvidence/installer-acceptance.json"
+          if (-not (Test-Path -LiteralPath $receiptPath)) {
+            Write-Host 'No owned installer receipt; no diagnostic executable is launched.'
+            exit 0
+          }
+          $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json -Depth 20
+          if ($receipt.sourceCommit -ne $env:XLOG_EXPECTED_PACKAGE_SOURCE_SHA -or
+              -not $receipt.defaultPathPassed -or -not $receipt.registryScopePassed -or -not $receipt.startMenuScopePassed) {
+            Write-Host 'Default-path/scope ownership was not established; no diagnostic executable is launched.'
+            exit 0
+          }
+          $working = "$scopeEvidence/native-runtime/synthetic-profile"
+          ./prototype/scripts/diagnose-windows-local-self-test.ps1 `
+            -PortableDirectory "$env:RUNNER_TEMP/xlog-windows-accept/OM0RX-xLog-Prototype-windows-x86_64" `
+            -InstalledDirectory $receipt.actualDirectory -InstallerReceipt $receiptPath `
+            -RunnerTemp $env:RUNNER_TEMP -OriginalNestedTemp "$working/Temp" -WorkingDirectory $working `
+            -EvidenceDirectory "$scopeEvidence/local-self-test-diagnostic" -ABA
       - name: Upload native Windows reports and screenshots
         if: always()
         uses: actions/upload-artifact@v4
