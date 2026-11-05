@@ -458,7 +458,7 @@
   ],
   "visibilityPolicy": "concurrent-uncertain",
   "continuousVisibilityVerified": false,
-  "initialVisibility": "Both marked Desk windows observed; 1.5.18 observed last/frontmost. Later 1.5.15 focus/occlusion unknown.",
+  "initialVisibility": "Both marked Desk windows observed; 1.5.18 observed last. OS frontmost state and later focus/occlusion were not independently verified.",
   "limits": [
     "No whole-app budget or reported high-memory incident attribution",
     "OS/disk caches, ambient load and observer overhead uncontrolled",

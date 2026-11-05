@@ -2,7 +2,7 @@
 
 Separate host and worker observations from exact retained signed 1.5.15 and final signed 1.5.18. Both private fixtures closed after ordinary Quit with all 100k generated QSOs and exact stored-column QSO hashes preserved. The 27 private settings fields supplied through supported setup APIs matched exactly between versions. [All samples and controls](desktop-idle-1.5.18.json) are machine-readable.
 
-Concurrent pair: root initially observed each marked Operator Desk; 1.5.18 was observed last/frontmost. Subsequent focus, occlusion, minimization and continuous visibility were not verified. OS caches, ambient load and observer overhead were uncontrolled. These data establish no whole-application budget or attribution of the reported high-memory incident.
+Concurrent pair: root initially observed each marked Operator Desk; 1.5.18 was observed last. OS frontmost state, subsequent focus, occlusion, minimization and continuous visibility were not independently verified. OS caches, ambient load and observer overhead were uncontrolled. These data establish no whole-application budget or attribution of the reported high-memory incident.
 
 | Version | Owner | Target min | Actual s | RSS MiB | Rounded physical footprint MiB | CPU time s |
 |---|---|---:|---:|---:|---:|---:|

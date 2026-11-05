@@ -36,9 +36,10 @@ service guard was weakened. All callsigns and settings below are synthetic.
 The post-journey checker reports integrity `ok`, one live synthetic QSO, the
 original save receipt and one edit receipt. Every durable frequency is
 14,250,000 Hz. Stored rows alone do not prove the menu/Close veto; that result
-comes from the separate observed native sequence above. Raw launch coordinates,
-AX observations and local data receipts remain private under the ignored native
-evidence directory. [Machine-readable disposition](native-1.5.18.json).
+comes from the separate observed native sequence above. Raw launch coordinates
+and local data receipts remain private under the ignored native evidence
+directory. AX observations are recorded in this task's tool transcript.
+[Machine-readable disposition](native-1.5.18.json).
 
 Equipment Browse/Save/Connect is **NOT RUN** in this profile: isolated Station
 Control deliberately refuses external services. Windows ordinary-account/UAC,

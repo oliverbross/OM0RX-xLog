@@ -18,7 +18,7 @@
   },
   "conditions": [
     "Concurrent baseline/candidate GUI idle; native/build ambient activity uncontrolled.",
-    "Candidate 1.5.18 was last/frontmost at root readiness; later focus/occlusion for baseline 1.5.15 unknown.",
+    "Candidate 1.5.18 was observed last at root readiness; OS frontmost state and later focus/occlusion were not independently verified.",
     "First optional counter snapshot was late (~164 seconds after readiness), not t=0. Full idle host/worker memory sampling is separate.",
     "Zero wakeup/disk counters may reflect unavailable kernel accounting; success and zero are not evidence of no wakeups/I/O.",
     "No interval is extrapolated to the unmeasured initial 164 seconds.",
