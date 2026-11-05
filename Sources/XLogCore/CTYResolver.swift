@@ -1,4 +1,7 @@
 import Foundation
+#if os(Windows)
+import CPlatformDigest
+#endif
 #if canImport(CryptoKit)
 import CryptoKit
 #else
@@ -225,7 +228,21 @@ public final class CTYResolver: @unchecked Sendable {
     }
 
     private static func digest(_ data: Data, constructionObserver: (@Sendable (String) -> Void)? = nil) -> String {
-        let hash = SHA256.hash(data: data)
+        let hash: [UInt8]
+        #if os(Windows)
+        var native = [UInt8](repeating: 0, count: 32)
+        let completed = data.withUnsafeBytes { input in
+            native.withUnsafeMutableBufferPointer { output in
+                xlog_platform_sha256(input.baseAddress, input.count, output.baseAddress, output.count) == 1
+            }
+        }
+        if completed {
+            hash = native
+            constructionObserver?("packNativeHashReturned")
+        } else { hash = Array(SHA256.hash(data: data)) }
+        #else
+        hash = Array(SHA256.hash(data: data))
+        #endif
         constructionObserver?("packHashReturned")
         let digits = Array("0123456789abcdef".utf8)
         var hex: [UInt8] = []

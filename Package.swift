@@ -59,7 +59,7 @@ let prototypeCoreTargets: [Target] = [
         "FlexIQDatagramReceiver.swift", "TCIIQSubscription.swift"
     ], sources: ["XCatError.swift", "PropagationConditions.swift", "TCIProtocol.swift",
                  "TCIIQFrame.swift", "FlexIQTransport.swift", "FlexIQResources.swift", "FlexIQSubscription.swift"]),
-    .target(name: "XLogPortableCore", dependencies: portableCrypto + ["CSQLitePrototype"], path: "Sources/XLogCore",
+    .target(name: "XLogPortableCore", dependencies: portableCrypto + ["CSQLitePrototype", .target(name: "CPlatformDigest", condition: .when(platforms: [.windows]))], path: "Sources/XLogCore",
         exclude: ["DXCCBoundaries.swift", "FlexSpotForwarder.swift",
                   "QRZClient.swift", "SecretStore.swift",
                   "Solar.swift", "TransmitPowerCapture.swift", "XCatClient.swift"],
@@ -89,6 +89,7 @@ var portableTargets = nativeTransferTargets + platformVaultTargets
 portableTargets.append(contentsOf: prototypeCoreTargets)
 portableTargets.append(contentsOf: [
     .systemLibrary(name: "CSQLitePrototype", pkgConfig: sqlitePkgConfig, providers: [.apt(["libsqlite3-dev"])]),
+    .target(name: "CPlatformDigest", linkerSettings: [.linkedLibrary("bcrypt", .when(platforms: [.windows]))]),
     .target(name: "CClusterSocket", linkerSettings: [.linkedLibrary("ws2_32", .when(platforms: [.windows]))]),
     .target(name: "CPlatformVault", dependencies: platformVaultDependencies,
             linkerSettings: [.linkedLibrary("Advapi32", .when(platforms: [.windows]))]),
@@ -101,7 +102,7 @@ portableTargets.append(contentsOf: [
     .target(name: "XContestStore", dependencies: ["XContestCore", "CSQLitePrototype"]),
     .target(name: "XLogPrototypeSupport", dependencies: prototypeSupportDependencies),
     .executableTarget(name: "XLogPrototypeWorker", dependencies: ["XLogPrototypeSupport"]),
-    .testTarget(name: "XLogPrototypeTests", dependencies: portableCrypto + ["XLogPrototypeSupport", "XClusterIntegrationCore", .byName(name: liveCoreName)], exclude: ["worker-process.test.mjs"]),
+    .testTarget(name: "XLogPrototypeTests", dependencies: portableCrypto + ["XLogPrototypeSupport", "XClusterIntegrationCore", .byName(name: liveCoreName), .target(name: "CPlatformDigest", condition: .when(platforms: [.windows]))], exclude: ["worker-process.test.mjs"]),
     .target(name: "CClusterSocketTestSupport", dependencies: ["CClusterSocket"], path: "Tests/CClusterSocketTestSupport"),
     .testTarget(name: "XClusterIntegrationTests", dependencies: ["XClusterIntegrationCore", "CClusterSocket", "CClusterSocketTestSupport"]),
     .testTarget(name: "XCatIntegrationTests", dependencies: ["XCatIntegrationCore"]),
