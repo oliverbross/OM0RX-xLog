@@ -15,17 +15,18 @@ export function useSharedCW(contextKey: string, suspended = false, nativeFocusOw
     controller.activate();
     let reading = false, active = true, timer: ReturnType<typeof setTimeout> | undefined;
     const schedule = () => {
-      clearTimeout(timer);
-      if (!active || suspendedRef.current) return;
       const current = controller.getSnapshot();
       const holder = current.client === controller.client && current.lease !== null;
-      if (document.visibilityState !== "visible" && !holder) return;
+      if (!active || suspendedRef.current || document.visibilityState !== "visible" && !holder) {
+        clearTimeout(timer); timer = undefined; return;
+      }
       // Keep visible context fresh and lease supervision below native's 3s
       // expiry, including a hidden Setup controller for a native Entry holder.
-      timer = setTimeout(poll, 750);
+      // Unregister/context replies must not postpone an existing deadline.
+      if (timer === undefined && !reading) timer = setTimeout(poll, 750);
     };
     const poll = () => {
-      clearTimeout(timer);
+      clearTimeout(timer); timer = undefined;
       if (!active || suspendedRef.current) { schedule(); return; }
       if (reading) return;
       reading = true;

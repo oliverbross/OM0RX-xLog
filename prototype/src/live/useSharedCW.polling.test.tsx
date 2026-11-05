@@ -68,3 +68,40 @@ it("does not revive a timer when an in-flight snapshot finishes after shutdown",
   expect(invoke.mock.calls.map(call => call[1].params.action)).toEqual(["snapshot", "unregister"]);
   expect(vi.getTimerCount()).toBe(0);
 });
+
+it("keeps snapshot deadlines during 500ms context changes and arms from the fresh revision", async () => {
+  vi.useFakeTimers();
+  let canonicalRevision = 0, observedRevision = 0, armed = false;
+  invoke.mockImplementation(async (_command, { client, params }) => {
+    if (params.action === "snapshot") observedRevision = canonicalRevision;
+    if (params.action === "unregister") armed = false;
+    if (params.action === "arm") {
+      if (params.expectedRevision !== canonicalRevision) throw new Error("CW context changed; observe it before arming.");
+      armed = true;
+    }
+    return { revision: observedRevision, armed, pending: false, owner: null, client: armed ? client : null,
+      lease: armed ? "lease" : null, error: "", canonical: { profile: defaultCWProfile, context: { CALL: `CALL${observedRevision}` } } };
+  });
+  let controller: ReturnType<typeof useSharedCW>["controller"];
+  function Harness({ contextKey }: { contextKey: string }) {
+    controller = useSharedCW(contextKey).controller;
+    return null;
+  }
+  const { rerender } = render(<Harness contextKey="0" />);
+  await act(async () => {});
+  for (let change = 1; change <= 10; change++) {
+    await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+    canonicalRevision = change;
+    rerender(<Harness contextKey={String(change)} />);
+    await act(async () => {});
+  }
+  const snapshots = () => invoke.mock.calls.filter(call => call[1].params.action === "snapshot").length;
+  expect(snapshots()).toBe(7); // Initial read plus deadlines at 750...4500ms.
+  expect(invoke.mock.calls.filter(call => call[1].params.action === "arm")).toHaveLength(0);
+  await act(async () => { await vi.advanceTimersByTimeAsync(250); });
+  expect(snapshots()).toBe(8);
+  expect(controller!.getSnapshot().canonical?.context.CALL).toBe("CALL10");
+  await act(async () => { await controller!.arm(); });
+  expect(controller!.getSnapshot().armed).toBe(true);
+  expect(invoke.mock.calls.find(call => call[1].params.action === "arm")?.[1].params.expectedRevision).toBe(10);
+});
