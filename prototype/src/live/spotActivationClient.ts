@@ -49,6 +49,9 @@ export class SpotActivationClient {
     }
     const changedOperation = value.operationId !== this.operation;
     this.operation = value.operationId;
+    // Keep authority reads and recovery active without notifying React again
+    // for the same validated, error-free idle state (all three fields fixed).
+    if (!changedOperation && previous?.phase === "idle" && value.phase === "idle" && !this.state.error) return;
     this.update({ status: value, error: "", ...(changedOperation ? { checked: false } : {}) });
   }
   private async settle(operationId: string, version: number, value: unknown) {
