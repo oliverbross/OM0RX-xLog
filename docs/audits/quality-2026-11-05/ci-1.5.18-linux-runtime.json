@@ -1,0 +1,624 @@
+{
+  "schema": 1,
+  "disposition": "PASS \u2014 bounded independent Linux container runtime acceptance of unchanged1.5.18 package; canonical gate stillFAILED",
+  "run": {
+    "conclusion": "success",
+    "createdAt": "2026-11-05T09:13:04Z",
+    "event": "workflow_dispatch",
+    "headSha": "be96ec25c245ff51810ffbd6a5f7f6d3ddf274dc",
+    "status": "completed",
+    "updatedAt": "2026-11-05T09:16:23Z",
+    "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42000560531"
+  },
+  "dispatch": {
+    "runId": 42000560531,
+    "workflowSource": "be96ec25c245ff51810ffbd6a5f7f6d3ddf274dc",
+    "artifactSource": "0b7c669663841c2e55569b0c21c76ad03805cad7",
+    "artifactRun": 41987734820,
+    "workflowBlob": "3ac20c46e3e101f04369d7f39645f26559847824",
+    "inputs": {
+      "runtime_run_id": "41987734820",
+      "runtime_source_sha": "0b7c669663841c2e55569b0c21c76ad03805cad7",
+      "runtime_platform": "linux",
+      "build_platforms": "linux",
+      "validation_only": true,
+      "package_macos": false
+    },
+    "priorFailure": 41999011743,
+    "applicationRebuild": false
+  },
+  "version": "1.5.18",
+  "artifactSource": "0b7c669663841c2e55569b0c21c76ad03805cad7",
+  "jobs": [
+    {
+      "id": 127154399848,
+      "name": "Linux runtime-only container acceptance",
+      "status": "completed",
+      "conclusion": "success",
+      "run_id": 42000560531,
+      "logs_url": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/download-artifact@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Build runtime-only Ubuntu image with packaged deb",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Native WebKit GUI, worker, relaunch and relocation with network disabled",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Upload native Linux reports and screenshots",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13
+        }
+      ]
+    },
+    {
+      "id": 127154400728,
+      "name": "prototype",
+      "status": "completed",
+      "conclusion": "skipped",
+      "run_id": 42000560531,
+      "logs_url": null,
+      "steps": null
+    },
+    {
+      "id": 127154401947,
+      "name": "Windows fresh-runner runtime acceptance (${{ matrix.installer_scope }})",
+      "status": "completed",
+      "conclusion": "skipped",
+      "run_id": 42000560531,
+      "logs_url": null,
+      "steps": null
+    }
+  ],
+  "acceptanceArtifact": {
+    "id": 13402142981,
+    "name": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7",
+    "size_in_bytes": 824748,
+    "url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13402142981",
+    "archive_download_url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13402142981/zip",
+    "expired": false,
+    "created_at": "2026-11-05T09:16:20Z",
+    "expires_at": "2026-12-05T09:16:19Z",
+    "updated_at": "2026-11-05T09:16:20Z",
+    "digest": "sha256:ebd88a7677821ad3035202d458060be0ad119aa50ac291640d838fb104b5d960",
+    "workflow_run": {
+      "id": 42000560531,
+      "repository_id": 1413914852,
+      "head_repository_id": 1413914852,
+      "head_branch": "main",
+      "head_sha": "be96ec25c245ff51810ffbd6a5f7f6d3ddf274dc"
+    }
+  },
+  "acceptance": {
+    "schema": 1,
+    "status": "passed",
+    "commit": "0b7c669663841c2e55569b0c21c76ad03805cad7",
+    "platform": "ubuntu-24.04-amd64",
+    "developmentToolchainsPresent": false,
+    "nonRoot": true,
+    "framingTestCount": 2,
+    "embeddedUiLaunchCount": 4,
+    "contestRuntimeTest": {
+      "id": "contest-runtime-self-test",
+      "ok": true,
+      "result": {
+        "catalogue": true,
+        "catalogue_count": 98,
+        "checks": [
+          "bundled_locator",
+          "sanitized_environment",
+          "catalogue",
+          "create_cq_ww_cw",
+          "commit_read",
+          "restart_reopen",
+          "shipping_shutdown",
+          "temporary_cleanup"
+        ],
+        "credentials_accessed": false,
+        "engine": "not1mm-python",
+        "network_contact": false,
+        "passed": true,
+        "qso_count": 1,
+        "reopened": true,
+        "save_read": true,
+        "shipping_shutdown": true,
+        "station_io": false,
+        "synthetic_records": true,
+        "temporary_store_removed": true
+      }
+    },
+    "relocatedContestRuntimeTest": {
+      "id": "contest-runtime-self-test",
+      "ok": true,
+      "result": {
+        "catalogue": true,
+        "catalogue_count": 98,
+        "checks": [
+          "bundled_locator",
+          "sanitized_environment",
+          "catalogue",
+          "create_cq_ww_cw",
+          "commit_read",
+          "restart_reopen",
+          "shipping_shutdown",
+          "temporary_cleanup"
+        ],
+        "credentials_accessed": false,
+        "engine": "not1mm-python",
+        "network_contact": false,
+        "passed": true,
+        "qso_count": 1,
+        "reopened": true,
+        "save_read": true,
+        "shipping_shutdown": true,
+        "station_io": false,
+        "synthetic_records": true,
+        "temporary_store_removed": true
+      }
+    },
+    "installedDebLaunchCount": 3,
+    "relocatedArchiveLaunchCount": 1,
+    "x11LaunchCount": 3,
+    "waylandLaunchCount": 1,
+    "waylandCompositorBackend": "Weston nested X11 with pixman renderer",
+    "scope": "Synthetic core and embedded UI under Xvfb and nested Wayland; no hardware/accounts"
+  },
+  "actualRuntime": {
+    "os": {
+      "PRETTY_NAME": "Ubuntu 24.04.5 LTS",
+      "VERSION_ID": "24.04",
+      "VERSION": "24.04.5 LTS (Noble Numbat)"
+    },
+    "user": "uid=10001(acceptance) gid=10001(acceptance) groups=10001(acceptance)",
+    "packages": [
+      "libgtk-3-0t64:amd64\t3.24.41-4ubuntu1.3",
+      "libgtk-3-common\t3.24.41-4ubuntu1.3",
+      "libjavascriptcoregtk-4.1-0:amd64\t2.52.6-0ubuntu0.24.04.1",
+      "libwebkit2gtk-4.1-0:amd64\t2.52.6-0ubuntu0.24.04.1",
+      "weston\t13.0.0-4build3"
+    ],
+    "weston": "weston 13.0.0",
+    "network": "docker --network none --cap-drop ALL",
+    "toolchainsPresent": false
+  },
+  "ui": [
+    {
+      "report": "ui-1.json",
+      "status": "passed",
+      "checkCount": 36,
+      "checks": {
+        "adif_transfer_roundtrip": true,
+        "awards_loaded": true,
+        "contact_delete_undo": true,
+        "contact_edit": true,
+        "desk_map_logbook": true,
+        "detached_awards": true,
+        "detached_awards_lifecycle": true,
+        "detached_logbook": true,
+        "detached_logbook_lifecycle": true,
+        "detached_projection": true,
+        "detached_spot_history": true,
+        "empty_workspace": true,
+        "final_desk": true,
+        "isolated_worker": true,
+        "keyboard_clear": true,
+        "keyboard_editor": true,
+        "keyboard_focus": true,
+        "keyboard_log": true,
+        "logbook_readback": true,
+        "map_loaded": true,
+        "native_menu_routes": true,
+        "onboarding_setup": true,
+        "settings_save_readback": true,
+        "settings_sections": true,
+        "spot_history_archive": true,
+        "spot_history_dock_recovery": true,
+        "spot_history_main_absent": true,
+        "worker_integration_self_test": true,
+        "worker_parse_adif": true,
+        "worker_self_test": true,
+        "workspace_canvas_controls": true,
+        "workspace_created": true,
+        "workspace_feedback_overlay": true,
+        "workspace_layout_roundtrip": true,
+        "workspace_native_windows": true,
+        "workspace_settings_presets": true
+      },
+      "onboarding": {
+        "completed": true,
+        "initialIdentityBlank": true,
+        "localMode": true,
+        "radioSkipped": true,
+        "rotatorSkipped": true
+      }
+    },
+    {
+      "report": "ui-2.json",
+      "status": "passed",
+      "checkCount": 36,
+      "checks": {
+        "adif_transfer_roundtrip": true,
+        "awards_loaded": true,
+        "contact_delete_undo": true,
+        "contact_edit": true,
+        "desk_map_logbook": true,
+        "detached_awards": true,
+        "detached_awards_lifecycle": true,
+        "detached_logbook": true,
+        "detached_logbook_lifecycle": true,
+        "detached_projection": true,
+        "detached_spot_history": true,
+        "empty_workspace": true,
+        "final_desk": true,
+        "isolated_worker": true,
+        "keyboard_clear": true,
+        "keyboard_editor": true,
+        "keyboard_focus": true,
+        "keyboard_log": true,
+        "logbook_readback": true,
+        "map_loaded": true,
+        "native_menu_routes": true,
+        "onboarding_setup": true,
+        "settings_save_readback": true,
+        "settings_sections": true,
+        "spot_history_archive": true,
+        "spot_history_dock_recovery": true,
+        "spot_history_main_absent": true,
+        "worker_integration_self_test": true,
+        "worker_parse_adif": true,
+        "worker_self_test": true,
+        "workspace_canvas_controls": true,
+        "workspace_created": true,
+        "workspace_feedback_overlay": true,
+        "workspace_layout_roundtrip": true,
+        "workspace_native_windows": true,
+        "workspace_settings_presets": true
+      },
+      "onboarding": {
+        "completed": true,
+        "initialIdentityBlank": true,
+        "localMode": true,
+        "radioSkipped": true,
+        "rotatorSkipped": true
+      }
+    },
+    {
+      "report": "ui-3.json",
+      "status": "passed",
+      "checkCount": 36,
+      "checks": {
+        "adif_transfer_roundtrip": true,
+        "awards_loaded": true,
+        "contact_delete_undo": true,
+        "contact_edit": true,
+        "desk_map_logbook": true,
+        "detached_awards": true,
+        "detached_awards_lifecycle": true,
+        "detached_logbook": true,
+        "detached_logbook_lifecycle": true,
+        "detached_projection": true,
+        "detached_spot_history": true,
+        "empty_workspace": true,
+        "final_desk": true,
+        "isolated_worker": true,
+        "keyboard_clear": true,
+        "keyboard_editor": true,
+        "keyboard_focus": true,
+        "keyboard_log": true,
+        "logbook_readback": true,
+        "map_loaded": true,
+        "native_menu_routes": true,
+        "onboarding_setup": true,
+        "settings_save_readback": true,
+        "settings_sections": true,
+        "spot_history_archive": true,
+        "spot_history_dock_recovery": true,
+        "spot_history_main_absent": true,
+        "worker_integration_self_test": true,
+        "worker_parse_adif": true,
+        "worker_self_test": true,
+        "workspace_canvas_controls": true,
+        "workspace_created": true,
+        "workspace_feedback_overlay": true,
+        "workspace_layout_roundtrip": true,
+        "workspace_native_windows": true,
+        "workspace_settings_presets": true
+      },
+      "onboarding": {
+        "completed": true,
+        "initialIdentityBlank": true,
+        "localMode": true,
+        "radioSkipped": true,
+        "rotatorSkipped": true
+      }
+    },
+    {
+      "report": "ui-wayland.json",
+      "status": "passed",
+      "checkCount": 36,
+      "checks": {
+        "adif_transfer_roundtrip": true,
+        "awards_loaded": true,
+        "contact_delete_undo": true,
+        "contact_edit": true,
+        "desk_map_logbook": true,
+        "detached_awards": true,
+        "detached_awards_lifecycle": true,
+        "detached_logbook": true,
+        "detached_logbook_lifecycle": true,
+        "detached_projection": true,
+        "detached_spot_history": true,
+        "empty_workspace": true,
+        "final_desk": true,
+        "isolated_worker": true,
+        "keyboard_clear": true,
+        "keyboard_editor": true,
+        "keyboard_focus": true,
+        "keyboard_log": true,
+        "logbook_readback": true,
+        "map_loaded": true,
+        "native_menu_routes": true,
+        "onboarding_setup": true,
+        "settings_save_readback": true,
+        "settings_sections": true,
+        "spot_history_archive": true,
+        "spot_history_dock_recovery": true,
+        "spot_history_main_absent": true,
+        "worker_integration_self_test": true,
+        "worker_parse_adif": true,
+        "worker_self_test": true,
+        "workspace_canvas_controls": true,
+        "workspace_created": true,
+        "workspace_feedback_overlay": true,
+        "workspace_layout_roundtrip": true,
+        "workspace_native_windows": true,
+        "workspace_settings_presets": true
+      },
+      "onboarding": {
+        "completed": true,
+        "initialIdentityBlank": true,
+        "localMode": true,
+        "radioSkipped": true,
+        "rotatorSkipped": true
+      }
+    }
+  ],
+  "wayland": {
+    "schema": 1,
+    "status": "passed",
+    "applicationBackend": "wayland",
+    "applicationDisplayVariablePresent": false,
+    "compositor": "Weston",
+    "compositorBackend": "x11",
+    "compositorRenderer": "pixman",
+    "capture": "outer Xvfb X11 root showing nested Weston compositor",
+    "physicalDesktop": false,
+    "directHeadlessCompositor": false,
+    "report": "ui-wayland.json",
+    "checkCount": 36
+  },
+  "screenshots": {
+    "inspected": [
+      "ui-1.png",
+      "ui-wayland.png"
+    ],
+    "observation": "App rendered; Native automatic rotor status unavailable banner visible. Equipment skipped under isolated acceptance."
+  },
+  "boundaries": [
+    "Synthetic native WebKit UI underXvfb and nestedWeston, not ordinary physical desktop",
+    "Radio/rotor skipped in all4onboarding receipts; no stationIO/hardware/accounts",
+    "No physicalTX/CAT/PTT/audio/RF acceptance",
+    "Windows runtime/installer jobSKIPPED; no scope/defaultpath/upgrade/WebView2 acceptance",
+    "Original41987734820 remainsFAILED and runtimejobsSKIPPED",
+    "First Linux-only41999011743 remainsFAILED with stale97assertion"
+  ],
+  "privateEvidence": [
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/acceptance.json",
+      "bytes": 2001,
+      "sha256": "bd6da1bbc21aebe36a09d20e0cc995c733b5eefb7fe687bb172bbc961dfb467f"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/archive-loader-audit.json",
+      "bytes": 69428,
+      "sha256": "1548328af11caa6331e42ce12ff0fbd7289220abf6c0367a29daf5c020a8b025"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/archive-loader-audit.txt",
+      "bytes": 79907,
+      "sha256": "cc432d07ba6d8af62dc9afb02d637772d9c90e2a6cea00c5e3494319900c012e"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/archive-payload-hash-check.txt",
+      "bytes": 62656,
+      "sha256": "a05a2a7ceacb6796da353dd9759e193291b1a2fa901b5e9a7c44cb25a80ea185"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/archive-worker-contest-runtime-reply.json",
+      "bytes": 487,
+      "sha256": "71bf7accd00d2cd15568c56ae8bcd5cf0586de5e643ff25e6cefb6a2fcfecedc"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/archive-worker.json",
+      "bytes": 4458,
+      "sha256": "0fee7d07278a2a921c56f61dfb8f0ec3cfe4d171cb01170f859e6ddfad569522"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/container-image.json",
+      "bytes": 3592,
+      "sha256": "b45e02a7b286d93637e61aa67cec1c4fa044c4be52cf5cd8b3a83d692145f3a1"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/installed-packages.tsv",
+      "bytes": 16171,
+      "sha256": "9a698effbcd3b143be9ea821ece1a4eeb1cebbb1308a4b28dba8bb463bfbcff2"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/installed-payload-scan.json",
+      "bytes": 194929,
+      "sha256": "b7824cb6783c0f19cab28c4e8aa066c38bdea7d134e64865dbb164704ae08608"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/native-loader-audit.json",
+      "bytes": 65484,
+      "sha256": "c52599402772d0ba64b181f4ac42feebd681b12f325c33ca49967997d3c03cbc"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/native-loader-audit.txt",
+      "bytes": 76507,
+      "sha256": "6486b2162b6e7f32a9e96e16947ad1096cdc19c4f3bf6b05c85a36c9cbef9810"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/os-release.txt",
+      "bytes": 400,
+      "sha256": "87458b3b1f1ca0e5c693ade771de7007c3783bdc692fa6b39eb6414bf2af2763"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/payload-hash-check.txt",
+      "bytes": 62656,
+      "sha256": "a05a2a7ceacb6796da353dd9759e193291b1a2fa901b5e9a7c44cb25a80ea185"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/runtime-manifest.json",
+      "bytes": 58577,
+      "sha256": "9c65e9a37a49e6793379c392570cd9da96c6680a1204c5ad31ee3d28ab858f34"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/ui-1.json",
+      "bytes": 13741,
+      "sha256": "02253242a9dda5871c7f2d405d5f900c763edc1f89a4b100643dfc09268a1219"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/ui-1.log",
+      "bytes": 624,
+      "sha256": "33374d22cd2140fe17ac13d0d8ca130407675f4f92983df047c0d7353cd91851"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/ui-1.png",
+      "bytes": 143134,
+      "sha256": "22588d91afc349264bfb73f9dca8147bd549e9b724dcfb187bf68842c4071703"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/ui-2.json",
+      "bytes": 13741,
+      "sha256": "dee0998f3a0e13f8dd301efdf4ee4f175cf31cb9333db60bc574bcb4852604ef"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/ui-2.log",
+      "bytes": 630,
+      "sha256": "b71da16d4925cbbd06ac19941af4468763d3dabc0ea8b313a42a1632851b9edd"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/ui-2.png",
+      "bytes": 144708,
+      "sha256": "58cb0e3d68051cd4cf69937c09265159eb19f3a0d5f461aba95a4caf5030732c"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/ui-3.json",
+      "bytes": 13741,
+      "sha256": "9e1e7e6ba0a18c153029f0569f2582ba530221c4e80c89a4e78c24c8b77f4f0b"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/ui-3.log",
+      "bytes": 630,
+      "sha256": "0deaf6ae51d7c4c64969b57bb0fab636de823fe4ecee7d0cbfe5fabd4d95e81a"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/ui-3.png",
+      "bytes": 143185,
+      "sha256": "d3385609e4bca54a29fb9b30b97a7748e2a408d1918a719f1e1364cc1bc1ce07"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/ui-wayland.json",
+      "bytes": 13742,
+      "sha256": "176550174143902c91802fabb2821a973028222cdda1bb5415dfdc3d3bcde7d2"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/ui-wayland.log",
+      "bytes": 630,
+      "sha256": "8d25661e6d89ed91cb3b3aa50c57dc9997ef6c97e93422b893b788a37a0eaa31"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/ui-wayland.png",
+      "bytes": 292425,
+      "sha256": "409bdf486a3b16b41f1cafb05171420ed2ae9e4579c77ec18267c4ea3917b14a"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/user.txt",
+      "bytes": 69,
+      "sha256": "015e36910fbffa1fe4b3c89e5a7634c872913f0badcdfaf896d4a48fead23feb"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/wayland-session.json",
+      "bytes": 396,
+      "sha256": "596a2a9ecae6247fc9b8e40388d32cf9d3dc1f1a60055023b0173b73c4717d25"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/weston-process.log",
+      "bytes": 198,
+      "sha256": "5aa246d4266af395770ec5630632e9b336725b13567399a824ff15a287e028c3"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/weston-version.txt",
+      "bytes": 14,
+      "sha256": "ae784846363b80dae069abe80587f4e1bcc04cc19a9694b7be3e8364ae182e01"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/weston.log",
+      "bytes": 2101,
+      "sha256": "d4e0a316c1efa6d60d07fe967260777bdae4eb75cc37af59a2789f76cb8403fd"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/worker-contest-runtime-reply.json",
+      "bytes": 487,
+      "sha256": "71bf7accd00d2cd15568c56ae8bcd5cf0586de5e643ff25e6cefb6a2fcfecedc"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/worker.json",
+      "bytes": 4458,
+      "sha256": "0fee7d07278a2a921c56f61dfb8f0ec3cfe4d171cb01170f859e6ddfad569522"
+    },
+    {
+      "path": "job-127154399848-full.log",
+      "bytes": 274918,
+      "sha256": "6e1dfea1c6d10eaaf3c15569b3289201a7024027118ed49c4adf4142e39b46a6"
+    }
+  ]
+}

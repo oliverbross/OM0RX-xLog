@@ -1,0 +1,194 @@
+{
+  "schema": 1,
+  "disposition": "FAILED \u2014 independent runtime-only outcome; original canonical gate remains FAILED with runtime jobs SKIPPED",
+  "run": {
+    "conclusion": "failure",
+    "createdAt": "2026-11-05T09:01:41Z",
+    "event": "workflow_dispatch",
+    "headSha": "384ca7afab84821a08ae3e8ca7cd3c5664aa7f73",
+    "status": "completed",
+    "updatedAt": "2026-11-05T09:03:09Z",
+    "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41999011743"
+  },
+  "version": "1.5.18",
+  "workflowSource": "384ca7afab84821a08ae3e8ca7cd3c5664aa7f73",
+  "workflowBlob": "3ac20c46e3e101f04369d7f39645f26559847824",
+  "artifactSource": "0b7c669663841c2e55569b0c21c76ad03805cad7",
+  "originalRun": 41987734820,
+  "originalLinuxArtifact": {
+    "id": 13398058668,
+    "sha256": "e19dbc9b4c5f86387a135b5592bc7603be42d432c348ae11075f8b70b548af4f"
+  },
+  "packages": [
+    {
+      "name": "OM0RX-xLog-1.5.18-Beta-Linux-x64.deb",
+      "sha256": "a49d9210951f55bc5f830888f69c3b0530a4f5b1b276230d44519ec6fdbe1b27"
+    },
+    {
+      "name": "OM0RX-xLog-1.5.18-Beta-Linux-x64.tar.gz",
+      "sha256": "b76b68eaec34999385da69a9bd23d7c96330bdda4d75c7b7dfd803fc11892deb"
+    }
+  ],
+  "jobs": [
+    {
+      "id": 127149254596,
+      "name": "Linux runtime-only container acceptance",
+      "status": "completed",
+      "conclusion": "failure",
+      "run_id": 41999011743,
+      "logs_url": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/download-artifact@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Build runtime-only Ubuntu image with packaged deb",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Native WebKit GUI, worker, relaunch and relocation with network disabled",
+          "status": "completed",
+          "conclusion": "failure",
+          "number": 5
+        },
+        {
+          "name": "Upload native Linux reports and screenshots",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13
+        }
+      ]
+    },
+    {
+      "id": 127149256962,
+      "name": "Windows fresh-runner runtime acceptance (${{ matrix.installer_scope }})",
+      "status": "completed",
+      "conclusion": "skipped",
+      "run_id": 41999011743,
+      "logs_url": null,
+      "steps": null
+    },
+    {
+      "id": 127149257802,
+      "name": "prototype",
+      "status": "completed",
+      "conclusion": "skipped",
+      "run_id": 41999011743,
+      "logs_url": null,
+      "steps": null
+    }
+  ],
+  "acceptanceArtifact": {
+    "id": 13400814924,
+    "name": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7",
+    "size_in_bytes": 43581,
+    "url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13400814924",
+    "archive_download_url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13400814924/zip",
+    "expired": false,
+    "created_at": "2026-11-05T09:03:06Z",
+    "expires_at": "2026-12-05T09:03:06Z",
+    "updated_at": "2026-11-05T09:03:06Z",
+    "digest": "sha256:5c472eb55544f03d622994157ffa393fb9caef43899e7ae615640da274b10ca9",
+    "workflow_run": {
+      "id": 41999011743,
+      "repository_id": 1413914852,
+      "head_repository_id": 1413914852,
+      "head_branch": "main",
+      "head_sha": "384ca7afab84821a08ae3e8ca7cd3c5664aa7f73"
+    }
+  },
+  "failure": {
+    "script": "prototype/scripts/linux-worker-acceptance.py",
+    "line": 37,
+    "assertion": "result.get('catalogue_count') == 97",
+    "stage": "contest worker self-test, before framing and GUI",
+    "diagnosis": "Exact frozen and packaged plugin registry has98 entries; stale97 acceptance expectation. Worker result not retained before assertion;98 inferred from exact packaged source and self-test implementation.",
+    "candidateCorrection": "Synchronize strict expected count and fixture with98; retain raw worker response before validation. No edit or rerun performed."
+  },
+  "actualRuntime": {
+    "containerImage": "sha256:1f7a571747d11f909b99490aa6db1f5860bd6ca26751d966e21d7b5513349b63",
+    "configuredUser": "acceptance",
+    "nonRootGuardPassed": true,
+    "uidGid": "NOT RECORDED: user.txt collection occurs after failed worker check",
+    "os": "Ubuntu24.04 base image; os-release runtime receipt NOT RECORDED",
+    "webkitFromRuntimeLoaderAudit": [
+      "libwebkit2gtk-4.1-0:amd64\t2.52.6-0ubuntu0.24.04.1\tamd64"
+    ],
+    "toolchainAbsenceGuardPassed": true,
+    "network": "docker --network none --cap-drop ALL",
+    "payloadChecksumCheckPassed": true,
+    "nativeLoaderAuditPassed": true
+  },
+  "boundaries": {
+    "workerSelfTest": "passed its pre-count assertions; final worker.json absent",
+    "ndjsonFraming": "NOT RUN after failure",
+    "guiX11": "NOT RUN",
+    "guiWayland": "NOT RUN",
+    "relaunchRelocation": "NOT RUN",
+    "ordinaryDesktop": "NOT RUN",
+    "equipmentWizard": "NOT RUN",
+    "stationIoAccountsHardware": "NOT RUN",
+    "windowsInstallerScopes": "SKIPPED; no Windows rerun"
+  },
+  "privateEvidence": [
+    {
+      "path": "job-127149254596-full.log",
+      "bytes": 275434,
+      "sha256": "2a1b463f52d52860e68a259b3eeeda76c9910dd1a1b1937bfa4f9b3610f7ddac"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/container-image.json",
+      "bytes": 3592,
+      "sha256": "679a61218f3460507622a3b445e11b2c24db67027aa91a552e42b15f55d01a48"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/native-loader-audit.json",
+      "bytes": 65484,
+      "sha256": "c52599402772d0ba64b181f4ac42feebd681b12f325c33ca49967997d3c03cbc"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/native-loader-audit.txt",
+      "bytes": 76507,
+      "sha256": "1c7d0079b873cdce08bac01b648858ed49d658900f35e31b13e04c84f6b7df61"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/payload-hash-check.txt",
+      "bytes": 62656,
+      "sha256": "a05a2a7ceacb6796da353dd9759e193291b1a2fa901b5e9a7c44cb25a80ea185"
+    },
+    {
+      "path": "xlog-acceptance-linux-0b7c669663841c2e55569b0c21c76ad03805cad7/runtime-manifest.json",
+      "bytes": 58577,
+      "sha256": "9c65e9a37a49e6793379c392570cd9da96c6680a1204c5ad31ee3d28ab858f34"
+    }
+  ]
+}

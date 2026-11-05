@@ -1,0 +1,1018 @@
+{
+  "schema": 1,
+  "candidateVersion": "1.5.18",
+  "applicationSource": "0b7c669663841c2e55569b0c21c76ad03805cad7",
+  "workflowSource": "0b7c669663841c2e55569b0c21c76ad03805cad7",
+  "run": 41987734820,
+  "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41987734820",
+  "status": "completed",
+  "conclusion": "failure",
+  "disposition": "HELD: original canonical run failed Windows installer clean-source guard; downstream native runtime gates skipped",
+  "jobs": [
+    {
+      "id": 127112949366,
+      "name": "prototype (windows-2022)",
+      "status": "completed",
+      "conclusion": "failure",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41987734820/job/127112949366",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Enable Windows checkout long paths",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Select macOS Swift toolchain",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Run actions/setup-node@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install supported contest Python before native tests",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Restore native dependency/build cache",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Linux build dependencies",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Swift toolchain (Linux)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Swift toolchain (Windows)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Windows SQLite",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Record native toolchains",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install frontend dependencies",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Release payload guard tests",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test atomic pinned contest catalog initialization",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Parse Windows installer scripts and validate scope policy",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Linux C vault in a private Secret Service session",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Compile portable native test fixtures early (Unix)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Compile portable native test fixtures early (Windows)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Frontend tests and build",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test FLEX IQ loopback fixture (Mac)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Test complete portable Swift core (Unix)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Test portable Swift core (Windows)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Linux credential vault in a private Secret Service session",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Build Swift worker (Unix)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Build Swift worker (Windows)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stage isolated worker",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build pinned Hamlib radio and rotor helpers (Mac integration)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Build pinned Hamlib radio and rotor helpers (Linux integration)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Stage pinned Hamlib radio and rotor helpers (Windows integration)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test worker process framing (Unix)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Test worker process framing (Windows)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Shell contract tests",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Bundled Hamlib dummy protocol and lifecycle tests",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Bundled Hamlib dummy protocol and lifecycle tests (Windows)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build desktop executable (not an installer acceptance claim)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Collect resolved dependency inventory and notices",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package macOS application",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Upload macOS package",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Package Linux runtime and Debian application",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Package Windows portable runtime",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package current-user and all-users EXE installers from one audited runtime",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Upload Linux runtime packages",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Upload Windows runtime package",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Upload development executables and evidence inputs",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload portable Swift pin verification receipts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Save native dependency/build cache",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Install supported contest Python before native tests",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Post Run actions/setup-node@v4",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 127112949377,
+      "name": "prototype (macos-15)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41987734820/job/127112949377",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Enable Windows checkout long paths",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Select macOS Swift toolchain",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install supported contest Python before native tests",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Restore native dependency/build cache",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Linux build dependencies",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Swift toolchain (Linux)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Swift toolchain (Windows)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Windows SQLite",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Record native toolchains",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install frontend dependencies",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Release payload guard tests",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test atomic pinned contest catalog initialization",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Parse Windows installer scripts and validate scope policy",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Linux C vault in a private Secret Service session",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Compile portable native test fixtures early (Unix)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Compile portable native test fixtures early (Windows)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Frontend tests and build",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test FLEX IQ loopback fixture (Mac)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test complete portable Swift core (Unix)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test portable Swift core (Windows)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Linux credential vault in a private Secret Service session",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Build Swift worker (Unix)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build Swift worker (Windows)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Stage isolated worker",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build pinned Hamlib radio and rotor helpers (Mac integration)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build pinned Hamlib radio and rotor helpers (Linux integration)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Stage pinned Hamlib radio and rotor helpers (Windows integration)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Test worker process framing (Unix)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test worker process framing (Windows)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Shell contract tests",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Bundled Hamlib dummy protocol and lifecycle tests",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Bundled Hamlib dummy protocol and lifecycle tests (Windows)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Build desktop executable (not an installer acceptance claim)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Collect resolved dependency inventory and notices",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package macOS application",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Upload macOS package",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Package Linux runtime and Debian application",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Package Windows portable runtime",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Package current-user and all-users EXE installers from one audited runtime",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Upload Linux runtime packages",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Upload Windows runtime package",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Upload development executables and evidence inputs",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload portable Swift pin verification receipts",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Save native dependency/build cache",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Install supported contest Python before native tests",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 127112949401,
+      "name": "prototype (ubuntu-24.04)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41987734820/job/127112949401",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Enable Windows checkout long paths",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Select macOS Swift toolchain",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Run actions/setup-node@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install supported contest Python before native tests",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Restore native dependency/build cache",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Linux build dependencies",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Swift toolchain (Linux)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Swift toolchain (Windows)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Windows SQLite",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Record native toolchains",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install frontend dependencies",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Release payload guard tests",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test atomic pinned contest catalog initialization",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Parse Windows installer scripts and validate scope policy",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Linux C vault in a private Secret Service session",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Compile portable native test fixtures early (Unix)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Compile portable native test fixtures early (Windows)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Frontend tests and build",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test FLEX IQ loopback fixture (Mac)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Test complete portable Swift core (Unix)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test portable Swift core (Windows)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Linux credential vault in a private Secret Service session",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build Swift worker (Unix)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build Swift worker (Windows)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Stage isolated worker",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build pinned Hamlib radio and rotor helpers (Mac integration)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Build pinned Hamlib radio and rotor helpers (Linux integration)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stage pinned Hamlib radio and rotor helpers (Windows integration)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Test worker process framing (Unix)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test worker process framing (Windows)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Shell contract tests",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Bundled Hamlib dummy protocol and lifecycle tests",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Bundled Hamlib dummy protocol and lifecycle tests (Windows)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Build desktop executable (not an installer acceptance claim)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Collect resolved dependency inventory and notices",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package macOS application",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Upload macOS package",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Package Linux runtime and Debian application",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package Windows portable runtime",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Package current-user and all-users EXE installers from one audited runtime",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Upload Linux runtime packages",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload Windows runtime package",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Upload development executables and evidence inputs",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload portable Swift pin verification receipts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Save native dependency/build cache",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Install supported contest Python before native tests",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 127146899152,
+      "name": "Windows fresh-runner runtime acceptance (${{ matrix.installer_scope }})",
+      "status": "completed",
+      "conclusion": "skipped",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41987734820/job/127146899152",
+      "steps": []
+    },
+    {
+      "id": 127146899427,
+      "name": "Linux runtime-only container acceptance",
+      "status": "completed",
+      "conclusion": "skipped",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41987734820/job/127146899427",
+      "steps": []
+    }
+  ],
+  "failure": {
+    "job": 127112949366,
+    "step": "Package current-user and all-users EXE installers from one audited runtime",
+    "location": "prototype/scripts/package-windows-installer.ps1:34",
+    "error": "Commit source changes before packaging; installer provenance requires a clean canonical checkout.",
+    "stage": "Before NSIS invocation",
+    "dirtyPaths": "NOT OBSERVED: failing script did not print git status paths",
+    "log": "job-127112949366-full.log",
+    "logErrorLines": [
+      24875,
+      24880
+    ],
+    "lockfileEvidence": "lockfile-comparison.json",
+    "lockfileResult": "Cargo.lock and package-lock.json content matches source after Windows CRLF normalization; no dependency mutation evidenced"
+  },
+  "artifacts": [
+    {
+      "id": 13400642937,
+      "name": "portable-swift-pins-windows-2022-0b7c669663841c2e55569b0c21c76ad03805cad7",
+      "bytes": 4263,
+      "sha256": "e1fb8dedc65bd5cac23e995885f2e9a7c8ac096d8ea954adeae79ca099def58a",
+      "sha256Verified": true,
+      "source": "0b7c669663841c2e55569b0c21c76ad03805cad7",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41987734820/artifacts/13400642937"
+    },
+    {
+      "id": 13400578199,
+      "name": "xlog-prototype-windows-2022-0b7c669663841c2e55569b0c21c76ad03805cad7",
+      "bytes": 35584099,
+      "sha256": "c2b08a9abc616ac74d234b87f8692ad18be319bcef1f01e3cb0ce58eee030488",
+      "sha256Verified": true,
+      "source": "0b7c669663841c2e55569b0c21c76ad03805cad7",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41987734820/artifacts/13400578199"
+    },
+    {
+      "id": 13398677287,
+      "name": "portable-swift-pins-ubuntu-24.04-0b7c669663841c2e55569b0c21c76ad03805cad7",
+      "bytes": 5583,
+      "sha256": "bafbb9327a95ac49c5f989b3319ec3bed1e8386fd19881e99bd5de5f58c36955",
+      "sha256Verified": true,
+      "source": "0b7c669663841c2e55569b0c21c76ad03805cad7",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41987734820/artifacts/13398677287"
+    },
+    {
+      "id": 13398238442,
+      "name": "xlog-prototype-ubuntu-24.04-0b7c669663841c2e55569b0c21c76ad03805cad7",
+      "bytes": 38527693,
+      "sha256": "57328dc914b387470836196c1c786ca53292707a3b997956104b5d434df534e6",
+      "sha256Verified": true,
+      "source": "0b7c669663841c2e55569b0c21c76ad03805cad7",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41987734820/artifacts/13398238442"
+    },
+    {
+      "id": 13398124904,
+      "name": "xlog-prototype-macos-15-0b7c669663841c2e55569b0c21c76ad03805cad7",
+      "bytes": 27940197,
+      "sha256": "89f87b7ddbf491633c99380d4c229dda130f764fb7b930437440885d98696154",
+      "sha256Verified": true,
+      "source": "0b7c669663841c2e55569b0c21c76ad03805cad7",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41987734820/artifacts/13398124904"
+    },
+    {
+      "id": 13398058668,
+      "name": "xlog-runtime-linux-0b7c669663841c2e55569b0c21c76ad03805cad7",
+      "bytes": 315705297,
+      "sha256": "e19dbc9b4c5f86387a135b5592bc7603be42d432c348ae11075f8b70b548af4f",
+      "sha256Verified": true,
+      "source": "0b7c669663841c2e55569b0c21c76ad03805cad7",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41987734820/artifacts/13398058668"
+    }
+  ],
+  "packages": [
+    {
+      "name": "OM0RX-xLog-1.5.18-Beta-Linux-x64.deb",
+      "bytes": 62065604,
+      "sha256": "a49d9210951f55bc5f830888f69c3b0530a4f5b1b276230d44519ec6fdbe1b27",
+      "publishedChecksumVerified": true,
+      "manifestSource": "0b7c669663841c2e55569b0c21c76ad03805cad7",
+      "version": "1.5.18"
+    },
+    {
+      "name": "OM0RX-xLog-1.5.18-Beta-Linux-x64.tar.gz",
+      "bytes": 82528773,
+      "sha256": "b76b68eaec34999385da69a9bd23d7c96330bdda4d75c7b7dfd803fc11892deb",
+      "publishedChecksumVerified": true,
+      "manifestSource": "0b7c669663841c2e55569b0c21c76ad03805cad7",
+      "version": "1.5.18"
+    }
+  ],
+  "windowsDistribution": {
+    "portablePackagingStep": "PASS",
+    "distributionUpload": "SKIPPED after installer failure",
+    "portableDistributionArtifact": "NOT AVAILABLE in emitted artifacts",
+    "installerScopes": {
+      "currentUser": "NOT RUN: no completed installer artifact/native acceptance receipt",
+      "perMachine": "NOT RUN: no completed installer artifact/native acceptance receipt"
+    },
+    "actualDefaultPaths": "NOT OBSERVED",
+    "actualRegistryAndShortcutScope": "NOT OBSERVED",
+    "actualInstallUninstallDataRetention": "NOT RUN"
+  },
+  "runtimeReceipts": {
+    "linux": {
+      "job": 127146899427,
+      "conclusion": "skipped",
+      "actualOSVersion": null,
+      "actualAccountContext": null,
+      "actualWebKitVersion": null
+    },
+    "windows": {
+      "job": 127146899152,
+      "conclusion": "skipped",
+      "actualOSVersion": null,
+      "actualAccountElevation": null,
+      "actualWebView2Version": null
+    },
+    "explanation": "No runtime acceptance receipt was emitted by this original run; versions/account context cannot be inferred from build jobs or source policy."
+  },
+  "supportingGates": [
+    {
+      "run": 41987671520,
+      "name": "ordinary CI",
+      "conclusion": "success",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41987671520"
+    },
+    {
+      "run": 41987671423,
+      "name": "Contest portability",
+      "conclusion": "success",
+      "jobsPassed": 7,
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41987671423"
+    }
+  ],
+  "separateLinuxRuntimeCheck": {
+    "run": 41999011743,
+    "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41999011743",
+    "workflowSource": "384ca7afab84821a08ae3e8ca7cd3c5664aa7f73",
+    "workflowBlob": "3ac20c46e3e101f04369d7f39645f26559847824",
+    "artifactRun": 41987734820,
+    "artifactSource": "0b7c669663841c2e55569b0c21c76ad03805cad7",
+    "runtimePlatform": "linux",
+    "buildPlatforms": "linux",
+    "validationOnly": true,
+    "prototypeBuildGatedOff": true,
+    "inputEquivalence": "Workflow, QA scripts, Python and application inputs unchanged from original source; documentation-only execution checkout",
+    "outcome": "Separate bounded runtime-only result pending; does not replace original failure or skipped jobs"
+  },
+  "priorDispositions": [
+    {
+      "run": 41978769883,
+      "source": "bd91a83e9952923c6536b7b5df8824600f09ea0b",
+      "version": "1.5.16",
+      "disposition": "SUPERSEDED after separately demonstrated native first-QSO own-station field loss; cancellation is not a pass",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41978769883",
+      "preservedEvidence": "../run41978769883/inventory.json"
+    },
+    {
+      "run": 41983234450,
+      "source": "6e3dc9746e4fe25df52c44d1ae1b365a4c89bce0",
+      "version": "1.5.17",
+      "disposition": "HELD/SUPERSEDED after Linux frontend first-editor-input failure; Linux job remains FAIL, other unfinished jobs CANCELLED",
+      "failedJob": 127098114409,
+      "failedTest": "retains invalid historical editor buffers across menu navigation and Close requests",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41983234450",
+      "preservedEvidence": "../run41983234450/inventory.json"
+    },
+    {
+      "run": 41987671424,
+      "source": "0b7c669663841c2e55569b0c21c76ad03805cad7",
+      "event": "push",
+      "disposition": "CANCELLED as explicitly authorized redundant Mac-only validation; not a pass",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41987671424",
+      "preservedEvidence": "../run41987671424/final-jobs.json"
+    }
+  ],
+  "boundaries": [
+    "Source/frontend/core/worker tests and build success are distinct from installed packaged-runtime acceptance.",
+    "No Windows ordinary-user launch, UAC, interactive default path, high-DPI/keyboard, upgrade/reinstall or external-media preservation claim follows from this run.",
+    "Neither Windows first-run radio/rotator wizard nor physical hardware operation was accepted by this run.",
+    "No Linux container, X11/Wayland or regular-user runtime outcome follows from its skipped downstream job; the separate runtime-only check is recorded independently.",
+    "Root's local signed macOS native/stress evidence is separate from this CI build run.",
+    "No daily production app installation or public release was performed by this CI inventory."
+  ],
+  "privacy": "Sanitized summary excludes raw logs, environment dumps, usernames, process coordinates and signed temporary artifact URLs; raw evidence stays in this ignored private directory.",
+  "separateLinuxRuntimeOnlyOutcome": {
+    "runId": 41999011743,
+    "conclusion": "failure",
+    "report": "ci-1.5.18-linux-initial.json",
+    "reason": "Stale97 catalogue assertion against exact98-entry package; failed before GUI."
+  },
+  "separateLinuxRuntimeOnlyRecheck": {
+    "runId": 42000560531,
+    "conclusion": "success",
+    "workflowSource": "be96ec25c245ff51810ffbd6a5f7f6d3ddf274dc",
+    "artifactSource": "0b7c669663841c2e55569b0c21c76ad03805cad7",
+    "report": "ci-1.5.18-linux-runtime.json"
+  }
+}
