@@ -1,0 +1,242 @@
+{
+  "sourceCommit": "24900034fb1f8e551cc3d05e629ddc4937eb472c",
+  "runs": [
+    {
+      "databaseId": 41958410111,
+      "name": "CI",
+      "event": "push",
+      "headSha": "24900034fb1f8e551cc3d05e629ddc4937eb472c",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41958410111",
+      "createdAt": "2026-11-05T02:56:29Z",
+      "updatedAt": "2026-11-05T02:59:39Z",
+      "jobs": [
+        {
+          "databaseId": 127018718643,
+          "name": "test-and-build",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ],
+      "logSHA256": "217ad0e6db674fac5cc1726d8fbbd5ba0dcfce3426c8f2fa9b8595567a976a46"
+    },
+    {
+      "databaseId": 41958410102,
+      "name": "Contest portability",
+      "event": "push",
+      "headSha": "24900034fb1f8e551cc3d05e629ddc4937eb472c",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41958410102",
+      "createdAt": "2026-11-05T02:56:29Z",
+      "updatedAt": "2026-11-05T03:07:17Z",
+      "jobs": [
+        {
+          "databaseId": 127018718755,
+          "name": "Contest tests (ubuntu-24.04)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 127018718932,
+          "name": "Contest native tests (macos-15)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 127018718937,
+          "name": "Contest definition generator",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 127018718980,
+          "name": "Contest native tests (windows-2022)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 127018719054,
+          "name": "Contest native tests (ubuntu-24.04)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 127018719096,
+          "name": "Contest tests (macos-15)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 127018719170,
+          "name": "Contest tests (windows-2022)",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ],
+      "logSHA256": "0ac16f2d12b16e53bc5d23f7196984faa7a0650071a9d94d848071aaa8a1858c"
+    },
+    {
+      "databaseId": 41958430592,
+      "name": "Native core diagnosis",
+      "event": "workflow_dispatch",
+      "headSha": "24900034fb1f8e551cc3d05e629ddc4937eb472c",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41958430592",
+      "createdAt": "2026-11-05T02:56:41Z",
+      "updatedAt": "2026-11-05T03:07:20Z",
+      "jobs": [
+        {
+          "databaseId": 127018788092,
+          "name": "core (windows-2022)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 127018788209,
+          "name": "core (macos-15)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 127018788637,
+          "name": "core (ubuntu-24.04)",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ],
+      "logSHA256": "cabb60349cd9545a67412d4a24002fe3e3eccdec9d91d9ad0e20b1a79a9917df"
+    },
+    {
+      "databaseId": 41958435253,
+      "name": "Rust shell validation",
+      "event": "workflow_dispatch",
+      "headSha": "24900034fb1f8e551cc3d05e629ddc4937eb472c",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41958435253",
+      "createdAt": "2026-11-05T02:56:43Z",
+      "updatedAt": "2026-11-05T03:06:14Z",
+      "jobs": [
+        {
+          "databaseId": 127018802277,
+          "name": "Rust shell (ubuntu-24.04)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 127018802660,
+          "name": "Rust shell (windows-2022)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 127018802980,
+          "name": "Rust shell (macos-15)",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ],
+      "logSHA256": "8896029f2aaa082a56c6a63d7060acb66ce7b525234c9d5f40ad3263049304ac"
+    },
+    {
+      "databaseId": 41958410104,
+      "name": "Cross-platform beta qualification",
+      "event": "push",
+      "headSha": "24900034fb1f8e551cc3d05e629ddc4937eb472c",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/41958410104",
+      "createdAt": "2026-11-05T02:56:29Z",
+      "updatedAt": "2026-11-05T03:35:18Z",
+      "jobs": [
+        {
+          "databaseId": 127018718788,
+          "name": "prototype (macos-15)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 127031988286,
+          "name": "Linux runtime-only container acceptance",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "databaseId": 127031988307,
+          "name": "Windows fresh-runner runtime acceptance",
+          "status": "completed",
+          "conclusion": "skipped"
+        }
+      ],
+      "logSHA256": "c846f0108e51e7f8ed8c4a3c81ca068e54e5822ee51590e1f64904b5a3c6d40b"
+    }
+  ],
+  "applicationInputsSHA256": {
+    "Package.swift": "c028c7369743881a8c66bfe41f8dd28d9b1008d92a4eda8372b6e98a6b5ea213",
+    "Sources/XCatIntegrationCore/FlexCWX.swift": "dd259a049547db4538716e17e776cb06449ef039d16e2d114caa1a9e519f9438",
+    "Sources/XCatIntegrationCore/FlexRadioClient.swift": "80221f9515714c20ee5374978c7807687a40db5270276b4dfa732d57e6cea64a",
+    "Sources/XLogPrototypeSupport/LiveFlexSession.swift": "3fa1e804bfb14fa03571cec6d53fa75da82465d684793cc0e87bc93abf3f83d8",
+    "Tests/XCatIntegrationTests/FlexCWXTests.swift": "cbab4aa1f35bbb5645da81a100f634b911726cea118c373cfdf58e77eef53d2b",
+    "Tests/XCatIntegrationTests/FlexCWXTransportTests.swift": "c95af5e02c906c59cf6ec599babb14b7696a764c903511e4774072a8d84b2548",
+    "Tests/XCatIntegrationTests/FlexIQSubscriptionTests.swift": "088b7f99fe2bcd54ed34082b88513a7f19feca9f746d68c39112d157d86ad495",
+    "Tests/XLogPrototypeTests/LiveFlexSessionTests.swift": "64439a890c20437c533f972bd0da34f4ff4848a7d7342dd467562d7fe2eb7726",
+    "prototype/src-tauri/src/cw_session.rs": "70cbf0d091098aa7dc4e8f7c7325f5dd5cff91e97c4951fa2cd3fc71966c3dc3",
+    "prototype/src-tauri/src/cw_session_backend.rs": "cdbe21e938ba253f6d40899b2e1668d4c6c816fe059a56bd69a64b67943d7acc",
+    "prototype/src/live/CWComposition.test.tsx": "14ec9f36cc8899ddc63260d706f2ab3bcc15b639093831c5b5b4aa3a21df73a7",
+    "prototype/src/live/CWComposition.tsx": "ea4c03820367e82923465c78c48ee26e2c3812598c61fd1395cc56493b66d3a9",
+    "prototype/src/live/sharedCWSession.ts": "cd20c5abfff07f0efbb623dd0b1c206a1d8cb8462d3c0055cfba80dd3d36179f"
+  },
+  "inputComparison": "Application, tests, build scripts and workflows match 24900034; final handoff changes documentation only.",
+  "betaPackageSteps": [
+    {
+      "name": "Package macOS application",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "Upload macOS package",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "Package Linux runtime and Debian application",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "Package Windows portable runtime",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "Package Windows EXE installer from audited runtime",
+      "conclusion": "skipped"
+    }
+  ],
+  "betaFrontend": {
+    "filesPassed": 378,
+    "testsPassed": 5211,
+    "failed": 0
+  },
+  "betaSwift": {
+    "xctestExecuted": 1375,
+    "xctestSkipped": 9,
+    "failed": 0,
+    "swiftTestingPassed": 628
+  },
+  "focusedCWX": {
+    "macos": 46,
+    "linux": 8,
+    "windows": 8,
+    "failed": 0
+  },
+  "qualification": {
+    "developmentPackage": "not_produced",
+    "nativePackagedCWX": "not_run",
+    "physicalFLEX8400": "not_run",
+    "bufferedFlexSpeed": "outside_milestone",
+    "windowsLinuxPackagedAcceptance": "not_run",
+    "notarization": "not_run",
+    "installedVersion": "1.5.15",
+    "installedSourceCommit": "1873dc1d1c4d1aa95b44d07f7af0482417680f5f"
+  }
+}

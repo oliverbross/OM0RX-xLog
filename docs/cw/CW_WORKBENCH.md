@@ -1,5 +1,9 @@
 # CW workbench and typed messages
 
+Flex support below is source-only at `24900034`; installed 1.5.15 remains the
+signed build of `1873dc1d`. Its archive and installation are preserved. See the
+[CWX evidence record](../audits/tlf-contesting-2026-11-05/flex-cwx-milestone.md).
+
 Open the CW workbench below the existing CW controls on the normal Desk, the
 detached CW window, or a single-route contest CW panel. The existing Arm and
 Stop controls own output. Opening the workbench, choosing a typing mode, editing

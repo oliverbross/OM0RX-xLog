@@ -1,5 +1,8 @@
 # Contest CW adapter contract — 5 November 2026
 
+The Flex extension is source-only at `24900034`. Installed 1.5.15 remains signed
+source `1873dc1d`; this development pass produces no application package.
+
 The native CW session consumes the Python compiler's schema-1 `cwSequence`;
 text is already formatted, and only typed `text`, `speed` and `restore`
 segments become adapter operations. Preview and output use the same compiled

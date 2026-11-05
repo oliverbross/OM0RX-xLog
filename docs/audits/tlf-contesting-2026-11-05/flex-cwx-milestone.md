@@ -62,8 +62,8 @@ boundary.
 
 ## Software verification
 
-The retained final results and exact source/CI references are added below after
-the gates finish. Test strata remain distinct:
+Final results and exact source/CI references follow below. Test strata remain
+distinct:
 
 - `FlexCWXTests`: portable deterministic ownership/allocation fixtures, including
   `OM0` then `RX`, duplicate replies/status, foreign/out-of-range/old-generation
@@ -100,6 +100,47 @@ The broad Vitest result was 5,210 passed / 1 failed; the sole failed real-Host
 stack case passed with `XLOG_TEST_PYTHON=/opt/homebrew/bin/python3.12` (no source
 change). Required remote frontend CI runs with setup-python 3.12.4 and must pass
 the complete suite; this split local result is not labelled a single green run.
+
+Final application/test source commit:
+`24900034fb1f8e551cc3d05e629ddc4937eb472c`, pushed to canonical `main`.
+The corrected complete local portable/native macOS Swift run passed: 1,375
+XCTest cases executed, 9 explicitly skipped, zero failures; Swift Testing
+620 cases/85 suites plus 8 cases/2 suites passed. The final focused selection
+was 70 cases. The complete locked Rust rerun passed 1,117 native and 31 integration
+cases. Frontend Node payload tests passed 6/6. Final UI inputs match the focused
+31-case pass and TypeScript/Vite/window-bundle build; the single broad fixture
+failure was Python 3.9's missing `datetime.UTC`, corrected by selecting Python
+3.12 without a source change.
+
+Local full logs, failed attempts and SHA-256 manifests are retained in
+`.build/flex-cwx-20261105/`; `source-inputs.json` records the 13 changed non-doc
+input hashes and the exact source commit. Later documentation-only updates must
+compare those inputs before reusing these checks. Native packaged CWX acceptance
+has not been performed. The signed installed 1.5.15 was not modified by any build.
+
+All five required workflows completed successfully for that exact source:
+
+| Gate | Result and scope |
+| --- | --- |
+| [CI 41958410111](https://github.com/oliverbross/OM0RX-xLog/actions/runs/41958410111) | PASS — main tests, application target build and resources |
+| [Contest portability 41958410102](https://github.com/oliverbross/OM0RX-xLog/actions/runs/41958410102) | PASS — all 7 jobs, including native contest and portable Swift checks on macOS/Windows/Linux |
+| [Native core diagnosis 41958430592](https://github.com/oliverbross/OM0RX-xLog/actions/runs/41958430592) | PASS — focused `FlexCWX\|LiveFlexSessionTests`: 46 macOS, 8 Linux and 8 Windows cases; all 3 jobs passed. This is a focused gate, not a complete Windows/Linux Swift suite claim. |
+| [Rust shell validation 41958435253](https://github.com/oliverbross/OM0RX-xLog/actions/runs/41958435253) | PASS — full native contracts on all 3 platforms (macOS 1,117; Linux 1,114; Windows 1,101, plus 31 integration contracts each); 7 contest admission and 31 explicit pinned Hamlib lifecycle tests per platform |
+| [Beta validation 41958410104](https://github.com/oliverbross/OM0RX-xLog/actions/runs/41958410104) | PASS — 378 frontend files / 5,211 cases; complete Swift: 1,375 XCTest cases with 9 explicit skips and zero failures, plus 628 Swift Testing cases; IQ loopback, release worker/framing, locked shell contracts, pinned Hamlib lifecycle and desktop executable `--no-bundle` build |
+
+Across these runs, 15 jobs passed; the beta Linux runtime-only and Windows
+fresh-runner packaged-runtime jobs were **SKIPPED**, not passed. All packaging
+steps were skipped. No workflow failed or was cancelled for this source. The
+9 explicitly skipped macOS XCTest cases retain their original platform/service
+preconditions. They are not additional acceptance evidence.
+
+[Machine-readable receipts](flex-cwx-ci.json) retain run/job IDs, exact source,
+log hashes, package-step skips and the 13 changed non-doc input hashes. Full CI
+metadata/logs are archived locally beside the local test logs. Final operator
+documentation updates were compared with `24900034`: application/test/build and
+workflow inputs are identical, so the source checks remain applicable. No
+candidate was built or signed by this pass; the CI desktop executable is a
+development build, not packaged-runtime acceptance.
 
 ## Qualification still open
 

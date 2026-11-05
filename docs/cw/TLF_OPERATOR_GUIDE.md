@@ -2,6 +2,9 @@
 
 These are source changes following the approved TLF plan. They have software verification; no new hardware, RF or installed-app acceptance is asserted. Existing plain messages and full-call correction remain the defaults.
 
+The 5 November Flex workbench extension is source-only at `24900034`. Installed
+1.5.15 remains signed source `1873dc1d`, with its verified 1.5.9 rollback retained.
+
 ## Message speeds
 
 In Productivity → Messages, choose a Run or S&P message. Put `{WPM:32}` before a faster section and `{WPM:BASE}` where the captured base speed should resume. The editor can append these directives; edit the existing template to position them. Example:
