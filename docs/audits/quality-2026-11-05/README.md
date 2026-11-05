@@ -43,7 +43,7 @@ Raw diagnostics and private launch proofs stay outside Git.
 | Current installed process memory | PASS: numeric native capture; incomplete WebKit ownership | NOT RUN | NOT RUN |
 | Released-worker repeated health / EOF | PASS on private empty fixture; growth reproduced | NOT RUN | NOT RUN |
 | New packaged worker memory / EOF | PASS for 1.5.16 empty/100k; full desktop budget open | NOT RUN | NOT RUN |
-| Native packaged skip setup → logging → restart | FAIL: 1.5.16 first-contact station fields; setup/row/restart otherwise retained | NOT RUN | NOT RUN |
+| Native packaged skip setup → logging → restart | PASS: [1.5.18 offline journey](native-1.5.18.md), including first-save defaults/37 W, Unicode edit, native menu/Close guards and ADIF; earlier failures retained | NOT RUN | NOT RUN |
 | Native radio / rotor Browse → Save → restart | NOT RUN | NOT RUN | NOT RUN |
 | Just me default path / no-admin / UAC cancellation | N/A | NOT RUN | N/A |
 | All users Program Files / ordinary first launch | N/A | NOT RUN | N/A |
