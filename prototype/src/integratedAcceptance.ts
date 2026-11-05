@@ -4,6 +4,7 @@ import { LARGE_LOG_RECORDS, largeLogADIFBatch } from "./acceptanceFixture";
 import workspaceScreens from "./live/workspaceScreens.json";
 import { verifyDetachedLifecycle } from "./detachedAcceptance";
 import { verifyWorkspaceLayoutRoundtrip } from "./workspaceLayoutAcceptance";
+import { selectCustomCanvas } from "./workspaceCanvasAcceptance";
 import { verifySpotHistory } from "./spotHistoryAcceptance";
 import { verifyWorkspaceSettings } from "./workspaceSettingsAcceptance";
 import { verifyDeskMapLogbook } from "./deskMapLogbookAcceptance";
@@ -117,24 +118,12 @@ async function main(report: Json) {
     return !!control && !control.disabled && control.value === "traditional";
   });
   const draftBeforeLayout = (await worker("logbook_operator_draft")).result.draft.qso;
-  await fill('[aria-label="Desk layout"]', "custom");
   // The preceding roundtrip changes the authoritative revision through another
   // session. Native invalidation is asynchronous; the rendered desk can still
   // have the original Traditional revision when this control is selected.
   // Exercise explicit recovery rather than retrying a stale mutation silently
   // or assuming a fixed animation/timer delay proves the UI is up to date.
-  const layoutConflict = () => document.querySelector('.canvas-recovery[role="alert"]')?.textContent?.includes("Another window changed the layout.") === true;
-  await waitForAcceptance("custom canvas or reviewed layout conflict", () => {
-    const control = element<HTMLSelectElement>('[aria-label="Desk layout"]');
-    return control.value === "custom" && !control.disabled || layoutConflict();
-  });
-  const layoutConflictRecovered = layoutConflict();
-  if (layoutConflictRecovered) {
-    await click("Use saved layout");
-    await waitForAcceptance("fresh saved layout adopted", () => !layoutConflict() && !element<HTMLSelectElement>('[aria-label="Desk layout"]').disabled);
-    await fill('[aria-label="Desk layout"]', "custom");
-  }
-  await waitForAcceptance("custom canvas acknowledged", () => element<HTMLSelectElement>('[aria-label="Desk layout"]').value === "custom" && !element<HTMLSelectElement>('[aria-label="Desk layout"]').disabled);
+  const { layoutConflictRecovered } = await selectCustomCanvas({ fill, click });
   await click("Panels");
   const mapToggle = [...document.querySelectorAll<HTMLInputElement>('.canvas-panel-picker input')].find(input => input.parentElement?.textContent?.trim() === "World map");
   if (!mapToggle) throw new Error("Missing canvas map visibility control");
