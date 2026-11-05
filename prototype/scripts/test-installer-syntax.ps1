@@ -2,7 +2,8 @@
 $ErrorActionPreference = 'Stop'
 $scripts = @(
     'package-windows.ps1', 'package-windows-installer.ps1',
-    'accept-windows.ps1', 'accept-windows-installer.ps1', 'build-worker.ps1'
+    'accept-windows.ps1', 'accept-windows-installer.ps1', 'build-worker.ps1',
+    'windows-installer-policy.ps1', 'test-windows-installer-policy.ps1'
 )
 foreach ($name in $scripts) {
     $tokens = $null
@@ -15,3 +16,4 @@ foreach ($name in $scripts) {
     }
 }
 Write-Host "PowerShell installer syntax passed ($($scripts.Count) scripts)."
+& (Join-Path $PSScriptRoot 'test-windows-installer-policy.ps1')

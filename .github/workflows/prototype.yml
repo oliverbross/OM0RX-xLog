@@ -130,7 +130,7 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}/python
         run: python3 -m unittest discover -s python/tests -p test_store_catalog_seed.py -v
-      - name: Parse Windows installer scripts
+      - name: Parse Windows installer scripts and validate scope policy
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./prototype/scripts/test-installer-syntax.ps1
@@ -281,7 +281,7 @@ jobs:
         if: runner.os == 'Windows' && github.event_name == 'workflow_dispatch' && !inputs.validation_only
         shell: pwsh
         run: ./prototype/scripts/package-windows.ps1 -SkipBuild -OutputRoot "$env:RUNNER_TEMP/xlog-windows-package"
-      - name: Package Windows EXE installer from audited runtime
+      - name: Package current-user and all-users EXE installers from one audited runtime
         if: runner.os == 'Windows' && github.event_name == 'workflow_dispatch' && !inputs.validation_only
         shell: pwsh
         run: ./prototype/scripts/package-windows-installer.ps1 -PackageDirectory "$env:RUNNER_TEMP/xlog-windows-package/OM0RX-xLog-Prototype-windows-x86_64" -OutputDirectory "$env:RUNNER_TEMP/xlog-windows-installer"
@@ -374,13 +374,18 @@ jobs:
           if-no-files-found: warn
           path: prototype/packaging-evidence/linux/
   windows-runtime:
-    name: Windows fresh-runner runtime acceptance
+    name: Windows fresh-runner runtime acceptance (${{ matrix.installer_scope }})
     needs: prototype
     if: ${{ always() && !cancelled() && ((inputs.runtime_run_id != '' && inputs.runtime_platform != 'linux') || (inputs.runtime_run_id == '' && needs.prototype.result == 'success' && (inputs.build_platforms == 'all' || inputs.build_platforms == 'windows') && !inputs.validation_only)) }}
+    strategy:
+      fail-fast: false
+      matrix:
+        installer_scope: [currentUser, perMachine]
     runs-on: windows-2022
     timeout-minutes: 25
     env:
       XLOG_EXPECTED_PACKAGE_SOURCE_SHA: ${{ inputs.runtime_source_sha || github.sha }}
+      XLOG_INSTALLER_SCOPE: ${{ matrix.installer_scope }}
     steps:
       - name: Enable Windows checkout long paths
         run: git config --global core.longpaths true
@@ -408,22 +413,35 @@ jobs:
         run: |
           $package = "$env:RUNNER_TEMP/xlog-windows-accept/OM0RX-xLog-Prototype-windows-x86_64"
           & "$package/accept-windows.ps1" -PackageDirectory $package -EvidenceDirectory "$env:RUNNER_TEMP/xlog-windows-evidence" -RequireNoSwiftToolchain
-      - name: EXE silent install, isolated application acceptance and uninstall
+      - name: Verify shared payload and accept selected scope at its real default path
         shell: pwsh
         run: |
           $installers = @(Get-ChildItem "$env:RUNNER_TEMP/xlog-runtime-download" -Filter '*-setup.exe' -File -Recurse)
-          if ($installers.Count -ne 1) { throw 'Expected exactly one versioned Windows EXE installer' }
-          $installer = $installers[0].FullName
-          $expected = (Get-Content "$installer.sha256").Split(' ')[0].ToLowerInvariant()
-          if ((Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'EXE checksum mismatch' }
-          $provenance = Get-Content "$installer.provenance.json" -Raw | ConvertFrom-Json -Depth 20
-          if ($provenance.sourceCommit -ne $env:XLOG_EXPECTED_PACKAGE_SOURCE_SHA) { throw 'Windows installer source differs from requested artifact' }
-          ./prototype/scripts/accept-windows-installer.ps1 -Installer $installer -EvidenceDirectory "$env:RUNNER_TEMP/xlog-windows-installer-evidence"
+          if ($installers.Count -ne 2) { throw 'Expected current-user and all-users versioned Windows EXE installers' }
+          $seenScopes = @{}
+          foreach ($file in $installers) {
+            $installer = $file.FullName
+            $expected = (Get-Content "$installer.sha256").Split(' ')[0].ToLowerInvariant()
+            if ((Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'EXE checksum mismatch' }
+            $provenance = Get-Content "$installer.provenance.json" -Raw | ConvertFrom-Json -Depth 20
+            if ($provenance.schema -ne 2 -or $provenance.sourceCommit -ne $env:XLOG_EXPECTED_PACKAGE_SOURCE_SHA) { throw 'Windows installer source/schema differs from requested artifact' }
+            $scope = $provenance.installation.mode
+            if ($scope -notin @('currentUser', 'perMachine') -or $seenScopes.ContainsKey($scope)) { throw 'Expected one installer per scope' }
+            $seenScopes[$scope] = $provenance
+          }
+          if ($seenScopes.currentUser.payloadManifestSHA256 -ne $seenScopes.perMachine.payloadManifestSHA256 -or
+              $seenScopes.currentUser.mainExecutableSHA256 -ne $seenScopes.perMachine.mainExecutableSHA256) { throw 'Installer scopes do not share an identical audited payload' }
+          # Each scope gets its own fresh runner. A data-preserving uninstall
+          # intentionally retains location keys, which a fresh-install check rejects.
+          $scope = $env:XLOG_INSTALLER_SCOPE
+          $installer = ($installers | Where-Object Name -EQ $seenScopes[$scope].installer).FullName
+          # Hosted runner is elevated: receipts explicitly leave ordinary-user/UAC qualification open.
+          ./prototype/scripts/accept-windows-installer.ps1 -Installer $installer -EvidenceDirectory "$env:RUNNER_TEMP/xlog-windows-installer-evidence/$scope" -AllowElevatedHarness
       - name: Upload native Windows reports and screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: xlog-acceptance-windows-${{ inputs.runtime_source_sha || github.sha }}
+          name: xlog-acceptance-windows-${{ matrix.installer_scope }}-${{ inputs.runtime_source_sha || github.sha }}
           retention-days: 30
           if-no-files-found: warn
           path: |

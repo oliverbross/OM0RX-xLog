@@ -2,6 +2,8 @@
 
 Scope: isolated OM0RX-xLog prototype, x86_64, Swift 6.3.3. The intended consumer target is Windows 11; Windows Server 2022 is the native CI reference. Windows 10 support is not accepted by this stage. The scripts create a new output directory and do not replace an installed app, access a station, install Swift on an acceptance host, or deploy to the user's remote Windows station. Native CI results must be recorded separately from the user's later Windows desktop test.
 
+The installer recipe now produces separate **current-user** and **all-users** EXEs from this same audited portable payload. See [Windows installer scopes and acceptance](WINDOWS_INSTALLER_SCOPES.md) for default directories, elevation, scope changes and the qualification boundary.
+
 ## Native builder
 
 After the existing worker, frontend and Rust build and `distribution-metadata.mjs` step:
