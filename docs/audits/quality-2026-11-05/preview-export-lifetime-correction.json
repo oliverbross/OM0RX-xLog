@@ -1,0 +1,165 @@
+{
+  "schema": 1,
+  "status": "passed-bounded-development-worker-lifetime",
+  "functionalStatus": "passed",
+  "allocationMeasurementStatus": "complete",
+  "scope": "Two synthetic worker-only fixtures; no GUI, production data, network, station output, export file publication, new signed package or installation",
+  "artifact": {
+    "sourceCommit": "16c1b6f8a6959c6eea5940605a754e1122dbd997",
+    "sessionAPIFixCommit": "e42d26d6adf8391a2c2a67584ec1a8b186e96a96",
+    "kind": "development-worker-not-package",
+    "configuration": "debug",
+    "workerSHA256": "d8aa0ac2b007e93d7342c3bd35a9a7fb7b2b5ba017428b42787622996d92632f",
+    "buildReceiptSHA256": "ec6425bc2f3f331fc7f85bd4d5d14fc6279771d8a011b15630d3391839c7ac39",
+    "runnerSHA256": "d3a1d0ec1549f66c87a407db488e3b411063ce7b28323e521ddf1df338d8a7e9",
+    "rawResultSHA256": "432b864c8e47f97115a85573b43c33c61d54938e4e1f0c6134ebe3fa698c9a5d",
+    "rawLatencyReceiptSHA256": "d2743dd5b2acd10d4a948b2aedcd5bade1d9964d7d25aac084c95bcce238e623",
+    "historicalSigned19HarnessSHA256": "aa1f2171a7698e5fa4bb9f1e9f5facf23fee866614af4125bb622ad6d31c0526",
+    "buildExitCode": 0,
+    "compiler": "Apple Swift 6.4.2 (swiftlang-6.4.2.1.9 clang-2100.4.1.1)",
+    "target": "arm64-apple-macosx27.2.0",
+    "macOSVersion": "27.2",
+    "macOSBuild": "26B123",
+    "buildEnvironmentOverride": {"XLOG_PORTABLE_ONLY": "1"},
+    "actualMacCoreModule": "XLogCore",
+    "metadataFixture": "Existing development-worker Info.plist integration-identifier and unchanged-binary symlink seam; no host app or distributable bundle produced"
+  },
+  "units": {
+    "MiB": 1048576,
+    "residentBytes": "public RUSAGE_INFO_V0 resident size; separate from physical footprint",
+    "physicalFootprintBytes": "public RUSAGE_INFO_V0 physical footprint; not current allocated-block bytes",
+    "currentAllocatedBytes": "heap current allocated-block bytes; not whole-process memory, exclusive ownership or an ARC retaining-path graph",
+    "latencySeconds": "seconds; wire interval and proof-inclusive controller interval are distinct"
+  },
+  "workloads": {
+    "generated100k": {"storedQsoRows": 100000, "fullOwnerSetups": 2, "incomingPreviewTextBytesPerChunk": 76, "incomingRecordsPerChunk": 1, "chunksPerSession": 2, "fullADIFSnapshotRecords": 100000, "boundedADIFReadRecords": 25, "selectedReplacementRecords": 1, "durableImportOrUpdateDuringMeasurement": false},
+    "tinyPOTA": {"storedQsoRows": 2, "separateStationPopulatedSyntheticRoot": true, "derivedRecords": 12, "fileCount": 2, "issues": 0, "successfulReconstructionChecks": 3, "maximumReadBytes": 12000, "files": [
+      {"bytes": 40914, "sha256": "147225990cc69f3422419bf51a1ee99170150bee19ce2a2481238c1f590a4f38", "chunks": 4, "finalEmptyChunkVerified": true},
+      {"bytes": 40914, "sha256": "e32ba509adfd78bae3428c7cc8bbfd05674b0cdc511f0d273695ee268c3ea07f", "chunks": 4, "finalEmptyChunkVerified": true}
+    ]},
+    "twentyCycleCampaignRepeated": false,
+    "full100kPOTARequestedInThisFollowup": false
+  },
+  "ownerContract": {
+    "methods": ["logbook_import_adif", "logbook_export_adif"],
+    "retireAction": "Exact matching token and generation only; stale/duplicate retire returns false",
+    "exportRetire": "Atomically clears the matching frozen ADIF parent and its derived POTA child",
+    "productionDeadlineSeconds": 300,
+    "automaticRelease": "One weak-service deadline source checks current owners under the same lock as synchronous payload use; it releases owners without another RPC",
+    "replacementSafety": "Queued old deadlines and stale retirement cannot clear newer owners",
+    "inflightSafety": "Existing frozen reads finish before serialized retirement/replacement; bounded response values keep their own storage",
+    "focusedTests": {"newXCTestCases": 7, "relatedXCTestCases": 15, "relatedSwiftTestingTests": 19, "latestSevenCaseRerunPassed": true, "actualAutomaticNilWithoutRPC": true, "automaticDerivedPOTAExpiry": true, "fakeOldDeadlineAfterReplacement": true, "frozenReadRetireReplacementRace": true, "timerDoesNotKeepServiceAlive": true},
+    "actualNativeGUICloseCancelQualification": "PENDING future signed candidate; frontend wiring/component tests are separate evidence"
+  },
+  "samples": {
+    "generated100k": [
+      {"phase": "baseline-after-health-before-log-query", "at": "2026-11-05T22:07:08.523154+00:00", "residentBytes": 17367040, "physicalFootprintBytes": 4276800, "observerHistory": []},
+      {"phase": "full-import-and-export-live", "at": "2026-11-05T22:07:25.715598+00:00", "residentBytes": 613138432, "physicalFootprintBytes": 652952680, "observerHistory": []},
+      {"phase": "full-owners-live-before-heap", "at": "2026-11-05T22:07:26.839909+00:00", "residentBytes": 613007360, "physicalFootprintBytes": 652952680, "observerHistory": []},
+      {"phase": "full-owners-live-after-heap", "at": "2026-11-05T22:07:31.873076+00:00", "residentBytes": 423739392, "physicalFootprintBytes": 553616416, "observerHistory": ["H1"]},
+      {"phase": "after-selected-replacement", "at": "2026-11-05T22:07:33.615560+00:00", "residentBytes": 481755136, "physicalFootprintBytes": 486835232, "observerHistory": ["H1"]},
+      {"phase": "after-explicit-retire", "at": "2026-11-05T22:07:35.121495+00:00", "residentBytes": 543752192, "physicalFootprintBytes": 301401072, "observerHistory": ["H1"]},
+      {"phase": "after-explicit-retire-before-heap", "at": "2026-11-05T22:07:36.256160+00:00", "residentBytes": 309002240, "physicalFootprintBytes": 9798472, "observerHistory": ["H1"]},
+      {"phase": "after-explicit-retire-after-heap", "at": "2026-11-05T22:07:38.697043+00:00", "residentBytes": 303906816, "physicalFootprintBytes": 9798472, "observerHistory": ["H1", "H2"]},
+      {"phase": "second-full-owners-live-before-quiet", "at": "2026-11-05T22:08:01.569586+00:00", "residentBytes": 571850752, "physicalFootprintBytes": 654083200, "observerHistory": ["H1", "H2"]},
+      {"phase": "automatic-expiry-before-RPC", "at": "2026-11-05T22:13:11.583162+00:00", "residentBytes": 15941632, "physicalFootprintBytes": 46498608, "observerHistory": ["H1", "H2"]},
+      {"phase": "automatic-expiry-before-RPC-before-heap", "at": "2026-11-05T22:13:13.894671+00:00", "residentBytes": 15941632, "physicalFootprintBytes": 46498608, "observerHistory": ["H1", "H2"]},
+      {"phase": "automatic-expiry-before-RPC-after-heap", "at": "2026-11-05T22:13:19.482594+00:00", "residentBytes": 15892480, "physicalFootprintBytes": 46498608, "observerHistory": ["H1", "H2", "H3"]}
+    ],
+    "tinyPOTA": [
+      {"phase": "baseline-after-health", "at": "2026-11-05T22:07:09.623124+00:00", "residentBytes": 17334272, "physicalFootprintBytes": 4178496, "observerHistory": []},
+      {"phase": "POTA-live", "at": "2026-11-05T22:07:40.321528+00:00", "residentBytes": 22740992, "physicalFootprintBytes": 6980160, "observerHistory": []},
+      {"phase": "after-parent-replacement-before-POTA-assertion", "at": "2026-11-05T22:07:41.483318+00:00", "residentBytes": 22937600, "physicalFootprintBytes": 7111232, "observerHistory": []},
+      {"phase": "after-explicit-retire", "at": "2026-11-05T22:07:43.295997+00:00", "residentBytes": 22200320, "physicalFootprintBytes": 6898240, "observerHistory": []},
+      {"phase": "second-POTA-live-before-quiet", "at": "2026-11-05T22:08:03.054879+00:00", "residentBytes": 18923520, "physicalFootprintBytes": 7029312, "observerHistory": []},
+      {"phase": "automatic-expiry-before-RPC", "at": "2026-11-05T22:13:12.704359+00:00", "residentBytes": 15925248, "physicalFootprintBytes": 6505024, "observerHistory": []}
+    ],
+    "allSamplesSettleSeconds": 1,
+    "sameExactPIDAndNonzeroStartIdentityVerifiedAtEverySample": true,
+    "RSSSummed": false
+  },
+  "heapObservers": [
+    {"id": "H1", "phase": "full-owners-live", "scope": "generated100k", "commandStartedAt": "2026-11-05T22:07:26.878534+00:00", "commandCompletedAt": "2026-11-05T22:07:30.766453+00:00", "receiptCompletedAt": "2026-11-05T22:07:30.815202+00:00", "exitCode": 0, "allocationAvailability": "observed", "currentAllocatedBlocks": 806761, "currentAllocatedBytes": 531555792, "actualCoreModulesObserved": ["XLogCore"], "rawHeapSHA256": "0fb894cf2bf1c326bbaa8ed044fad9b6e1ee0fd99c4a00f10cff432afc0829d4"},
+    {"id": "H2", "phase": "after-explicit-retire", "scope": "generated100k", "commandStartedAt": "2026-11-05T22:07:36.298571+00:00", "commandCompletedAt": "2026-11-05T22:07:37.604685+00:00", "receiptCompletedAt": "2026-11-05T22:07:37.649730+00:00", "exitCode": 0, "allocationAvailability": "observed", "currentAllocatedBlocks": 6745, "currentAllocatedBytes": 1166864, "actualCoreModulesObserved": [], "rawHeapSHA256": "e44c134c3ec3386471ec9514cd496eae94627b618bbe376dffde22f3cc828bf9"},
+    {"id": "H3", "phase": "automatic-expiry-before-RPC", "scope": "generated100k", "commandStartedAt": "2026-11-05T22:13:13.944453+00:00", "commandCompletedAt": "2026-11-05T22:13:18.343871+00:00", "receiptCompletedAt": "2026-11-05T22:13:18.404737+00:00", "exitCode": 0, "allocationAvailability": "observed", "currentAllocatedBlocks": 6736, "currentAllocatedBytes": 1160240, "actualCoreModulesObserved": [], "rawHeapSHA256": "c1725c09f97f64e5971a7f89b9e1f6d2f158c86fb4036ecd08130c0aeedf9a68"}
+  ],
+  "selectedHeapTypes": {
+    "phaseOrder": ["H1", "H2", "H3"],
+    "allMatchingRowsAggregated": true,
+    "rows": [
+      {"type": "Swift._DictionaryStorage<Foundation.UUID, XLogCore.QSO>", "allocations": [1, 0, 0], "allocatedBytes": [222347264, 0, 0], "matchingRows": [1, 0, 0]},
+      {"type": "Swift._DictionaryStorage<Swift.String, Swift.String>", "allocations": [200001, 2, 2], "allocatedBytes": [128005120, 6400, 6400], "matchingRows": [1, 1, 1], "exclusiveSessionAttribution": false},
+      {"type": "Swift._ContiguousArrayStorage<XLogCore.QSO>", "allocations": [100000, 0, 0], "allocatedBytes": [89600000, 0, 0], "matchingRows": [1, 0, 0]},
+      {"type": "Swift._DictionaryStorage<XLogCore.SemanticQSOIdentity, Swift.Int>", "allocations": [1, 0, 0], "allocatedBytes": [23117824, 0, 0], "matchingRows": [1, 0, 0]},
+      {"type": "Swift._DictionaryStorage<XLogCore.SemanticQSOIdentity, Swift.Array<XLogCore.QSO>>", "allocations": [1, 0, 0], "allocatedBytes": [23117824, 0, 0], "matchingRows": [1, 0, 0]},
+      {"type": "Swift._ContiguousArrayStorage<XLogCore.ADIFRecord>", "allocations": [1, 0, 0], "allocatedBytes": [4194304, 0, 0], "matchingRows": [1, 0, 0]},
+      {"type": "Swift._ContiguousArrayStorage<Foundation.UUID>", "allocations": [1, 0, 0], "allocatedBytes": [1605632, 0, 0], "matchingRows": [1, 0, 0]},
+      {"type": "Task stack", "allocations": [9, 9, 9], "allocatedBytes": [7360, 7360, 7360], "matchingRows": [2, 2, 2]}
+    ],
+    "portableAliasGroups": {"module": "XLogPortableCore", "matchingRowsEverySelectedTypeAtEveryPhase": 0, "meaning": "Mac build uses XLogCore; these extra zero groups are not evidence of owner release"},
+    "availabilityRule": "Only successful heap exit plus parsed All-zones totals permits numeric/owner claims; failed or unparsed output would be allocation-partial with null values",
+    "observedConclusion": "The owner-associated QSO/index/ADIF rows present in H1 are absent in valid H2/H3 parsed heaps. Source and actual automatic-nil tests establish clearing; this is not a complete ARC retaining-path graph."
+  },
+  "quiet": {"productionDeadlineSeconds": 300, "targetSeconds": 310, "startedAt": "2026-11-05T22:08:00.502175+00:00", "firstPostQuietRPCAboutToStartAt": "2026-11-05T22:13:19.537142+00:00", "elapsedBeforeFirstPostQuietRPCSeconds": 319.019838875, "transferRPCsDuringQuiet": 0, "includesSeparatePostQuietHeapObserver": true, "elapsedIncludingPostQuietRPCAndCleanupSeconds": 327.403089917},
+  "wireResults": {"freshADIFParentWithoutPOTAChild": "invalid_params", "expiredADIFRead": "export_expired", "expiredImportPreview": "preview_expired", "expiredPOTARead": "export_expired", "expiredMatchingRetireAllThreeReturns": false, "expiryRejectionAloneUsedAsReleaseEvidence": false},
+  "latency": {
+    "targetSeconds": 2,
+    "targetScope": "Observed retirement and immediately following health only; not all startup/preview/export preparation",
+    "wireDefinition": "Original correlated request receipt from frame write through response read/parse",
+    "controlDefinition": "Controller end-to-end including exact process/hash proof overhead",
+    "coldGeneratedOpen": [{"attempt": 2, "wireSeconds": 7.569868249999999, "controlSeconds": 7.606085958}, {"attempt": 3, "wireSeconds": 9.692237791, "controlSeconds": 9.751031082999999}],
+    "firstBoundedFullADIFRead": {"records": 25, "wireSeconds": 0.0013128750000035438, "controlSeconds": 0.03939612499999612},
+    "retireAndNextHealth": [
+      {"scope": "generated100k", "owner": "stale-export", "retired": false, "wireSeconds": 0.0005481669999980454, "controlSeconds": 0.041444333000001166, "nextHealthWireSeconds": 0.0008260000000035461, "nextHealthControlSeconds": 0.039432791999999495},
+      {"scope": "generated100k", "owner": "existing-log-import-index", "retired": true, "wireSeconds": 0.17665616700000442, "controlSeconds": 0.21385004200000424, "nextHealthWireSeconds": 0.0006660000000024979, "nextHealthControlSeconds": 0.039516290999998205},
+      {"scope": "generated100k", "owner": "selected-export", "retired": true, "wireSeconds": 0.00035066600000277504, "controlSeconds": 0.03957737500000036, "nextHealthWireSeconds": 0.0003944999999987431, "nextHealthControlSeconds": 0.04150070899999747},
+      {"scope": "tinyPOTA", "owner": "stale-export", "retired": false, "wireSeconds": 0.0005492920000023105, "controlSeconds": 0.041084957999999006, "nextHealthWireSeconds": 0.0006322089999954983, "nextHealthControlSeconds": 0.04632499999999595},
+      {"scope": "tinyPOTA", "owner": "current-parent-and-child", "retired": true, "wireSeconds": 0.00037279099999665277, "controlSeconds": 0.04258829099999417, "nextHealthWireSeconds": 0.00045850000000058344, "nextHealthControlSeconds": 0.040655000000000996},
+      {"scope": "generated100k", "owner": "expired-import", "retired": false, "wireSeconds": 0.0006695420000255581, "controlSeconds": 0.05039279200002511, "nextHealthWireSeconds": 0.0018242920000375307, "nextHealthControlSeconds": 0.05362999999999829},
+      {"scope": "generated100k", "owner": "expired-export", "retired": false, "wireSeconds": 0.0006881250000105865, "controlSeconds": 0.06095554199998787, "nextHealthWireSeconds": 0.0006531669999958467, "nextHealthControlSeconds": 0.05426641600001858},
+      {"scope": "tinyPOTA", "owner": "expired-parent-and-child", "retired": false, "wireSeconds": 0.0007031669999832957, "controlSeconds": 0.05540679099999579, "nextHealthWireSeconds": 0.0019379170000206614, "nextHealthControlSeconds": 0.05279450000000452}
+    ],
+    "allEightRetireAndImmediateHealthSamplesUnderObservedTarget": true,
+    "performanceGuaranteeOrCPUBudget": false
+  },
+  "correctness": {
+    "generated100k": {"integrityBefore": "ok", "integrityAfter": "ok", "physicalQsoRowsBeforeAndAfter": 100000, "liveQsoRowsBeforeAndAfter": 100000, "tombstones": 0, "orderedStoredQsoSHA256BeforeAndAfter": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2", "normalizedClosedBackupSHA256BeforeAndAfter": "d2674798f0a61b953d5005722458687dc7ea1bd76fbb3c018c42e8cca330a847", "normalizedClosedBackupBytes": 196788224},
+    "tinyPOTA": {"integrityBefore": "ok", "integrityAfter": "ok", "physicalQsoRowsBeforeAndAfter": 2, "liveQsoRowsBeforeAndAfter": 2, "tombstones": 0, "orderedStoredQsoSHA256BeforeAndAfter": "3d870badb528a03647e99b5a20086882679780344986fb1eceaf3e2a32d4a583", "normalizedClosedBackupSHA256BeforeAndAfter": "742db2a29925635e776720b62ef260457a34c87cac3fd5dd84c31412053354d6", "normalizedClosedBackupBytes": 294912},
+    "orderedHashColumns": ["local_id", "wavelog_id", "call", "qso_start", "band", "mode", "frequency_hz", "is_dirty", "deleted_at", "updated_at", "record_json", "baseline_json"],
+    "sourceRootMainAndWALEachUnchangedDuringEveryReadonlyBackup": true,
+    "originalGeneratedInputMainAndWALUnchanged": true,
+    "snapshotContract": "Stopped source normal mode=ro/query_only SQLite backup honors WAL; only the diagnostic intermediate uses journal_mode=DELETE, then closes; header1/1 and no-WAL gate precede a main-only final copy; final normal mode=ro/query_only integrity/hash is byte-stable with no sidecars; orphan intermediate SHM retained untouched",
+    "PythonSQLiteRuntime": "3.54.0",
+    "PythonSQLiteIsBundledSwiftRuntime": false,
+    "immutableUsed": false,
+    "sourceOrApplicationPragmaTuning": false,
+    "applicationMainAndWALPhysicallyUnchangedAcrossWorkerClaim": false,
+    "physicalFamilyNote": "Application WAL/checkpoint state changed across worker lifetime; QSO equality and normalized closed-copy byte equality are distinct assertions"
+  },
+  "EOF": {
+    "createdWorkers": 5,
+    "allObservedExitCode": 0,
+    "stdinEOF": true,
+    "stoppedExactOwnedRootsAndPIDsVerified": true,
+    "signals": false,
+    "receipts": [{"stage": "empty-setup", "at": "2026-11-05T22:06:49.170297+00:00"}, {"stage": "supported-migration", "at": "2026-11-05T22:07:00.781593+00:00"}, {"stage": "tiny-synthetic-setup", "at": "2026-11-05T22:07:07.183571+00:00"}, {"stage": "generated-lifetime", "at": "2026-11-05T22:13:20.159931+00:00"}, {"stage": "tiny-POTA-lifetime", "at": "2026-11-05T22:13:20.270173+00:00"}]
+  },
+  "preservedFailureHistory": [
+    {"attempt": 1, "controllerExitCode": 1, "stage": "initial-health-before-any-response", "cause": "Raw debug component lacked the existing development-worker metadata fixture required by offline runtime-profile validation", "actualChildExitCode": null, "cleanEOFClaim": false, "lifetimeMeasured": false, "laterStoppedProcessObservation": true},
+    {"attempt": 2, "controllerExitCode": 1, "stage": "premeasurement readonly integrity on closed WAL-header backup", "error": "unable to open database file", "allCreatedWorkersObservedEOF0": true, "lifetimeMeasured": false},
+    {"probe": 1, "controllerExitCode": 1, "status": "partial", "detail": "Destination-only DELETE normalization passed header1/1 but orphan SHM remained; no normalized readonly hash claim"},
+    {"probe": 2, "controllerExitCode": 0, "status": "passed", "detail": "Independent main-only copy of closed normalized DELETE destination passed ordinary readonly integrity and expected100k QSO hash; prior main and SHM unchanged", "resultSHA256": "28ea733558d864f68122f52282060159c60a62b34fb93b01dd3a77efcacfaa82"}
+  ],
+  "historicalSigned19": {"originalControllerExitCode": 1, "wrongExpectedError": "invalid_request", "actualCorrectError": "invalid_params", "originalPostReplacementMemory": "UNAVAILABLE", "originalEvidenceOverwrittenOrRelabelled": false, "newRunIsLikeForLikeAbsoluteByteComparison": false},
+  "limits": [
+    "Concurrent Windows VM desktop/staging/probe work may affect ambient load; no CPU budget or controlled whole-machine comparison",
+    "Heap is observer-on evidence and may affect pages, timing and residency; all later samples retain observer history",
+    "Heap totals and general types are not exclusive session attribution or a complete ARC retaining-path graph",
+    "RSS and physical footprint are separate, nonmonotonic observations; neither alone proves live-object release",
+    "No actual native GUI Close/Cancel or chooser-Cancel acceptance was performed here",
+    "No signed candidate, packaging, notarization, native equipment or ordinary desktop idle-budget qualification follows",
+    "Held candidate1.5.21, installed daily1.5.15 and public-release status are unchanged"
+  ],
+  "privateCoordinatesPublished": false,
+  "RSSSummed": false
+}
