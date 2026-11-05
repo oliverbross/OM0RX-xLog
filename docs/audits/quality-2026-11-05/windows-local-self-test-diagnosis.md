@@ -44,7 +44,8 @@ Before Windows execution, 34 diagnostic contracts, seven receipt contracts,
 PowerShell syntax (ten scripts), policy checks and workflow YAML validation
 passed. The diagnostic tests compile the C# declarations and check 64-bit ABI
 layouts without calling a Windows API or launching an app/worker on the Mac.
-Actual Windows launch/CIM/pipe behavior and paired outcomes remain pending.
+At that point, actual Windows launch/CIM/pipe behavior and paired outcomes
+were untested. The guarded native attempts below do not establish paired outcomes.
 The runtime-only workflow records QA-executor and package-source SHAs separately;
 it reuses original run `42016723457` without an application rebuild. Matrix,
 assertions, install paths, guards and deadlines are unchanged.
@@ -69,4 +70,34 @@ and with the property missing. The old command fails on the valid property;
 the corrected command accepts it and still rejects the missing property.
 All 35 diagnostic contracts plus seven receipt cases, ten-script syntax and
 policy checks pass locally. No launch, payload, TEMP, count, guard or deadline
-policy changed; actual Windows API execution remains pending the next recheck.
+policy changed. The native identity attempt below used that correction.
+
+## Native identity attempt before resume
+
+[Windows-only recheck 42036670843](ci-1.5.20-windows-diagnostic-identity.md)
+used QA executor `ca7dfbaeddf2ae72cc601a5f3d98f4d8c86166a9` and the same
+package source `3d9cb0981c30764f1188db350ffebc22a5f328a7`. Builds and Linux
+were skipped; both fresh Windows scopes failed their unchanged installed
+local-logbook assertions again. Both retained `ok:false` /
+`local_self_test_failed`. Installed-worker exit remains **unobserved**;
+the scope-step exit 1 is observed. Installed GUI, uninstall and marker
+retention were not reached.
+
+Each diagnostic created one owned suspended portable/A child, then failed
+`OS image/PID/PPID proof failed before Resume.` Identity verification remained
+false. Cleanup confirmed `resumed=false`, `abortedBeforeResume=true`,
+`exitConfirmed=true` and supervisor abort exit 125. Both output streams
+contained zero bytes. That cleanup code is not a worker self-test result.
+
+The independent OS-observed PID, parent PID, executable path and command line,
+plus `QueryFullProcessImageName` and creation-time operands, were
+**NOT RETAINED**. Only the requested command line and returned creation PID
+are available privately; they do not replace independent OS identity proof.
+The missing observations prevent identifying which comparison failed.
+
+Consequently **zero self-test probes resumed**. No short-TEMP/B or repeat-A
+case ran, so there is no A/B/A result, path-length diagnosis or application
+cause established by this attempt. No OS-proof requirement, guard, deadline,
+count or fixture policy was relaxed. Raw process/path/profile coordinates
+remain private; the published reports normalize observed defaults to their
+verified Windows known-folder tokens.

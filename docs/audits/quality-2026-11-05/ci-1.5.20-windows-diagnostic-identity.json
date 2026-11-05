@@ -1,0 +1,509 @@
+{
+  "schema": 1,
+  "disposition": "FAILED Windows-only recheck; installed local self-test failure repeated; controlled diagnostic unavailable before Resume",
+  "runId": 42036670843,
+  "qaExecutorSource": "ca7dfbaeddf2ae72cc601a5f3d98f4d8c86166a9",
+  "packageSource": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+  "version": "1.5.20",
+  "packageRun": 42016723457,
+  "packageArtifactId": 13413349502,
+  "packageArtifactSHA256": "3869a453e665320c4fe19662595b616cebb61d8217a1e6ea80a99ac99db3d41f",
+  "dispatch": {
+    "runId": 42036670843,
+    "qaExecutorSource": "ca7dfbaeddf2ae72cc601a5f3d98f4d8c86166a9",
+    "packageSource": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+    "version": "1.5.20",
+    "packageRun": 42016723457,
+    "packageArtifact": {
+      "id": 13413349502,
+      "digest": "sha256:3869a453e665320c4fe19662595b616cebb61d8217a1e6ea80a99ac99db3d41f"
+    },
+    "workflowBlob": "712c9e4dd30f20200c02d4144dc14fed3e9eae04",
+    "inputs": {
+      "runtime_run_id": "42016723457",
+      "runtime_source_sha": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "runtime_platform": "windows",
+      "build_platforms": "windows",
+      "validation_only": false,
+      "package_macos": false
+    },
+    "observed": {
+      "prototype": "SKIPPED",
+      "linuxRuntime": "SKIPPED",
+      "windowsScopes": [
+        "currentUser",
+        "perMachine"
+      ]
+    },
+    "ordinaryCi": 42036582773,
+    "buildRepackVersionChange": false,
+    "preservedFailures": [
+      42016723457,
+      42034725192
+    ]
+  },
+  "run": {
+    "conclusion": "failure",
+    "event": "workflow_dispatch",
+    "headSha": "ca7dfbaeddf2ae72cc601a5f3d98f4d8c86166a9",
+    "jobs": [
+      {
+        "completedAt": "2026-11-05T13:35:23Z",
+        "conclusion": "failure",
+        "databaseId": 127276514615,
+        "name": "Windows fresh-runner runtime acceptance (currentUser)",
+        "startedAt": "2026-11-05T13:32:38Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-05T13:32:40Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-05T13:32:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:32:41Z",
+            "conclusion": "success",
+            "name": "Enable Windows checkout long paths",
+            "number": 2,
+            "startedAt": "2026-11-05T13:32:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:32:51Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v4",
+            "number": 3,
+            "startedAt": "2026-11-05T13:32:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:32:59Z",
+            "conclusion": "success",
+            "name": "Validate failed worker reply retention",
+            "number": 4,
+            "startedAt": "2026-11-05T13:32:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:33:08Z",
+            "conclusion": "success",
+            "name": "Run actions/download-artifact@v4",
+            "number": 5,
+            "startedAt": "2026-11-05T13:32:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:33:14Z",
+            "conclusion": "success",
+            "name": "Extract isolated package",
+            "number": 6,
+            "startedAt": "2026-11-05T13:33:08Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:34:45Z",
+            "conclusion": "success",
+            "name": "Native WebView2 GUI and worker without installing Swift",
+            "number": 7,
+            "startedAt": "2026-11-05T13:33:14Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:35:11Z",
+            "conclusion": "failure",
+            "name": "Verify shared payload and accept selected scope at its real default path",
+            "number": 8,
+            "startedAt": "2026-11-05T13:34:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:35:17Z",
+            "conclusion": "failure",
+            "name": "Diagnose failed 1.5.20 installed local self-test with controlled temporary roots",
+            "number": 9,
+            "startedAt": "2026-11-05T13:35:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:35:19Z",
+            "conclusion": "success",
+            "name": "Upload native Windows reports and screenshots",
+            "number": 10,
+            "startedAt": "2026-11-05T13:35:17Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:35:21Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v4",
+            "number": 20,
+            "startedAt": "2026-11-05T13:35:19Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:35:21Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 21,
+            "startedAt": "2026-11-05T13:35:21Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42036670843/job/127276514615"
+      },
+      {
+        "completedAt": "2026-11-05T13:35:26Z",
+        "conclusion": "failure",
+        "databaseId": 127276514960,
+        "name": "Windows fresh-runner runtime acceptance (perMachine)",
+        "startedAt": "2026-11-05T13:32:37Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-05T13:32:40Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-05T13:32:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:32:41Z",
+            "conclusion": "success",
+            "name": "Enable Windows checkout long paths",
+            "number": 2,
+            "startedAt": "2026-11-05T13:32:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:32:50Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v4",
+            "number": 3,
+            "startedAt": "2026-11-05T13:32:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:32:56Z",
+            "conclusion": "success",
+            "name": "Validate failed worker reply retention",
+            "number": 4,
+            "startedAt": "2026-11-05T13:32:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:33:05Z",
+            "conclusion": "success",
+            "name": "Run actions/download-artifact@v4",
+            "number": 5,
+            "startedAt": "2026-11-05T13:32:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:33:12Z",
+            "conclusion": "success",
+            "name": "Extract isolated package",
+            "number": 6,
+            "startedAt": "2026-11-05T13:33:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:34:47Z",
+            "conclusion": "success",
+            "name": "Native WebView2 GUI and worker without installing Swift",
+            "number": 7,
+            "startedAt": "2026-11-05T13:33:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:35:14Z",
+            "conclusion": "failure",
+            "name": "Verify shared payload and accept selected scope at its real default path",
+            "number": 8,
+            "startedAt": "2026-11-05T13:34:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:35:20Z",
+            "conclusion": "failure",
+            "name": "Diagnose failed 1.5.20 installed local self-test with controlled temporary roots",
+            "number": 9,
+            "startedAt": "2026-11-05T13:35:14Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:35:22Z",
+            "conclusion": "success",
+            "name": "Upload native Windows reports and screenshots",
+            "number": 10,
+            "startedAt": "2026-11-05T13:35:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:35:24Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v4",
+            "number": 20,
+            "startedAt": "2026-11-05T13:35:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:35:24Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 21,
+            "startedAt": "2026-11-05T13:35:24Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42036670843/job/127276514960"
+      },
+      {
+        "completedAt": "2026-11-05T13:32:35Z",
+        "conclusion": "skipped",
+        "databaseId": 127276516772,
+        "name": "prototype",
+        "startedAt": "2026-11-05T13:32:35Z",
+        "status": "completed",
+        "steps": [],
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42036670843/job/127276516772"
+      },
+      {
+        "completedAt": "2026-11-05T13:32:35Z",
+        "conclusion": "skipped",
+        "databaseId": 127276517128,
+        "name": "Linux runtime-only container acceptance",
+        "startedAt": "2026-11-05T13:32:35Z",
+        "status": "completed",
+        "steps": [],
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42036670843/job/127276517128"
+      }
+    ],
+    "status": "completed",
+    "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42036670843"
+  },
+  "artifacts": [
+    {
+      "id": 13419605022,
+      "name": "xlog-acceptance-windows-currentUser-3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "size_in_bytes": 332570,
+      "url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13419605022",
+      "archive_download_url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13419605022/zip",
+      "expired": false,
+      "created_at": "2026-11-05T13:35:19Z",
+      "expires_at": "2026-12-05T13:35:17Z",
+      "updated_at": "2026-11-05T13:35:19Z",
+      "digest": "sha256:89aa076327f75e40c4ca9a41c9bea920dc3604ff652e768d7ddc2bd062a94775",
+      "workflow_run": {
+        "id": 42036670843,
+        "repository_id": 1413914852,
+        "head_repository_id": 1413914852,
+        "head_branch": "main",
+        "head_sha": "ca7dfbaeddf2ae72cc601a5f3d98f4d8c86166a9"
+      }
+    },
+    {
+      "id": 13418822863,
+      "name": "xlog-acceptance-windows-perMachine-3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "size_in_bytes": 334457,
+      "url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13418822863",
+      "archive_download_url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13418822863/zip",
+      "expired": false,
+      "created_at": "2026-11-05T13:35:22Z",
+      "expires_at": "2026-12-05T13:35:20Z",
+      "updated_at": "2026-11-05T13:35:22Z",
+      "digest": "sha256:641c8dc292c33732ff0b50fafa1bd5df75aa6bd05493805916582b4275dc3b48",
+      "workflow_run": {
+        "id": 42036670843,
+        "repository_id": 1413914852,
+        "head_repository_id": 1413914852,
+        "head_branch": "main",
+        "head_sha": "ca7dfbaeddf2ae72cc601a5f3d98f4d8c86166a9"
+      }
+    }
+  ],
+  "scopes": [
+    {
+      "scope": "currentUser",
+      "job": 127276514615,
+      "qaExecutor": {
+        "schema": 1,
+        "qaExecutorSource": "ca7dfbaeddf2ae72cc601a5f3d98f4d8c86166a9",
+        "packageSource": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+        "packageRunId": "42016723457",
+        "installerScope": "currentUser",
+        "applicationRebuiltInThisJob": false
+      },
+      "installedScopeStep": "FAIL",
+      "normalizedObservedDefault": "%LOCALAPPDATA%\\OM0RX-xLog",
+      "normalizationMethod": "Map actual raw default/equality-checked root to verified known-folder token; raw process/path/profile/CWD/TEMP coordinates private.",
+      "defaultPathPassed": true,
+      "registryScopePassed": true,
+      "startMenuScopePassed": true,
+      "registryHive": "HKCU",
+      "harnessElevated": true,
+      "workerReply": {
+        "id": "local-logbook-self-test",
+        "ok": false,
+        "error": {
+          "code": "local_self_test_failed",
+          "message": "Local logbook acceptance failed."
+        }
+      },
+      "workerReplySHA256": "5ef8c6c6ffd142991cd5f02021c699a59058ea6d848d10db0fb250003c1e0b3e",
+      "installedWorkerExit": "UNOBSERVED: scope assertion throws before Finish-Worker; scope step exit1 observed",
+      "diagnostic": {
+        "status": "diagnostic-unavailable",
+        "error": "OS image/PID/PPID proof failed before Resume.",
+        "responseDeadlineSeconds": 10,
+        "maximumRuns": 6,
+        "recordCount": 1,
+        "attemptedPackage": "portable",
+        "attemptedCondition": "A",
+        "ownedSuspendedCreations": 1,
+        "ownedCreationReturnedPidAndRequestedCommandLine": "Retained privately; creation evidence is distinct from missing independent OS proof",
+        "resumedSelfTestProbes": 0,
+        "identityVerifiedBeforeResume": false,
+        "missingOSObservationOperands": {
+          "OS-observed PID": "NOT RETAINED / no actual value available",
+          "OS-observed parent PID": "NOT RETAINED / no actual value available",
+          "ExecutablePath": "NOT RETAINED / no actual value available",
+          "OS CommandLine": "NOT RETAINED / no actual value available",
+          "QueryFullProcessImageName": "NOT RETAINED / no actual value available",
+          "CreationTime": "NOT RETAINED / no actual value available"
+        },
+        "cleanup": {
+          "exitConfirmed": true,
+          "resumed": false,
+          "abortedBeforeResume": true,
+          "timedOut": false,
+          "exitCode": 125
+        },
+        "stdoutTotalBytes": 0,
+        "stderrTotalBytes": 0,
+        "stdoutSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "parsedReply": null,
+        "BAndRepeatA": "NOT RUN",
+        "tempConditionAObservedUtf16Length": 92,
+        "interpretation": "Aborted before Resume; supervisor abort125 is not worker self-test exit or A/B outcome."
+      },
+      "notReached": [
+        "installed GUI",
+        "uninstall",
+        "marker preservation",
+        "resumed A/B/A probes"
+      ],
+      "ordinaryUserRuntime": "NOT RUN",
+      "interactiveUAC": "NOT RUN (silent harness)"
+    },
+    {
+      "scope": "perMachine",
+      "job": 127276514960,
+      "qaExecutor": {
+        "schema": 1,
+        "qaExecutorSource": "ca7dfbaeddf2ae72cc601a5f3d98f4d8c86166a9",
+        "packageSource": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+        "packageRunId": "42016723457",
+        "installerScope": "perMachine",
+        "applicationRebuiltInThisJob": false
+      },
+      "installedScopeStep": "FAIL",
+      "normalizedObservedDefault": "%ProgramFiles%\\OM0RX-xLog",
+      "normalizationMethod": "Map actual raw default/equality-checked root to verified known-folder token; raw process/path/profile/CWD/TEMP coordinates private.",
+      "defaultPathPassed": true,
+      "registryScopePassed": true,
+      "startMenuScopePassed": true,
+      "registryHive": "HKLM",
+      "harnessElevated": true,
+      "workerReply": {
+        "id": "local-logbook-self-test",
+        "ok": false,
+        "error": {
+          "code": "local_self_test_failed",
+          "message": "Local logbook acceptance failed."
+        }
+      },
+      "workerReplySHA256": "5ef8c6c6ffd142991cd5f02021c699a59058ea6d848d10db0fb250003c1e0b3e",
+      "installedWorkerExit": "UNOBSERVED: scope assertion throws before Finish-Worker; scope step exit1 observed",
+      "diagnostic": {
+        "status": "diagnostic-unavailable",
+        "error": "OS image/PID/PPID proof failed before Resume.",
+        "responseDeadlineSeconds": 10,
+        "maximumRuns": 6,
+        "recordCount": 1,
+        "attemptedPackage": "portable",
+        "attemptedCondition": "A",
+        "ownedSuspendedCreations": 1,
+        "ownedCreationReturnedPidAndRequestedCommandLine": "Retained privately; creation evidence is distinct from missing independent OS proof",
+        "resumedSelfTestProbes": 0,
+        "identityVerifiedBeforeResume": false,
+        "missingOSObservationOperands": {
+          "OS-observed PID": "NOT RETAINED / no actual value available",
+          "OS-observed parent PID": "NOT RETAINED / no actual value available",
+          "ExecutablePath": "NOT RETAINED / no actual value available",
+          "OS CommandLine": "NOT RETAINED / no actual value available",
+          "QueryFullProcessImageName": "NOT RETAINED / no actual value available",
+          "CreationTime": "NOT RETAINED / no actual value available"
+        },
+        "cleanup": {
+          "exitCode": 125,
+          "timedOut": false,
+          "exitConfirmed": true,
+          "abortedBeforeResume": true,
+          "resumed": false
+        },
+        "stdoutTotalBytes": 0,
+        "stderrTotalBytes": 0,
+        "stdoutSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "parsedReply": null,
+        "BAndRepeatA": "NOT RUN",
+        "tempConditionAObservedUtf16Length": 91,
+        "interpretation": "Aborted before Resume; supervisor abort125 is not worker self-test exit or A/B outcome."
+      },
+      "notReached": [
+        "installed GUI",
+        "uninstall",
+        "marker preservation",
+        "resumed A/B/A probes"
+      ],
+      "ordinaryUserRuntime": "NOT RUN",
+      "interactiveUAC": "NOT RUN (silent harness)"
+    }
+  ],
+  "logs": [
+    {
+      "job": 127276514615,
+      "path": "job-127276514615-full.log",
+      "bytes": 36018,
+      "sha256": "bce85bff37041092ed686be5e29b5371d599b60428e34c5122e2040d7b6e7daa"
+    },
+    {
+      "job": 127276514960,
+      "path": "job-127276514960-full.log",
+      "bytes": 35942,
+      "sha256": "16a714e6a22efc7357e0caf4b2a87e8c77ddc68079d37a34ad7bfc520a14ae8d"
+    }
+  ],
+  "boundaries": [
+    "Both original installed-scope assertions remainFAIL",
+    "One owned suspended child per host; zero resumed self-test probes",
+    "OS query operands missing; no specific failed comparison or TEMP/path/product cause inferred",
+    "Cleanup confirmed supervisor abort125 and empty stdout/stderr, not a self-test result",
+    "Original20 and QA2dc failures immutable; no rebuild or app/version/path/deadline change",
+    "Raw process/path/TEMP/CWD/profile identifiers kept private; public default paths normalized from actual receipt checks"
+  ],
+  "ordinaryQAci": {
+    "run": 42036582773,
+    "conclusion": "success"
+  },
+  "redundantPush": {
+    "run": 42036582952,
+    "conclusion": "cancelled",
+    "reason": "Verified redundant single-Mac push validation; not a pass"
+  }
+}
