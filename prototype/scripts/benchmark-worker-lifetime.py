@@ -128,7 +128,7 @@ def main():
         assert footprint, "Physical footprint unavailable; incomplete measurement"
         value = float(footprint[1]) * {"K": 1024, "M": 1024**2, "G": 1024**3, "T": 1024**4}[footprint[2]]
         report["samples"].append({"cycle": cycle, "completedMeasuredRequests": cycle * args.requests_per_cycle,
-            "rssKiB": int(row[0]), "footprintBytesRounded": int(value), "cpuLifetimePercent": float(row[1]),
+            "rssKiB": int(row[0]), "footprintBytesRounded": int(value), "psCpuPercent": float(row[1]),
             "cpuTime": row[2], "settleSeconds": .2})
 
     try:

@@ -1,0 +1,1857 @@
+{
+  "measurement": "generated fixture read-only SQL baseline",
+  "sourceDatabase": "$MIGRATED_GENERATED_FIXTURE/worker/OM0RX-xLog-Integrated Preview/OM0RX-xLog.sqlite",
+  "sourceLabel": "Generated100k supported-migrated by released1.5.15 source1873dc1d; worker cleanly exited",
+  "privateCopy": ".build/quality-sql/released-1.5.15/synthetic-100k-quality-copy.sqlite",
+  "backupMethod": "Python sqlite3.Connection.backup from mode=ro source; no filesystem-only copy; retained source not modified",
+  "fixtureSHA256": "ddd47952f3f09f6ada01a4dbef4a217230f46996db126f969676332f099c70dd",
+  "counts": {
+    "qsos": 100000,
+    "xlog_qso_read_projection": 100000,
+    "liveQSOs": 100000,
+    "generatedPrivateFixtureMarkerRows": 100000
+  },
+  "databaseBytes": 196788224,
+  "walBytes": 0,
+  "schema": [
+    {
+      "type": "index",
+      "name": "idx_conflicts_detected",
+      "table": "sync_conflicts",
+      "sql": "CREATE INDEX idx_conflicts_detected ON sync_conflicts(detected_at DESC)"
+    },
+    {
+      "type": "index",
+      "name": "idx_online_log_candidates_due",
+      "table": "xlog_online_log_candidates",
+      "sql": "CREATE INDEX idx_online_log_candidates_due\n  ON xlog_online_log_candidates(service,enrolled_at,local_id)"
+    },
+    {
+      "type": "index",
+      "name": "idx_online_log_delivery_due",
+      "table": "xlog_online_log_deliveries",
+      "sql": "CREATE INDEX idx_online_log_delivery_due\n  ON xlog_online_log_deliveries(service,state,next_attempt_at)"
+    },
+    {
+      "type": "index",
+      "name": "idx_operator_transient_receipts",
+      "table": "xlog_operator_receipts",
+      "sql": "CREATE INDEX idx_operator_transient_receipts\n  ON xlog_operator_receipts(revision) WHERE action <> 'save'"
+    },
+    {
+      "type": "index",
+      "name": "idx_qso_read_dxcc_live",
+      "table": "xlog_qso_read_projection",
+      "sql": "CREATE INDEX idx_qso_read_dxcc_live ON xlog_qso_read_projection(dxcc_int,qso_start DESC) WHERE deleted_at IS NULL"
+    },
+    {
+      "type": "index",
+      "name": "idx_qso_read_refs_live",
+      "table": "xlog_qso_read_projection",
+      "sql": "CREATE INDEX idx_qso_read_refs_live ON xlog_qso_read_projection(local_id)\nWHERE deleted_at IS NULL AND (\n    COALESCE(json_pota,'') <> '' OR COALESCE(json_sota,'') <> '' OR\n    COALESCE(json_iota,'') <> '' OR COALESCE(json_wwff,'') <> '' OR\n    (UPPER(COALESCE(json_sig,'')) IN ('WCA','COTA','CASTLE') AND COALESCE(json_sig_info,'') <> '')\n)"
+    },
+    {
+      "type": "index",
+      "name": "idx_qso_read_start_live",
+      "table": "xlog_qso_read_projection",
+      "sql": "CREATE INDEX idx_qso_read_start_live ON xlog_qso_read_projection(qso_start DESC) WHERE deleted_at IS NULL"
+    },
+    {
+      "type": "index",
+      "name": "idx_qsos_call",
+      "table": "qsos",
+      "sql": "CREATE INDEX idx_qsos_call ON qsos(call)"
+    },
+    {
+      "type": "index",
+      "name": "idx_qsos_call_live_nocase",
+      "table": "qsos",
+      "sql": "CREATE INDEX idx_qsos_call_live_nocase\n  ON qsos(call COLLATE NOCASE, qso_start DESC) WHERE deleted_at IS NULL"
+    },
+    {
+      "type": "index",
+      "name": "idx_qsos_dirty",
+      "table": "qsos",
+      "sql": "CREATE INDEX idx_qsos_dirty ON qsos(is_dirty, updated_at)"
+    },
+    {
+      "type": "index",
+      "name": "idx_qsos_live_order",
+      "table": "qsos",
+      "sql": "CREATE INDEX idx_qsos_live_order\n  ON qsos(qso_start DESC, local_id ASC) WHERE deleted_at IS NULL"
+    },
+    {
+      "type": "index",
+      "name": "idx_qsos_semantic",
+      "table": "qsos",
+      "sql": "CREATE INDEX idx_qsos_semantic\n  ON qsos(call COLLATE NOCASE, band COLLATE NOCASE, mode COLLATE NOCASE, qso_start)"
+    },
+    {
+      "type": "index",
+      "name": "idx_qsos_start",
+      "table": "qsos",
+      "sql": "CREATE INDEX idx_qsos_start ON qsos(qso_start DESC)"
+    },
+    {
+      "type": "index",
+      "name": "xlog_country_correction_receipt_page",
+      "table": "xlog_contact_receipts",
+      "sql": "CREATE INDEX xlog_country_correction_receipt_page ON xlog_contact_receipts(operation_id)\n  WHERE json_extract(CAST(payload AS TEXT),'$.contact.qso.extraFields.APP_XLOG_COUNTRY_CORRECTION_OPERATION')=operation_id"
+    },
+    {
+      "type": "table",
+      "name": "qsos",
+      "table": "qsos",
+      "sql": "CREATE TABLE qsos(\n  local_id TEXT PRIMARY KEY,\n  wavelog_id INTEGER UNIQUE,\n  call TEXT NOT NULL,\n  qso_start REAL NOT NULL,\n  band TEXT NOT NULL,\n  mode TEXT NOT NULL,\n  frequency_hz INTEGER,\n  is_dirty INTEGER NOT NULL DEFAULT 1,\n  deleted_at REAL,\n  updated_at REAL NOT NULL,\n  record_json BLOB NOT NULL,\n  baseline_json BLOB\n)"
+    },
+    {
+      "type": "table",
+      "name": "sync_conflicts",
+      "table": "sync_conflicts",
+      "sql": "CREATE TABLE sync_conflicts(\n  conflict_id TEXT PRIMARY KEY,\n  local_id TEXT NOT NULL,\n  detected_at REAL NOT NULL,\n  conflict_json BLOB NOT NULL\n)"
+    },
+    {
+      "type": "table",
+      "name": "sync_outbox",
+      "table": "sync_outbox",
+      "sql": "CREATE TABLE sync_outbox(\n  local_id TEXT PRIMARY KEY,\n  attempt_count INTEGER NOT NULL DEFAULT 0,\n  last_attempt_at REAL,\n  next_attempt_at REAL,\n  last_error TEXT\n)"
+    },
+    {
+      "type": "table",
+      "name": "xlog_aggregate_cache",
+      "table": "xlog_aggregate_cache",
+      "sql": "CREATE TABLE xlog_aggregate_cache(\n  cache_key TEXT PRIMARY KEY,\n  revision INTEGER NOT NULL,\n  payload BLOB NOT NULL\n)"
+    },
+    {
+      "type": "table",
+      "name": "xlog_contact_receipts",
+      "table": "xlog_contact_receipts",
+      "sql": "CREATE TABLE xlog_contact_receipts(\n  operation_id TEXT PRIMARY KEY,\n  payload BLOB NOT NULL\n)"
+    },
+    {
+      "type": "table",
+      "name": "xlog_contact_revisions",
+      "table": "xlog_contact_revisions",
+      "sql": "CREATE TABLE xlog_contact_revisions(\n  local_id TEXT PRIMARY KEY,\n  revision INTEGER NOT NULL CHECK(revision >= 0 AND revision <= 9007199254740991)\n)"
+    },
+    {
+      "type": "table",
+      "name": "xlog_contest_transfer_manifests",
+      "table": "xlog_contest_transfer_manifests",
+      "sql": "CREATE TABLE xlog_contest_transfer_manifests(\n  manifest_id TEXT PRIMARY KEY,\n  contest_session_id TEXT NOT NULL,\n  workspace_generation TEXT NOT NULL,\n  source_revision INTEGER NOT NULL CHECK(source_revision >= 0 AND source_revision <= 9007199254740991),\n  source_digest TEXT NOT NULL,\n  created_at REAL NOT NULL,\n  payload BLOB NOT NULL,\n  UNIQUE(contest_session_id,workspace_generation,source_revision,source_digest)\n)"
+    },
+    {
+      "type": "table",
+      "name": "xlog_contest_transfer_receipts",
+      "table": "xlog_contest_transfer_receipts",
+      "sql": "CREATE TABLE xlog_contest_transfer_receipts(\n  contest_session_id TEXT NOT NULL,\n  qso_id TEXT NOT NULL,\n  manifest_id TEXT NOT NULL,\n  source_revision INTEGER NOT NULL CHECK(source_revision >= 0 AND source_revision <= 9007199254740991),\n  source_digest TEXT NOT NULL,\n  target_qso_id TEXT NOT NULL,\n  inserted_at REAL NOT NULL,\n  payload BLOB NOT NULL,\n  PRIMARY KEY(contest_session_id,qso_id),\n  FOREIGN KEY(manifest_id) REFERENCES xlog_contest_transfer_manifests(manifest_id)\n)"
+    },
+    {
+      "type": "table",
+      "name": "xlog_integration_settings",
+      "table": "xlog_integration_settings",
+      "sql": "CREATE TABLE xlog_integration_settings(\n  singleton INTEGER PRIMARY KEY CHECK(singleton = 1),\n  payload BLOB NOT NULL\n)"
+    },
+    {
+      "type": "table",
+      "name": "xlog_online_log_candidates",
+      "table": "xlog_online_log_candidates",
+      "sql": "CREATE TABLE xlog_online_log_candidates(\n  service TEXT NOT NULL,\n  local_id TEXT NOT NULL,\n  enrolled_at REAL NOT NULL,\n  PRIMARY KEY(service,local_id)\n)"
+    },
+    {
+      "type": "table",
+      "name": "xlog_online_log_deliveries",
+      "table": "xlog_online_log_deliveries",
+      "sql": "CREATE TABLE xlog_online_log_deliveries(\n  service TEXT NOT NULL,\n  local_id TEXT NOT NULL,\n  contact_revision INTEGER NOT NULL CHECK(contact_revision >= 0 AND contact_revision <= 9007199254740991),\n  payload_sha256 TEXT NOT NULL,\n  state TEXT NOT NULL CHECK(state IN ('dispatching','deferred','delivered','rejected','uncertain')),\n  attempt_id TEXT NOT NULL,\n  attempt_count INTEGER NOT NULL CHECK(attempt_count >= 1 AND attempt_count <= 3),\n  last_attempt_at REAL NOT NULL,\n  next_attempt_at REAL,\n  remote_id TEXT,\n  last_error_code TEXT,\n  PRIMARY KEY(service,local_id,contact_revision)\n)"
+    },
+    {
+      "type": "table",
+      "name": "xlog_online_log_enrollments",
+      "table": "xlog_online_log_enrollments",
+      "sql": "CREATE TABLE xlog_online_log_enrollments(\n  service TEXT PRIMARY KEY,\n  active INTEGER NOT NULL CHECK(active IN (0,1)),\n  enabled_at REAL\n)"
+    },
+    {
+      "type": "table",
+      "name": "xlog_operator_draft",
+      "table": "xlog_operator_draft",
+      "sql": "CREATE TABLE xlog_operator_draft(\n  singleton INTEGER PRIMARY KEY CHECK(singleton = 1),\n  payload BLOB NOT NULL\n)"
+    },
+    {
+      "type": "table",
+      "name": "xlog_operator_receipts",
+      "table": "xlog_operator_receipts",
+      "sql": "CREATE TABLE xlog_operator_receipts(\n  operation_id TEXT PRIMARY KEY,\n  action TEXT NOT NULL CHECK(action IN ('replace','clear','save')),\n  revision INTEGER NOT NULL,\n  payload BLOB NOT NULL\n)"
+    },
+    {
+      "type": "table",
+      "name": "xlog_qso_read_projection",
+      "table": "xlog_qso_read_projection",
+      "sql": "CREATE TABLE xlog_qso_read_projection(\n  local_id TEXT PRIMARY KEY, qso_start REAL, band TEXT, mode TEXT, deleted_at REAL,\n  dxcc_int INTEGER, json_dxcc,json_cq_zone,json_state,json_grid,json_submode,json_qsl,json_lotw,json_continent,json_pota,json_sota,json_iota,json_wwff,json_sig,json_sig_info,json_band,json_mode,json_call,json_start\n) WITHOUT ROWID"
+    },
+    {
+      "type": "table",
+      "name": "xlog_qso_revision",
+      "table": "xlog_qso_revision",
+      "sql": "CREATE TABLE xlog_qso_revision(\n  singleton INTEGER PRIMARY KEY CHECK(singleton = 1),\n  revision INTEGER NOT NULL\n)"
+    },
+    {
+      "type": "table",
+      "name": "xlog_remote_backup_commands",
+      "table": "xlog_remote_backup_commands",
+      "sql": "CREATE TABLE xlog_remote_backup_commands(\n  singleton INTEGER PRIMARY KEY CHECK(singleton = 1),\n  payload BLOB NOT NULL\n)"
+    },
+    {
+      "type": "table",
+      "name": "xlog_restore_authority",
+      "table": "xlog_restore_authority",
+      "sql": "CREATE TABLE xlog_restore_authority(\n  singleton INTEGER PRIMARY KEY CHECK(singleton = 1),\n  payload BLOB NOT NULL\n)"
+    },
+    {
+      "type": "table",
+      "name": "xlog_rotor_configuration",
+      "table": "xlog_rotor_configuration",
+      "sql": "CREATE TABLE xlog_rotor_configuration(\n  singleton INTEGER PRIMARY KEY CHECK(singleton = 1),\n  payload BLOB NOT NULL\n)"
+    },
+    {
+      "type": "table",
+      "name": "xlog_rotor_configuration_receipts",
+      "table": "xlog_rotor_configuration_receipts",
+      "sql": "CREATE TABLE xlog_rotor_configuration_receipts(\n  operation_id TEXT PRIMARY KEY,\n  payload BLOB NOT NULL\n)"
+    },
+    {
+      "type": "table",
+      "name": "xlog_scoped_workspace_layout",
+      "table": "xlog_scoped_workspace_layout",
+      "sql": "CREATE TABLE xlog_scoped_workspace_layout(\n  scope TEXT PRIMARY KEY CHECK(scope = 'contesting'),\n  payload BLOB NOT NULL\n)"
+    },
+    {
+      "type": "table",
+      "name": "xlog_settings_receipts",
+      "table": "xlog_settings_receipts",
+      "sql": "CREATE TABLE xlog_settings_receipts(\n  operation_id TEXT PRIMARY KEY,\n  payload BLOB NOT NULL\n)"
+    },
+    {
+      "type": "table",
+      "name": "xlog_spot_draft_abandoned",
+      "table": "xlog_spot_draft_abandoned",
+      "sql": "CREATE TABLE xlog_spot_draft_abandoned(\n  operation_id TEXT PRIMARY KEY,\n  generation TEXT NOT NULL\n)"
+    },
+    {
+      "type": "table",
+      "name": "xlog_spot_draft_receipts",
+      "table": "xlog_spot_draft_receipts",
+      "sql": "CREATE TABLE xlog_spot_draft_receipts(\n  operation_id TEXT PRIMARY KEY,\n  payload BLOB NOT NULL,\n  phase TEXT NOT NULL\n)"
+    },
+    {
+      "type": "table",
+      "name": "xlog_sync_mutation_owner",
+      "table": "xlog_sync_mutation_owner",
+      "sql": "CREATE TABLE xlog_sync_mutation_owner(\n  singleton INTEGER PRIMARY KEY CHECK(singleton = 1),\n  payload BLOB NOT NULL\n)"
+    },
+    {
+      "type": "table",
+      "name": "xlog_sync_runs",
+      "table": "xlog_sync_runs",
+      "sql": "CREATE TABLE xlog_sync_runs(\n  run_id TEXT PRIMARY KEY,\n  started_at REAL NOT NULL,\n  payload BLOB NOT NULL\n)"
+    },
+    {
+      "type": "table",
+      "name": "xlog_workspace_layout",
+      "table": "xlog_workspace_layout",
+      "sql": "CREATE TABLE xlog_workspace_layout(\n  singleton INTEGER PRIMARY KEY CHECK(singleton = 1),\n  payload BLOB NOT NULL\n)"
+    },
+    {
+      "type": "trigger",
+      "name": "xlog_contact_revision_delete",
+      "table": "qsos",
+      "sql": "CREATE TRIGGER xlog_contact_revision_delete AFTER DELETE ON qsos BEGIN\n  INSERT INTO xlog_contact_revisions(local_id,revision) VALUES(OLD.local_id,1)\n  ON CONFLICT(local_id) DO UPDATE SET revision=revision+1;\nEND"
+    },
+    {
+      "type": "trigger",
+      "name": "xlog_contact_revision_insert",
+      "table": "qsos",
+      "sql": "CREATE TRIGGER xlog_contact_revision_insert AFTER INSERT ON qsos BEGIN\n  INSERT INTO xlog_contact_revisions(local_id,revision) VALUES(NEW.local_id,1)\n  ON CONFLICT(local_id) DO UPDATE SET revision=revision+1;\nEND"
+    },
+    {
+      "type": "trigger",
+      "name": "xlog_contact_revision_update",
+      "table": "qsos",
+      "sql": "CREATE TRIGGER xlog_contact_revision_update AFTER UPDATE ON qsos BEGIN\n  INSERT INTO xlog_contact_revisions(local_id,revision) VALUES(NEW.local_id,1)\n  ON CONFLICT(local_id) DO UPDATE SET revision=revision+1;\nEND"
+    },
+    {
+      "type": "trigger",
+      "name": "xlog_qso_read_delete",
+      "table": "qsos",
+      "sql": "CREATE TRIGGER xlog_qso_read_delete AFTER DELETE ON qsos BEGIN\n    DELETE FROM xlog_qso_read_projection WHERE local_id = OLD.local_id;\nEND"
+    },
+    {
+      "type": "trigger",
+      "name": "xlog_qso_read_insert",
+      "table": "qsos",
+      "sql": "CREATE TRIGGER xlog_qso_read_insert AFTER INSERT ON qsos BEGIN\n    INSERT OR REPLACE INTO xlog_qso_read_projection(local_id,qso_start,band,mode,deleted_at,dxcc_int,json_dxcc,json_cq_zone,json_state,json_grid,json_submode,json_qsl,json_lotw,json_continent,json_pota,json_sota,json_iota,json_wwff,json_sig,json_sig_info,json_band,json_mode,json_call,json_start) SELECT NEW.local_id,NEW.qso_start,NEW.band,NEW.mode,NEW.deleted_at,CAST(json_extract(NEW.record_json,'$.dxcc') AS INTEGER),json_extract(NEW.record_json,'$.dxcc'),json_extract(NEW.record_json,'$.cqZone'),json_extract(NEW.record_json,'$.state'),json_extract(NEW.record_json,'$.gridSquare'),json_extract(NEW.record_json,'$.submode'),json_extract(NEW.record_json,'$.qslReceived'),json_extract(NEW.record_json,'$.lotwReceived'),json_extract(NEW.record_json,'$.continent'),json_extract(NEW.record_json,'$.potaReference'),json_extract(NEW.record_json,'$.sotaReference'),json_extract(NEW.record_json,'$.iota'),json_extract(NEW.record_json,'$.wwffReference'),json_extract(NEW.record_json,'$.sig'),json_extract(NEW.record_json,'$.sigInfo'),json_extract(NEW.record_json,'$.band'),json_extract(NEW.record_json,'$.mode'),json_extract(NEW.record_json,'$.call'),json_extract(NEW.record_json,'$.start');\nEND"
+    },
+    {
+      "type": "trigger",
+      "name": "xlog_qso_read_update",
+      "table": "qsos",
+      "sql": "CREATE TRIGGER xlog_qso_read_update AFTER UPDATE OF local_id,qso_start,band,mode,deleted_at,record_json ON qsos BEGIN\n    DELETE FROM xlog_qso_read_projection WHERE local_id = OLD.local_id;\n    INSERT OR REPLACE INTO xlog_qso_read_projection(local_id,qso_start,band,mode,deleted_at,dxcc_int,json_dxcc,json_cq_zone,json_state,json_grid,json_submode,json_qsl,json_lotw,json_continent,json_pota,json_sota,json_iota,json_wwff,json_sig,json_sig_info,json_band,json_mode,json_call,json_start) SELECT NEW.local_id,NEW.qso_start,NEW.band,NEW.mode,NEW.deleted_at,CAST(json_extract(NEW.record_json,'$.dxcc') AS INTEGER),json_extract(NEW.record_json,'$.dxcc'),json_extract(NEW.record_json,'$.cqZone'),json_extract(NEW.record_json,'$.state'),json_extract(NEW.record_json,'$.gridSquare'),json_extract(NEW.record_json,'$.submode'),json_extract(NEW.record_json,'$.qslReceived'),json_extract(NEW.record_json,'$.lotwReceived'),json_extract(NEW.record_json,'$.continent'),json_extract(NEW.record_json,'$.potaReference'),json_extract(NEW.record_json,'$.sotaReference'),json_extract(NEW.record_json,'$.iota'),json_extract(NEW.record_json,'$.wwffReference'),json_extract(NEW.record_json,'$.sig'),json_extract(NEW.record_json,'$.sigInfo'),json_extract(NEW.record_json,'$.band'),json_extract(NEW.record_json,'$.mode'),json_extract(NEW.record_json,'$.call'),json_extract(NEW.record_json,'$.start');\nEND"
+    },
+    {
+      "type": "trigger",
+      "name": "xlog_qso_revision_delete",
+      "table": "qsos",
+      "sql": "CREATE TRIGGER xlog_qso_revision_delete AFTER DELETE ON qsos BEGIN\n  UPDATE xlog_qso_revision SET revision = revision + 1 WHERE singleton = 1;\nEND"
+    },
+    {
+      "type": "trigger",
+      "name": "xlog_qso_revision_insert",
+      "table": "qsos",
+      "sql": "CREATE TRIGGER xlog_qso_revision_insert AFTER INSERT ON qsos BEGIN\n  UPDATE xlog_qso_revision SET revision = revision + 1 WHERE singleton = 1;\nEND"
+    },
+    {
+      "type": "trigger",
+      "name": "xlog_qso_revision_update",
+      "table": "qsos",
+      "sql": "CREATE TRIGGER xlog_qso_revision_update AFTER UPDATE ON qsos BEGIN\n  UPDATE xlog_qso_revision SET revision = revision + 1 WHERE singleton = 1;\nEND"
+    }
+  ],
+  "schemaVersion": 1,
+  "pageSize": 4096,
+  "pageCount": 48044,
+  "pythonRuntime": {
+    "python": "3.9.6 (default, Oct 19 2026, 19:18:13) \n[Clang 21.0.0 (clang-2100.4.1.1)]",
+    "sqliteVersion": "3.54.0",
+    "sqliteSourceID": "2026-04-09 12:25:13 8fa8248e303219400c646a885e36dfc52eae33d83f4412e3f369b2be5373aapl",
+    "compileOptions": [
+      "ATOMIC_INTRINSICS=1",
+      "BUG_COMPATIBLE_20160819",
+      "CCCRYPT256",
+      "CODEC=see-cccrypt",
+      "COMPILER=clang-21.0.0",
+      "DEFAULT_AUTOVACUUM",
+      "DEFAULT_CACHE_SIZE=2000",
+      "DEFAULT_CKPTFULLFSYNC",
+      "DEFAULT_FILE_FORMAT=4",
+      "DEFAULT_JOURNAL_SIZE_LIMIT=32768",
+      "DEFAULT_LOOKASIDE=1200,102",
+      "DEFAULT_MEMSTATUS=0",
+      "DEFAULT_MMAP_SIZE=0",
+      "DEFAULT_PAGE_SIZE=4096",
+      "DEFAULT_PCACHE_INITSZ=20",
+      "DEFAULT_RECURSIVE_TRIGGERS",
+      "DEFAULT_SECTOR_SIZE=4096",
+      "DEFAULT_SYNCHRONOUS=2",
+      "DEFAULT_WAL_AUTOCHECKPOINT=1000",
+      "DEFAULT_WAL_SYNCHRONOUS=1",
+      "DEFAULT_WORKER_THREADS=0",
+      "DIRECT_OVERFLOW_READ",
+      "DQS=3",
+      "ENABLE_API_ARMOR",
+      "ENABLE_BYTECODE_VTAB",
+      "ENABLE_CARRAY",
+      "ENABLE_COLUMN_METADATA",
+      "ENABLE_DBSTAT_VTAB",
+      "ENABLE_FTS3",
+      "ENABLE_FTS3_PARENTHESIS",
+      "ENABLE_FTS3_TOKENIZER",
+      "ENABLE_FTS4",
+      "ENABLE_FTS5",
+      "ENABLE_LOCKING_STYLE=1",
+      "ENABLE_MATH_FUNCTIONS",
+      "ENABLE_NORMALIZE",
+      "ENABLE_PERCENTILE",
+      "ENABLE_PREUPDATE_HOOK",
+      "ENABLE_RTREE",
+      "ENABLE_SESSION",
+      "ENABLE_SETLK_TIMEOUT",
+      "ENABLE_SNAPSHOT",
+      "ENABLE_SQLLOG",
+      "ENABLE_STMT_SCANSTATUS",
+      "ENABLE_UNKNOWN_SQL_FUNCTION",
+      "ENABLE_UPDATE_DELETE_LIMIT",
+      "HAS_CODEC_RESTRICTED",
+      "HAVE_ISNAN",
+      "MALLOC_SOFT_LIMIT=1024",
+      "MAX_ATTACHED=10",
+      "MAX_COLUMN=2000",
+      "MAX_COMPOUND_SELECT=500",
+      "MAX_DEFAULT_PAGE_SIZE=8192",
+      "MAX_EXPR_DEPTH=1000",
+      "MAX_FUNCTION_ARG=127",
+      "MAX_LENGTH=2147483645",
+      "MAX_LIKE_PATTERN_LENGTH=50000",
+      "MAX_MMAP_SIZE=1073741824",
+      "MAX_PAGE_COUNT=1073741823",
+      "MAX_PAGE_SIZE=65536",
+      "MAX_SQL_LENGTH=1000000000",
+      "MAX_TRIGGER_DEPTH=1000",
+      "MAX_VARIABLE_NUMBER=500000",
+      "MAX_VDBE_OP=250000000",
+      "MAX_WORKER_THREADS=8",
+      "MUTEX_UNFAIR",
+      "OMIT_AUTORESET",
+      "OMIT_LOAD_EXTENSION",
+      "STMTJRNL_SPILL=131072",
+      "SYSTEM_MALLOC",
+      "TEMP_STORE=1",
+      "THREADSAFE=2",
+      "USE_URI"
+    ]
+  },
+  "nativeRuntime": {
+    "library": "/usr/lib/libsqlite3.dylib",
+    "version": "3.54.0",
+    "sourceID": "2026-04-09 12:25:13 8fa8248e303219400c646a885e36dfc52eae33d83f4412e3f369b2be5373aapl",
+    "compileOptions": [
+      "ATOMIC_INTRINSICS=1",
+      "BUG_COMPATIBLE_20160819",
+      "CCCRYPT256",
+      "CODEC=see-cccrypt",
+      "COMPILER=clang-21.0.0",
+      "DEFAULT_AUTOVACUUM",
+      "DEFAULT_CACHE_SIZE=2000",
+      "DEFAULT_CKPTFULLFSYNC",
+      "DEFAULT_FILE_FORMAT=4",
+      "DEFAULT_JOURNAL_SIZE_LIMIT=32768",
+      "DEFAULT_LOOKASIDE=1200,102",
+      "DEFAULT_MEMSTATUS=0",
+      "DEFAULT_MMAP_SIZE=0",
+      "DEFAULT_PAGE_SIZE=4096",
+      "DEFAULT_PCACHE_INITSZ=20",
+      "DEFAULT_RECURSIVE_TRIGGERS",
+      "DEFAULT_SECTOR_SIZE=4096",
+      "DEFAULT_SYNCHRONOUS=2",
+      "DEFAULT_WAL_AUTOCHECKPOINT=1000",
+      "DEFAULT_WAL_SYNCHRONOUS=1",
+      "DEFAULT_WORKER_THREADS=0",
+      "DIRECT_OVERFLOW_READ",
+      "DQS=3",
+      "ENABLE_API_ARMOR",
+      "ENABLE_BYTECODE_VTAB",
+      "ENABLE_CARRAY",
+      "ENABLE_COLUMN_METADATA",
+      "ENABLE_DBSTAT_VTAB",
+      "ENABLE_FTS3",
+      "ENABLE_FTS3_PARENTHESIS",
+      "ENABLE_FTS3_TOKENIZER",
+      "ENABLE_FTS4",
+      "ENABLE_FTS5",
+      "ENABLE_LOCKING_STYLE=1",
+      "ENABLE_MATH_FUNCTIONS",
+      "ENABLE_NORMALIZE",
+      "ENABLE_PERCENTILE",
+      "ENABLE_PREUPDATE_HOOK",
+      "ENABLE_RTREE",
+      "ENABLE_SESSION",
+      "ENABLE_SETLK_TIMEOUT",
+      "ENABLE_SNAPSHOT",
+      "ENABLE_SQLLOG",
+      "ENABLE_STMT_SCANSTATUS",
+      "ENABLE_UNKNOWN_SQL_FUNCTION",
+      "ENABLE_UPDATE_DELETE_LIMIT",
+      "HAS_CODEC_RESTRICTED",
+      "HAVE_ISNAN",
+      "MALLOC_SOFT_LIMIT=1024",
+      "MAX_ATTACHED=10",
+      "MAX_COLUMN=2000",
+      "MAX_COMPOUND_SELECT=500",
+      "MAX_DEFAULT_PAGE_SIZE=8192",
+      "MAX_EXPR_DEPTH=1000",
+      "MAX_FUNCTION_ARG=127",
+      "MAX_LENGTH=2147483645",
+      "MAX_LIKE_PATTERN_LENGTH=50000",
+      "MAX_MMAP_SIZE=1073741824",
+      "MAX_PAGE_COUNT=1073741823",
+      "MAX_PAGE_SIZE=65536",
+      "MAX_SQL_LENGTH=1000000000",
+      "MAX_TRIGGER_DEPTH=1000",
+      "MAX_VARIABLE_NUMBER=500000",
+      "MAX_VDBE_OP=250000000",
+      "MAX_WORKER_THREADS=8",
+      "MUTEX_UNFAIR",
+      "OMIT_AUTORESET",
+      "OMIT_LOAD_EXTENSION",
+      "STMTJRNL_SPILL=131072",
+      "SYSTEM_MALLOC",
+      "TEMP_STORE=1",
+      "THREADSAFE=2",
+      "USE_URI"
+    ],
+    "scanstatusV2SymbolAvailable": true,
+    "connectionStatusAfterWorkload": {
+      "cacheUsedBytes": {
+        "current": 8753152,
+        "highwater": 0,
+        "returnCode": 0
+      },
+      "schemaUsedBytes": {
+        "current": 57712,
+        "highwater": 0,
+        "returnCode": 0
+      },
+      "statementUsedBytes": {
+        "current": 0,
+        "highwater": 0,
+        "returnCode": 0
+      },
+      "cacheHits": {
+        "current": 6457669,
+        "highwater": 0,
+        "returnCode": 0
+      },
+      "cacheMisses": {
+        "current": 1063609,
+        "highwater": 0,
+        "returnCode": 0
+      }
+    }
+  },
+  "owningSourceHashes": {
+    "Sources/XLogCore/LogbookDatabase.swift": "490e19a6f68306a71a8ee0b5e20ecb7b48c199080b8a1dbd8e52d1d1be0a5cb7",
+    "Sources/XLogCore/LogbookQuery.swift": "e3682ab1416f6a8a2de47cb8b0946fc14df75748418efd893122afe5deddbf37"
+  },
+  "queries": [
+    {
+      "name": "normal.page.first20",
+      "owner": "LogbookDatabase.swift:2473",
+      "sql": "SELECT record_json FROM qsos WHERE deleted_at IS NULL ORDER BY qso_start DESC, local_id ASC LIMIT ? OFFSET ?",
+      "bindShapes": [
+        {
+          "type": "int"
+        },
+        {
+          "type": "int"
+        }
+      ],
+      "resultKind": "json_records",
+      "explainPlan": [
+        {
+          "id": 8,
+          "parent": 0,
+          "detail": "SCAN qsos USING INDEX idx_qsos_live_order"
+        }
+      ],
+      "pythonFirstExecuteFetchMs": 0.736917,
+      "pythonExecuteFetch": {
+        "samples": [
+          0.046333,
+          0.020125,
+          0.017833,
+          0.016,
+          0.015459
+        ],
+        "median": 0.017833,
+        "p95NearestRank": 0.046333,
+        "units": "ms"
+      },
+      "rowsReturned": 20,
+      "textBlobBytesReturned": 19191,
+      "pythonJSONDecode": {
+        "samples": [
+          0.34525,
+          0.2275,
+          0.166417,
+          0.161167,
+          0.250459
+        ],
+        "median": 0.2275,
+        "p95NearestRank": 0.34525,
+        "units": "ms"
+      },
+      "decodedRows": 20,
+      "nativeStepOnly": {
+        "samples": [
+          0.04375,
+          0.041709,
+          0.041958,
+          0.041041,
+          0.040834
+        ],
+        "median": 0.041709,
+        "p95NearestRank": 0.04375,
+        "units": "ms"
+      },
+      "nativePrepareBind": {
+        "samples": [
+          0.0285,
+          0.018583,
+          0.018417,
+          0.017917,
+          0.018166
+        ],
+        "median": 0.018417,
+        "p95NearestRank": 0.0285,
+        "units": "ms"
+      },
+      "nativeCounters": {
+        "fullscanSteps": 19,
+        "sortOperations": 0,
+        "autoindexRows": 0,
+        "vmSteps": 132,
+        "runs": 1,
+        "statementMemoryBytes": 5952
+      },
+      "nativeRowsReturned": 20,
+      "nativeScanStatus": {
+        "separateSingleCounterRun": true,
+        "rowsReturned": 20,
+        "loops": [
+          {
+            "loop": 0,
+            "nLoop": 1,
+            "nVisit": 20,
+            "name": "idx_qsos_live_order",
+            "explain": "SCAN qsos USING INDEX idx_qsos_live_order"
+          }
+        ],
+        "status": "available"
+      }
+    },
+    {
+      "name": "normal.page.deep20",
+      "owner": "LogbookDatabase.swift:2473",
+      "sql": "SELECT record_json FROM qsos WHERE deleted_at IS NULL ORDER BY qso_start DESC, local_id ASC LIMIT ? OFFSET ?",
+      "bindShapes": [
+        {
+          "type": "int"
+        },
+        {
+          "type": "int"
+        }
+      ],
+      "resultKind": "json_records",
+      "explainPlan": [
+        {
+          "id": 8,
+          "parent": 0,
+          "detail": "SCAN qsos USING INDEX idx_qsos_live_order"
+        }
+      ],
+      "pythonFirstExecuteFetchMs": 7.707167,
+      "pythonExecuteFetch": {
+        "samples": [
+          4.340916,
+          3.155334,
+          3.962583,
+          3.647917,
+          3.62425
+        ],
+        "median": 3.647917,
+        "p95NearestRank": 4.340916,
+        "units": "ms"
+      },
+      "rowsReturned": 20,
+      "textBlobBytesReturned": 19193,
+      "pythonJSONDecode": {
+        "samples": [
+          0.205334,
+          0.186125,
+          0.163208,
+          0.160375,
+          0.160167
+        ],
+        "median": 0.163208,
+        "p95NearestRank": 0.205334,
+        "units": "ms"
+      },
+      "decodedRows": 20,
+      "nativeStepOnly": {
+        "samples": [
+          2.413042,
+          3.94625,
+          2.518334,
+          6.125875,
+          2.6175
+        ],
+        "median": 2.6175,
+        "p95NearestRank": 6.125875,
+        "units": "ms"
+      },
+      "nativePrepareBind": {
+        "samples": [
+          0.040875,
+          0.029625,
+          0.030291,
+          0.02625,
+          0.105333
+        ],
+        "median": 0.030291,
+        "p95NearestRank": 0.105333,
+        "units": "ms"
+      },
+      "nativeCounters": {
+        "fullscanSteps": 90019,
+        "sortOperations": 0,
+        "autoindexRows": 0,
+        "vmSteps": 270132,
+        "runs": 1,
+        "statementMemoryBytes": 5952
+      },
+      "nativeRowsReturned": 20,
+      "nativeScanStatus": {
+        "separateSingleCounterRun": true,
+        "rowsReturned": 20,
+        "loops": [
+          {
+            "loop": 0,
+            "nLoop": 1,
+            "nVisit": 90020,
+            "name": "idx_qsos_live_order",
+            "explain": "SCAN qsos USING INDEX idx_qsos_live_order"
+          }
+        ],
+        "status": "available"
+      }
+    },
+    {
+      "name": "normal.count.all",
+      "owner": "LogbookDatabase.swift:2947",
+      "sql": "SELECT COUNT(*) FROM qsos WHERE deleted_at IS NULL",
+      "bindShapes": [],
+      "resultKind": "scalar",
+      "explainPlan": [
+        {
+          "id": 4,
+          "parent": 0,
+          "detail": "SCAN qsos USING INDEX idx_qsos_live_order"
+        }
+      ],
+      "pythonFirstExecuteFetchMs": 7.023,
+      "pythonExecuteFetch": {
+        "samples": [
+          6.717625,
+          3.340583,
+          3.817291,
+          3.9935,
+          4.233125
+        ],
+        "median": 3.9935,
+        "p95NearestRank": 6.717625,
+        "units": "ms"
+      },
+      "rowsReturned": 1,
+      "textBlobBytesReturned": 0,
+      "nativeStepOnly": {
+        "samples": [
+          4.019375,
+          2.373083,
+          4.762,
+          4.382375,
+          4.05025
+        ],
+        "median": 4.05025,
+        "p95NearestRank": 4.762,
+        "units": "ms"
+      },
+      "nativePrepareBind": {
+        "samples": [
+          0.030167,
+          0.020959,
+          0.012208,
+          0.04025,
+          0.08125
+        ],
+        "median": 0.030167,
+        "p95NearestRank": 0.08125,
+        "units": "ms"
+      },
+      "nativeCounters": {
+        "fullscanSteps": 99999,
+        "sortOperations": 0,
+        "autoindexRows": 0,
+        "vmSteps": 300012,
+        "runs": 1,
+        "statementMemoryBytes": 4368
+      },
+      "nativeRowsReturned": 1,
+      "nativeScanStatus": {
+        "separateSingleCounterRun": true,
+        "rowsReturned": 1,
+        "loops": [
+          {
+            "loop": 0,
+            "nLoop": 1,
+            "nVisit": 100000,
+            "name": "idx_qsos_live_order",
+            "explain": "SCAN qsos USING INDEX idx_qsos_live_order"
+          }
+        ],
+        "status": "available"
+      }
+    },
+    {
+      "name": "normal.search.page20",
+      "owner": "LogbookDatabase.swift:2473 + LogbookQuery.swift:55",
+      "sql": "SELECT record_json FROM qsos WHERE deleted_at IS NULL AND (call LIKE ? OR record_json LIKE ?) ORDER BY qso_start DESC, local_id ASC LIMIT ? OFFSET ?",
+      "bindShapes": [
+        {
+          "type": "str",
+          "utf8Bytes": 9
+        },
+        {
+          "type": "str",
+          "utf8Bytes": 9
+        },
+        {
+          "type": "int"
+        },
+        {
+          "type": "int"
+        }
+      ],
+      "resultKind": "json_records",
+      "explainPlan": [
+        {
+          "id": 8,
+          "parent": 0,
+          "detail": "SCAN qsos USING INDEX idx_qsos_live_order"
+        }
+      ],
+      "pythonFirstExecuteFetchMs": 380.934084,
+      "pythonExecuteFetch": {
+        "samples": [
+          101.385916,
+          98.750833,
+          120.777209,
+          78.348709,
+          82.776584
+        ],
+        "median": 98.750833,
+        "p95NearestRank": 120.777209,
+        "units": "ms"
+      },
+      "rowsReturned": 20,
+      "textBlobBytesReturned": 19201,
+      "pythonJSONDecode": {
+        "samples": [
+          0.225875,
+          0.268959,
+          0.176,
+          0.843833,
+          0.167042
+        ],
+        "median": 0.225875,
+        "p95NearestRank": 0.843833,
+        "units": "ms"
+      },
+      "decodedRows": 20,
+      "nativeStepOnly": {
+        "samples": [
+          104.231,
+          107.061125,
+          88.81625,
+          86.090042,
+          94.745834
+        ],
+        "median": 94.745834,
+        "p95NearestRank": 107.061125,
+        "units": "ms"
+      },
+      "nativePrepareBind": {
+        "samples": [
+          0.050917,
+          0.06775,
+          0.060958,
+          0.035708,
+          0.079916
+        ],
+        "median": 0.060958,
+        "p95NearestRank": 0.079916,
+        "units": "ms"
+      },
+      "nativeCounters": {
+        "fullscanSteps": 38000,
+        "sortOperations": 0,
+        "autoindexRows": 0,
+        "vmSteps": 304042,
+        "runs": 1,
+        "statementMemoryBytes": 7536
+      },
+      "nativeRowsReturned": 20,
+      "nativeScanStatus": {
+        "separateSingleCounterRun": true,
+        "rowsReturned": 20,
+        "loops": [
+          {
+            "loop": 0,
+            "nLoop": 1,
+            "nVisit": 38001,
+            "name": "idx_qsos_live_order",
+            "explain": "SCAN qsos USING INDEX idx_qsos_live_order"
+          }
+        ],
+        "status": "available"
+      }
+    },
+    {
+      "name": "normal.search.count",
+      "owner": "LogbookDatabase.swift:2947 + LogbookQuery.swift:55",
+      "sql": "SELECT COUNT(*) FROM qsos WHERE deleted_at IS NULL AND (call LIKE ? OR record_json LIKE ?)",
+      "bindShapes": [
+        {
+          "type": "str",
+          "utf8Bytes": 9
+        },
+        {
+          "type": "str",
+          "utf8Bytes": 9
+        }
+      ],
+      "resultKind": "scalar",
+      "explainPlan": [
+        {
+          "id": 4,
+          "parent": 0,
+          "detail": "SCAN qsos USING INDEX idx_qsos_live_order"
+        }
+      ],
+      "pythonFirstExecuteFetchMs": 711.198375,
+      "pythonExecuteFetch": {
+        "samples": [
+          570.89875,
+          244.5895,
+          296.399417,
+          258.527042,
+          294.947083
+        ],
+        "median": 294.947083,
+        "p95NearestRank": 570.89875,
+        "units": "ms"
+      },
+      "rowsReturned": 1,
+      "textBlobBytesReturned": 0,
+      "nativeStepOnly": {
+        "samples": [
+          288.605083,
+          249.618916,
+          225.195917,
+          222.960041,
+          270.560208
+        ],
+        "median": 249.618916,
+        "p95NearestRank": 288.605083,
+        "units": "ms"
+      },
+      "nativePrepareBind": {
+        "samples": [
+          0.032542,
+          0.128417,
+          0.031708,
+          0.088792,
+          0.044375
+        ],
+        "median": 0.044375,
+        "p95NearestRank": 0.128417,
+        "units": "ms"
+      },
+      "nativeCounters": {
+        "fullscanSteps": 99999,
+        "sortOperations": 0,
+        "autoindexRows": 0,
+        "vmSteps": 799914,
+        "runs": 1,
+        "statementMemoryBytes": 6080
+      },
+      "nativeRowsReturned": 1,
+      "nativeScanStatus": {
+        "separateSingleCounterRun": true,
+        "rowsReturned": 1,
+        "loops": [
+          {
+            "loop": 0,
+            "nLoop": 1,
+            "nVisit": 100000,
+            "name": "idx_qsos_live_order",
+            "explain": "SCAN qsos USING INDEX idx_qsos_live_order"
+          }
+        ],
+        "status": "available"
+      }
+    },
+    {
+      "name": "history.call.thin",
+      "owner": "LogbookDatabase.swift:2764",
+      "sql": "WITH candidates AS (SELECT local_id FROM qsos INDEXED BY idx_qsos_call_live_nocase WHERE deleted_at IS NULL AND call = ? COLLATE NOCASE UNION SELECT local_id FROM qsos INDEXED BY idx_qsos_call_live_nocase WHERE deleted_at IS NULL AND call COLLATE NOCASE LIKE ? ESCAPE '\\') SELECT json_extract(qsos.record_json,'$.id'),json_extract(qsos.record_json,'$.call'),CASE WHEN json_type(qsos.record_json,'$.start') IN ('true','false') THEN '' ELSE json_extract(qsos.record_json,'$.start') END,json_extract(qsos.record_json,'$.band'),json_extract(qsos.record_json,'$.mode'),json_extract(qsos.record_json,'$.submode'),CASE WHEN json_type(qsos.record_json,'$.dxcc') IN ('true','false') THEN '' ELSE json_extract(qsos.record_json,'$.dxcc') END,json_extract(qsos.record_json,'$.qslReceived'),json_extract(qsos.record_json,'$.lotwReceived'),json_extract(qsos.record_json,'$.lotwSent'),json_extract(qsos.record_json,'$.gridSquare'),json_extract(qsos.record_json,'$.rstSent'),json_extract(qsos.record_json,'$.rstReceived'),CASE WHEN json_type(qsos.record_json,'$.deletedAt') IN ('true','false') THEN '' ELSE json_extract(qsos.record_json,'$.deletedAt') END,json_valid(qsos.record_json),CASE WHEN instr(qsos.record_json,'\\u0000') > 0 THEN qsos.record_json END FROM candidates JOIN qsos USING(local_id) ORDER BY qsos.qso_start DESC",
+      "bindShapes": [
+        {
+          "type": "str",
+          "utf8Bytes": 7
+        },
+        {
+          "type": "str",
+          "utf8Bytes": 9
+        }
+      ],
+      "resultKind": "thin_history",
+      "explainPlan": [
+        {
+          "id": 2,
+          "parent": 0,
+          "detail": "CO-ROUTINE candidates"
+        },
+        {
+          "id": 4,
+          "parent": 2,
+          "detail": "MERGE (UNION)"
+        },
+        {
+          "id": 6,
+          "parent": 4,
+          "detail": "LEFT"
+        },
+        {
+          "id": 10,
+          "parent": 6,
+          "detail": "SEARCH qsos USING INDEX idx_qsos_call_live_nocase (call=?)"
+        },
+        {
+          "id": 21,
+          "parent": 6,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        },
+        {
+          "id": 30,
+          "parent": 4,
+          "detail": "RIGHT"
+        },
+        {
+          "id": 34,
+          "parent": 30,
+          "detail": "SEARCH qsos USING INDEX idx_qsos_call_live_nocase (call>? AND call<?)"
+        },
+        {
+          "id": 50,
+          "parent": 30,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        },
+        {
+          "id": 94,
+          "parent": 0,
+          "detail": "SCAN candidates"
+        },
+        {
+          "id": 97,
+          "parent": 0,
+          "detail": "SEARCH qsos USING INDEX sqlite_autoindex_qsos_1 (local_id=?)"
+        },
+        {
+          "id": 165,
+          "parent": 0,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        }
+      ],
+      "pythonFirstExecuteFetchMs": 4.815166,
+      "pythonExecuteFetch": {
+        "samples": [
+          2.181084,
+          1.8925,
+          2.042125,
+          2.595084,
+          5.011708
+        ],
+        "median": 2.181084,
+        "p95NearestRank": 5.011708,
+        "units": "ms"
+      },
+      "rowsReturned": 50,
+      "textBlobBytesReturned": 2483,
+      "nativeStepOnly": {
+        "samples": [
+          2.415542,
+          1.850375,
+          1.867083,
+          3.296625,
+          2.029083
+        ],
+        "median": 2.029083,
+        "p95NearestRank": 3.296625,
+        "units": "ms"
+      },
+      "nativePrepareBind": {
+        "samples": [
+          0.095083,
+          0.080125,
+          0.051167,
+          0.106958,
+          0.121375
+        ],
+        "median": 0.095083,
+        "p95NearestRank": 0.121375,
+        "units": "ms"
+      },
+      "nativeCounters": {
+        "fullscanSteps": 0,
+        "sortOperations": 3,
+        "autoindexRows": 0,
+        "vmSteps": 5070,
+        "runs": 1,
+        "statementMemoryBytes": 35200
+      },
+      "nativeRowsReturned": 50,
+      "nativeScanStatus": {
+        "separateSingleCounterRun": true,
+        "rowsReturned": 50,
+        "loops": [
+          {
+            "loop": 0,
+            "nLoop": 1,
+            "nVisit": 50,
+            "name": "idx_qsos_call_live_nocase",
+            "explain": "SEARCH qsos USING INDEX idx_qsos_call_live_nocase (call=?)"
+          },
+          {
+            "loop": 1,
+            "nLoop": 1,
+            "nVisit": 0,
+            "name": "idx_qsos_call_live_nocase",
+            "explain": "SEARCH qsos USING INDEX idx_qsos_call_live_nocase (call>? AND call<?)"
+          },
+          {
+            "loop": 2,
+            "nLoop": 1,
+            "nVisit": 50,
+            "name": "candidates",
+            "explain": "SCAN candidates"
+          },
+          {
+            "loop": 3,
+            "nLoop": 50,
+            "nVisit": 50,
+            "name": "sqlite_autoindex_qsos_1",
+            "explain": "SEARCH qsos USING INDEX sqlite_autoindex_qsos_1 (local_id=?)"
+          }
+        ],
+        "status": "available"
+      }
+    },
+    {
+      "name": "history.country.thin",
+      "owner": "LogbookDatabase.swift:2745",
+      "sql": "WITH candidates AS (SELECT local_id FROM qsos INDEXED BY idx_qsos_call_live_nocase WHERE deleted_at IS NULL AND call = ? COLLATE NOCASE UNION SELECT local_id FROM qsos INDEXED BY idx_qsos_call_live_nocase WHERE deleted_at IS NULL AND call COLLATE NOCASE LIKE ? ESCAPE '\\' UNION SELECT local_id FROM xlog_qso_read_projection INDEXED BY idx_qso_read_dxcc_live WHERE deleted_at IS NULL AND dxcc_int = ? UNION SELECT local_id FROM xlog_qso_read_projection INDEXED BY idx_qso_read_dxcc_live WHERE deleted_at IS NULL AND dxcc_int IS NULL) SELECT json_extract(qsos.record_json,'$.id'),json_extract(qsos.record_json,'$.call'),CASE WHEN json_type(qsos.record_json,'$.start') IN ('true','false') THEN '' ELSE json_extract(qsos.record_json,'$.start') END,json_extract(qsos.record_json,'$.band'),json_extract(qsos.record_json,'$.mode'),json_extract(qsos.record_json,'$.submode'),CASE WHEN json_type(qsos.record_json,'$.dxcc') IN ('true','false') THEN '' ELSE json_extract(qsos.record_json,'$.dxcc') END,json_extract(qsos.record_json,'$.qslReceived'),json_extract(qsos.record_json,'$.lotwReceived'),json_extract(qsos.record_json,'$.lotwSent'),json_extract(qsos.record_json,'$.gridSquare'),json_extract(qsos.record_json,'$.rstSent'),json_extract(qsos.record_json,'$.rstReceived'),CASE WHEN json_type(qsos.record_json,'$.deletedAt') IN ('true','false') THEN '' ELSE json_extract(qsos.record_json,'$.deletedAt') END,json_valid(qsos.record_json),CASE WHEN instr(qsos.record_json,'\\u0000') > 0 THEN qsos.record_json END FROM candidates JOIN qsos USING(local_id) ORDER BY qsos.qso_start DESC",
+      "bindShapes": [
+        {
+          "type": "str",
+          "utf8Bytes": 7
+        },
+        {
+          "type": "str",
+          "utf8Bytes": 9
+        },
+        {
+          "type": "int"
+        }
+      ],
+      "resultKind": "thin_history",
+      "explainPlan": [
+        {
+          "id": 2,
+          "parent": 0,
+          "detail": "CO-ROUTINE candidates"
+        },
+        {
+          "id": 4,
+          "parent": 2,
+          "detail": "MERGE (UNION)"
+        },
+        {
+          "id": 6,
+          "parent": 4,
+          "detail": "LEFT"
+        },
+        {
+          "id": 8,
+          "parent": 6,
+          "detail": "MERGE (UNION)"
+        },
+        {
+          "id": 10,
+          "parent": 8,
+          "detail": "LEFT"
+        },
+        {
+          "id": 14,
+          "parent": 10,
+          "detail": "SEARCH qsos USING INDEX idx_qsos_call_live_nocase (call=?)"
+        },
+        {
+          "id": 25,
+          "parent": 10,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        },
+        {
+          "id": 34,
+          "parent": 8,
+          "detail": "RIGHT"
+        },
+        {
+          "id": 38,
+          "parent": 34,
+          "detail": "SEARCH qsos USING INDEX idx_qsos_call_live_nocase (call>? AND call<?)"
+        },
+        {
+          "id": 54,
+          "parent": 34,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        },
+        {
+          "id": 96,
+          "parent": 4,
+          "detail": "RIGHT"
+        },
+        {
+          "id": 98,
+          "parent": 96,
+          "detail": "MERGE (UNION)"
+        },
+        {
+          "id": 100,
+          "parent": 98,
+          "detail": "LEFT"
+        },
+        {
+          "id": 104,
+          "parent": 100,
+          "detail": "SEARCH xlog_qso_read_projection USING INDEX idx_qso_read_dxcc_live (dxcc_int=?)"
+        },
+        {
+          "id": 116,
+          "parent": 100,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        },
+        {
+          "id": 125,
+          "parent": 98,
+          "detail": "RIGHT"
+        },
+        {
+          "id": 129,
+          "parent": 125,
+          "detail": "SEARCH xlog_qso_read_projection USING INDEX idx_qso_read_dxcc_live (dxcc_int=?)"
+        },
+        {
+          "id": 140,
+          "parent": 125,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        },
+        {
+          "id": 217,
+          "parent": 0,
+          "detail": "SCAN candidates"
+        },
+        {
+          "id": 220,
+          "parent": 0,
+          "detail": "SEARCH qsos USING INDEX sqlite_autoindex_qsos_1 (local_id=?)"
+        },
+        {
+          "id": 288,
+          "parent": 0,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        }
+      ],
+      "pythonFirstExecuteFetchMs": 731.590875,
+      "pythonExecuteFetch": {
+        "samples": [
+          655.428709,
+          683.48475,
+          663.251292,
+          726.948917,
+          653.651042
+        ],
+        "median": 663.251292,
+        "p95NearestRank": 726.948917,
+        "units": "ms"
+      },
+      "rowsReturned": 12500,
+      "textBlobBytesReturned": 612533,
+      "nativeStepOnly": {
+        "samples": [
+          684.421667,
+          616.034,
+          765.896792,
+          549.473709,
+          624.128084
+        ],
+        "median": 624.128084,
+        "p95NearestRank": 765.896792,
+        "units": "ms"
+      },
+      "nativePrepareBind": {
+        "samples": [
+          0.180833,
+          0.121041,
+          0.222708,
+          0.17725,
+          0.171
+        ],
+        "median": 0.17725,
+        "p95NearestRank": 0.222708,
+        "units": "ms"
+      },
+      "nativeCounters": {
+        "fullscanSteps": 0,
+        "sortOperations": 5,
+        "autoindexRows": 0,
+        "vmSteps": 1425850,
+        "runs": 1,
+        "statementMemoryBytes": 49792
+      },
+      "nativeRowsReturned": 12500,
+      "nativeScanStatus": {
+        "separateSingleCounterRun": true,
+        "rowsReturned": 12500,
+        "loops": [
+          {
+            "loop": 0,
+            "nLoop": 1,
+            "nVisit": 50,
+            "name": "idx_qsos_call_live_nocase",
+            "explain": "SEARCH qsos USING INDEX idx_qsos_call_live_nocase (call=?)"
+          },
+          {
+            "loop": 1,
+            "nLoop": 1,
+            "nVisit": 0,
+            "name": "idx_qsos_call_live_nocase",
+            "explain": "SEARCH qsos USING INDEX idx_qsos_call_live_nocase (call>? AND call<?)"
+          },
+          {
+            "loop": 2,
+            "nLoop": 1,
+            "nVisit": 12500,
+            "name": "idx_qso_read_dxcc_live",
+            "explain": "SEARCH xlog_qso_read_projection USING INDEX idx_qso_read_dxcc_live (dxcc_int=?)"
+          },
+          {
+            "loop": 3,
+            "nLoop": 1,
+            "nVisit": 0,
+            "name": "idx_qso_read_dxcc_live",
+            "explain": "SEARCH xlog_qso_read_projection USING INDEX idx_qso_read_dxcc_live (dxcc_int=?)"
+          },
+          {
+            "loop": 4,
+            "nLoop": 1,
+            "nVisit": 12500,
+            "name": "candidates",
+            "explain": "SCAN candidates"
+          },
+          {
+            "loop": 5,
+            "nLoop": 12500,
+            "nVisit": 12500,
+            "name": "sqlite_autoindex_qsos_1",
+            "explain": "SEARCH qsos USING INDEX sqlite_autoindex_qsos_1 (local_id=?)"
+          }
+        ],
+        "status": "available"
+      }
+    },
+    {
+      "name": "history.country.fullQSO",
+      "owner": "LogbookDatabase.swift:2745 default projection",
+      "sql": "WITH candidates AS (SELECT local_id FROM qsos INDEXED BY idx_qsos_call_live_nocase WHERE deleted_at IS NULL AND call = ? COLLATE NOCASE UNION SELECT local_id FROM qsos INDEXED BY idx_qsos_call_live_nocase WHERE deleted_at IS NULL AND call COLLATE NOCASE LIKE ? ESCAPE '\\' UNION SELECT local_id FROM xlog_qso_read_projection INDEXED BY idx_qso_read_dxcc_live WHERE deleted_at IS NULL AND dxcc_int = ? UNION SELECT local_id FROM xlog_qso_read_projection INDEXED BY idx_qso_read_dxcc_live WHERE deleted_at IS NULL AND dxcc_int IS NULL) SELECT qsos.record_json FROM candidates JOIN qsos USING(local_id) ORDER BY qsos.qso_start DESC",
+      "bindShapes": [
+        {
+          "type": "str",
+          "utf8Bytes": 7
+        },
+        {
+          "type": "str",
+          "utf8Bytes": 9
+        },
+        {
+          "type": "int"
+        }
+      ],
+      "resultKind": "json_records",
+      "explainPlan": [
+        {
+          "id": 2,
+          "parent": 0,
+          "detail": "CO-ROUTINE candidates"
+        },
+        {
+          "id": 4,
+          "parent": 2,
+          "detail": "MERGE (UNION)"
+        },
+        {
+          "id": 6,
+          "parent": 4,
+          "detail": "LEFT"
+        },
+        {
+          "id": 8,
+          "parent": 6,
+          "detail": "MERGE (UNION)"
+        },
+        {
+          "id": 10,
+          "parent": 8,
+          "detail": "LEFT"
+        },
+        {
+          "id": 14,
+          "parent": 10,
+          "detail": "SEARCH qsos USING INDEX idx_qsos_call_live_nocase (call=?)"
+        },
+        {
+          "id": 25,
+          "parent": 10,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        },
+        {
+          "id": 34,
+          "parent": 8,
+          "detail": "RIGHT"
+        },
+        {
+          "id": 38,
+          "parent": 34,
+          "detail": "SEARCH qsos USING INDEX idx_qsos_call_live_nocase (call>? AND call<?)"
+        },
+        {
+          "id": 54,
+          "parent": 34,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        },
+        {
+          "id": 96,
+          "parent": 4,
+          "detail": "RIGHT"
+        },
+        {
+          "id": 98,
+          "parent": 96,
+          "detail": "MERGE (UNION)"
+        },
+        {
+          "id": 100,
+          "parent": 98,
+          "detail": "LEFT"
+        },
+        {
+          "id": 104,
+          "parent": 100,
+          "detail": "SEARCH xlog_qso_read_projection USING INDEX idx_qso_read_dxcc_live (dxcc_int=?)"
+        },
+        {
+          "id": 116,
+          "parent": 100,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        },
+        {
+          "id": 125,
+          "parent": 98,
+          "detail": "RIGHT"
+        },
+        {
+          "id": 129,
+          "parent": 125,
+          "detail": "SEARCH xlog_qso_read_projection USING INDEX idx_qso_read_dxcc_live (dxcc_int=?)"
+        },
+        {
+          "id": 140,
+          "parent": 125,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        },
+        {
+          "id": 217,
+          "parent": 0,
+          "detail": "SCAN candidates"
+        },
+        {
+          "id": 220,
+          "parent": 0,
+          "detail": "SEARCH qsos USING INDEX sqlite_autoindex_qsos_1 (local_id=?)"
+        },
+        {
+          "id": 232,
+          "parent": 0,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        }
+      ],
+      "pythonFirstExecuteFetchMs": 152.867542,
+      "pythonExecuteFetch": {
+        "samples": [
+          163.093333,
+          190.587625,
+          193.92225,
+          156.364042,
+          133.870209
+        ],
+        "median": 163.093333,
+        "p95NearestRank": 193.92225,
+        "units": "ms"
+      },
+      "rowsReturned": 12500,
+      "textBlobBytesReturned": 11986216,
+      "pythonJSONDecode": {
+        "samples": [
+          162.745667,
+          475.285375,
+          330.137667,
+          193.542625,
+          226.177083
+        ],
+        "median": 226.177083,
+        "p95NearestRank": 475.285375,
+        "units": "ms"
+      },
+      "decodedRows": 12500,
+      "nativeStepOnly": {
+        "samples": [
+          175.954083,
+          157.087208,
+          132.716458,
+          135.469541,
+          138.048917
+        ],
+        "median": 138.048917,
+        "p95NearestRank": 175.954083,
+        "units": "ms"
+      },
+      "nativePrepareBind": {
+        "samples": [
+          0.109042,
+          0.170167,
+          0.129417,
+          0.113,
+          0.111583
+        ],
+        "median": 0.113,
+        "p95NearestRank": 0.170167,
+        "units": "ms"
+      },
+      "nativeCounters": {
+        "fullscanSteps": 0,
+        "sortOperations": 5,
+        "autoindexRows": 0,
+        "vmSteps": 638332,
+        "runs": 1,
+        "statementMemoryBytes": 43632
+      },
+      "nativeRowsReturned": 12500,
+      "nativeScanStatus": {
+        "separateSingleCounterRun": true,
+        "rowsReturned": 12500,
+        "loops": [
+          {
+            "loop": 0,
+            "nLoop": 1,
+            "nVisit": 50,
+            "name": "idx_qsos_call_live_nocase",
+            "explain": "SEARCH qsos USING INDEX idx_qsos_call_live_nocase (call=?)"
+          },
+          {
+            "loop": 1,
+            "nLoop": 1,
+            "nVisit": 0,
+            "name": "idx_qsos_call_live_nocase",
+            "explain": "SEARCH qsos USING INDEX idx_qsos_call_live_nocase (call>? AND call<?)"
+          },
+          {
+            "loop": 2,
+            "nLoop": 1,
+            "nVisit": 12500,
+            "name": "idx_qso_read_dxcc_live",
+            "explain": "SEARCH xlog_qso_read_projection USING INDEX idx_qso_read_dxcc_live (dxcc_int=?)"
+          },
+          {
+            "loop": 3,
+            "nLoop": 1,
+            "nVisit": 0,
+            "name": "idx_qso_read_dxcc_live",
+            "explain": "SEARCH xlog_qso_read_projection USING INDEX idx_qso_read_dxcc_live (dxcc_int=?)"
+          },
+          {
+            "loop": 4,
+            "nLoop": 1,
+            "nVisit": 12500,
+            "name": "candidates",
+            "explain": "SCAN candidates"
+          },
+          {
+            "loop": 5,
+            "nLoop": 12500,
+            "nVisit": 12500,
+            "name": "sqlite_autoindex_qsos_1",
+            "explain": "SEARCH qsos USING INDEX sqlite_autoindex_qsos_1 (local_id=?)"
+          }
+        ],
+        "status": "available"
+      }
+    },
+    {
+      "name": "statistics.coldAggregate",
+      "owner": "LogbookDatabase.swift:3094",
+      "sql": "SELECT COUNT(*), COUNT(DISTINCT CASE WHEN json_dxcc IS NOT NULL THEN json_dxcc END),SUM(CASE WHEN json_qsl IN ('Y','V') OR json_lotw IN ('Y','V') THEN 1 ELSE 0 END), SUM(CASE WHEN qso_start >= ? THEN 1 ELSE 0 END) FROM xlog_qso_read_projection WHERE deleted_at IS NULL",
+      "bindShapes": [
+        {
+          "type": "float"
+        }
+      ],
+      "resultKind": "scalar",
+      "explainPlan": [
+        {
+          "id": 3,
+          "parent": 0,
+          "detail": "USE TEMP B-TREE FOR count(DISTINCT)"
+        },
+        {
+          "id": 6,
+          "parent": 0,
+          "detail": "SCAN xlog_qso_read_projection USING INDEX idx_qso_read_start_live"
+        }
+      ],
+      "pythonFirstExecuteFetchMs": 267.540333,
+      "pythonExecuteFetch": {
+        "samples": [
+          227.563709,
+          236.526667,
+          218.932791,
+          230.943334,
+          320.662459
+        ],
+        "median": 230.943334,
+        "p95NearestRank": 320.662459,
+        "units": "ms"
+      },
+      "rowsReturned": 1,
+      "textBlobBytesReturned": 0,
+      "nativeStepOnly": {
+        "samples": [
+          697.75375,
+          384.656125,
+          344.977958,
+          303.459209,
+          281.977084
+        ],
+        "median": 344.977958,
+        "p95NearestRank": 697.75375,
+        "units": "ms"
+      },
+      "nativePrepareBind": {
+        "samples": [
+          0.284708,
+          0.074542,
+          0.194,
+          0.123,
+          0.121791
+        ],
+        "median": 0.123,
+        "p95NearestRank": 0.284708,
+        "units": "ms"
+      },
+      "nativeCounters": {
+        "fullscanSteps": 99999,
+        "sortOperations": 0,
+        "autoindexRows": 0,
+        "vmSteps": 2100044,
+        "runs": 1,
+        "statementMemoryBytes": 9568
+      },
+      "nativeRowsReturned": 1,
+      "nativeScanStatus": {
+        "separateSingleCounterRun": true,
+        "rowsReturned": 1,
+        "loops": [
+          {
+            "loop": 0,
+            "nLoop": 1,
+            "nVisit": 100000,
+            "name": "idx_qso_read_start_live",
+            "explain": "SCAN xlog_qso_read_projection USING INDEX idx_qso_read_start_live"
+          }
+        ],
+        "status": "available"
+      }
+    },
+    {
+      "name": "awards.progress.coldProjection",
+      "owner": "LogbookDatabase.swift:3284",
+      "sql": "SELECT (UPPER(COALESCE(json_qsl,'')) IN ('Y','V') OR UPPER(COALESCE(json_lotw,'')) IN ('Y','V')), CAST(json_dxcc AS INTEGER), CAST(json_cq_zone AS INTEGER), UPPER(TRIM(COALESCE(json_state,''))), CASE WHEN LENGTH(TRIM(COALESCE(json_grid,''))) >= 4 THEN UPPER(SUBSTR(TRIM(json_grid),1,4)) END,CASE WHEN UPPER(COALESCE(NULLIF(json_submode,''), mode)) = 'CW' THEN 'CW' WHEN UPPER(COALESCE(NULLIF(json_submode,''), mode)) IN ('SSB','USB','LSB','AM','FM') THEN 'Phone' ELSE 'Digital' END, COALESCE(NULLIF(LOWER(band),''),'Unknown'), COALESCE(NULLIF(UPPER(TRIM(json_continent)),''),'Unknown'), STRFTIME('%Y', qso_start, 'unixepoch') FROM xlog_qso_read_projection WHERE deleted_at IS NULL",
+      "bindShapes": [],
+      "resultKind": "award_progress_rows",
+      "explainPlan": [
+        {
+          "id": 3,
+          "parent": 0,
+          "detail": "SCAN xlog_qso_read_projection USING INDEX idx_qso_read_start_live"
+        }
+      ],
+      "pythonFirstExecuteFetchMs": 483.816167,
+      "pythonExecuteFetch": {
+        "samples": [
+          514.49075,
+          567.976375,
+          576.869458,
+          550.611875,
+          489.586708
+        ],
+        "median": 550.611875,
+        "p95NearestRank": 576.869458,
+        "units": "ms"
+      },
+      "rowsReturned": 100000,
+      "textBlobBytesReturned": 1866664,
+      "nativeStepOnly": {
+        "samples": [
+          402.9905,
+          433.154417,
+          338.692583,
+          459.513542,
+          387.827792
+        ],
+        "median": 402.9905,
+        "p95NearestRank": 459.513542,
+        "units": "ms"
+      },
+      "nativePrepareBind": {
+        "samples": [
+          0.065167,
+          0.136833,
+          0.066917,
+          0.077375,
+          0.072333
+        ],
+        "median": 0.072333,
+        "p95NearestRank": 0.136833,
+        "units": "ms"
+      },
+      "nativeCounters": {
+        "fullscanSteps": 99999,
+        "sortOperations": 0,
+        "autoindexRows": 0,
+        "vmSteps": 7033361,
+        "runs": 1,
+        "statementMemoryBytes": 21904
+      },
+      "nativeRowsReturned": 100000,
+      "nativeScanStatus": {
+        "separateSingleCounterRun": true,
+        "rowsReturned": 100000,
+        "loops": [
+          {
+            "loop": 0,
+            "nLoop": 1,
+            "nVisit": 100000,
+            "name": "idx_qso_read_start_live",
+            "explain": "SCAN xlog_qso_read_projection USING INDEX idx_qso_read_start_live"
+          }
+        ],
+        "status": "available"
+      }
+    },
+    {
+      "name": "awards.globalEvidence.all",
+      "owner": "LogbookDatabase.swift:3475",
+      "sql": "SELECT json_extract(record_json,'$.id','$.call','$.start','$.band','$.mode','$.submode','$.dxcc','$.continent','$.cqZone','$.state','$.gridSquare','$.myCall','$.myGrid','$.stationLocation','$.iota','$.potaReference','$.sotaReference','$.wwffReference','$.qslReceived','$.lotwReceived','$.extraFields','$.sig','$.sigInfo','$.operatorCall','$.propagationMode'), CASE WHEN instr(record_json,'\\u0000')>0 THEN record_json END FROM qsos WHERE deleted_at IS NULL ORDER BY qso_start DESC,local_id ASC",
+      "bindShapes": [],
+      "resultKind": "json_arrays",
+      "explainPlan": [
+        {
+          "id": 4,
+          "parent": 0,
+          "detail": "SCAN qsos USING INDEX idx_qsos_live_order"
+        }
+      ],
+      "pythonFirstExecuteFetchMs": 1242.952208,
+      "pythonExecuteFetch": {
+        "samples": [
+          1194.636208,
+          1331.034583,
+          1310.395708,
+          1298.28325,
+          1205.650333
+        ],
+        "median": 1298.28325,
+        "p95NearestRank": 1331.034583,
+        "units": "ms"
+      },
+      "rowsReturned": 100000,
+      "textBlobBytesReturned": 31750132,
+      "pythonJSONDecode": {
+        "samples": [
+          645.348333,
+          1187.273542,
+          1834.80925,
+          1104.601875,
+          1078.184625
+        ],
+        "median": 1104.601875,
+        "p95NearestRank": 1834.80925,
+        "units": "ms"
+      },
+      "decodedRows": 100000,
+      "nativeStepOnly": {
+        "samples": [
+          1783.868875,
+          2573.960875,
+          1461.070542,
+          1335.684583,
+          1326.666541
+        ],
+        "median": 1461.070542,
+        "p95NearestRank": 2573.960875,
+        "units": "ms"
+      },
+      "nativePrepareBind": {
+        "samples": [
+          0.061792,
+          0.104917,
+          0.091042,
+          0.101417,
+          0.064292
+        ],
+        "median": 0.091042,
+        "p95NearestRank": 0.104917,
+        "units": "ms"
+      },
+      "nativeCounters": {
+        "fullscanSteps": 99999,
+        "sortOperations": 0,
+        "autoindexRows": 0,
+        "vmSteps": 900036,
+        "runs": 1,
+        "statementMemoryBytes": 15088
+      },
+      "nativeRowsReturned": 100000,
+      "nativeScanStatus": {
+        "separateSingleCounterRun": true,
+        "rowsReturned": 100000,
+        "loops": [
+          {
+            "loop": 0,
+            "nLoop": 1,
+            "nVisit": 100000,
+            "name": "idx_qsos_live_order",
+            "explain": "SCAN qsos USING INDEX idx_qsos_live_order"
+          }
+        ],
+        "status": "available"
+      }
+    }
+  ],
+  "limits": [
+    "Synthetic retained100k fixture; no production records",
+    "No database schema changes or write PRAGMA tuning",
+    "Python sqlite and native libsqlite measured separately, not signed-worker timings",
+    "Python fetchall/JSON allocations differ from Swift decoding",
+    "Native step loop includes Python ctypes crossing and row iteration; no column materialization",
+    "stmtstatus fullscansteps/sorts/autindex/vmsteps available; supported native per-loop NLOOP/NVISIT collected separately once, not included in timing samples",
+    "Python repeats follow recorded first run; native repeats follow one unmeasured warm-up; no disk cache eviction",
+    "Global aggregation SQL bypasses application memoized/persisted cache; does not establish repeated UI scans",
+    "No concurrency, lockwait/WALgrowth or cancellation measurement",
+    "p95 nearest-rank of5 is max, small sample indicative only"
+  ],
+  "generatedCommentVerification": {
+    "comment": 100000
+  },
+  "sourceProvenance": {
+    "release": "1.5.15",
+    "sourceCommit": "1873dc1d1c4d1aa95b44d07f7af0482417680f5f",
+    "attribution": "parent-provided baseline worker run; independently verified generated fixture marker and projection schema, not binary provenance"
+  }
+}
