@@ -15,6 +15,10 @@ tools/diagnostics/*.patch text eol=lf whitespace=-blank-at-eol
 # HM Control verifies exact asset bytes and adapts LF-delimited pinned source.
 prototype/public/hm-control-assets/** -text
 prototype/vendor/ham-mission-control/** -text
+# The adapter regenerates these tracked outputs with LF on every platform.
+prototype/hm-control/dashboard.css text eol=lf
+prototype/hm-control/dashboard.js text eol=lf
+prototype/hm-control/index.html text eol=lf
 
 # Historical diagnostic snapshots are retained in the repository for audit,
 # but are not part of downloadable source distributions or release payloads.
