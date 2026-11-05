@@ -1,4 +1,5 @@
 import Foundation
+import Dispatch
 import XClusterIntegrationCore
 #if canImport(XLogCore)
 import XLogCore
@@ -95,6 +96,21 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         var applied: [Int: Int] = [:]
     }
     private var adifPreview: ADIFPreviewSession?
+    private let transferSessionLifetime: TimeInterval
+    private let transferSessionNow: @Sendable () -> Date
+    private var transferSessionTimer: DispatchSourceTimer?
+    var beforeTransferSessionUseForTesting: (@Sendable () -> Void)?
+    var transferSessionsDidExpireForTesting: (@Sendable () -> Void)?
+
+    var retainedTransferSessionTokensForTesting: [String: String] {
+        lock.withLock {
+            var tokens: [String: String] = [:]
+            if let session = adifPreview { tokens["import"] = session.token }
+            if let session = adifExport { tokens["export"] = session.token }
+            if let session = potaExport { tokens["pota"] = session.token }
+            return tokens
+        }
+    }
 
     public convenience init(fileManager: FileManager = .default, supportDirectory: URL? = nil,
                             inheritNativePreferences: Bool = true) {
@@ -104,16 +120,79 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
 
     init(fileManager: FileManager = .default, supportDirectory: URL? = nil,
          inheritNativePreferences: Bool = true, runtimeProfile: AppRuntimeProfile,
-         aggregateReadPhaseObserver: (@Sendable (String) -> Void)? = nil) {
+         aggregateReadPhaseObserver: (@Sendable (String) -> Void)? = nil,
+         transferSessionLifetime: TimeInterval = 300,
+         transferSessionNow: @escaping @Sendable () -> Date = { Date() }) {
         self.fileManager = fileManager
         self.inheritNativePreferences = inheritNativePreferences
         self.runtimeProfile = runtimeProfile
         self.aggregateReadPhaseObserver = aggregateReadPhaseObserver
+        self.transferSessionLifetime = transferSessionLifetime
+        self.transferSessionNow = transferSessionNow
         self.supportDirectory = supportDirectory ?? fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
+    }
+
+    deinit { transferSessionTimer?.cancel() }
+
+    /// The same lock spans every preview/update/read and its payload use. A
+    /// deadline or explicit retire cannot release an owner during that use.
+    @discardableResult
+    private func expireTransferSessionsLocked() -> Bool {
+        let now = transferSessionNow()
+        var expired = false
+        if let session = adifPreview, now.timeIntervalSince(session.created) >= transferSessionLifetime {
+            adifPreview = nil; expired = true
+        }
+        if let session = adifExport, now.timeIntervalSince(session.created) >= transferSessionLifetime {
+            adifExport = nil; potaExport = nil; expired = true
+        }
+        return expired
+    }
+
+    private func scheduleTransferSessionExpiryLocked() {
+        let created = [adifPreview?.created, adifExport?.created].compactMap { $0 }.min()
+        guard let created else {
+            transferSessionTimer?.cancel(); transferSessionTimer = nil
+            return
+        }
+        let deadline = DispatchTime.now() + max(0.001, created.addingTimeInterval(transferSessionLifetime).timeIntervalSince(transferSessionNow()))
+        if let timer = transferSessionTimer { timer.schedule(deadline: deadline) }
+        else {
+            let timer = DispatchSource.makeTimerSource(queue: .global(qos: .utility))
+            timer.setEventHandler { [weak self] in self?.expireTransferSessions() }
+            timer.schedule(deadline: deadline)
+            transferSessionTimer = timer
+            timer.resume()
+        }
+    }
+
+    /// Also permits a deterministic clock advance in ownership regressions.
+    func expireTransferSessions() {
+        lock.withLock {
+            let expired = expireTransferSessionsLocked()
+            scheduleTransferSessionExpiryLocked()
+            if expired { transferSessionsDidExpireForTesting?() }
+        }
+    }
+
+    private func retireTransferSession(importing: Bool, params: [String: Any]) throws -> [String: Any] {
+        try requireKeys(params, allowed: ["action", "token", "generation"], required: ["action", "token", "generation"])
+        guard let token = params["token"] as? String, UUID(uuidString: token) != nil,
+              let generation = params["generation"] as? String, UUID(uuidString: generation) != nil else { throw invalid() }
+        let retired: Bool
+        if importing {
+            retired = adifPreview?.token == token && adifPreview?.generation == generation
+            if retired { adifPreview = nil }
+        } else {
+            retired = adifExport?.token == token && adifExport?.generation == generation
+            if retired { adifExport = nil; potaExport = nil }
+        }
+        scheduleTransferSessionExpiryLocked()
+        return ["retired": retired]
     }
 
     private var nativeDatabaseURL: URL {
@@ -450,7 +529,8 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                     guard query.selectionCount == nil || query.selectionCount == value.contacts.count else { throw WorkerFailure("export_selection_changed","A selected contact is no longer available. Select it again.") }
                     let token=UUID().uuidString
                     guard let snapshot=exportSnapshot, snapshot.records.count == value.contacts.count else { throw LogbookDatabaseError.corruptRecord }
-                    adifExport=(token,owner.generation,Date(),snapshot); potaExport=nil
+                    adifExport=(token,owner.generation,transferSessionNow(),snapshot); potaExport=nil
+                    scheduleTransferSessionExpiryLocked()
                     response=["token":token,"total":snapshot.records.count]
                 } else {
                     response = ["qsos": try json(value.contacts), "total": value.total, "offset": query.offset,
@@ -1597,6 +1677,9 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 return ["cells": cells.map { ["band": $0.band, "mode": $0.mode,
                                                 "worked": $0.worked, "confirmed": $0.confirmed] }]
             case "logbook_import_adif":
+                expireTransferSessionsLocked()
+                defer { scheduleTransferSessionExpiryLocked() }
+                if params["action"] as? String == "retire" { return try retireTransferSession(importing: true, params: params) }
                 if params["action"] as? String == "preview" {
                     try requireKeys(params, allowed: ["action", "text", "token", "generation", "chunk", "fieldMetadata"], required: ["action", "text"])
                     guard let text = params["text"] as? String else { throw invalid() }
@@ -1616,7 +1699,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                         let existing = try readyDatabase().fetchAll()
                         let formatter = ISO8601DateFormatter()
                         adifPreview = ADIFPreviewSession(token: UUID().uuidString, generation: generation,
-                                                        created: Date(), index: ADIFDuplicatePreviewIndex(existing: existing),
+                                                        created: transferSessionNow(), index: ADIFDuplicatePreviewIndex(existing: existing),
                                                         existingByIdentity: Dictionary(grouping: existing, by: { qso in
                             SemanticQSOIdentity(call: qso.call, timestamp: formatter.string(from: qso.start), band: qso.band,
                                                 mode: qso.submode.isEmpty ? qso.mode : qso.submode)
@@ -1625,7 +1708,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                         guard params["token"] as? String == adifPreview?.token,
                               params["generation"] as? String == generation,
                               adifPreview?.generation == generation,
-                              let created = adifPreview?.created, Date().timeIntervalSince(created) < 300 else {
+                              let created = adifPreview?.created, transferSessionNow().timeIntervalSince(created) < transferSessionLifetime else {
                             throw WorkerFailure("preview_expired", "The preview expired or the workspace changed. Review the file again.")
                         }
                     }
@@ -1673,7 +1756,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                     guard params["confirmed"] as? Bool == true else { throw invalid() }
                     guard var session = adifPreview, params["token"] as? String == session.token,
                           params["generation"] as? String == session.generation, try editGeneration() == session.generation,
-                          Date().timeIntervalSince(session.created) < 300 else {
+                          transferSessionNow().timeIntervalSince(session.created) < transferSessionLifetime else {
                         throw WorkerFailure("preview_expired", "The preview expired or the workspace changed. Review the file again.")
                     }
                     guard let raw = params["fields"] as? [String], (1...ADIFImportPlan.editableFields.count).contains(raw.count),
@@ -1714,6 +1797,9 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 let imported = try readyDatabase().importBatch(qsos)
                 return ["imported": imported, "skipped_duplicates": qsos.count - imported]
             case "logbook_export_adif":
+                expireTransferSessionsLocked()
+                defer { scheduleTransferSessionExpiryLocked() }
+                if params["action"] as? String == "retire" { return try retireTransferSession(importing: false, params: params) }
                 if let action = params["action"] as? String {
                     if action == "begin" {
                         return try synchronousAggregate(method:method,params:params)
@@ -1724,9 +1810,10 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                     guard action == "read" else { throw invalid() }
                     try requireKeys(params, allowed: ["action", "token", "offset", "limit"], required: ["action", "token"])
                     guard let export = adifExport, params["token"] as? String == export.token,
-                          export.generation == (try editGeneration()), Date().timeIntervalSince(export.created) < 300 else {
+                          export.generation == (try editGeneration()), transferSessionNow().timeIntervalSince(export.created) < transferSessionLifetime else {
                         throw WorkerFailure("export_expired", "The export snapshot expired or the workspace changed. Start the export again.")
                     }
+                    beforeTransferSessionUseForTesting?()
                     let offset = try integer(params, "offset", default: 0, range: 0...Int(Int32.max))
                     let limit = try integer(params, "limit", default: 20, range: 1...25)
                     let records = export.snapshot.records.dropFirst(offset).prefix(limit)
@@ -2864,7 +2951,7 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
 
     private func potaExportAction(_ action: String, params: [String: Any]) throws -> [String: Any] {
         guard let export = adifExport, params["token"] as? String == export.token,
-              export.generation == (try editGeneration()), Date().timeIntervalSince(export.created) < 300 else {
+              export.generation == (try editGeneration()), transferSessionNow().timeIntervalSince(export.created) < transferSessionLifetime else {
             throw WorkerFailure("export_expired", "The export snapshot expired or the workspace changed. Preview again.")
         }
         func file(_ value: POTAExportFile) -> [String: Any] {

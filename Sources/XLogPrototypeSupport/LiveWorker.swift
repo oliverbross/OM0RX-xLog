@@ -814,7 +814,7 @@ public actor LiveWorker {
                     && result["status"] as? String == "applied" && result["replayed"] as? Bool != true
                 let contactChanged = (method == "logbook_contact_apply" && result["status"] as? String == "applied") || countryChanged
                 if method == "settings_save" { await references.resetAutomaticDeadline() }
-                let imported = method == "logbook_import_adif" && params["action"] as? String != "preview"
+                let imported = method == "logbook_import_adif" && !["preview", "retire"].contains(params["action"] as? String ?? "")
                 if draftLogged || contactChanged || imported || ["logbook_save", "logbook_delete", "logbook_undo"].contains(method) {
                     await aggregateReads.observeContactChange()
                 }
