@@ -18,8 +18,8 @@ and physical evidence remain separate.
 | Q03 | Installer defaults/payload PASS; restore repair native PASS; successor package pending | Both 1.5.20 scopes passed real defaults without `/D`, hives, shortcuts and all 3,270 payload hashes, then failed before installed GUI/uninstall. [Controlled diagnostics](windows-local-self-test-diagnosis.md) reproduce TEMP sensitivity and identify the long reference-directory rollback move. Repair `d2d22afb` passed [19 XCTest + 17 Swift Testing cases](ci-windows-restore-boundary-fixed.md); the four unchanged failed regressions now pass, including preserved data and rollback. Qualify 1.5.21 at the original defaults/nested TEMP, then GUI/uninstall/retention. Original 1.5.20 failures and [ordinary-user/UAC/upgrade cells](../../WINDOWS_INSTALLER_SCOPES.md) remain open. |
 | Q04 | Hidden observer repair verified; per-feature package counters OPEN | `5fac0a06` + `afdef570`: hidden disarmed dispatches 40→0/30s in the focused fixture, holder heartbeat preserved, context-churn starvation corrected; 21 tests and TypeScript pass. [CW counters](runtime-cw-polling.md), [native lifecycle inventory](background-ledger.md), [desktop CPU/wakeup observations](desktop-idle-counters-1.5.18.md). Process counters do not attribute a specific timer. |
 | Q05 | POTA repair and baselines verified; snapshot lifetime OPEN | `1ab1f647`: cumulative POTA byte construction 3.807 GB→6.75 MB per synthetic transfer; exact Unicode/multi-park service checks pass. [POTA](runtime-pota-chunks.md), [SQL](sql-baseline.md), [signed 100k workflows](worker-workflows-1.5.18.md). [1.5.19 lifetime observations](preview-export-lifetime-1.5.19.md) identify ~525 MiB allocated preview/export structures and a 559.11 MiB footprint after expiry rejection; 20 cycles were nonmonotonic. The harness's wrong error-code assertion and missing replacement sample are explicit. GUI close/release policy and visible-save latency remain open. No schema/durability tuning. |
-| Q06 | 1.5.20 Mac/Linux bounded native PASS; Windows portable PASS, installed FAIL | [Mac native](native-1.5.20.md) and [original all-platform/runtime gate](ci-1.5.20-original.md) record actual 1.5.20 packages. Linux four embedded UI launches and portable Windows two per fresh host passed. Windows installed local-logbook self-test failed before GUI/uninstall. Ordinary desktops, equipment and physical hardware remain NOT RUN. Browser/component tests cannot close those cells. |
-| Q07 | 1.5.20 HELD; 1.5.21 preparation; phase OPEN | [1.5.16](native-1.5.16.md) found first-contact default loss; [1.5.17](native-1.5.17.md) exposed the editor-input race. [1.5.18](ci-1.5.18-original.md) failed Windows provenance preflight; [1.5.19](ci-1.5.19-original.md) exposed the QTC first-click reset repaired in `7798da53`. [Original 1.5.20 gate](ci-1.5.20-original.md) passed all three builds/5,225 frontend tests each plus bounded Linux and local signed Mac acceptance, but failed both Windows installed scopes. The [native Windows restore repair](ci-windows-restore-boundary-fixed.md) now passes source tests; successor 1.5.21 requires its own frozen source, packages and native acceptance. No fixture, count or deadline was relaxed. Old receipts remain scoped to their bytes. No daily install or public release. |
+| Q06 | 1.5.21 Mac native PASS; Linux X11 PASS, Wayland QA branch FAIL; Windows retry pending | [Signed Mac native](native-1.5.21.md) passes the recorded offline journey and ADIF. [Linux runtime-only](ci-1.5.21-linux-runtime.md) uses original frozen package bytes: three X11 journeys pass 36 checks each; nested Wayland times out at a valid stale-layout recovery alert ignored by its bundled acceptance code. Source-only correction `cc2149ab` passes 89 affected tests/TypeScript but needs a newly versioned package; the failed receipt remains. Ordinary desktops, equipment and physical hardware remain NOT RUN. |
+| Q07 | Signed/frozen 1.5.21 HELD; phase OPEN | Source `b0d6a93c314bfa2f24036121acd7b4a42ecdd173`; [candidate provenance](../../releases/v1.5.21-quality-candidate.md). [Original 1.5.21 gate](ci-1.5.21-original.md) passed Mac/Linux builds but Windows dependency download failed before app compilation. Ordinary CI attempt 2 passed after a service-capacity failure. Portability remains five passed jobs plus two unexecuted macOS service cancellations; retry APIs failed without a new attempt. Windows-only retry is separate; Linux Wayland remains failed. [1.5.16](native-1.5.16.md), [1.5.17](native-1.5.17.md), [1.5.18](ci-1.5.18-original.md), [1.5.19](ci-1.5.19-original.md) and [1.5.20](ci-1.5.20-original.md) keep their original failures and artifact boundaries. No fixture, count or deadline was relaxed. No daily install or public release. |
 
 ## Preservation baseline
 
@@ -42,23 +42,24 @@ private launch proofs stay outside Git.
 
 ## Qualification matrix
 
-Cells name the measured build/profile. Candidate 1.5.20 Mac and bounded Linux
-native checks pass. Its original gate failed both Windows installed-scope
-self-tests after portable/default-path partial passes. Earlier worker and
-platform measurements retain their original artifacts, source and limits.
+Cells name the measured build/profile. Candidate 1.5.21 passes the recorded Mac
+native journey and three Linux X11 journeys. Its nested Wayland acceptance
+failed at an unhandled explicit layout-recovery branch. Windows retry outcomes
+are reconciled separately from the original dependency download failure.
+Earlier measurements retain their original artifacts, source and limits.
 
 | Journey | macOS arm64 | Windows x64 | Linux x64 |
 |---|---|---|---|
 | Current installed process memory | PASS: numeric native capture; incomplete WebKit ownership | NOT RUN | NOT RUN |
 | Released-worker repeated health / EOF | PASS on private empty fixture; growth reproduced | NOT RUN | NOT RUN |
 | New packaged worker memory / EOF | PASS: [signed 1.5.19 empty/100k/representative](memory-signed-1.5.19.md); full desktop budget open | NOT RUN | NOT RUN |
-| Native packaged skip setup → logging → restart | PASS: [1.5.20 offline journey](native-1.5.20.md), including first-save defaults/37 W, Unicode edit, native menu/Close guards and ADIF; earlier failures retained | [1.5.20 portable hosted](ci-1.5.20-original.md) PASS: two scripted embedded UI launches per host; installed GUI NOT REACHED after worker self-test FAIL | PASS in [1.5.20 non-root runtime container](ci-1.5.20-original.md): four scripted embedded UI launches; ordinary desktop NOT RUN |
+| Native packaged skip setup → logging → restart | PASS: [1.5.21 offline journey](native-1.5.21.md), including first-save defaults/37 W, Unicode edit, native menu/Close guards and ADIF; earlier failures retained | 1.5.21 retry pending; [1.5.20 portable hosted](ci-1.5.20-original.md) passed, installed GUI NOT REACHED after self-test FAIL | [1.5.21 non-root runtime container](ci-1.5.21-linux-runtime.md): three X11 embedded UI journeys PASS; nested Wayland FAIL at bundled QA recovery branch; ordinary desktop NOT RUN |
 | Native radio / rotor Browse → Save → restart | NOT RUN | NOT RUN | NOT RUN |
 | Hosted silent defaults / registry / shortcuts / installed payload | N/A | PASS partial: both 1.5.20 scopes at real defaults without `/D`; installed worker self-test FAIL, GUI/uninstall NOT REACHED | N/A |
 | Just me default path / no-admin / UAC cancellation | N/A | NOT RUN | N/A |
 | All users Program Files / ordinary first launch | N/A | NOT RUN | N/A |
 | Same-scope upgrade / cross-scope transition / uninstall retention | NOT RUN | NOT RUN | NOT RUN |
-| Native keyboard setup / clipboard / menu and Close guards | PASS within [1.5.20 recorded journey](native-1.5.20.md) | NOT RUN on ordinary desktop | NOT RUN on real desktop |
+| Native keyboard setup / clipboard / menu and Close guards | PASS within [1.5.21 recorded journey](native-1.5.21.md) | NOT RUN on ordinary desktop | NOT RUN on real desktop |
 | Scaling / multiple displays / native device permissions | NOT RUN | NOT RUN | NOT RUN |
 | Physical radio / rotor / audio / RF | NOT RUN | NOT RUN | NOT RUN |
 

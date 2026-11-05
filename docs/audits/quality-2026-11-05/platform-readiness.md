@@ -1,10 +1,15 @@
 # Platform scope and remaining acceptance
 
-This is the Q06 readiness contract. Successor 1.5.20, source
-`3d9cb0981c30764f1188db350ffebc22a5f328a7`, passed the local signed Mac journey;
-its [original all-platform gate](ci-1.5.20-original.md) passed builds/Linux native
-runtime but failed both Windows installed local-logbook self-tests after
-portable/default-path partial passes. Candidate 1.5.20 is HELD. Measured 1.5.19 has
+This is the Q06 readiness contract. Current candidate 1.5.21, source
+`b0d6a93c314bfa2f24036121acd7b4a42ecdd173`, passed the local signed Mac journey.
+Its [original gate](ci-1.5.21-original.md) passed Mac/Linux builds but failed
+Windows dependency acquisition before application compilation. Separate
+[Linux runtime-only acceptance](ci-1.5.21-linux-runtime.md) passed three X11
+journeys and failed nested Wayland at a bundled acceptance recovery branch.
+Windows-only package retry outcomes remain separate. Candidate 1.5.21 is HELD.
+Historical 1.5.20 source `3d9cb0981c30764f1188db350ffebc22a5f328a7`
+passed Mac/Linux checks but failed both installed Windows self-tests; its
+failure is preserved. Measured 1.5.19 has
 frozen source `72a5926c2878ceedf70789ff4bae619ae5e14511`; its cross-platform
 gate failed Windows frontend before packaging.
 Earlier 1.5.18 receipts retain source `0b7c669663841c2e55569b0c21c76ad03805cad7`
@@ -13,9 +18,9 @@ ordinary desktop journey is qualified. Older P1 runtime receipts remain historic
 
 | Target | Runtime / distribution | Current qualification boundary |
 |---|---|---|
-| macOS arm64, macOS 14+ | System WKWebView; app ZIP; bundled native worker, Python and Hamlib | Signed local 1.5.20 on macOS 27.2 build 26B123; [recorded offline journey PASS](native-1.5.20.md). Minimum-OS, physical station, full screen/scaling/multiple-display, notarization and complete memory budget unqualified. |
+| macOS arm64, macOS 14+ | System WKWebView; app ZIP; bundled native worker, Python and Hamlib | Signed local 1.5.21 on macOS 27.2 build 26B123; [recorded offline journey and ADIF PASS](native-1.5.21.md), including first-save own fields/37 W before editing and restart. Failed CLI checker attempts remain preserved. Minimum-OS, physical station, full screen/scaling/multiple-display, notarization and complete memory budget unqualified. |
 | Windows x64, intended Windows 11 | Evergreen WebView2; portable ZIP plus separate current-user and all-users NSIS installers; app-local worker/Swift/SQLite/Hamlib/Python | Hosted 1.5.20 Server 2022 portable native checks PASS; real silent defaults/hives/shortcuts/payload PASS, installed local-logbook self-test FAIL before GUI/uninstall. WebView2 registry version 131.0.2903.86 is recorded separately from active-engine proof. Ordinary Windows 11 account, UAC, prerequisites, upgrades and physical station remain NOT RUN. |
-| Ubuntu 24.04 amd64 | WebKitGTK 4.1 / GTK3; DEB plus relocatable archive; bundled worker/Swift/Hamlib and declared OS Python 3.12 | 1.5.20 runtime-only container PASS: non-root, four embedded UI launches across Xvfb/nested Wayland and relocation; WebKitGTK 2.52.6. Real desktop/GPU/session remains separate. Other distributions and architectures are not accepted here. |
+| Ubuntu 24.04 amd64 | WebKitGTK 4.1 / GTK3; DEB plus relocatable archive; bundled worker/Swift/Hamlib and declared OS Python 3.12 | 1.5.21 original package bytes: three X11 embedded UI journeys PASS; nested Wayland FAIL after five checks because bundled QA ignored explicit stale-layout Reload recovery. A source-only harness correction needs a newly versioned package before requalification. Historical 1.5.20 passed all four launches. Real desktop/GPU/session remains separate. Other distributions and architectures are not accepted here. |
 
 Linux runtime dependencies are maintained in the canonical
 [`linux-runtime-dependencies.txt`](../../../prototype/scripts/linux-runtime-dependencies.txt),
@@ -44,6 +49,7 @@ physical operation are separate evidence cells.
 | P1 Windows packaging | Q03 standard-user and Program Files acceptance | Execute the [scope matrix](../../WINDOWS_INSTALLER_SCOPES.md#q03-acceptance-ledger) on fresh Windows 11 snapshots. Record paths without `/D`, token/elevation, UAC approve/cancel, prerequisite outcome, both hives/shortcuts, upgrade/rollback, retained workspace/external media and a second user. |
 | P1 Windows runtime | Installed local-logbook self-test | [Paired unchanged-worker diagnostics](ci-1.5.20-windows-diagnostic-paired.md) reproduce TEMP-root sensitivity; RPC and [four failed native regressions](ci-windows-restore-boundary-baseline.md) identify the reference-directory rollback rename at 262–266 UTF-16 units. Repair `d2d22afb` passed [19 XCTest + 17 Swift Testing cases](ci-windows-restore-boundary-fixed.md), including unchanged original regressions, no-overwrite and rollback safety. Qualify newly versioned 1.5.21 at the original nested TEMP/defaults before any installed acceptance claim. Original 1.5.20 assertions remain failed; no count or deadline change. |
 | P1 desktop QA | Common native outcomes | On exact supported packages, run keyboard create/edit/search/recovery, ADIF/backup round trip, large-log paging, cluster/map/awards/contest and orderly shutdown. Keep container simulations distinct from ordinary desktop runs. |
+| P1 desktop QA | Nested Wayland acceptance recovery | Preserve the [1.5.21 failure](ci-1.5.21-linux-runtime.md). Source-only correction `cc2149ab974627388f4d2862d1996636e644cadd` passes 89 affected tests/TypeScript after reproducing the old timeout. Actual helper/React/session cases cover both explicit recovery branches, unknown/missing/disabled controls and a second rejection, with product guards/deadlines unchanged. Package it only in a newly versioned coherent candidate; unchanged 1.5.21 bytes cannot execute that correction. |
 | P2 desktop QA | Native display/accessibility | Exercise 1024×768 where supported, Windows 100/125/150/200%, Retina/Linux scales, light/dark, clipboard, file dialogs, focus/screen-reader labels, detached windows, removed displays and geometry recovery. Capture a screenshot only for an observed defect. |
 | P2 platform owner | Missing native providers | Publish provider-specific support decisions and prioritize enablement separately. Shared local logging must work independently of optional direct station providers. No new provider feature is added during this quality cycle. |
 | P2 release owner | Distribution readiness | Windows publisher signing, macOS notarization, final licenses/SBOM and ordinary-user update/rollback evidence remain separate release gates. No daily install or public release is authorized by a passing candidate alone. |

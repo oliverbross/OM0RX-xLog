@@ -1,0 +1,552 @@
+{
+  "schema": 1,
+  "runId": 42064612924,
+  "job": 127375191603,
+  "version": "1.5.21",
+  "packageSource": "b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+  "executorSource": "b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+  "packageRun": 42055932488,
+  "packageArtifact": {
+    "id": 13430639504,
+    "bytes": 315703277,
+    "sha256": "407eb61c2b0bf7d606bf3f010eebc9629eb537f16b39033b9eff68fad0289841"
+  },
+  "applicationRebuilt": false,
+  "conclusion": "failure",
+  "disposition": "Three X11 embedded UI runs PASS; nested Wayland embedded acceptance misses exact pre-journal recovery branch and remainsFAIL",
+  "dispatch": {
+    "runId": 42064612924,
+    "workflow": ".github/workflows/prototype.yml",
+    "createdAt": "2026-11-05T16:27:22Z",
+    "executorSource": "b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+    "packageSource": "b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+    "version": "1.5.21",
+    "inputs": {
+      "build_platforms": "linux",
+      "validation_only": true,
+      "package_macos": false,
+      "runtime_run_id": "42055932488",
+      "runtime_source_sha": "b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+      "runtime_platform": "linux"
+    },
+    "dispatchCount": 1,
+    "authorization": "root explicitly authorized one runtime-only check after original artifact/source/hash verification",
+    "preflight": {
+      "liveMainAndLocalHEAD": "b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+      "workflowTrackedDiffEmpty": true,
+      "runtimeJobIgnoresValidationOnlyWhenArtifactRunIsExplicit": true,
+      "buildJobSkippedByNonemptyRuntimeRunId": true
+    },
+    "applicationRebuildRequested": false,
+    "originalRunRemains": "FAILED with downstream SKIPPED"
+  },
+  "jobs": [
+    {
+      "id": 127375191603,
+      "name": "Linux runtime-only container acceptance",
+      "conclusion": "failure"
+    },
+    {
+      "id": 127375194051,
+      "name": "Windows fresh-runner runtime acceptance (${{ matrix.installer_scope }})",
+      "conclusion": "skipped"
+    },
+    {
+      "id": 127375248739,
+      "name": "prototype",
+      "conclusion": "skipped"
+    }
+  ],
+  "originalRunDisposition": "Original all-platform runFAILED dependency provisioning, downstreamSKIPPED; this is a separate runtime-only outcome",
+  "packageHashes": [
+    {
+      "name": "OM0RX-xLog-1.5.21-Beta-Linux-x64.deb",
+      "bytes": 62055658,
+      "sha256": "dfdd6fd91fffae60f6d1ac75e84c311b01ab33a55a735d26bb72a0cffdd16762",
+      "publishedSidecarVerified": true
+    },
+    {
+      "name": "OM0RX-xLog-1.5.21-Beta-Linux-x64.tar.gz",
+      "bytes": 82531865,
+      "sha256": "b9fc101b56684e97907d72bcdc6140a1b20e3f78f30e450abba310d7ac46dafc",
+      "publishedSidecarVerified": true
+    }
+  ],
+  "runtime": {
+    "os": "Ubuntu24.04.5 LTS",
+    "architecture": "amd64",
+    "account": {
+      "name": "acceptance",
+      "uid": 10001,
+      "gid": 10001,
+      "root": false,
+      "scope": "Disposable clean container account, not an ordinary physical-desktop account qualification"
+    },
+    "network": "docker --network none",
+    "capabilities": "--cap-drop ALL",
+    "developmentToolchainsPresent": false,
+    "WebKitGTK": "2.52.6-0ubuntu0.24.04.1",
+    "JavaScriptCoreGTK": "2.52.6-0ubuntu0.24.04.1",
+    "GTK": "3.24.41-4ubuntu1.3",
+    "Weston": "13.0.0-4build3 (reported executable13.0.0)",
+    "physicalDesktop": false,
+    "compositor": "Weston nested X11 backend with pixman renderer",
+    "requestedApplicationBackend": "Wayland with DISPLAY removed and GDK_BACKEND=wayland by observed executor source",
+    "passedWaylandSessionReceipt": "NOT EMITTED: failed report assertion precedes writing wayland-session.json"
+  },
+  "payloadHashChecks": {
+    "payload-hash-check.txt": {
+      "fileCount": 1012,
+      "allPassed": true,
+      "sha256": "a05a2a7ceacb6796da353dd9759e193291b1a2fa901b5e9a7c44cb25a80ea185"
+    },
+    "archive-payload-hash-check.txt": {
+      "fileCount": 1012,
+      "allPassed": true,
+      "sha256": "a05a2a7ceacb6796da353dd9759e193291b1a2fa901b5e9a7c44cb25a80ea185"
+    }
+  },
+  "loaderAudits": {
+    "installed": {
+      "sha256": "c52599402772d0ba64b181f4ac42feebd681b12f325c33ca49967997d3c03cbc",
+      "completedBeforeUI": true
+    },
+    "relocated": {
+      "sha256": "31f345332c03e476433e27154daad9282322a09cd800f4c2d33d721a96a08782",
+      "completedBeforeUI": true
+    }
+  },
+  "workers": {
+    "installed": {
+      "status": "passed",
+      "framingTestCount": 2,
+      "selfTest": {
+        "id": "self-test",
+        "ok": true,
+        "result": {
+          "adif": "existing_core_roundtrip_passed",
+          "file_io": false,
+          "foundation_http": "urlsession_protocol_fixture_passed",
+          "network_contact": false,
+          "passed": true,
+          "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+          "sqlite": "memory_readback_passed",
+          "station_io": false,
+          "xml": "fixture_parse_passed"
+        }
+      },
+      "localLogbookTest": {
+        "id": "local-logbook-self-test",
+        "ok": true,
+        "result": {
+          "award_programmes": 192,
+          "checks": [
+            "workspace",
+            "settings",
+            "adif_unknown_fields",
+            "save_search",
+            "cty_resources",
+            "awards_resources",
+            "delete_undo",
+            "backup_restore",
+            "reopen_export"
+          ],
+          "credentials_accessed": false,
+          "local_file_io": true,
+          "network_contact": false,
+          "passed": true,
+          "qso_count": 1,
+          "station_io": false,
+          "synthetic_records": true
+        }
+      },
+      "contestRuntimeTest": {
+        "id": "contest-runtime-self-test",
+        "ok": true,
+        "result": {
+          "catalogue": true,
+          "catalogue_count": 98,
+          "checks": [
+            "bundled_locator",
+            "sanitized_environment",
+            "catalogue",
+            "create_cq_ww_cw",
+            "commit_read",
+            "restart_reopen",
+            "shipping_shutdown",
+            "temporary_cleanup"
+          ],
+          "credentials_accessed": false,
+          "engine": "not1mm-python",
+          "network_contact": false,
+          "passed": true,
+          "qso_count": 1,
+          "reopened": true,
+          "save_read": true,
+          "shipping_shutdown": true,
+          "station_io": false,
+          "synthetic_records": true,
+          "temporary_store_removed": true
+        }
+      },
+      "reportSHA256": "0fee7d07278a2a921c56f61dfb8f0ec3cfe4d171cb01170f859e6ddfad569522"
+    },
+    "relocated": {
+      "status": "passed",
+      "framingTestCount": 2,
+      "selfTest": {
+        "id": "self-test",
+        "ok": true,
+        "result": {
+          "adif": "existing_core_roundtrip_passed",
+          "file_io": false,
+          "foundation_http": "urlsession_protocol_fixture_passed",
+          "network_contact": false,
+          "passed": true,
+          "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+          "sqlite": "memory_readback_passed",
+          "station_io": false,
+          "xml": "fixture_parse_passed"
+        }
+      },
+      "localLogbookTest": {
+        "id": "local-logbook-self-test",
+        "ok": true,
+        "result": {
+          "award_programmes": 192,
+          "checks": [
+            "workspace",
+            "settings",
+            "adif_unknown_fields",
+            "save_search",
+            "cty_resources",
+            "awards_resources",
+            "delete_undo",
+            "backup_restore",
+            "reopen_export"
+          ],
+          "credentials_accessed": false,
+          "local_file_io": true,
+          "network_contact": false,
+          "passed": true,
+          "qso_count": 1,
+          "station_io": false,
+          "synthetic_records": true
+        }
+      },
+      "contestRuntimeTest": {
+        "id": "contest-runtime-self-test",
+        "ok": true,
+        "result": {
+          "catalogue": true,
+          "catalogue_count": 98,
+          "checks": [
+            "bundled_locator",
+            "sanitized_environment",
+            "catalogue",
+            "create_cq_ww_cw",
+            "commit_read",
+            "restart_reopen",
+            "shipping_shutdown",
+            "temporary_cleanup"
+          ],
+          "credentials_accessed": false,
+          "engine": "not1mm-python",
+          "network_contact": false,
+          "passed": true,
+          "qso_count": 1,
+          "reopened": true,
+          "save_read": true,
+          "shipping_shutdown": true,
+          "station_io": false,
+          "synthetic_records": true,
+          "temporary_store_removed": true
+        }
+      },
+      "reportSHA256": "0fee7d07278a2a921c56f61dfb8f0ec3cfe4d171cb01170f859e6ddfad569522"
+    }
+  },
+  "x11UI": [
+    {
+      "run": 1,
+      "source": "installed DEB",
+      "backend": "X11 under Xvfb",
+      "status": "passed",
+      "checks": {
+        "adif_transfer_roundtrip": true,
+        "awards_loaded": true,
+        "contact_delete_undo": true,
+        "contact_edit": true,
+        "desk_map_logbook": true,
+        "detached_awards": true,
+        "detached_awards_lifecycle": true,
+        "detached_logbook": true,
+        "detached_logbook_lifecycle": true,
+        "detached_projection": true,
+        "detached_spot_history": true,
+        "empty_workspace": true,
+        "final_desk": true,
+        "isolated_worker": true,
+        "keyboard_clear": true,
+        "keyboard_editor": true,
+        "keyboard_focus": true,
+        "keyboard_log": true,
+        "logbook_readback": true,
+        "map_loaded": true,
+        "native_menu_routes": true,
+        "onboarding_setup": true,
+        "settings_save_readback": true,
+        "settings_sections": true,
+        "spot_history_archive": true,
+        "spot_history_dock_recovery": true,
+        "spot_history_main_absent": true,
+        "worker_integration_self_test": true,
+        "worker_parse_adif": true,
+        "worker_self_test": true,
+        "workspace_canvas_controls": true,
+        "workspace_created": true,
+        "workspace_feedback_overlay": true,
+        "workspace_layout_roundtrip": true,
+        "workspace_native_windows": true,
+        "workspace_settings_presets": true
+      },
+      "workspaceCanvas": {
+        "activePreset": "traditional",
+        "layoutConflictRecovered": false,
+        "locked": true,
+        "mapHidePersisted": true,
+        "sameDraft": true
+      },
+      "reportSHA256": "e976c3d43835d1fb275a4e752b8d619d1e8749eefe131bd4d0644fb079a6cf32",
+      "privateScreenshotSHA256": "5c2fa614017dee56cb04a093c1f1af9ef58604863eb243dd4842498602a46e19"
+    },
+    {
+      "run": 2,
+      "source": "installed DEB",
+      "backend": "X11 under Xvfb",
+      "status": "passed",
+      "checks": {
+        "adif_transfer_roundtrip": true,
+        "awards_loaded": true,
+        "contact_delete_undo": true,
+        "contact_edit": true,
+        "desk_map_logbook": true,
+        "detached_awards": true,
+        "detached_awards_lifecycle": true,
+        "detached_logbook": true,
+        "detached_logbook_lifecycle": true,
+        "detached_projection": true,
+        "detached_spot_history": true,
+        "empty_workspace": true,
+        "final_desk": true,
+        "isolated_worker": true,
+        "keyboard_clear": true,
+        "keyboard_editor": true,
+        "keyboard_focus": true,
+        "keyboard_log": true,
+        "logbook_readback": true,
+        "map_loaded": true,
+        "native_menu_routes": true,
+        "onboarding_setup": true,
+        "settings_save_readback": true,
+        "settings_sections": true,
+        "spot_history_archive": true,
+        "spot_history_dock_recovery": true,
+        "spot_history_main_absent": true,
+        "worker_integration_self_test": true,
+        "worker_parse_adif": true,
+        "worker_self_test": true,
+        "workspace_canvas_controls": true,
+        "workspace_created": true,
+        "workspace_feedback_overlay": true,
+        "workspace_layout_roundtrip": true,
+        "workspace_native_windows": true,
+        "workspace_settings_presets": true
+      },
+      "workspaceCanvas": {
+        "activePreset": "traditional",
+        "layoutConflictRecovered": true,
+        "locked": true,
+        "mapHidePersisted": true,
+        "sameDraft": true
+      },
+      "reportSHA256": "669614e5940c7ae1085d96111f17dd58af66c385064d16630a211cbffa3603a5",
+      "privateScreenshotSHA256": "4d8b8710c465b59a5b8f3b9012f90a8782a1f5ff38e2c7df47f885e032b99abc"
+    },
+    {
+      "run": 3,
+      "source": "relocated tar archive",
+      "backend": "X11 under Xvfb",
+      "status": "passed",
+      "checks": {
+        "adif_transfer_roundtrip": true,
+        "awards_loaded": true,
+        "contact_delete_undo": true,
+        "contact_edit": true,
+        "desk_map_logbook": true,
+        "detached_awards": true,
+        "detached_awards_lifecycle": true,
+        "detached_logbook": true,
+        "detached_logbook_lifecycle": true,
+        "detached_projection": true,
+        "detached_spot_history": true,
+        "empty_workspace": true,
+        "final_desk": true,
+        "isolated_worker": true,
+        "keyboard_clear": true,
+        "keyboard_editor": true,
+        "keyboard_focus": true,
+        "keyboard_log": true,
+        "logbook_readback": true,
+        "map_loaded": true,
+        "native_menu_routes": true,
+        "onboarding_setup": true,
+        "settings_save_readback": true,
+        "settings_sections": true,
+        "spot_history_archive": true,
+        "spot_history_dock_recovery": true,
+        "spot_history_main_absent": true,
+        "worker_integration_self_test": true,
+        "worker_parse_adif": true,
+        "worker_self_test": true,
+        "workspace_canvas_controls": true,
+        "workspace_created": true,
+        "workspace_feedback_overlay": true,
+        "workspace_layout_roundtrip": true,
+        "workspace_native_windows": true,
+        "workspace_settings_presets": true
+      },
+      "workspaceCanvas": {
+        "activePreset": "traditional",
+        "layoutConflictRecovered": true,
+        "locked": true,
+        "mapHidePersisted": true,
+        "sameDraft": true
+      },
+      "reportSHA256": "f27d9d98e4cfb92747c75fba9cc0e31369d6af52326fcae6dbd79917ff482d37",
+      "privateScreenshotSHA256": "8d90219ace36546ba35ed7edc402bc0fb0a3c203ff0433bf046aaeeffb45d08b"
+    }
+  ],
+  "waylandUI": {
+    "status": "failed",
+    "checks": {
+      "empty_workspace": true,
+      "isolated_worker": true,
+      "onboarding_setup": true,
+      "workspace_created": true,
+      "workspace_layout_roundtrip": true
+    },
+    "checkCount": 5,
+    "falseChecksRecorded": 0,
+    "error": "Timed out: custom canvas or reviewed layout conflict",
+    "waitDeadlineMs": 20000,
+    "workspaceLayout": {
+      "initialRevision": 0,
+      "restoredRevision": 2,
+      "roles": 21,
+      "savedRevision": 1,
+      "staleWriteRejected": true,
+      "stationIO": false
+    },
+    "actualAction": "Fill Desk layout with custom after authoritative roundtrip restored revision2; wait for custom or reviewed conflict",
+    "owningPredicate": {
+      "file": "prototype/src/integratedAcceptance.ts",
+      "line": 126,
+      "customBranch": "Desk layout DOM value custom and control enabled",
+      "recognizedConflict": "canvas-recovery role alert text includes Another window changed the layout.",
+      "recognizedRecovery": "Use saved layout"
+    },
+    "retainedScreenshotObservation": {
+      "presetLabel": "Traditional",
+      "alertText": "The workspace changed after editing began. Reload and review it before saving.",
+      "visibleRecoveryButton": "Reload layout",
+      "UseSavedLayoutVisible": false,
+      "DOMValueAndDisabledAttributes": "NOT RETAINED; screenshot labels are not a serialized DOM property receipt"
+    },
+    "owningSourceBranch": {
+      "file": "prototype/src/live/workspaceLayoutSession.ts",
+      "lines": [
+        183,
+        185
+      ],
+      "behavior": "Captured rendered base no longer equals current snapshot; rejects before creating the pending journal or sending a layout mutation. Explicit Reload layout is rendered by OperatorCanvas.tsx99-102.",
+      "actualNativeMutationTrace": "NOT RETAINED; pre-journal behavior is established by owning source, not an invented runtime apply counter"
+    },
+    "diagnosis": "Acceptance recognizes the post-journal conflict branch but omits the distinct protected pre-journal stale-base recovery branch visible in the screenshot. Product guard correctly refuses the stale operation.",
+    "mapEvidence": {
+      "loaded": true,
+      "tilesLoaded": true,
+      "visible": true,
+      "webgl": true,
+      "canvasWidth": 713,
+      "canvasHeight": 223,
+      "landPixelProbes": 35,
+      "matchedLandPixels": 35,
+      "pixelMismatches": []
+    },
+    "reportSHA256": "d314e208215bcb82defa5ec9cd79d2648d9959da14fc85e37d98dc6918448acf",
+    "privateScreenshotSHA256": "273c8bbbf2c5b479192702c6503c6a40547e9665f9273b8f7a7f6dde3cff21ad",
+    "notReached": [
+      "custom canvas completion",
+      "remaining31UIchecks",
+      "final accepted Wayland session receipt",
+      "aggregate acceptance.json"
+    ]
+  },
+  "cleanup": {
+    "nativeLogObservedEvents": {
+      "firstExitRequestedCode": 1,
+      "workspacePreparationReady": true,
+      "resume": false,
+      "secondExitRequestedCode": 0
+    },
+    "actualAppOSExitReceipt": "NOT EXPLICITLY RECORDED; these log codes are ExitRequested events",
+    "appWaitResult": "Derived success/0: strict set-e shell reached subsequent Python validation after wait and app_pid clear",
+    "gateFailure": "Python first schema/status assertion rejects statusfailed; final step exit1",
+    "appTimeoutTermination": "No timeout/forced-kill receipt retained; do not infer an explicit process-tree inventory",
+    "westonCleanup": "Owned Weston received signal15, observed after report failure; final wait/PID inventory not retained",
+    "westonShutdownWarning": "Finalizing layer with views warning appears after cleanup signal, not established as failure cause",
+    "container": "docker --rm; no final per-child process inventory retained"
+  },
+  "priorPassingEvidence": {
+    "run": 42016723457,
+    "version": "1.5.20",
+    "source": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+    "waylandChecks": 36,
+    "recognizedConflictRecovered": true,
+    "owningAcceptanceAndLayoutSourcesUnchangedBetween20And21": true,
+    "interpretation": "Historical pass exercised the recognized post-journal branch; it does not qualify this failed21 schedule"
+  },
+  "nextStep": {
+    "owner": "windows_packaging/root",
+    "scope": "Source-only bundled QA helper recognizes exact pre-journal alert, explicitly Reloads/reviews saved layout and retries custom once, with real React/session regressions and existing deadlines/product guard retained",
+    "executionBoundary": "Embedded frontend acceptance lives inside sealed application payload; changed helper requires a future NEW versioned candidate and complete appropriate package gates",
+    "candidate21": "Immutable and held with this Wayland gap; no external intervention, injected JS, patched asset, retry or rebuild authorized/performed",
+    "sourceOnlyQACommit": "cc2149ab974627388f4d2862d1996636e644cadd",
+    "sourceOnlyValidation": {
+      "ownerReportedAndRootReviewed": true,
+      "affectedTestsPassed": 89,
+      "affectedFiles": 10,
+      "newRegressionTests": 9,
+      "TypeScript": "passed",
+      "originalUnchangedDeadlineRedReproductionSeconds": 20.106,
+      "applicationPackage21Changed": false,
+      "packagedRequalification": "NOT RUN; future NEW versioned candidate required"
+    }
+  },
+  "artifacts": [
+    {
+      "id": 13433481130,
+      "name": "xlog-acceptance-linux-b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+      "bytes": 784187,
+      "sha256": "e177b901a1a1ff271a8b6e5ce51cfc24f3afc3a594de23d7b3781af5170a1687"
+    }
+  ],
+  "log": {
+    "job": 127375191603,
+    "bytes": 274003,
+    "sha256": "59eaec552ad3ae016c88eb290369265df84841c5f1a49d5749c55b1483b66cda"
+  },
+  "privacy": "Raw screenshot/process/path/generation/profile coordinates remain private; only synthetic station-free checks, numeric lengths, hashes and comparison booleans published",
+  "noProductionOrHardwareActions": true
+}
