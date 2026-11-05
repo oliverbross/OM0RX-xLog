@@ -475,9 +475,9 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
         aggregateReadPhaseObserver?("resolverStarted")
         let resolver = try currentCTYResolver()
         aggregateReadPhaseObserver?("resolverReturned")
-        let entities = resolver.entities
+        let entities = resolver.entityADIFs
         aggregateReadPhaseObserver?("entitiesReturned")
-        var statuses = Dictionary(entities.map { (String($0.adif), "needed") }, uniquingKeysWith: { first, _ in first })
+        var statuses = Dictionary(uniqueKeysWithValues: entities.map { (String($0), "needed") })
         for (adif, status) in source { statuses[String(adif)] = status }
         let settings = try currentSettings()
         aggregateReadPhaseObserver?("statisticsSettingsReturned")

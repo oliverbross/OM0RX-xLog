@@ -135,6 +135,15 @@ struct CountryFactsTests {
         for country in packed {
             if let expected = names[country.adif] { #expect(country.name == expected, "ADIF \(country.adif)") }
         }
+        #expect(Self.packed.entityADIFs == Set(packed.map(\.adif)))
+        #expect(legacy.entityADIFs == Set(legacy.entities.map(\.adif)))
+        let csv = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".csv")
+        defer { try? FileManager.default.removeItem(at: csv) }
+        try "ZZ,Synthetic,999,EU,15,28,48,-17,-1,ZZ;\n".write(to: csv, atomically: true, encoding: .utf8)
+        let custom = try CTYResolver(csvURL: csv)
+        let combined = custom.fillingUnknownFacts(with: Self.packed)
+        #expect(custom.entityADIFs == Set(custom.entities.map(\.adif)))
+        #expect(combined.entityADIFs == Set(combined.entities.map(\.adif)))
     }
 
     @Test("Literal exact and prefix rules retain wildcard boundaries and full validation")

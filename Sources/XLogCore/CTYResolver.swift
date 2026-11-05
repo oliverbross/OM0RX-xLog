@@ -409,6 +409,14 @@ public final class CTYResolver: @unchecked Sendable {
         return (previous, resolve(rawCallsign, at: date))
     }
 
+    /// Statistics need only the entity identities, not display names, sorting,
+    /// or the separate legacy catalogue used to normalize packed labels.
+    public var entityADIFs: Set<Int> {
+        if let neutralFallback { return primaryOnly().entityADIFs.union(neutralFallback.entityADIFs) }
+        if let countryPack { return Set(countryPack.records.map { $0.country.adif }) }
+        return Set(rules.lazy.filter { $0.country.latitude != nil && $0.country.longitude != nil }.map { $0.country.adif })
+    }
+
     public var entities: [CountryInfo] {
         if let neutralFallback {
             return Array(Set(primaryOnly().entities + neutralFallback.entities)).sorted { $0.name < $1.name }
