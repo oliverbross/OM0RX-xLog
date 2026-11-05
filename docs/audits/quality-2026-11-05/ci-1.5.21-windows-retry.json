@@ -1,0 +1,1175 @@
+{
+  "schema": 1,
+  "runId": 42057459948,
+  "sourceCommit": "b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+  "version": "1.5.21",
+  "conclusion": "success",
+  "disposition": "One authorized Windows-only new-package retry PASS, both fresh hosted elevated installed scopes PASS",
+  "authorization": "Root dispatched one targeted new package after proven original Ninja HTTP504; same frozen source/version, no toolchain/assertion/deadline changes",
+  "originalAllPlatformRun": {
+    "run": 42055932488,
+    "conclusion": "failure",
+    "cause": "Ninja1.13.2 acquisition HTTP504 during Windows SQLite setup, before appcompile",
+    "downstream": "skipped",
+    "preserved": true
+  },
+  "separateLinuxRuntime": {
+    "run": 42064612924,
+    "conclusion": "failure",
+    "partialPass": "Three X11\u00d736checks",
+    "failure": "Nested Wayland missing protected pre-journal stale-layout recovery branch after5checks",
+    "preserved": true,
+    "nextSourceOnlyQACommit": "cc2149ab974627388f4d2862d1996636e644cadd",
+    "changedBundleOrQualification": "NOT RUN; future newversion candidate required"
+  },
+  "jobs": [
+    {
+      "id": 127349652914,
+      "name": "prototype (windows-2022)",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Enable Windows checkout long paths",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Select macOS Swift toolchain",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Run actions/setup-node@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install supported contest Python before native tests",
+          "conclusion": "success"
+        },
+        {
+          "name": "Restore native dependency/build cache",
+          "conclusion": "success"
+        },
+        {
+          "name": "Linux build dependencies",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Swift toolchain (Linux)",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Swift toolchain (Windows)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Windows SQLite",
+          "conclusion": "success"
+        },
+        {
+          "name": "Record native toolchains",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install frontend dependencies",
+          "conclusion": "success"
+        },
+        {
+          "name": "Release payload guard tests",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test atomic pinned contest catalog initialization",
+          "conclusion": "success"
+        },
+        {
+          "name": "Parse Windows installer scripts and validate scope policy",
+          "conclusion": "success"
+        },
+        {
+          "name": "Linux C vault in a private Secret Service session",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Compile portable native test fixtures early (Unix)",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Compile portable native test fixtures early (Windows)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Frontend tests and build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test FLEX IQ loopback fixture (Mac)",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Test complete portable Swift core (Unix)",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Test portable Swift core (Windows)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Linux credential vault in a private Secret Service session",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Build Swift worker (Unix)",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Build Swift worker (Windows)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stage isolated worker",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build pinned Hamlib radio and rotor helpers (Mac integration)",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Build pinned Hamlib radio and rotor helpers (Linux integration)",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Stage pinned Hamlib radio and rotor helpers (Windows integration)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test worker process framing (Unix)",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Test worker process framing (Windows)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Shell contract tests",
+          "conclusion": "success"
+        },
+        {
+          "name": "Bundled Hamlib dummy protocol and lifecycle tests",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Bundled Hamlib dummy protocol and lifecycle tests (Windows)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build desktop executable (not an installer acceptance claim)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Collect resolved dependency inventory and notices",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package macOS application",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Upload macOS package",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Package Linux runtime and Debian application",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Package Windows portable runtime",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package current-user and all-users EXE installers from one audited runtime",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload Linux runtime packages",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Upload Windows runtime package",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload development executables and evidence inputs",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload portable Swift pin verification receipts",
+          "conclusion": "success"
+        },
+        {
+          "name": "Save native dependency/build cache",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Install supported contest Python before native tests",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 127387304871,
+      "name": "Windows fresh-runner runtime acceptance (perMachine)",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Enable Windows checkout long paths",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate failed worker reply retention",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/download-artifact@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Extract isolated package",
+          "conclusion": "success"
+        },
+        {
+          "name": "Native WebView2 GUI and worker without installing Swift",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify shared payload and accept selected scope at its real default path",
+          "conclusion": "success"
+        },
+        {
+          "name": "Diagnose failed 1.5.20 installed local self-test with controlled temporary roots",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Upload native Windows reports and screenshots",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 127387308013,
+      "name": "Linux runtime-only container acceptance",
+      "conclusion": "skipped",
+      "steps": []
+    },
+    {
+      "id": 127387419244,
+      "name": "Windows fresh-runner runtime acceptance (currentUser)",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Enable Windows checkout long paths",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate failed worker reply retention",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/download-artifact@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Extract isolated package",
+          "conclusion": "success"
+        },
+        {
+          "name": "Native WebView2 GUI and worker without installing Swift",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify shared payload and accept selected scope at its real default path",
+          "conclusion": "success"
+        },
+        {
+          "name": "Diagnose failed 1.5.20 installed local self-test with controlled temporary roots",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Upload native Windows reports and screenshots",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "buildEvidence": {
+    "job": 127349652914,
+    "log": {
+      "bytes": 2224549,
+      "sha256": "82dea08b42fbe12ad3ffc84fe8263b6e46f0cca028fc8f21cb502083ecd7b39b"
+    },
+    "frontend": {
+      "filesPassed": 381,
+      "testsPassed": 5225
+    },
+    "largestXCTestSummary": {
+      "tests": 959,
+      "skipped": 7,
+      "failures": 0,
+      "seconds": 974.339
+    },
+    "largestSwiftTestingSummary": {
+      "tests": 584,
+      "suites": 82,
+      "seconds": 324.476
+    },
+    "boundaryTestsPassed": [
+      "testDirectRestoreAtTemp91",
+      "testDirectRestoreAtTemp92",
+      "testRPCRestoreAtTemp91",
+      "testRPCRestoreAtTemp92"
+    ],
+    "longRenameTestsPassed": [
+      "testInvalidLongWindowsNativeNameIsRejectedBeforeMove",
+      "testLongDirectoryRenameAndLongSourceReturnPreserveChildren",
+      "testLongReferenceAndDatabaseRollbackAfterLateCompletionFailure",
+      "testLongUnicodeFileRenameAndLongSourceReturnPreserveBytes",
+      "testMissingLongSourceDoesNotPublishDestination",
+      "testOccupiedLongDirectoryDestinationNeverMergesChildren",
+      "testOccupiedLongFileDestinationNeverOverwritesEitherCopy",
+      "testOccupiedNativeRollbackDestinationPreservesCopiesAndRecoveryBlock",
+      "testShortRenameStillDispatchesInjectedFileManagerFailure"
+    ],
+    "sanitizedStageJSON": {
+      "parsed": 68,
+      "malformedInterleavedMarkers": 0,
+      "failed": []
+    },
+    "actualGeneratorEOLReceipts": 1,
+    "interpretation": "Completed source/build job evidence only; no simulator-to-hardware inference or platform runtime acceptance."
+  },
+  "actualWindowsGeneratorEOLReceipt": {
+    "schema": 1,
+    "platform": "win32",
+    "gitVersion": "git version 2.56.0.windows.4",
+    "nodeVersion": "v22.23.4",
+    "sourceCommit": "b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+    "generatorSHA256": "65ec8cf8179bd6ae401e2b20f03f8d2b79f15bb6386f7b8f3cc3360529af8674",
+    "trackedCanonicalBlobs": {
+      "prototype/hm-control/dashboard.css": {
+        "bytes": 15815,
+        "sha256": "f58bc9b8882e32992b6332b55e90d4947ed358ad239b4c9dca72c320fa95483b",
+        "lf": 169,
+        "crlf": 0,
+        "bareCR": 0
+      },
+      "prototype/hm-control/dashboard.js": {
+        "bytes": 49449,
+        "sha256": "2a25912cda76d562576194887bc9b56d5c1d008b5ebd80fca80a29e216b5d4d3",
+        "lf": 822,
+        "crlf": 0,
+        "bareCR": 0
+      },
+      "prototype/hm-control/index.html": {
+        "bytes": 3498,
+        "sha256": "dba049b4370aea4d12d2d146f8c75dca9824a2ee986d3f3eb09f493b5d47fee6",
+        "lf": 64,
+        "crlf": 0,
+        "bareCR": 0
+      }
+    },
+    "scope": "Actual generator and pinned local asset validation; disposable local Git autocrlf checkouts only. Not native Windows packaging, original CI raw-byte recovery, or whole-app acceptance.",
+    "before-policy": {
+      "checkout": {
+        "files": {
+          "prototype/hm-control/dashboard.css": {
+            "bytes": 15984,
+            "sha256": "7edc1d77473877ef40b185b4fe62b7dc0a2a3c3e60a0540ab4d18150744cc47f",
+            "lf": 169,
+            "crlf": 169,
+            "bareCR": 0
+          },
+          "prototype/hm-control/dashboard.js": {
+            "bytes": 50271,
+            "sha256": "3a2eb651f7a66f9a2e2e40e9eff717e956614909fa78f59bd0482f1aa7d64386",
+            "lf": 822,
+            "crlf": 822,
+            "bareCR": 0
+          },
+          "prototype/hm-control/index.html": {
+            "bytes": 3562,
+            "sha256": "92669648167e3d9fe09dccefbf33a5a23a55da6bcbc265fd70f71b63c7a23d92",
+            "lf": 64,
+            "crlf": 64,
+            "bareCR": 0
+          }
+        },
+        "status": [],
+        "diffBytes": 0,
+        "diffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "diffWarnings": []
+      },
+      "generation": {
+        "files": {
+          "prototype/hm-control/dashboard.css": {
+            "bytes": 15815,
+            "sha256": "f58bc9b8882e32992b6332b55e90d4947ed358ad239b4c9dca72c320fa95483b",
+            "lf": 169,
+            "crlf": 0,
+            "bareCR": 0
+          },
+          "prototype/hm-control/dashboard.js": {
+            "bytes": 49449,
+            "sha256": "2a25912cda76d562576194887bc9b56d5c1d008b5ebd80fca80a29e216b5d4d3",
+            "lf": 822,
+            "crlf": 0,
+            "bareCR": 0
+          },
+          "prototype/hm-control/index.html": {
+            "bytes": 3498,
+            "sha256": "dba049b4370aea4d12d2d146f8c75dca9824a2ee986d3f3eb09f493b5d47fee6",
+            "lf": 64,
+            "crlf": 0,
+            "bareCR": 0
+          }
+        },
+        "status": [
+          " M prototype/hm-control/dashboard.css",
+          " M prototype/hm-control/dashboard.js",
+          " M prototype/hm-control/index.html"
+        ],
+        "diffBytes": 0,
+        "diffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "diffWarnings": [
+          "warning: in the working copy of 'prototype/hm-control/dashboard.css', LF will be replaced by CRLF the next time Git touches it",
+          "warning: in the working copy of 'prototype/hm-control/dashboard.js', LF will be replaced by CRLF the next time Git touches it",
+          "warning: in the working copy of 'prototype/hm-control/index.html', LF will be replaced by CRLF the next time Git touches it"
+        ]
+      },
+      "generationMatchesTrackedBlobs": true
+    },
+    "targeted-lf": {
+      "checkout": {
+        "files": {
+          "prototype/hm-control/dashboard.css": {
+            "bytes": 15815,
+            "sha256": "f58bc9b8882e32992b6332b55e90d4947ed358ad239b4c9dca72c320fa95483b",
+            "lf": 169,
+            "crlf": 0,
+            "bareCR": 0
+          },
+          "prototype/hm-control/dashboard.js": {
+            "bytes": 49449,
+            "sha256": "2a25912cda76d562576194887bc9b56d5c1d008b5ebd80fca80a29e216b5d4d3",
+            "lf": 822,
+            "crlf": 0,
+            "bareCR": 0
+          },
+          "prototype/hm-control/index.html": {
+            "bytes": 3498,
+            "sha256": "dba049b4370aea4d12d2d146f8c75dca9824a2ee986d3f3eb09f493b5d47fee6",
+            "lf": 64,
+            "crlf": 0,
+            "bareCR": 0
+          }
+        },
+        "status": [],
+        "diffBytes": 0,
+        "diffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "diffWarnings": []
+      },
+      "generation": {
+        "files": {
+          "prototype/hm-control/dashboard.css": {
+            "bytes": 15815,
+            "sha256": "f58bc9b8882e32992b6332b55e90d4947ed358ad239b4c9dca72c320fa95483b",
+            "lf": 169,
+            "crlf": 0,
+            "bareCR": 0
+          },
+          "prototype/hm-control/dashboard.js": {
+            "bytes": 49449,
+            "sha256": "2a25912cda76d562576194887bc9b56d5c1d008b5ebd80fca80a29e216b5d4d3",
+            "lf": 822,
+            "crlf": 0,
+            "bareCR": 0
+          },
+          "prototype/hm-control/index.html": {
+            "bytes": 3498,
+            "sha256": "dba049b4370aea4d12d2d146f8c75dca9824a2ee986d3f3eb09f493b5d47fee6",
+            "lf": 64,
+            "crlf": 0,
+            "bareCR": 0
+          }
+        },
+        "status": [],
+        "diffBytes": 0,
+        "diffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "diffWarnings": []
+      },
+      "generationMatchesTrackedBlobs": true
+    },
+    "genuineContentChange": {
+      "files": {
+        "prototype/hm-control/dashboard.css": {
+          "bytes": 15815,
+          "sha256": "f58bc9b8882e32992b6332b55e90d4947ed358ad239b4c9dca72c320fa95483b",
+          "lf": 169,
+          "crlf": 0,
+          "bareCR": 0
+        },
+        "prototype/hm-control/dashboard.js": {
+          "bytes": 49489,
+          "sha256": "ff6ebe3d7ae4fe4d8546858ba2dc17d12de099a10af48c3e8e35396e5ef858f1",
+          "lf": 824,
+          "crlf": 0,
+          "bareCR": 0
+        },
+        "prototype/hm-control/index.html": {
+          "bytes": 3498,
+          "sha256": "dba049b4370aea4d12d2d146f8c75dca9824a2ee986d3f3eb09f493b5d47fee6",
+          "lf": 64,
+          "crlf": 0,
+          "bareCR": 0
+        }
+      },
+      "status": [
+        " M prototype/hm-control/dashboard.js"
+      ],
+      "diffBytes": 511,
+      "diffSHA256": "f7d4d6b8020b8f0d2b9029b37d3ed8f9aca7aaeb92d283689e4720d4955d8551",
+      "diffWarnings": []
+    }
+  },
+  "packages": [
+    {
+      "name": "OM0RX-xLog-1.5.21-windows-x86_64-all-users-setup.exe",
+      "bytes": 58373597,
+      "sha256": "a62dc4c83331c8666e91ef9c046b9ee1164fa8e7c00e42a538f5d61347caaf27",
+      "sidecarVerified": true
+    },
+    {
+      "name": "OM0RX-xLog-1.5.21-windows-x86_64-current-user-setup.exe",
+      "bytes": 58369246,
+      "sha256": "db37e22c5993dceed4d05ab3e1a1dc1c7a8bd9f5506cec08a79f85f9c2438ff1",
+      "sidecarVerified": true
+    },
+    {
+      "name": "OM0RX-xLog-Prototype-windows-x86_64.zip",
+      "bytes": 83164995,
+      "sha256": "ab951e55d17ddcdb77bafdfa1516b376be9a9192d0b8db8095972bfe30e54196",
+      "sidecarVerified": true
+    }
+  ],
+  "packageAudit": {
+    "schema": 1,
+    "method": "Independent read-only actual portable ZIP byte/hash/inventory and installer provenance/configuration audit; no executable execution",
+    "runId": 42057459948,
+    "sourceCommit": "b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+    "version": "1.5.21",
+    "platform": "windows-x86_64",
+    "staticIntegrity": "PASS",
+    "portable": {
+      "artifact": "OM0RX-xLog-Prototype-windows-x86_64.zip",
+      "bytes": 83164995,
+      "sha256": "ab951e55d17ddcdb77bafdfa1516b376be9a9192d0b8db8095972bfe30e54196",
+      "sidecarVerified": true,
+      "provenanceSchema": 1,
+      "manifestSchema": 1,
+      "payloadManifestSHA256": "3618e93da5b267301c8745ca0e11110b020d67021f55c5971d15e2771eadb036",
+      "manifestFilesHashed": 3270,
+      "physicalFiles": 3271,
+      "exactInventoryVerified": true,
+      "duplicateUnsafeOrSymlinkEntries": 0,
+      "mainExecutableSHA256": "4c1f9f13408858a8b0b5ebb2794247dc655d699aee6e8f87825b6b3309fe7dfd",
+      "workerSHA256": "dc1a4c27b358fb53078c7d5ec4a430ae93568c39a2a863dc247dc442707ab218"
+    },
+    "installers": [
+      {
+        "mode": "currentUser",
+        "artifact": "OM0RX-xLog-1.5.21-windows-x86_64-current-user-setup.exe",
+        "bytes": 58369246,
+        "sha256": "db37e22c5993dceed4d05ab3e1a1dc1c7a8bd9f5506cec08a79f85f9c2438ff1",
+        "sidecarVerified": true,
+        "provenanceSchema": 2,
+        "configurationSHA256": "d506669f6acf609e2fe2cf0bd41433ab86dfb3c057dfa38e42175949814093e1",
+        "resourceMappings": 3270,
+        "expectedDefaultDirectory": "%LOCALAPPDATA%\\OM0RX-xLog",
+        "registryHive": "HKCU",
+        "startMenu": "Programs",
+        "executionLevel": "user",
+        "requiresAdministrator": false
+      },
+      {
+        "mode": "perMachine",
+        "artifact": "OM0RX-xLog-1.5.21-windows-x86_64-all-users-setup.exe",
+        "bytes": 58373597,
+        "sha256": "a62dc4c83331c8666e91ef9c046b9ee1164fa8e7c00e42a538f5d61347caaf27",
+        "sidecarVerified": true,
+        "provenanceSchema": 2,
+        "configurationSHA256": "7a0f04b874aa7d2c9802f32c9a5dc71d1af1fe58bca295599d99127d591e82cb",
+        "resourceMappings": 3270,
+        "expectedDefaultDirectory": "%ProgramFiles%\\OM0RX-xLog",
+        "registryHive": "HKLM",
+        "startMenu": "CommonPrograms",
+        "executionLevel": "admin",
+        "requiresAdministrator": true
+      }
+    ],
+    "sharedPayload": {
+      "mainExecutableAndManifestHashesMatchActualPortableBytes": true,
+      "configurationsEqualExceptNSISInstallMode": true,
+      "eachResourceMappingExactlyPortablePayloadMinusMainPlusManifest": true,
+      "resourceOriginsAndTargetsCorrespond": true,
+      "bundlerVersion": "tauri-cli 2.12.2",
+      "webviewInstallMode": {
+        "silent": true,
+        "type": "embedBootstrapper"
+      },
+      "externalBins": 0,
+      "targets": [
+        "nsis"
+      ]
+    },
+    "privacyReceipt": {
+      "artifact": "OM0RX-xLog-1.5.21-windows-payload-privacy.json",
+      "sha256": "32f92b6602acce2f66cc94038628de3b9a016874f1a7753e7beab13c934c31e8",
+      "passed": true,
+      "filesChecked": 3271,
+      "findings": 0
+    },
+    "runtimeAcceptance": "Both fresh hosted elevated scopes PASS in run42057459948; details in windows-installed-1.5.21.json; not ordinary-account/UAC qualification.",
+    "limitations": [
+      "Unsigned Windows beta; checksums establish integrity, not publisher authenticity.",
+      "Default directories here are expected policy tokens, not observed installed paths.",
+      "Static configuration/resource correspondence does not replace actual installed-payload verification.",
+      "No application, worker, installer, GUI, CI request or retry was executed for this audit.",
+      "Hosted elevated Server2022 outcomes cannot establish ordinary Windows11 account/UAC/upgrade/equipment acceptance."
+    ],
+    "runtimeAcceptanceAtStaticReview": "PENDING separate actual per-scope reports at the time of this static review"
+  },
+  "installedAcceptance": {
+    "schema": 1,
+    "runId": 42057459948,
+    "sourceCommit": "b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+    "version": "1.5.21",
+    "status": "PASS for both fresh hosted elevated scopes",
+    "scopes": [
+      {
+        "scope": "currentUser",
+        "job": 127387419244,
+        "status": "passed",
+        "sourceCommit": "b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+        "version": "1.5.21",
+        "installerSHA256": "db37e22c5993dceed4d05ab3e1a1dc1c7a8bd9f5506cec08a79f85f9c2438ff1",
+        "payloadManifestSHA256": "3618e93da5b267301c8745ca0e11110b020d67021f55c5971d15e2771eadb036",
+        "normalizationMethod": "Map actual equality-checked default directory to its observed known-folder token; raw runner/profile/shortcut/marker coordinates retained privately.",
+        "actualDefaultNormalized": "%LOCALAPPDATA%\\OM0RX-xLog",
+        "defaultPathPassed": true,
+        "registryHive": "HKCU",
+        "registryScopePassed": true,
+        "startMenu": "Programs",
+        "shortcutScopePassed": true,
+        "installerArgumentsFromFrozenExecutor": "/S only; no /D supplied",
+        "actualInstallerOSArgvReceipt": "NOT RETAINED; source arguments and actual default equality checks are distinct evidence",
+        "installedPayloadFilesVerified": 3270,
+        "workerSHA256": "dc1a4c27b358fb53078c7d5ec4a430ae93568c39a2a863dc247dc442707ab218",
+        "originalNestedTemp": {
+          "configuredByFrozenExecutor": true,
+          "relativeToRetainedPrivateChildProfile": "Temp",
+          "nativeUtf16Length": 92,
+          "policy": "Same original synthetic-profile/Temp; no diagnostic short root",
+          "source": "prototype/scripts/accept-windows.ps157-58",
+          "proofMethod": "Actual childProfile/CWD retained in native receipt, combined with unchanged ProcessStartInfo TEMP/TMP assignments; independent OS child-environment readback NOT RECORDED"
+        },
+        "installedLocalSelfTest": {
+          "reply": {
+            "id": "local-logbook-self-test",
+            "ok": true,
+            "result": {
+              "award_programmes": 192,
+              "checks": [
+                "workspace",
+                "settings",
+                "adif_unknown_fields",
+                "save_search",
+                "cty_resources",
+                "awards_resources",
+                "delete_undo",
+                "backup_restore",
+                "reopen_export"
+              ],
+              "credentials_accessed": false,
+              "local_file_io": true,
+              "network_contact": false,
+              "passed": true,
+              "qso_count": 1,
+              "station_io": false,
+              "synthetic_records": true
+            }
+          },
+          "replySHA256": "867dc5d0da0fa26be0fe4b23b018b1c5819e0f7e57bd0eeebbe0daa91d7b98d5",
+          "actualWorkerShutdown": "exit 0",
+          "backupRestoreAndFreshReopenExport": true,
+          "deadlineUnchangedSeconds": 10
+        },
+        "installedGUI": [
+          {
+            "ordinal": 1,
+            "status": "passed",
+            "nativeChecks": 36,
+            "exitCode": 0,
+            "reportSHA256": "6ab5aa33df56376357692e7bb11c7e7f2b1dba07a9933bf2ed348e36aed25d4a",
+            "checks": {
+              "adif_transfer_roundtrip": true,
+              "awards_loaded": true,
+              "contact_delete_undo": true,
+              "contact_edit": true,
+              "desk_map_logbook": true,
+              "detached_awards": true,
+              "detached_awards_lifecycle": true,
+              "detached_logbook": true,
+              "detached_logbook_lifecycle": true,
+              "detached_projection": true,
+              "detached_spot_history": true,
+              "empty_workspace": true,
+              "final_desk": true,
+              "isolated_worker": true,
+              "keyboard_clear": true,
+              "keyboard_editor": true,
+              "keyboard_focus": true,
+              "keyboard_log": true,
+              "logbook_readback": true,
+              "map_loaded": true,
+              "native_menu_routes": true,
+              "onboarding_setup": true,
+              "settings_save_readback": true,
+              "settings_sections": true,
+              "spot_history_archive": true,
+              "spot_history_dock_recovery": true,
+              "spot_history_main_absent": true,
+              "worker_integration_self_test": true,
+              "worker_parse_adif": true,
+              "worker_self_test": true,
+              "workspace_canvas_controls": true,
+              "workspace_created": true,
+              "workspace_feedback_overlay": true,
+              "workspace_layout_roundtrip": true,
+              "workspace_native_windows": true,
+              "workspace_settings_presets": true
+            },
+            "layoutConflictRecovered": true,
+            "onboardingRadioSkipped": true,
+            "onboardingRotorSkipped": true
+          },
+          {
+            "ordinal": 2,
+            "status": "passed",
+            "nativeChecks": 36,
+            "exitCode": 0,
+            "reportSHA256": "61bd1a6aeae5708589d5f9579d2b80f98086c330dd113fff34e533201e0fd11a",
+            "checks": {
+              "adif_transfer_roundtrip": true,
+              "awards_loaded": true,
+              "contact_delete_undo": true,
+              "contact_edit": true,
+              "desk_map_logbook": true,
+              "detached_awards": true,
+              "detached_awards_lifecycle": true,
+              "detached_logbook": true,
+              "detached_logbook_lifecycle": true,
+              "detached_projection": true,
+              "detached_spot_history": true,
+              "empty_workspace": true,
+              "final_desk": true,
+              "isolated_worker": true,
+              "keyboard_clear": true,
+              "keyboard_editor": true,
+              "keyboard_focus": true,
+              "keyboard_log": true,
+              "logbook_readback": true,
+              "map_loaded": true,
+              "native_menu_routes": true,
+              "onboarding_setup": true,
+              "settings_save_readback": true,
+              "settings_sections": true,
+              "spot_history_archive": true,
+              "spot_history_dock_recovery": true,
+              "spot_history_main_absent": true,
+              "worker_integration_self_test": true,
+              "worker_parse_adif": true,
+              "worker_self_test": true,
+              "workspace_canvas_controls": true,
+              "workspace_created": true,
+              "workspace_feedback_overlay": true,
+              "workspace_layout_roundtrip": true,
+              "workspace_native_windows": true,
+              "workspace_settings_presets": true
+            },
+            "layoutConflictRecovered": true,
+            "onboardingRadioSkipped": true,
+            "onboardingRotorSkipped": true
+          }
+        ],
+        "portableGUIAndWorker": {
+          "status": "passed",
+          "guiLaunches": 2,
+          "checksPerGui": 36,
+          "workerRegressionTests": 2
+        },
+        "uninstallPassed": true,
+        "userProfileMarkerPreserved": true,
+        "preservationScope": "Harness-owned marker in current-user LocalAppData; existing logbooks and account settings were not read",
+        "existingProductionLogbooksAndAccountSettingsRead": false,
+        "harnessElevated": true,
+        "runtime": {
+          "os": "Microsoft Windows 10.0.20348",
+          "osVersion": "Microsoft Windows NT 10.0.20348.0",
+          "architecture": "X64",
+          "runnerImage": "win22",
+          "runnerImageVersion": "20261101.353.1",
+          "powershell": "7.6.9",
+          "webviewRegistryVersions": [
+            "131.0.2903.86"
+          ],
+          "actualLoadedWebviewBinaryVersion": "NOT SEPARATELY RECORDED",
+          "SwiftAbsentFromProbes": true,
+          "SwiftAbsenceLimit": "Command lookup, conventional installation paths and uninstall registry checked; not an exhaustive disk scan.",
+          "ordinaryAccountName": "NOT RECORDED; never inferred from runner paths"
+        },
+        "notRun": {
+          "ordinaryUserRuntime": "NOT RUN",
+          "interactiveUAC": "NOT RUN (silent harness)",
+          "interactiveDefaultPath": "NOT RUN (silent harness)",
+          "upgrade": "NOT RUN",
+          "reinstallRollback": "NOT RUN",
+          "externalMediaRetention": "NOT RUN"
+        },
+        "receiptSHA256": "16e63e147efc3816a457f9df6ff06d50f4129b16f7897a42e02222e1e3eaba3c",
+        "nativeReceiptSHA256": "12a9a4d71e13f51cb24698e8ac5e18f7c9573bc16f4f44679dbaf5a69435c295"
+      },
+      {
+        "scope": "perMachine",
+        "job": 127387304871,
+        "status": "passed",
+        "sourceCommit": "b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+        "version": "1.5.21",
+        "installerSHA256": "a62dc4c83331c8666e91ef9c046b9ee1164fa8e7c00e42a538f5d61347caaf27",
+        "payloadManifestSHA256": "3618e93da5b267301c8745ca0e11110b020d67021f55c5971d15e2771eadb036",
+        "normalizationMethod": "Map actual equality-checked default directory to its observed known-folder token; raw runner/profile/shortcut/marker coordinates retained privately.",
+        "actualDefaultNormalized": "%ProgramFiles%\\OM0RX-xLog",
+        "defaultPathPassed": true,
+        "registryHive": "HKLM",
+        "registryScopePassed": true,
+        "startMenu": "CommonPrograms",
+        "shortcutScopePassed": true,
+        "installerArgumentsFromFrozenExecutor": "/S only; no /D supplied",
+        "actualInstallerOSArgvReceipt": "NOT RETAINED; source arguments and actual default equality checks are distinct evidence",
+        "installedPayloadFilesVerified": 3270,
+        "workerSHA256": "dc1a4c27b358fb53078c7d5ec4a430ae93568c39a2a863dc247dc442707ab218",
+        "originalNestedTemp": {
+          "configuredByFrozenExecutor": true,
+          "relativeToRetainedPrivateChildProfile": "Temp",
+          "nativeUtf16Length": 91,
+          "policy": "Same original synthetic-profile/Temp; no diagnostic short root",
+          "source": "prototype/scripts/accept-windows.ps157-58",
+          "proofMethod": "Actual childProfile/CWD retained in native receipt, combined with unchanged ProcessStartInfo TEMP/TMP assignments; independent OS child-environment readback NOT RECORDED"
+        },
+        "installedLocalSelfTest": {
+          "reply": {
+            "id": "local-logbook-self-test",
+            "ok": true,
+            "result": {
+              "award_programmes": 192,
+              "checks": [
+                "workspace",
+                "settings",
+                "adif_unknown_fields",
+                "save_search",
+                "cty_resources",
+                "awards_resources",
+                "delete_undo",
+                "backup_restore",
+                "reopen_export"
+              ],
+              "credentials_accessed": false,
+              "local_file_io": true,
+              "network_contact": false,
+              "passed": true,
+              "qso_count": 1,
+              "station_io": false,
+              "synthetic_records": true
+            }
+          },
+          "replySHA256": "867dc5d0da0fa26be0fe4b23b018b1c5819e0f7e57bd0eeebbe0daa91d7b98d5",
+          "actualWorkerShutdown": "exit 0",
+          "backupRestoreAndFreshReopenExport": true,
+          "deadlineUnchangedSeconds": 10
+        },
+        "installedGUI": [
+          {
+            "ordinal": 1,
+            "status": "passed",
+            "nativeChecks": 36,
+            "exitCode": 0,
+            "reportSHA256": "7bbee60e722cf2d73385a4536c1235f4c930a41280eca466043e74e55f156b51",
+            "checks": {
+              "adif_transfer_roundtrip": true,
+              "awards_loaded": true,
+              "contact_delete_undo": true,
+              "contact_edit": true,
+              "desk_map_logbook": true,
+              "detached_awards": true,
+              "detached_awards_lifecycle": true,
+              "detached_logbook": true,
+              "detached_logbook_lifecycle": true,
+              "detached_projection": true,
+              "detached_spot_history": true,
+              "empty_workspace": true,
+              "final_desk": true,
+              "isolated_worker": true,
+              "keyboard_clear": true,
+              "keyboard_editor": true,
+              "keyboard_focus": true,
+              "keyboard_log": true,
+              "logbook_readback": true,
+              "map_loaded": true,
+              "native_menu_routes": true,
+              "onboarding_setup": true,
+              "settings_save_readback": true,
+              "settings_sections": true,
+              "spot_history_archive": true,
+              "spot_history_dock_recovery": true,
+              "spot_history_main_absent": true,
+              "worker_integration_self_test": true,
+              "worker_parse_adif": true,
+              "worker_self_test": true,
+              "workspace_canvas_controls": true,
+              "workspace_created": true,
+              "workspace_feedback_overlay": true,
+              "workspace_layout_roundtrip": true,
+              "workspace_native_windows": true,
+              "workspace_settings_presets": true
+            },
+            "layoutConflictRecovered": false,
+            "onboardingRadioSkipped": true,
+            "onboardingRotorSkipped": true
+          },
+          {
+            "ordinal": 2,
+            "status": "passed",
+            "nativeChecks": 36,
+            "exitCode": 0,
+            "reportSHA256": "fba32e3eb881114e5e0e588e8b6c837b6e9f866f58a77523b60a98f6c1ead633",
+            "checks": {
+              "adif_transfer_roundtrip": true,
+              "awards_loaded": true,
+              "contact_delete_undo": true,
+              "contact_edit": true,
+              "desk_map_logbook": true,
+              "detached_awards": true,
+              "detached_awards_lifecycle": true,
+              "detached_logbook": true,
+              "detached_logbook_lifecycle": true,
+              "detached_projection": true,
+              "detached_spot_history": true,
+              "empty_workspace": true,
+              "final_desk": true,
+              "isolated_worker": true,
+              "keyboard_clear": true,
+              "keyboard_editor": true,
+              "keyboard_focus": true,
+              "keyboard_log": true,
+              "logbook_readback": true,
+              "map_loaded": true,
+              "native_menu_routes": true,
+              "onboarding_setup": true,
+              "settings_save_readback": true,
+              "settings_sections": true,
+              "spot_history_archive": true,
+              "spot_history_dock_recovery": true,
+              "spot_history_main_absent": true,
+              "worker_integration_self_test": true,
+              "worker_parse_adif": true,
+              "worker_self_test": true,
+              "workspace_canvas_controls": true,
+              "workspace_created": true,
+              "workspace_feedback_overlay": true,
+              "workspace_layout_roundtrip": true,
+              "workspace_native_windows": true,
+              "workspace_settings_presets": true
+            },
+            "layoutConflictRecovered": false,
+            "onboardingRadioSkipped": true,
+            "onboardingRotorSkipped": true
+          }
+        ],
+        "portableGUIAndWorker": {
+          "status": "passed",
+          "guiLaunches": 2,
+          "checksPerGui": 36,
+          "workerRegressionTests": 2
+        },
+        "uninstallPassed": true,
+        "userProfileMarkerPreserved": true,
+        "preservationScope": "Harness-owned marker in current-user LocalAppData; existing logbooks and account settings were not read",
+        "existingProductionLogbooksAndAccountSettingsRead": false,
+        "harnessElevated": true,
+        "runtime": {
+          "os": "Microsoft Windows 10.0.20348",
+          "osVersion": "Microsoft Windows NT 10.0.20348.0",
+          "architecture": "X64",
+          "runnerImage": "win22",
+          "runnerImageVersion": "20261101.353.1",
+          "powershell": "7.6.9",
+          "webviewRegistryVersions": [
+            "131.0.2903.86"
+          ],
+          "actualLoadedWebviewBinaryVersion": "NOT SEPARATELY RECORDED",
+          "SwiftAbsentFromProbes": true,
+          "SwiftAbsenceLimit": "Command lookup, conventional installation paths and uninstall registry checked; not an exhaustive disk scan.",
+          "ordinaryAccountName": "NOT RECORDED; never inferred from runner paths"
+        },
+        "notRun": {
+          "ordinaryUserRuntime": "NOT RUN",
+          "interactiveUAC": "NOT RUN (silent harness)",
+          "interactiveDefaultPath": "NOT RUN (silent harness)",
+          "upgrade": "NOT RUN",
+          "reinstallRollback": "NOT RUN",
+          "externalMediaRetention": "NOT RUN"
+        },
+        "receiptSHA256": "98fdff2aa2813eb0823b42de530fcab30d9f9de6e6b448c46d6dffacceca040f",
+        "nativeReceiptSHA256": "e8cab200f8f0fab320a59e91d9229fce53ae5077fa8a6507768e4fd1fc7b9757"
+      }
+    ],
+    "boundary": "Observed silent default-path/install/registry/shortcut/payload/CLI/GUI/uninstall/owned-marker only. Ordinary account/UAC/upgrade/reinstall/external media/equipment NOT RUN; original and Linux failures preserved.",
+    "independentReceiptReview": {
+      "method": "Independent read-only actual scope/raw reply/module hashes/default/GUI/uninstall/owned-marker receipt review",
+      "status": "PASS both",
+      "receiptSHA256": "365b275a5d3ccca89b9ad73481e0bce0997250d79b06877e7f8c3b38458e369d",
+      "boundary": "Configured nestedTEMP derived from original mappings/profile; not OSenvdump. Elevated hosted scopes; ordinaryaccount/UAC/upgrade/externalmedia NOTRUN."
+    }
+  },
+  "artifacts": [
+    {
+      "id": 13434033295,
+      "name": "xlog-prototype-windows-2022-b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+      "bytes": 35585627,
+      "sha256": "85090a6a9a0fec7fff59db26b16ea0c734115b83e3dd87f65c41019b6be3fd11"
+    },
+    {
+      "id": 13433788295,
+      "name": "xlog-runtime-windows-b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+      "bytes": 198596222,
+      "sha256": "9fa1bca50808d451309d1d919770475889bf30b36cd17829e8cddd9fef046925"
+    },
+    {
+      "id": 13433384181,
+      "name": "xlog-acceptance-windows-currentUser-b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+      "bytes": 755462,
+      "sha256": "4522dae7f5ca5ee984148e82f28734a5daa75bda4572406f9a2690e4678d198b"
+    },
+    {
+      "id": 13433224184,
+      "name": "xlog-acceptance-windows-perMachine-b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+      "bytes": 646468,
+      "sha256": "23e6a2848cb13f1e14be516a95ae24ea41c3a3f075c38cbf76795955811a3fa1"
+    },
+    {
+      "id": 13432914964,
+      "name": "portable-swift-pins-windows-2022-b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+      "bytes": 4262,
+      "sha256": "67387a78befee4ea0a4a90f1a41bf4dc518f30324536e606b11a1bb3270ac644"
+    }
+  ],
+  "logs": [
+    {
+      "job": 127349652914,
+      "bytes": 2224549,
+      "sha256": "82dea08b42fbe12ad3ffc84fe8263b6e46f0cca028fc8f21cb502083ecd7b39b"
+    },
+    {
+      "job": 127387304871,
+      "bytes": 35190,
+      "sha256": "5377d766c9f28a596fc47f88284e156ca41cc635d0b14ac1d2f11ba7cc7c17a9"
+    },
+    {
+      "job": 127387419244,
+      "bytes": 37163,
+      "sha256": "3cca46244fc3289e0bf93893e945868e0d89f5d7825c073e4870a9607e628c21"
+    }
+  ],
+  "ordinaryCI": {
+    "run": 42055606193,
+    "sourceCommit": "b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+    "attempt2": "success",
+    "attempt1": "service-capacity failure beforesteps retained"
+  },
+  "portability": {
+    "run": 42055606115,
+    "outcome": "5PASS/2Mac service-CANCELLED beforesteps, NOT7of7",
+    "retryAPI": "SpecificjobHTTP500 and rootfailedjobsHTTP502; no newattempt; furtherrequestsSTOPPED"
+  },
+  "boundaries": [
+    "This is a distinct successful Windows package/runtime outcome, not a relabel of original all-platform failure or Linux failure",
+    "Manual Windows11 ordinary account/UAC/default-wizard/upgrade/reinstall/hardware remain unqualified",
+    "All tests use disposable synthetic data; no production app install, publication, logbooks/settings or station I/O",
+    "Current source-only QA helper cc2149 is not in frozen B0 package bytes and cannot repair21Wayland receipt",
+    "Raw paths/PIDs/marker coordinates/profileIDs/screenshots remain private; public default paths are normalized known-folder tokens"
+  ],
+  "independentReceiptReview": {
+    "method": "Independent read-only actual scope/raw reply/module hashes/default/GUI/uninstall/owned-marker receipt review",
+    "status": "PASS both",
+    "receiptSHA256": "365b275a5d3ccca89b9ad73481e0bce0997250d79b06877e7f8c3b38458e369d",
+    "boundary": "Configured nestedTEMP derived from original mappings/profile; not OSenvdump. Elevated hosted scopes; ordinaryaccount/UAC/upgrade/externalmedia NOTRUN."
+  }
+}

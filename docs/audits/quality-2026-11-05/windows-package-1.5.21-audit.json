@@ -1,0 +1,87 @@
+{
+  "schema": 1,
+  "method": "Independent read-only actual portable ZIP byte/hash/inventory and installer provenance/configuration audit; no executable execution",
+  "runId": 42057459948,
+  "sourceCommit": "b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+  "version": "1.5.21",
+  "platform": "windows-x86_64",
+  "staticIntegrity": "PASS",
+  "portable": {
+    "artifact": "OM0RX-xLog-Prototype-windows-x86_64.zip",
+    "bytes": 83164995,
+    "sha256": "ab951e55d17ddcdb77bafdfa1516b376be9a9192d0b8db8095972bfe30e54196",
+    "sidecarVerified": true,
+    "provenanceSchema": 1,
+    "manifestSchema": 1,
+    "payloadManifestSHA256": "3618e93da5b267301c8745ca0e11110b020d67021f55c5971d15e2771eadb036",
+    "manifestFilesHashed": 3270,
+    "physicalFiles": 3271,
+    "exactInventoryVerified": true,
+    "duplicateUnsafeOrSymlinkEntries": 0,
+    "mainExecutableSHA256": "4c1f9f13408858a8b0b5ebb2794247dc655d699aee6e8f87825b6b3309fe7dfd",
+    "workerSHA256": "dc1a4c27b358fb53078c7d5ec4a430ae93568c39a2a863dc247dc442707ab218"
+  },
+  "installers": [
+    {
+      "mode": "currentUser",
+      "artifact": "OM0RX-xLog-1.5.21-windows-x86_64-current-user-setup.exe",
+      "bytes": 58369246,
+      "sha256": "db37e22c5993dceed4d05ab3e1a1dc1c7a8bd9f5506cec08a79f85f9c2438ff1",
+      "sidecarVerified": true,
+      "provenanceSchema": 2,
+      "configurationSHA256": "d506669f6acf609e2fe2cf0bd41433ab86dfb3c057dfa38e42175949814093e1",
+      "resourceMappings": 3270,
+      "expectedDefaultDirectory": "%LOCALAPPDATA%\\OM0RX-xLog",
+      "registryHive": "HKCU",
+      "startMenu": "Programs",
+      "executionLevel": "user",
+      "requiresAdministrator": false
+    },
+    {
+      "mode": "perMachine",
+      "artifact": "OM0RX-xLog-1.5.21-windows-x86_64-all-users-setup.exe",
+      "bytes": 58373597,
+      "sha256": "a62dc4c83331c8666e91ef9c046b9ee1164fa8e7c00e42a538f5d61347caaf27",
+      "sidecarVerified": true,
+      "provenanceSchema": 2,
+      "configurationSHA256": "7a0f04b874aa7d2c9802f32c9a5dc71d1af1fe58bca295599d99127d591e82cb",
+      "resourceMappings": 3270,
+      "expectedDefaultDirectory": "%ProgramFiles%\\OM0RX-xLog",
+      "registryHive": "HKLM",
+      "startMenu": "CommonPrograms",
+      "executionLevel": "admin",
+      "requiresAdministrator": true
+    }
+  ],
+  "sharedPayload": {
+    "mainExecutableAndManifestHashesMatchActualPortableBytes": true,
+    "configurationsEqualExceptNSISInstallMode": true,
+    "eachResourceMappingExactlyPortablePayloadMinusMainPlusManifest": true,
+    "resourceOriginsAndTargetsCorrespond": true,
+    "bundlerVersion": "tauri-cli 2.12.2",
+    "webviewInstallMode": {
+      "silent": true,
+      "type": "embedBootstrapper"
+    },
+    "externalBins": 0,
+    "targets": [
+      "nsis"
+    ]
+  },
+  "privacyReceipt": {
+    "artifact": "OM0RX-xLog-1.5.21-windows-payload-privacy.json",
+    "sha256": "32f92b6602acce2f66cc94038628de3b9a016874f1a7753e7beab13c934c31e8",
+    "passed": true,
+    "filesChecked": 3271,
+    "findings": 0
+  },
+  "runtimeAcceptance": "Both fresh hosted elevated scopes PASS in run42057459948; details in windows-installed-1.5.21.json; not ordinary-account/UAC qualification.",
+  "limitations": [
+    "Unsigned Windows beta; checksums establish integrity, not publisher authenticity.",
+    "Default directories here are expected policy tokens, not observed installed paths.",
+    "Static configuration/resource correspondence does not replace actual installed-payload verification.",
+    "No application, worker, installer, GUI, CI request or retry was executed for this audit.",
+    "Hosted elevated Server2022 outcomes cannot establish ordinary Windows11 account/UAC/upgrade/equipment acceptance."
+  ],
+  "runtimeAcceptanceAtStaticReview": "PENDING separate actual per-scope reports at the time of this static review"
+}

@@ -44,9 +44,10 @@ Hosted CI explicitly passes `-AllowElevatedHarness` because its Windows Server a
 ## Q03 acceptance ledger
 
 At the original implementation source change, policy/parser checks passed and
-no new EXE had been built or installed. The latest [1.5.20 original gate](audits/quality-2026-11-05/ci-1.5.20-original.md)
-has **partial hosted passes and blocking installed-runtime failures**, recorded
-below. The repository exposes hosted `windows-2022` CI and no registered
+no new EXE had been built or installed. The later [1.5.21 Windows retry](audits/quality-2026-11-05/ci-1.5.21-windows-retry.md)
+passes both hosted silent scopes, while the [1.5.20 original gate](audits/quality-2026-11-05/ci-1.5.20-original.md)
+retains its partial passes and installed failures below. The repository exposes
+hosted `windows-2022` CI and no registered
 self-hosted runner; this does not qualify ordinary Windows 11 desktop behavior.
 
 | Cell | Required observation | Next evidence step |
@@ -54,7 +55,7 @@ self-hosted runner; this does not qualify ordinary Windows 11 desktop behavior.
 | Standard user, current-user interactive defaults | No UAC; default resolves to LocalAppData; HKCU/user shortcut; ordinary app/helper launch | Build one integrated candidate; run the exact current-user EXE in a fresh Windows 11 standard account with no `/D` |
 | Standard user, current-user without WebView2 | No administrator credential required for supported prerequisite path; useful failure if policy prevents it | Repeat on a snapshot without Evergreen WebView2; retain bootstrapper result and actual runtime origin |
 | Standard user, all-users interactive defaults | UAC accepted/cancelled separately; Program Files x64; HKLM/common shortcut; first launch non-elevated | Run exact all-users EXE using separate admin credentials; then ordinary shortcut launch and process-token/helper checks |
-| Packaged default-path regression, each scope | Exact package/path and account elevation recorded; full runtime/uninstall must pass separately | 1.5.20 defaults, registration, shortcuts and payload PASS on separate elevated hosts; installed worker FAIL, GUI/uninstall NOT REACHED. Diagnose the exact failure before requalification |
+| Packaged default-path regression, each scope | Exact package/path and account elevation recorded; full runtime/uninstall must pass separately | 1.5.21 defaults, registration, shortcuts, full payload, original nested-TEMP worker test, installed GUI, uninstall and owned marker PASS on separate elevated hosts. Ordinary Windows 11/UAC remains separate; original 1.5.20 installed failures retained |
 | Upgrade previous per-user package | Same scope/path, saved synthetic workspace/settings/voice references retained, one active EXE/worker | Install retained previous package on disposable VM, save fixtures, upgrade interactively without `/D`, restart and compare |
 | Change from per-user to all-users | Explicit old-scope uninstall with data retained; new common shortcut; original user profile restored | Follow scope-change procedure above; capture old/new registration, resolved shortcut and actual worker |
 | Reinstall and rollback | Known active candidate/previous version, retained fixture contents and usable restart | Reinstall current scope, then supported rollback; hash the fixture/media before and after |
@@ -94,3 +95,52 @@ not prove an ordinary launch token; `/S` does not exercise that page. Standard
 user installation/runtime, interactive UAC/defaults, WebView2-absent behavior,
 upgrade/scope change/rollback, real workspace/external-media retention and a
 second user remain **NOT RUN**.
+
+## Separate hosted 1.5.21 result — PASS within silent scope checks
+
+Source `b0d6a93c314bfa2f24036121acd7b4a42ecdd173`,
+[Windows-only retry 42057459948](https://github.com/oliverbross/OM0RX-xLog/actions/runs/42057459948),
+passed on two fresh elevated Server 2022 x64 hosts, PowerShell 7.6.9.
+WebView2 registry version 131.0.2903.86 is recorded; it is not an independent
+active-engine binary-version proof. This retry preserves the original 1.5.21
+Ninja-download failure as a separate failed run.
+
+Subsequent controlled tests of unchanged 1.5.20 bytes exposed TEMP sensitivity;
+RPC and native manager regressions localized the long reference-directory
+rollback rename. Repair `d2d22afb` uses validated native Unicode moves without
+overwrite/copy fallback for long Windows restore paths, retaining short-path
+FileManager dispatch and rollback/recovery guards. The unchanged four failed
+regressions now pass, alongside collision, long-source return and late-failure
+preservation tests. These later results do not supply the missing failed reply
+from the original 1.5.20 run or change its failed outcome.
+
+| Scope / actual installer SHA-256 | Observed default / hive | Hosted outcome |
+|---|---|---|
+| Current user: `db37e22c5993dceed4d05ab3e1a1dc1c7a8bd9f5506cec08a79f85f9c2438ff1` | `%LOCALAPPDATA%\OM0RX-xLog` / HKCU | `/S` only, no `/D`; defaults, shortcut, all 3,270 payload hashes, installed self-test, two installed GUI launches, uninstall and owned marker PASS. |
+| All users: `a62dc4c83331c8666e91ef9c046b9ee1164fa8e7c00e42a538f5d61347caaf27` | `%ProgramFiles%\OM0RX-xLog` / HKLM | `/S` only, no `/D`; defaults, common shortcut, all 3,270 payload hashes, installed self-test, two installed GUI launches, uninstall and owned marker PASS. |
+
+Both schema-2 wrappers match the same main executable
+`4c1f9f13408858a8b0b5ebb2794247dc655d699aee6e8f87825b6b3309fe7dfd`, worker
+`dc1a4c27b358fb53078c7d5ec4a430ae93568c39a2a863dc247dc442707ab218`
+and payload manifest
+`3618e93da5b267301c8745ca0e11110b020d67021f55c5971d15e2771eadb036`.
+The [independent package audit](audits/quality-2026-11-05/windows-package-1.5.21-audit.json)
+verifies actual portable bytes, exact inventory, policies/configurations and
+checksums; the [installed receipts](audits/quality-2026-11-05/windows-installed-1.5.21.json)
+separately prove actual defaults and payloads.
+
+Each installed worker passed the unchanged 192-program local self-test,
+including backup/restore and reopen/export, under the original nested TEMP
+policy. The receipt distinguishes configured child TEMP/TMP from independent
+child-environment readback. Each scope passed two installed GUI launches with
+36 checks and actual exit zero, plus separate portable checks. Uninstall removed
+owned program files/registration/shortcuts and retained the harness profile
+marker. No shortened acceptance path, reduced count or relaxed deadline was used.
+
+These are silent hosted checks on elevated accounts. Standard-user no-admin
+installation/runtime, interactive UAC approve/cancel, Finish-page launch token,
+WebView2-absent prerequisites, upgrade/scope change/rollback, real workspace and
+external media, second-user separation and radio/rotor Browse/Save/Connect
+remain NOT RUN. The marker does not qualify real log/media retention. Candidate
+1.5.21 remains HELD for its separate Wayland acceptance gap and remaining phase
+gates; the daily Mac logger and public release are unchanged.
