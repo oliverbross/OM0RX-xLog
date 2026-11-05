@@ -1,0 +1,569 @@
+{
+  "schema": 1,
+  "sourceCommit": "0b7c669663841c2e55569b0c21c76ad03805cad7",
+  "hostSHA256": "4f95f35d234919d7bf81d5cba50f0f33041056a927bf362978c35d7a3bae8ffa",
+  "workerSHA256": "31ac2cdda0254df08b57058a07b29ceae1f83acd365debdcdb13f15eea639f67",
+  "scope": "Saved host-only Time Profiler trace; separate profiler-on phase after 600-second idle counters. Statistical sample weights are not CPU durations. No live process controls or probes used.",
+  "rawSHA256": {
+    "toc.xml": "4236996c5f1cfe92b4782123b13e44a87018f98bf603437fb3a6b07c22e47e4a",
+    "time-profile.xml": "5c90c235f0250741703fe8c761bee24c526c09d8d4063d66755c97732efc5155",
+    "profile-summary-private.json": "19fe41ed9277579b0e08e6fa4ac2c2eb59e994815e1abaf76d156d298315cf3c",
+    "record.log": "87db520aa4c8c6e8dd1b3d403c51ea582f222dfa8394e799d25dae79c90f3642",
+    "receipt.json": "dc0a2334d8b740cd76472e64594910fb394a50e032e834f9a306bf21c226e05a"
+  },
+  "overall": {
+    "samples": 126,
+    "sampleWeightNs": 126000000,
+    "firstSeconds": 0.342304833,
+    "lastSeconds": 11.224306375,
+    "threads": [
+      {
+        "name": "Main Thread #3",
+        "samples": 56,
+        "percentOfSelectedSamples": 44.444
+      },
+      {
+        "name": "JavaScriptCore libpas scavenger #4",
+        "samples": 34,
+        "percentOfSelectedSamples": 26.984
+      },
+      {
+        "name": "xlog-prototype #10",
+        "samples": 8,
+        "percentOfSelectedSamples": 6.349
+      },
+      {
+        "name": "tokio-rt-worker #2",
+        "samples": 6,
+        "percentOfSelectedSamples": 4.762
+      },
+      {
+        "name": "tokio-rt-worker #8",
+        "samples": 6,
+        "percentOfSelectedSamples": 4.762
+      },
+      {
+        "name": "xlog-prototype #1",
+        "samples": 3,
+        "percentOfSelectedSamples": 2.381
+      },
+      {
+        "name": "Log work queue #7",
+        "samples": 3,
+        "percentOfSelectedSamples": 2.381
+      },
+      {
+        "name": "CVDisplayLink #15",
+        "samples": 2,
+        "percentOfSelectedSamples": 1.587
+      },
+      {
+        "name": "CVDisplayLink #5",
+        "samples": 1,
+        "percentOfSelectedSamples": 0.794
+      },
+      {
+        "name": "CVDisplayLink #6",
+        "samples": 1,
+        "percentOfSelectedSamples": 0.794
+      },
+      {
+        "name": "xlog-prototype #9",
+        "samples": 1,
+        "percentOfSelectedSamples": 0.794
+      },
+      {
+        "name": "CVDisplayLink #11",
+        "samples": 1,
+        "percentOfSelectedSamples": 0.794
+      },
+      {
+        "name": "CVDisplayLink #12",
+        "samples": 1,
+        "percentOfSelectedSamples": 0.794
+      },
+      {
+        "name": "CVDisplayLink #13",
+        "samples": 1,
+        "percentOfSelectedSamples": 0.794
+      },
+      {
+        "name": "xlog-prototype #14",
+        "samples": 1,
+        "percentOfSelectedSamples": 0.794
+      },
+      {
+        "name": "CVDisplayLink #16",
+        "samples": 1,
+        "percentOfSelectedSamples": 0.794
+      }
+    ],
+    "leafBinaries": [
+      {
+        "name": "JavaScriptCore",
+        "samples": 37,
+        "percentOfSelectedSamples": 29.365
+      },
+      {
+        "name": "libsystem_kernel.dylib",
+        "samples": 21,
+        "percentOfSelectedSamples": 16.667
+      },
+      {
+        "name": "CoreFoundation",
+        "samples": 18,
+        "percentOfSelectedSamples": 14.286
+      },
+      {
+        "name": "xlog-prototype",
+        "samples": 10,
+        "percentOfSelectedSamples": 7.937
+      },
+      {
+        "name": "WebKit",
+        "samples": 6,
+        "percentOfSelectedSamples": 4.762
+      },
+      {
+        "name": "libsystem_pthread.dylib",
+        "samples": 6,
+        "percentOfSelectedSamples": 4.762
+      },
+      {
+        "name": "libobjc.A.dylib",
+        "samples": 5,
+        "percentOfSelectedSamples": 3.968
+      },
+      {
+        "name": "libsystem_malloc.dylib",
+        "samples": 5,
+        "percentOfSelectedSamples": 3.968
+      },
+      {
+        "name": "WebCore",
+        "samples": 3,
+        "percentOfSelectedSamples": 2.381
+      },
+      {
+        "name": "QuartzCore",
+        "samples": 3,
+        "percentOfSelectedSamples": 2.381
+      },
+      {
+        "name": "libobjcMsgSend.dylib",
+        "samples": 3,
+        "percentOfSelectedSamples": 2.381
+      },
+      {
+        "name": "libsystem_platform.dylib",
+        "samples": 2,
+        "percentOfSelectedSamples": 1.587
+      },
+      {
+        "name": "libsystem_trace.dylib",
+        "samples": 2,
+        "percentOfSelectedSamples": 1.587
+      },
+      {
+        "name": "libcorecrypto.dylib",
+        "samples": 1,
+        "percentOfSelectedSamples": 0.794
+      },
+      {
+        "name": "<unknown>",
+        "samples": 1,
+        "percentOfSelectedSamples": 0.794
+      },
+      {
+        "name": "SkyLight",
+        "samples": 1,
+        "percentOfSelectedSamples": 0.794
+      },
+      {
+        "name": "libsystem_c.dylib",
+        "samples": 1,
+        "percentOfSelectedSamples": 0.794
+      },
+      {
+        "name": "CoreVideo",
+        "samples": 1,
+        "percentOfSelectedSamples": 0.794
+      }
+    ],
+    "overlappingGroups": [
+      {
+        "name": "WebKit-IPC",
+        "samples": 46,
+        "percentOfSelectedSamples": 36.508
+      },
+      {
+        "name": "allocator-scavenger",
+        "samples": 34,
+        "percentOfSelectedSamples": 26.984
+      },
+      {
+        "name": "Tauri-IPC",
+        "samples": 19,
+        "percentOfSelectedSamples": 15.079
+      },
+      {
+        "name": "WebCore-inclusive",
+        "samples": 11,
+        "percentOfSelectedSamples": 8.73
+      },
+      {
+        "name": "QuartzCore-inclusive",
+        "samples": 4,
+        "percentOfSelectedSamples": 3.175
+      },
+      {
+        "name": "thread-teardown",
+        "samples": 3,
+        "percentOfSelectedSamples": 2.381
+      }
+    ]
+  },
+  "before10Seconds": {
+    "samples": 106,
+    "sampleWeightNs": 106000000,
+    "firstSeconds": 0.342304833,
+    "lastSeconds": 9.512304791,
+    "threads": [
+      {
+        "name": "Main Thread #3",
+        "samples": 45,
+        "percentOfSelectedSamples": 42.453
+      },
+      {
+        "name": "JavaScriptCore libpas scavenger #4",
+        "samples": 31,
+        "percentOfSelectedSamples": 29.245
+      },
+      {
+        "name": "xlog-prototype #10",
+        "samples": 7,
+        "percentOfSelectedSamples": 6.604
+      },
+      {
+        "name": "tokio-rt-worker #2",
+        "samples": 6,
+        "percentOfSelectedSamples": 5.66
+      },
+      {
+        "name": "tokio-rt-worker #8",
+        "samples": 6,
+        "percentOfSelectedSamples": 5.66
+      },
+      {
+        "name": "xlog-prototype #1",
+        "samples": 3,
+        "percentOfSelectedSamples": 2.83
+      },
+      {
+        "name": "Log work queue #7",
+        "samples": 2,
+        "percentOfSelectedSamples": 1.887
+      },
+      {
+        "name": "CVDisplayLink #5",
+        "samples": 1,
+        "percentOfSelectedSamples": 0.943
+      },
+      {
+        "name": "CVDisplayLink #6",
+        "samples": 1,
+        "percentOfSelectedSamples": 0.943
+      },
+      {
+        "name": "xlog-prototype #9",
+        "samples": 1,
+        "percentOfSelectedSamples": 0.943
+      },
+      {
+        "name": "CVDisplayLink #11",
+        "samples": 1,
+        "percentOfSelectedSamples": 0.943
+      },
+      {
+        "name": "CVDisplayLink #12",
+        "samples": 1,
+        "percentOfSelectedSamples": 0.943
+      },
+      {
+        "name": "CVDisplayLink #13",
+        "samples": 1,
+        "percentOfSelectedSamples": 0.943
+      }
+    ],
+    "leafBinaries": [
+      {
+        "name": "JavaScriptCore",
+        "samples": 31,
+        "percentOfSelectedSamples": 29.245
+      },
+      {
+        "name": "libsystem_kernel.dylib",
+        "samples": 20,
+        "percentOfSelectedSamples": 18.868
+      },
+      {
+        "name": "CoreFoundation",
+        "samples": 12,
+        "percentOfSelectedSamples": 11.321
+      },
+      {
+        "name": "xlog-prototype",
+        "samples": 9,
+        "percentOfSelectedSamples": 8.491
+      },
+      {
+        "name": "libobjc.A.dylib",
+        "samples": 5,
+        "percentOfSelectedSamples": 4.717
+      },
+      {
+        "name": "WebKit",
+        "samples": 5,
+        "percentOfSelectedSamples": 4.717
+      },
+      {
+        "name": "libsystem_malloc.dylib",
+        "samples": 5,
+        "percentOfSelectedSamples": 4.717
+      },
+      {
+        "name": "libsystem_pthread.dylib",
+        "samples": 5,
+        "percentOfSelectedSamples": 4.717
+      },
+      {
+        "name": "QuartzCore",
+        "samples": 3,
+        "percentOfSelectedSamples": 2.83
+      },
+      {
+        "name": "libobjcMsgSend.dylib",
+        "samples": 3,
+        "percentOfSelectedSamples": 2.83
+      },
+      {
+        "name": "libsystem_platform.dylib",
+        "samples": 2,
+        "percentOfSelectedSamples": 1.887
+      },
+      {
+        "name": "WebCore",
+        "samples": 2,
+        "percentOfSelectedSamples": 1.887
+      },
+      {
+        "name": "libcorecrypto.dylib",
+        "samples": 1,
+        "percentOfSelectedSamples": 0.943
+      },
+      {
+        "name": "libsystem_trace.dylib",
+        "samples": 1,
+        "percentOfSelectedSamples": 0.943
+      },
+      {
+        "name": "<unknown>",
+        "samples": 1,
+        "percentOfSelectedSamples": 0.943
+      },
+      {
+        "name": "SkyLight",
+        "samples": 1,
+        "percentOfSelectedSamples": 0.943
+      }
+    ],
+    "overlappingGroups": [
+      {
+        "name": "WebKit-IPC",
+        "samples": 37,
+        "percentOfSelectedSamples": 34.906
+      },
+      {
+        "name": "allocator-scavenger",
+        "samples": 31,
+        "percentOfSelectedSamples": 29.245
+      },
+      {
+        "name": "Tauri-IPC",
+        "samples": 18,
+        "percentOfSelectedSamples": 16.981
+      },
+      {
+        "name": "WebCore-inclusive",
+        "samples": 7,
+        "percentOfSelectedSamples": 6.604
+      },
+      {
+        "name": "QuartzCore-inclusive",
+        "samples": 3,
+        "percentOfSelectedSamples": 2.83
+      },
+      {
+        "name": "thread-teardown",
+        "samples": 2,
+        "percentOfSelectedSamples": 1.887
+      }
+    ]
+  },
+  "atOrAfter10Seconds": {
+    "samples": 20,
+    "sampleWeightNs": 20000000,
+    "firstSeconds": 10.051305166,
+    "lastSeconds": 11.224306375,
+    "threads": [
+      {
+        "name": "Main Thread #3",
+        "samples": 11,
+        "percentOfSelectedSamples": 55.0
+      },
+      {
+        "name": "JavaScriptCore libpas scavenger #4",
+        "samples": 3,
+        "percentOfSelectedSamples": 15.0
+      },
+      {
+        "name": "CVDisplayLink #15",
+        "samples": 2,
+        "percentOfSelectedSamples": 10.0
+      },
+      {
+        "name": "xlog-prototype #14",
+        "samples": 1,
+        "percentOfSelectedSamples": 5.0
+      },
+      {
+        "name": "Log work queue #7",
+        "samples": 1,
+        "percentOfSelectedSamples": 5.0
+      },
+      {
+        "name": "xlog-prototype #10",
+        "samples": 1,
+        "percentOfSelectedSamples": 5.0
+      },
+      {
+        "name": "CVDisplayLink #16",
+        "samples": 1,
+        "percentOfSelectedSamples": 5.0
+      }
+    ],
+    "leafBinaries": [
+      {
+        "name": "CoreFoundation",
+        "samples": 6,
+        "percentOfSelectedSamples": 30.0
+      },
+      {
+        "name": "JavaScriptCore",
+        "samples": 6,
+        "percentOfSelectedSamples": 30.0
+      },
+      {
+        "name": "libsystem_c.dylib",
+        "samples": 1,
+        "percentOfSelectedSamples": 5.0
+      },
+      {
+        "name": "CoreVideo",
+        "samples": 1,
+        "percentOfSelectedSamples": 5.0
+      },
+      {
+        "name": "libsystem_trace.dylib",
+        "samples": 1,
+        "percentOfSelectedSamples": 5.0
+      },
+      {
+        "name": "WebKit",
+        "samples": 1,
+        "percentOfSelectedSamples": 5.0
+      },
+      {
+        "name": "libsystem_pthread.dylib",
+        "samples": 1,
+        "percentOfSelectedSamples": 5.0
+      },
+      {
+        "name": "libsystem_kernel.dylib",
+        "samples": 1,
+        "percentOfSelectedSamples": 5.0
+      },
+      {
+        "name": "xlog-prototype",
+        "samples": 1,
+        "percentOfSelectedSamples": 5.0
+      },
+      {
+        "name": "WebCore",
+        "samples": 1,
+        "percentOfSelectedSamples": 5.0
+      }
+    ],
+    "overlappingGroups": [
+      {
+        "name": "WebKit-IPC",
+        "samples": 9,
+        "percentOfSelectedSamples": 45.0
+      },
+      {
+        "name": "WebCore-inclusive",
+        "samples": 4,
+        "percentOfSelectedSamples": 20.0
+      },
+      {
+        "name": "allocator-scavenger",
+        "samples": 3,
+        "percentOfSelectedSamples": 15.0
+      },
+      {
+        "name": "Tauri-IPC",
+        "samples": 1,
+        "percentOfSelectedSamples": 5.0
+      },
+      {
+        "name": "thread-teardown",
+        "samples": 1,
+        "percentOfSelectedSamples": 5.0
+      },
+      {
+        "name": "QuartzCore-inclusive",
+        "samples": 1,
+        "percentOfSelectedSamples": 5.0
+      }
+    ]
+  },
+  "perSecondSamples": {
+    "0": 2,
+    "1": 13,
+    "2": 9,
+    "3": 11,
+    "4": 16,
+    "5": 9,
+    "6": 12,
+    "7": 17,
+    "8": 10,
+    "9": 7,
+    "10": 12,
+    "11": 8
+  },
+  "interpretation": {
+    "processExit": "TOC attached-target disposition is exit(0), while recording end-reason is Time limit reached. Initiating actor/cause and exact exit timing are not established by these samples. No normal-Quit claim.",
+    "threadTeardown": "All three exit/terminate-matching samples are CVDisplayLink pthread teardown at 2.455305458, 3.455305791 and 10.488306875 seconds, not sampled application termination.",
+    "allocator": "34 samples are on the JavaScriptCore libpas scavenger thread; 22 leaf frames are pas_thread_local_cache_for_all. This is native allocator maintenance, not evidence of JavaScript application-code execution or a leak.",
+    "ipc": "46 WebKit IPC inclusive samples and 19 Tauri IPC inclusive samples overlap and must not be added. They show transport/URL-scheme request processing, not method identities, exact request rates or feature ownership.",
+    "isolationObserver": "Two samples include runtime_profile connected_loopback/allows_worker_method file reads. This private-profile path is a lead for quantifying observer/isolation overhead; safety checks must remain authoritative.",
+    "nextOwner": "Desktop/runtime owner: correlate redacted per-command dispatch and completion counters, timers and subscriber ownership with host thread/renderer samples in a separately authorized disposable run; prioritize avoidable IPC after measurement, preserve lease/Stop supervision."
+  },
+  "limits": [
+    "126 Running samples over trace-relative0.342304833\u201311.224306375s; total126000000ns is statistical weight, not measured CPU duration.",
+    "Short host-only profiler-on phase; worker and renderer/helper costs absent; not the earlier600-second CPU interval.",
+    "Sample counts per second are too sparse for rates or percentiles. No pre-exit boundary or unchanged GUI state is proven.",
+    "Application termination after/beside recording prevents claiming an ordinary uninterrupted idle/Quit lifecycle. No initiating actor/key or profiler causality is inferred.",
+    "Leaf binary names are image attribution only; native allocator symbols in JavaScriptCore do not identify JS execution."
+  ]
+}

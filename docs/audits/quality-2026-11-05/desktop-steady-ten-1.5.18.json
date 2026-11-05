@@ -1,0 +1,367 @@
+{
+  "schema": 1,
+  "status": "completed-cpu-baseline-post-profiler-exit-unobserved",
+  "version": "1.5.18",
+  "sourceCommit": "0b7c669663841c2e55569b0c21c76ad03805cad7",
+  "signedHostSHA256": "4f95f35d234919d7bf81d5cba50f0f33041056a927bf362978c35d7a3bae8ffa",
+  "signedWorkerSHA256": "31ac2cdda0254df08b57058a07b29ceae1f83acd365debdcdb13f15eea639f67",
+  "sealedBuildManifestSHA256": "d7bad62ab9443270be1299a126d0447ff3c943261e2a057d187332da9f877d70",
+  "rusageBackendSHA256": "178f80e05b78d2555103ba46a5f2cf75d6ed374446a9d4794e53bb7793a46da8",
+  "steadySamplerSHA256": "7622b064dfe3302d8d6d45fe079b74dceb18fc8510b6521e60133931fdf757f7",
+  "samples": [
+    {
+      "requestedOffsetSeconds": 0,
+      "actualElapsedSeconds": 0.29791458300314844,
+      "at": "2026-11-05T08:57:09.865902+00:00",
+      "timebaseNumer": 125,
+      "timebaseDenom": 3,
+      "owners": {
+        "host": {
+          "residentBytes": 114114560,
+          "physicalFootprintBytes": 39994496,
+          "cpuUserMachTicks": 43293417,
+          "cpuSystemMachTicks": 24320927,
+          "cpuUserNanoseconds": 1803892375,
+          "cpuSystemNanoseconds": 1013371958,
+          "sampleMachAbsoluteTime": 4220509181894,
+          "packageIdleWakeups": 88,
+          "interruptWakeups": 12724,
+          "pageins": 6115,
+          "rusageAvailable": true,
+          "stableAcrossRead": true,
+          "processStartIdentitySHA256": "db9ee27501077e8573af11ac92dc923c05f4ff6a0d04822bdd93c477c14d2219"
+        },
+        "worker": {
+          "residentBytes": 48300032,
+          "physicalFootprintBytes": 91767504,
+          "cpuUserMachTicks": 58178737,
+          "cpuSystemMachTicks": 13112098,
+          "cpuUserNanoseconds": 2424114041,
+          "cpuSystemNanoseconds": 546337416,
+          "sampleMachAbsoluteTime": 4220509182107,
+          "packageIdleWakeups": 0,
+          "interruptWakeups": 2,
+          "pageins": 427,
+          "rusageAvailable": true,
+          "stableAcrossRead": true,
+          "processStartIdentitySHA256": "b069ebfa9c2dc3d7a4a6c59c07d06b16425d79bc25579121d95563e7d2e5fd65"
+        }
+      },
+      "RSSSummed": false,
+      "phase": "steady-cpu-profiler-off"
+    },
+    {
+      "requestedOffsetSeconds": 300,
+      "actualElapsedSeconds": 300.2988371660176,
+      "at": "2026-11-05T09:02:09.865784+00:00",
+      "timebaseNumer": 125,
+      "timebaseDenom": 3,
+      "owners": {
+        "host": {
+          "residentBytes": 97320960,
+          "physicalFootprintBytes": 40109184,
+          "cpuUserMachTicks": 167867723,
+          "cpuSystemMachTicks": 79534191,
+          "cpuUserNanoseconds": 6994488458,
+          "cpuSystemNanoseconds": 3313924625,
+          "sampleMachAbsoluteTime": 4227709307535,
+          "packageIdleWakeups": 1775,
+          "interruptWakeups": 59300,
+          "pageins": 6116,
+          "rusageAvailable": true,
+          "stableAcrossRead": true,
+          "processStartIdentitySHA256": "db9ee27501077e8573af11ac92dc923c05f4ff6a0d04822bdd93c477c14d2219"
+        },
+        "worker": {
+          "residentBytes": 20119552,
+          "physicalFootprintBytes": 91767504,
+          "cpuUserMachTicks": 64641789,
+          "cpuSystemMachTicks": 16582023,
+          "cpuUserNanoseconds": 2693407875,
+          "cpuSystemNanoseconds": 690917625,
+          "sampleMachAbsoluteTime": 4227709307742,
+          "packageIdleWakeups": 0,
+          "interruptWakeups": 2,
+          "pageins": 427,
+          "rusageAvailable": true,
+          "stableAcrossRead": true,
+          "processStartIdentitySHA256": "b069ebfa9c2dc3d7a4a6c59c07d06b16425d79bc25579121d95563e7d2e5fd65"
+        }
+      },
+      "RSSSummed": false,
+      "phase": "steady-cpu-profiler-off"
+    },
+    {
+      "requestedOffsetSeconds": 600,
+      "actualElapsedSeconds": 600.3049471660051,
+      "at": "2026-11-05T09:07:09.870853+00:00",
+      "timebaseNumer": 125,
+      "timebaseDenom": 3,
+      "owners": {
+        "host": {
+          "residentBytes": 82444288,
+          "physicalFootprintBytes": 44631216,
+          "cpuUserMachTicks": 243399220,
+          "cpuSystemMachTicks": 113114329,
+          "cpuUserNanoseconds": 10141634166,
+          "cpuSystemNanoseconds": 4713097041,
+          "sampleMachAbsoluteTime": 4234908927063,
+          "packageIdleWakeups": 2309,
+          "interruptWakeups": 84350,
+          "pageins": 7163,
+          "rusageAvailable": true,
+          "stableAcrossRead": true,
+          "processStartIdentitySHA256": "db9ee27501077e8573af11ac92dc923c05f4ff6a0d04822bdd93c477c14d2219"
+        },
+        "worker": {
+          "residentBytes": 19595264,
+          "physicalFootprintBytes": 91767504,
+          "cpuUserMachTicks": 71461039,
+          "cpuSystemMachTicks": 20299751,
+          "cpuUserNanoseconds": 2977543291,
+          "cpuSystemNanoseconds": 845822958,
+          "sampleMachAbsoluteTime": 4234908927270,
+          "packageIdleWakeups": 0,
+          "interruptWakeups": 2,
+          "pageins": 427,
+          "rusageAvailable": true,
+          "stableAcrossRead": true,
+          "processStartIdentitySHA256": "b069ebfa9c2dc3d7a4a6c59c07d06b16425d79bc25579121d95563e7d2e5fd65"
+        }
+      },
+      "RSSSummed": false,
+      "phase": "steady-cpu-profiler-off"
+    }
+  ],
+  "intervals": [
+    {
+      "fromOffsetSeconds": 0,
+      "toOffsetSeconds": 300,
+      "owners": [
+        {
+          "role": "host",
+          "samePIDAndNonzeroStartVerified": true,
+          "intervalMachTicks": 7200125641,
+          "intervalNanoseconds": 300005235041,
+          "userMachTicksDelta": 124574306,
+          "systemMachTicksDelta": 55213264,
+          "userNanosecondsDelta": 5190596083,
+          "systemNanosecondsDelta": 2300552666,
+          "percentOfOneCore": 2.4970060102316483,
+          "residentBytesDelta": -16793600,
+          "physicalFootprintBytesDelta": 114688
+        },
+        {
+          "role": "worker",
+          "samePIDAndNonzeroStartVerified": true,
+          "intervalMachTicks": 7200125635,
+          "intervalNanoseconds": 300005234791,
+          "userMachTicksDelta": 6463052,
+          "systemMachTicksDelta": 3469925,
+          "userNanosecondsDelta": 269293833,
+          "systemNanosecondsDelta": 144580208,
+          "percentOfOneCore": 0.1379556066593552,
+          "residentBytesDelta": -28180480,
+          "physicalFootprintBytesDelta": 0
+        }
+      ]
+    },
+    {
+      "fromOffsetSeconds": 300,
+      "toOffsetSeconds": 600,
+      "owners": [
+        {
+          "role": "host",
+          "samePIDAndNonzeroStartVerified": true,
+          "intervalMachTicks": 7199619528,
+          "intervalNanoseconds": 299984147000,
+          "userMachTicksDelta": 75531497,
+          "systemMachTicksDelta": 33580138,
+          "userNanosecondsDelta": 3147145708,
+          "systemNanosecondsDelta": 1399172416,
+          "percentOfOneCore": 1.5155194601000033,
+          "residentBytesDelta": -14876672,
+          "physicalFootprintBytesDelta": 4522032
+        },
+        {
+          "role": "worker",
+          "samePIDAndNonzeroStartVerified": true,
+          "intervalMachTicks": 7199619528,
+          "intervalNanoseconds": 299984147000,
+          "userMachTicksDelta": 6819250,
+          "systemMachTicksDelta": 3717728,
+          "userNanosecondsDelta": 284135416,
+          "systemNanosecondsDelta": 154905333,
+          "percentOfOneCore": 0.14635465053424973,
+          "residentBytesDelta": -524288,
+          "physicalFootprintBytesDelta": 0
+        }
+      ]
+    },
+    {
+      "fromOffsetSeconds": 0,
+      "toOffsetSeconds": 600,
+      "owners": [
+        {
+          "role": "host",
+          "samePIDAndNonzeroStartVerified": true,
+          "intervalMachTicks": 14399745169,
+          "intervalNanoseconds": 599989382041,
+          "userMachTicksDelta": 200105803,
+          "systemMachTicksDelta": 88793402,
+          "userNanosecondsDelta": 8337741791,
+          "systemNanosecondsDelta": 3699725083,
+          "percentOfOneCore": 2.0062799834954497,
+          "residentBytesDelta": -31670272,
+          "physicalFootprintBytesDelta": 4636720
+        },
+        {
+          "role": "worker",
+          "samePIDAndNonzeroStartVerified": true,
+          "intervalMachTicks": 14399745163,
+          "intervalNanoseconds": 599989381791,
+          "userMachTicksDelta": 13282302,
+          "systemMachTicksDelta": 7187653,
+          "userNanosecondsDelta": 553429250,
+          "systemNanosecondsDelta": 299485541,
+          "percentOfOneCore": 0.14215498099645085,
+          "residentBytesDelta": -28704768,
+          "physicalFootprintBytesDelta": 0
+        }
+      ]
+    }
+  ],
+  "RSSSummed": false,
+  "helpersIncluded": false,
+  "units": {
+    "CPU": "raw Mach absolute-time ticks; integer nanoseconds via numerator/denominator",
+    "sampleMachAbsoluteTime": "Mach absolute-time ticks on same host boot clock",
+    "processStartAbsoluteTime": "exact nonzero Mach absolute-time process-start identity",
+    "residentBytes": "public V0 resident size bytes",
+    "physicalFootprintBytes": "public V0 physical footprint bytes",
+    "percentOfOneCore": "100 times summed user/system CPU tick delta divided by actual sample tick interval",
+    "wakeupsAndPageins": "cumulative kernel counts; zero is not proof of absent activity"
+  },
+  "method": "Public proc_pid_rusage RUSAGE_INFO_V0, same process/start, nondecreasing counters, fresh exact process proofs before/after each capture",
+  "initialObservation": "Root positively reverified exact host and worker before each GUI step, observed marked Operator Desk with blank callsign/frequency/comment and external station I/O disabled, clicked observed Desk Callsign, then fresh AX confirmed focused control still blank. OS frontmost and continuous visibility not independently verified. No root GUI interaction during baseline; end observation and profiling remain separate.",
+  "endObservation": "After the separate ten-second Time Profiler attach completed successfully, process-only verification found both marked host and worker absent. Root stopped before any post-profile AX observation or Quit; no root Quit was requested. End GUI focus/visibility was not observed.",
+  "continuousVisibilityVerified": false,
+  "endGUIObservationAvailable": false,
+  "visibilityPolicy": "Single xLog GUI host, initial focused control observed; no continuous visibility or end GUI observation",
+  "retainedGeneratedInput": {
+    "physicalRows": 100000,
+    "liveQSOs": 100000,
+    "generatedCommentRows": 100000,
+    "hashRows": 100000,
+    "orderedStoredQSOHash": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+    "hashColumns": [
+      "local_id",
+      "wavelog_id",
+      "call",
+      "qso_start",
+      "band",
+      "mode",
+      "frequency_hz",
+      "is_dirty",
+      "deleted_at",
+      "updated_at",
+      "record_json",
+      "baseline_json"
+    ],
+    "readMode": "readonly-WAL-honored",
+    "databaseSHA256": "e47729e0066468f25adfd6fa714d1b37403f441fe859ba7c0e0df21ec72b7ea2",
+    "databaseBytes": 171393024,
+    "walBytes": 0
+  },
+  "preparedClosedFixture": {
+    "physicalRows": 100000,
+    "liveQSOs": 100000,
+    "generatedCommentRows": 100000,
+    "hashRows": 100000,
+    "orderedStoredQSOHash": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+    "hashColumns": [
+      "local_id",
+      "wavelog_id",
+      "call",
+      "qso_start",
+      "band",
+      "mode",
+      "frequency_hz",
+      "is_dirty",
+      "deleted_at",
+      "updated_at",
+      "record_json",
+      "baseline_json"
+    ],
+    "readMode": "readonly-WAL-honored",
+    "databaseSHA256": "e6f5a4b3d6da3d960c8c0e1368ba412daeefe60ed72341e2769c0125664683b3",
+    "databaseBytes": 196788224,
+    "walBytes": 32768
+  },
+  "closedPostProfilerFixture": {
+    "physicalRows": 100000,
+    "liveQSOs": 100000,
+    "generatedCommentRows": 100000,
+    "hashRows": 100000,
+    "orderedStoredQSOHash": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+    "hashColumns": [
+      "local_id",
+      "wavelog_id",
+      "call",
+      "qso_start",
+      "band",
+      "mode",
+      "frequency_hz",
+      "is_dirty",
+      "deleted_at",
+      "updated_at",
+      "record_json",
+      "baseline_json"
+    ],
+    "readMode": "readonly-WAL-honored-exact-family-copy-no-immutable",
+    "databaseSHA256": "608c64bc981b9b5defa8f41e33090d4a284af3655337ac95d0c214ecd5fa40d2",
+    "databaseBytes": 196788224,
+    "walBytes": 407912
+  },
+  "storedQSOHashPreserved": true,
+  "originalFixtureFamilyUnchanged": {
+    "": {
+      "bytes": 196788224,
+      "sha256": "608c64bc981b9b5defa8f41e33090d4a284af3655337ac95d0c214ecd5fa40d2"
+    },
+    "-wal": {
+      "bytes": 407912,
+      "sha256": "d66f60c24c851f70626d266e616826d56a0201032199d6820bcece740876418a"
+    },
+    "-shm": {
+      "bytes": 32768,
+      "sha256": "ffa764a2ce70c6815933c74551a60d6f755e1e84248481f1471f1441193da99e"
+    }
+  },
+  "postExitQueryMethod": "Normal mode=ro SQLite on byte-matching closed DB/WAL/SHM copy; WAL honored, no immutable mode; original family untouched",
+  "integrityCheck": "ok",
+  "privateSettingsFieldCount": 27,
+  "privateSettingsSHA256": "73ff47b6287bd6e4612e126be2f001c68231df746c71cb23d1577d2e5babccbb",
+  "fixtureControls": [
+    "Fresh marked canonical 0700 offline root and separate home/workspace identities",
+    "Worker-created empty workspace, SQLite backup of generated 100k only, supported migrations",
+    "Supported private settings restoration and revision-fenced blank draft clear; no QSO committed",
+    "All 27 settings fields matched earlier 18 fixture; 100000 physical/live/generated-comment rows and zero tombstones",
+    "No other xLog GUI host at launch or periodic/capture guards; station I/O disabled",
+    "After unobserved exit, normal readonly WAL-aware exact-copy check preserved original family and stored-QSO hash"
+  ],
+  "profilePhase": "Separate root profiler-on phase starts after final baseline capture; no profiler-on CPU included in these intervals",
+  "limits": [
+    "Only initial control focus observed; continuous focus/visibility/occlusion and end GUI state unavailable",
+    "Host/worker reads adjacent, not simultaneous; no helpers or whole-app CPU/memory budget",
+    "Ambient load, caches and observer overhead uncontrolled; no causal source-fix attribution",
+    "No network/GPU/JS/audio/IQ/SQL-cache attribution; zero counters are not proof of absent work"
+  ],
+  "ordinaryQuitProcessOnlyVerified": false,
+  "rootQuitRequested": false,
+  "exitCause": "unobserved",
+  "lifecycleQualification": "Incomplete: exact host and worker absent after separate profiler phase; exit cause investigation open",
+  "wholeApplicationBudget": "not established",
+  "incidentAttribution": "not assessed",
+  "publicNormalization": "Raw process-start ticks retained privately; public samples preserve their SHA256 identity and verified stability. Measured CPU/memory/timing counters are unchanged."
+}

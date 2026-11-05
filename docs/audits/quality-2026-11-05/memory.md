@@ -104,8 +104,28 @@ wakeups, pageins and kernel-accounted disk bytes with exact intervals. The
 candidate host alone averaged about 1.05% of one core, so the provisional
 under-1% idle goal is not met here. No CPU target was relaxed.
 
-Next evidence: relevant operation close/expiry cycles and complete WebKit
-ownership under a calibrated ordinary desktop profile. Current kernel
+The [single-candidate ten-minute follow-up](desktop-steady-ten-1.5.18.md)
+measured host 2.0063% and worker 0.1422% of one core over 599.989382 seconds.
+The host result differs from the concurrent pair; initial control focus and
+visibility contexts differ, so no causal comparison is claimed. The goal
+remains unmet in this isolated profile. A separate short Instruments recording
+completed, then both test processes were absent before post-profile GUI
+observation or Quit. Native logs and trace metadata show `exit(0)`; the
+initiator/cause remains unobserved. This sequence is not normal-Quit acceptance.
+WAL-aware post-exit checks preserve all generated QSO rows and the original
+database family. Earlier native and paired-idle normal-Quit receipts keep their
+separate, observed outcomes.
+
+[Saved host-profile analysis](host-profile-1.5.18.md) identifies WKWebView/Tauri
+transport work as an investigation lead, without identifying commands or
+feature callers. The JavaScriptCore image share includes native allocator
+scavenging and is not JavaScript application CPU. Two samples include offline
+profile guard file reads; this does not quantify production overhead or justify
+weakening isolation. Sparse profiler sample weights are not CPU durations.
+
+Next evidence: redacted per-command/timer/subscriber counters, relevant operation
+close/expiry cycles and complete WebKit ownership under a calibrated ordinary
+desktop profile. Current kernel
 responsibility/coalition probes identify a broader shared owner for both test
 hosts and WebKit candidates; those helpers remain shared/unattributed.
 The source fix explains a substantial observed owner and removes demonstrated
