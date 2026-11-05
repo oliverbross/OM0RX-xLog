@@ -19,7 +19,7 @@ and physical evidence remain separate.
 | Q04 | Fixed in source; packaged/idle verification pending | `5fac0a06` + `afdef570`: hidden disarmed dispatches 40→0/30s, holder heartbeat preserved, context-churn starvation corrected; 21 focused tests and TypeScript pass. [Counters](runtime-cw-polling.md). |
 | Q05 | Fixed in source; packaged verification pending | `1ab1f647`: POTA byte construction 3.807 GB→6.75 MB per synthetic file transfer; exact Unicode/multi-park service checks pass. [Measurements](runtime-pota-chunks.md). This is separate from retained task memory; no schema/durability change. |
 | Q06 | Packaged common journeys pending | Native Windows/Linux ordinary-desktop cells and physical hardware remain NOT RUN. Browser/component tests cannot close them. |
-| Q07 | Integration candidate pending; phase OPEN | Exact-source unique-version candidates, artifact hashes and coherent gates will be recorded here. No install or public release authorized by this quality phase. |
+| Q07 | 1.5.16 held; successor correction underway; phase OPEN | [Signed 1.5.16 native qualification](native-1.5.16.md) found missing own-station fields in the first QSO after setup. Memory A/B and nine packaged-worker checks passed. This demonstrated failure requires a new candidate version after correction. No daily-app install or public release. |
 
 ## Preservation baseline
 
@@ -42,8 +42,8 @@ Raw diagnostics and private launch proofs stay outside Git.
 |---|---|---|---|
 | Current installed process memory | PASS: numeric native capture; incomplete WebKit ownership | NOT RUN | NOT RUN |
 | Released-worker repeated health / EOF | PASS on private empty fixture; growth reproduced | NOT RUN | NOT RUN |
-| New packaged worker memory / EOF | PENDING | NOT RUN | NOT RUN |
-| Native packaged skip setup → logging → restart | PENDING candidate | NOT RUN | NOT RUN |
+| New packaged worker memory / EOF | PASS for 1.5.16 empty/100k; full desktop budget open | NOT RUN | NOT RUN |
+| Native packaged skip setup → logging → restart | FAIL: 1.5.16 first-contact station fields; setup/row/restart otherwise retained | NOT RUN | NOT RUN |
 | Native radio / rotor Browse → Save → restart | NOT RUN | NOT RUN | NOT RUN |
 | Just me default path / no-admin / UAC cancellation | N/A | NOT RUN | N/A |
 | All users Program Files / ordinary first launch | N/A | NOT RUN | N/A |

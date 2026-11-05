@@ -1,0 +1,126 @@
+{
+  "schema": 1,
+  "workerSHA256": "ab0427710afc996ba7b19f632c4cdf6cee1a3105f8f34cbabe56690fde07c41d",
+  "platform": "darwin",
+  "workerKind": "released/package component",
+  "scope": "Private offline worker, sequential health requests; no GUI/hardware; OS caches uncontrolled",
+  "fixture": "empty",
+  "requestsPerCycle": 2000,
+  "warmupRequests": 1000,
+  "samples": [
+    {
+      "cycle": 0,
+      "completedMeasuredRequests": 0,
+      "rssKiB": 27920,
+      "footprintBytesRounded": 19084083,
+      "cpuLifetimePercent": 21.7,
+      "cpuTime": "0:00.36",
+      "settleSeconds": 0.2
+    },
+    {
+      "cycle": 1,
+      "completedMeasuredRequests": 2000,
+      "rssKiB": 26048,
+      "footprintBytesRounded": 14994636,
+      "cpuLifetimePercent": 29.2,
+      "cpuTime": "0:00.75",
+      "settleSeconds": 0.2,
+      "requestBatchSeconds": 0.885834
+    },
+    {
+      "cycle": 2,
+      "completedMeasuredRequests": 4000,
+      "rssKiB": 16880,
+      "footprintBytesRounded": 14994636,
+      "cpuLifetimePercent": 34.9,
+      "cpuTime": "0:01.17",
+      "settleSeconds": 0.2,
+      "requestBatchSeconds": 0.799527
+    },
+    {
+      "cycle": 3,
+      "completedMeasuredRequests": 6000,
+      "rssKiB": 16896,
+      "footprintBytesRounded": 14994636,
+      "cpuLifetimePercent": 29.5,
+      "cpuTime": "0:01.58",
+      "settleSeconds": 0.2,
+      "requestBatchSeconds": 0.63509
+    },
+    {
+      "cycle": 4,
+      "completedMeasuredRequests": 8000,
+      "rssKiB": 16896,
+      "footprintBytesRounded": 14994636,
+      "cpuLifetimePercent": 26.6,
+      "cpuTime": "0:02.00",
+      "settleSeconds": 0.2,
+      "requestBatchSeconds": 0.718005
+    },
+    {
+      "cycle": 5,
+      "completedMeasuredRequests": 10000,
+      "rssKiB": 16864,
+      "footprintBytesRounded": 14994636,
+      "cpuLifetimePercent": 25.0,
+      "cpuTime": "0:02.32",
+      "settleSeconds": 0.2,
+      "requestBatchSeconds": 0.46644
+    },
+    {
+      "cycle": 6,
+      "completedMeasuredRequests": 12000,
+      "rssKiB": 12480,
+      "footprintBytesRounded": 14994636,
+      "cpuLifetimePercent": 21.0,
+      "cpuTime": "0:02.79",
+      "settleSeconds": 0.2,
+      "requestBatchSeconds": 1.16733
+    },
+    {
+      "cycle": 7,
+      "completedMeasuredRequests": 14000,
+      "rssKiB": 12368,
+      "footprintBytesRounded": 14784921,
+      "cpuLifetimePercent": 36.3,
+      "cpuTime": "0:03.25",
+      "settleSeconds": 0.2,
+      "requestBatchSeconds": 0.876681
+    },
+    {
+      "cycle": 8,
+      "completedMeasuredRequests": 16000,
+      "rssKiB": 12208,
+      "footprintBytesRounded": 14784921,
+      "cpuLifetimePercent": 12.9,
+      "cpuTime": "0:03.72",
+      "settleSeconds": 0.2,
+      "requestBatchSeconds": 1.375643
+    },
+    {
+      "cycle": 9,
+      "completedMeasuredRequests": 18000,
+      "rssKiB": 12208,
+      "footprintBytesRounded": 14784921,
+      "cpuLifetimePercent": 26.6,
+      "cpuTime": "0:04.20",
+      "settleSeconds": 0.2,
+      "requestBatchSeconds": 0.890834
+    },
+    {
+      "cycle": 10,
+      "completedMeasuredRequests": 20000,
+      "rssKiB": 12176,
+      "footprintBytesRounded": 14784921,
+      "cpuLifetimePercent": 14.2,
+      "cpuTime": "0:04.85",
+      "settleSeconds": 0.2,
+      "requestBatchSeconds": 1.996772
+    }
+  ],
+  "state": "passed",
+  "growthBytes": -4299162,
+  "rssGrowthKiB": -15744,
+  "cleanEOF": true,
+  "maximumGrowthMiB": 24.0
+}
