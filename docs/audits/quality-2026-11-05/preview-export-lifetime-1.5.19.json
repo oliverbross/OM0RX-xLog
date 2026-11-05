@@ -1,0 +1,951 @@
+{
+  "schema": 1,
+  "status": "recovered-bounded-evidence-original-harness-exit1",
+  "artifact": {
+    "sourceCommit": "72a5926c2878ceedf70789ff4bae619ae5e14511",
+    "version": "1.5.19",
+    "workerSHA256": "a34ca68f95b8a03b27e9eb9ea09034cfc83b7f4c7593fbc0bf615e7dbfe93c43",
+    "hostSHA256": "cebb5249d96865c9d3bd980b5589e40729bb3fbf4b21bd7730d75c0649d357bb",
+    "zipSHA256": "680c95bd7ebf05c2bdd1b77c461507b8b99d83bc548f75797146182dd3badfd5",
+    "sealedBuildManifestSHA256": "831b10c46b57abe1f9421db92d7184323b1982a931d402efecf7438f60d64d76",
+    "strictSignatureVerified": true
+  },
+  "harnessOutcome": {
+    "exitCode": 1,
+    "status": "assertion-error-in-harness-expectation-not-app-failure",
+    "expectedErrorCode": "invalid_request",
+    "actualErrorCode": "invalid_params",
+    "actualOutcome": "confirmed",
+    "failedStep": "Final POTA read after fresh ADIF Begin clears POTA",
+    "originalScriptSHA256": "aa1f2171a7698e5fa4bb9f1e9f5facf23fee866614af4125bb622ad6d31c0526",
+    "rawScriptUnchanged": true,
+    "rawEvidencePreserved": true,
+    "rerunOrNewProbe": false,
+    "missingMeasurement": "Post-replacement footprint/RSS not captured before ordinary EOF; unavailable",
+    "recovered": "20 cycles, quiet60/310, expiry receipts/memory, successful replacement responses, normal EOF and WAL-aware postrun data integrity"
+  },
+  "protocolAudit": {
+    "generated": {
+      "correlatedRequests": 124,
+      "allResponsesCorrelated": true
+    },
+    "tiny": {
+      "correlatedRequests": 264,
+      "allResponsesCorrelated": true
+    }
+  },
+  "EOFAudit": {
+    "generated": {
+      "workers": 2,
+      "allExitCodeZero": true
+    },
+    "tiny": {
+      "workers": 2,
+      "allExitCodeZero": true
+    }
+  },
+  "postExpiryReplacementReceipts": {
+    "generated": {
+      "at": "2026-11-05T10:56:23.883344+00:00",
+      "newSnapshotRecords": 1,
+      "successfulFreshBegin": true,
+      "postReplacementMemory": "UNAVAILABLE"
+    },
+    "tiny": {
+      "at": "2026-11-05T10:56:23.913250+00:00",
+      "newSnapshotRecords": 2,
+      "successfulFreshBegin": true,
+      "postReplacementMemory": "UNAVAILABLE"
+    }
+  },
+  "postReplacementMemory": "UNAVAILABLE",
+  "workloads": {
+    "generated100k": {
+      "existingLiveQSOs": 100000,
+      "incomingPreviewRecordsPerChunk": 1,
+      "incomingPreviewTextBytes": 76,
+      "chunksPerSession": 2,
+      "replacementCycles": 20,
+      "fullADIFSnapshotRecords": 100000,
+      "ADIFReadLimit": 25,
+      "durableImportOrUpdateIssued": false,
+      "full100kPOTA": "Expected source-budget rejection, no successful full100k POTA preparation; generic wire code alone is not unique cause attribution"
+    },
+    "tinyPOTA": {
+      "syntheticStoredQSOs": 2,
+      "setupIncomingADIFBytes": 13544,
+      "replacementCycles": 20,
+      "ownParks": 2,
+      "contactedParks": 3,
+      "derivedRecords": 12,
+      "filesPerPreview": 2,
+      "fileBytesAndHashes": [
+        {
+          "bytes": 40914,
+          "sha256": "147225990cc69f3422419bf51a1ee99170150bee19ce2a2481238c1f590a4f38",
+          "chunks": 4,
+          "finalEmptyChunkVerified": true
+        },
+        {
+          "bytes": 40914,
+          "sha256": "e32ba509adfd78bae3428c7cc8bbfd05674b0cdc511f0d273695ee268c3ea07f",
+          "chunks": 4,
+          "finalEmptyChunkVerified": true
+        }
+      ],
+      "all20FileReconstructionsMatch": true,
+      "maximumReadBytes": 12000,
+      "finalEmptyChunksVerified": true
+    }
+  },
+  "samples": {
+    "generated": [
+      {
+        "label": "baseline",
+        "cycle": null,
+        "at": "2026-11-05T10:46:50.578107+00:00",
+        "residentBytes": 38731776,
+        "physicalFootprintBytes": 24773184,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "first-import-preview",
+        "cycle": null,
+        "at": "2026-11-05T10:46:58.017716+00:00",
+        "residentBytes": 668565504,
+        "physicalFootprintBytes": 661275704,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "first-full-ADIF-export",
+        "cycle": null,
+        "at": "2026-11-05T10:47:02.744101+00:00",
+        "residentBytes": 719880192,
+        "physicalFootprintBytes": 660390992,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 1,
+        "at": "2026-11-05T10:47:04.197840+00:00",
+        "residentBytes": 720142336,
+        "physicalFootprintBytes": 660505680,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 2,
+        "at": "2026-11-05T10:47:16.343388+00:00",
+        "residentBytes": 925564928,
+        "physicalFootprintBytes": 968230304,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 3,
+        "at": "2026-11-05T10:47:28.216334+00:00",
+        "residentBytes": 1120452608,
+        "physicalFootprintBytes": 943425048,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 4,
+        "at": "2026-11-05T10:47:39.596570+00:00",
+        "residentBytes": 1204502528,
+        "physicalFootprintBytes": 1033733728,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 5,
+        "at": "2026-11-05T10:47:51.643668+00:00",
+        "residentBytes": 1045872640,
+        "physicalFootprintBytes": 933545496,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 6,
+        "at": "2026-11-05T10:48:04.516662+00:00",
+        "residentBytes": 1010155520,
+        "physicalFootprintBytes": 1081968200,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 7,
+        "at": "2026-11-05T10:48:15.696607+00:00",
+        "residentBytes": 1299628032,
+        "physicalFootprintBytes": 952436248,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 8,
+        "at": "2026-11-05T10:48:26.870342+00:00",
+        "residentBytes": 1148928000,
+        "physicalFootprintBytes": 901596624,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 9,
+        "at": "2026-11-05T10:48:38.132988+00:00",
+        "residentBytes": 1275052032,
+        "physicalFootprintBytes": 946718208,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 10,
+        "at": "2026-11-05T10:48:49.436049+00:00",
+        "residentBytes": 742719488,
+        "physicalFootprintBytes": 535840016,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 11,
+        "at": "2026-11-05T10:49:01.059292+00:00",
+        "residentBytes": 1276248064,
+        "physicalFootprintBytes": 913557040,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 12,
+        "at": "2026-11-05T10:49:12.223192+00:00",
+        "residentBytes": 1205043200,
+        "physicalFootprintBytes": 733791696,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 13,
+        "at": "2026-11-05T10:49:24.699573+00:00",
+        "residentBytes": 1002520576,
+        "physicalFootprintBytes": 916522400,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 14,
+        "at": "2026-11-05T10:49:38.396442+00:00",
+        "residentBytes": 1161576448,
+        "physicalFootprintBytes": 1005520384,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 15,
+        "at": "2026-11-05T10:49:53.209873+00:00",
+        "residentBytes": 1048002560,
+        "physicalFootprintBytes": 938608128,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 16,
+        "at": "2026-11-05T10:50:06.975276+00:00",
+        "residentBytes": 999587840,
+        "physicalFootprintBytes": 920978824,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 17,
+        "at": "2026-11-05T10:50:25.105311+00:00",
+        "residentBytes": 787955712,
+        "physicalFootprintBytes": 671532304,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 18,
+        "at": "2026-11-05T10:50:39.572177+00:00",
+        "residentBytes": 987561984,
+        "physicalFootprintBytes": 852919688,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 19,
+        "at": "2026-11-05T10:50:53.349610+00:00",
+        "residentBytes": 845873152,
+        "physicalFootprintBytes": 873465176,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 20,
+        "at": "2026-11-05T10:51:07.155660+00:00",
+        "residentBytes": 907837440,
+        "physicalFootprintBytes": 914310560,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "quiet-after-last-replacement-60s",
+        "cycle": null,
+        "at": "2026-11-05T10:52:09.378785+00:00",
+        "residentBytes": 368820224,
+        "physicalFootprintBytes": 586220768,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "quiet-after-last-replacement-310s",
+        "cycle": null,
+        "at": "2026-11-05T10:56:19.380818+00:00",
+        "residentBytes": 14581760,
+        "physicalFootprintBytes": 586269920,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "after-expired-request",
+        "cycle": null,
+        "at": "2026-11-05T10:56:21.572575+00:00",
+        "residentBytes": 18481152,
+        "physicalFootprintBytes": 586269920,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "c600fbc9db1778fb0979c97930cf32fe017677bb2c9a477e38b2a23ed786d438",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      }
+    ],
+    "tinyPOTA": [
+      {
+        "label": "baseline",
+        "cycle": null,
+        "at": "2026-11-05T10:46:51.628226+00:00",
+        "residentBytes": 31195136,
+        "physicalFootprintBytes": 15106624,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "f386e685cba407a5bff67bda7b902c35beaaa7ccb3425ecc1ff7c3bc6474fe15",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 1,
+        "at": "2026-11-05T10:47:05.262228+00:00",
+        "residentBytes": 20725760,
+        "physicalFootprintBytes": 16400960,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "f386e685cba407a5bff67bda7b902c35beaaa7ccb3425ecc1ff7c3bc6474fe15",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 2,
+        "at": "2026-11-05T10:47:17.408107+00:00",
+        "residentBytes": 20774912,
+        "physicalFootprintBytes": 16564824,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "f386e685cba407a5bff67bda7b902c35beaaa7ccb3425ecc1ff7c3bc6474fe15",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 3,
+        "at": "2026-11-05T10:47:29.278528+00:00",
+        "residentBytes": 20955136,
+        "physicalFootprintBytes": 16581208,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "f386e685cba407a5bff67bda7b902c35beaaa7ccb3425ecc1ff7c3bc6474fe15",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 4,
+        "at": "2026-11-05T10:47:40.649663+00:00",
+        "residentBytes": 20758528,
+        "physicalFootprintBytes": 16384600,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "f386e685cba407a5bff67bda7b902c35beaaa7ccb3425ecc1ff7c3bc6474fe15",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 5,
+        "at": "2026-11-05T10:47:52.703172+00:00",
+        "residentBytes": 20217856,
+        "physicalFootprintBytes": 16286296,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "f386e685cba407a5bff67bda7b902c35beaaa7ccb3425ecc1ff7c3bc6474fe15",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 6,
+        "at": "2026-11-05T10:48:05.576300+00:00",
+        "residentBytes": 20299776,
+        "physicalFootprintBytes": 16613976,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "f386e685cba407a5bff67bda7b902c35beaaa7ccb3425ecc1ff7c3bc6474fe15",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 7,
+        "at": "2026-11-05T10:48:16.761091+00:00",
+        "residentBytes": 20135936,
+        "physicalFootprintBytes": 16433752,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "f386e685cba407a5bff67bda7b902c35beaaa7ccb3425ecc1ff7c3bc6474fe15",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 8,
+        "at": "2026-11-05T10:48:27.929984+00:00",
+        "residentBytes": 20348928,
+        "physicalFootprintBytes": 16663128,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "f386e685cba407a5bff67bda7b902c35beaaa7ccb3425ecc1ff7c3bc6474fe15",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 9,
+        "at": "2026-11-05T10:48:39.187619+00:00",
+        "residentBytes": 20135936,
+        "physicalFootprintBytes": 16450136,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "f386e685cba407a5bff67bda7b902c35beaaa7ccb3425ecc1ff7c3bc6474fe15",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 10,
+        "at": "2026-11-05T10:48:50.499884+00:00",
+        "residentBytes": 20119552,
+        "physicalFootprintBytes": 16450136,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "f386e685cba407a5bff67bda7b902c35beaaa7ccb3425ecc1ff7c3bc6474fe15",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 11,
+        "at": "2026-11-05T10:49:02.128905+00:00",
+        "residentBytes": 20152320,
+        "physicalFootprintBytes": 16450136,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "f386e685cba407a5bff67bda7b902c35beaaa7ccb3425ecc1ff7c3bc6474fe15",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 12,
+        "at": "2026-11-05T10:49:13.283799+00:00",
+        "residentBytes": 20299776,
+        "physicalFootprintBytes": 16466520,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "f386e685cba407a5bff67bda7b902c35beaaa7ccb3425ecc1ff7c3bc6474fe15",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 13,
+        "at": "2026-11-05T10:49:25.765491+00:00",
+        "residentBytes": 20447232,
+        "physicalFootprintBytes": 16663128,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "f386e685cba407a5bff67bda7b902c35beaaa7ccb3425ecc1ff7c3bc6474fe15",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 14,
+        "at": "2026-11-05T10:49:39.457677+00:00",
+        "residentBytes": 20365312,
+        "physicalFootprintBytes": 16646744,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "f386e685cba407a5bff67bda7b902c35beaaa7ccb3425ecc1ff7c3bc6474fe15",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 15,
+        "at": "2026-11-05T10:49:54.273730+00:00",
+        "residentBytes": 19939328,
+        "physicalFootprintBytes": 16351832,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "f386e685cba407a5bff67bda7b902c35beaaa7ccb3425ecc1ff7c3bc6474fe15",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 16,
+        "at": "2026-11-05T10:50:08.040969+00:00",
+        "residentBytes": 19660800,
+        "physicalFootprintBytes": 16695896,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "f386e685cba407a5bff67bda7b902c35beaaa7ccb3425ecc1ff7c3bc6474fe15",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 17,
+        "at": "2026-11-05T10:50:26.214994+00:00",
+        "residentBytes": 19677184,
+        "physicalFootprintBytes": 16826968,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "f386e685cba407a5bff67bda7b902c35beaaa7ccb3425ecc1ff7c3bc6474fe15",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 18,
+        "at": "2026-11-05T10:50:40.632712+00:00",
+        "residentBytes": 19595264,
+        "physicalFootprintBytes": 16679512,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "f386e685cba407a5bff67bda7b902c35beaaa7ccb3425ecc1ff7c3bc6474fe15",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 19,
+        "at": "2026-11-05T10:50:54.502007+00:00",
+        "residentBytes": 19628032,
+        "physicalFootprintBytes": 16695896,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "f386e685cba407a5bff67bda7b902c35beaaa7ccb3425ecc1ff7c3bc6474fe15",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "replacement-cycle",
+        "cycle": 20,
+        "at": "2026-11-05T10:51:08.251354+00:00",
+        "residentBytes": 19562496,
+        "physicalFootprintBytes": 16679512,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "f386e685cba407a5bff67bda7b902c35beaaa7ccb3425ecc1ff7c3bc6474fe15",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "quiet-after-last-replacement-60s",
+        "cycle": null,
+        "at": "2026-11-05T10:52:10.439500+00:00",
+        "residentBytes": 18186240,
+        "physicalFootprintBytes": 16450136,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "f386e685cba407a5bff67bda7b902c35beaaa7ccb3425ecc1ff7c3bc6474fe15",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "quiet-after-last-replacement-310s",
+        "cycle": null,
+        "at": "2026-11-05T10:56:20.439319+00:00",
+        "residentBytes": 14483456,
+        "physicalFootprintBytes": 16450136,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "f386e685cba407a5bff67bda7b902c35beaaa7ccb3425ecc1ff7c3bc6474fe15",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      },
+      {
+        "label": "after-expired-request",
+        "cycle": null,
+        "at": "2026-11-05T10:56:22.637795+00:00",
+        "residentBytes": 17055744,
+        "physicalFootprintBytes": 16450136,
+        "settleSeconds": 1,
+        "sameStartIdentityVerified": true,
+        "processStartIdentitySHA256": "f386e685cba407a5bff67bda7b902c35beaaa7ccb3425ecc1ff7c3bc6474fe15",
+        "RSSSummed": false,
+        "timestampSource": "persisted raw memory receipt"
+      }
+    ]
+  },
+  "units": {
+    "residentBytes": "public RUSAGE_INFO_V0 resident size in bytes",
+    "physicalFootprintBytes": "public RUSAGE_INFO_V0 physical footprint in bytes, separate from RSS",
+    "allocatedBytes": "heap current allocated-block size, not whole-process footprint or ARC retaining path",
+    "fileBytes": "exact decoded POTA bytes reconstructed from bounded wire chunks",
+    "MiB": "1048576 bytes"
+  },
+  "quietTargetSeconds": 310,
+  "actualQuietElapsedAtFinalAdjacentSamplesSeconds": 312.1210328330053,
+  "expiryWireResults": {
+    "generatedADIF": {
+      "confirmedWireRejection": "export_expired",
+      "at": "2026-11-05T10:56:20.490952+00:00",
+      "elapsedSeconds": 0.0015815829974599183
+    },
+    "generatedImportPreview": {
+      "confirmedWireRejection": "preview_expired",
+      "at": "2026-11-05T10:56:20.517097+00:00",
+      "elapsedSeconds": 0.0013832080003339797
+    },
+    "tinyPOTA": {
+      "confirmedWireRejection": "export_expired",
+      "at": "2026-11-05T10:56:20.539730+00:00",
+      "elapsedSeconds": 0.001527124986751005
+    }
+  },
+  "freshADIFBeginClearsPOTA": {
+    "confirmedWireRejection": "invalid_params",
+    "at": "2026-11-05T10:56:23.936798+00:00",
+    "elapsedSeconds": 0.0007712919905316085
+  },
+  "retentionOwnerEvidence": {
+    "sourceProperties": [
+      "LiveLogbookMethods.adifPreview",
+      "LiveLogbookMethods.adifExport",
+      "LiveLogbookMethods.potaExport"
+    ],
+    "sourceReferences": [
+      "Sources/XLogPrototypeSupport/LiveLogbookMethods.swift:79-97",
+      "Sources/XLogPrototypeSupport/LiveLogbookMethods.swift:451-454",
+      "Sources/XLogPrototypeSupport/LiveLogbookMethods.swift:1615-1629",
+      "Sources/XLogPrototypeSupport/LiveLogbookMethods.swift:1724-1728",
+      "Sources/XLogPrototypeSupport/LiveLogbookMethods.swift:2865-2884"
+    ],
+    "established": "Existing-log duplicate maps/index and frozen export are retained by distinct stored properties; their expiry guard rejects without clearing them. New ADIF Begin replaces ADIF and clears POTA; new import preview replaces its full existing-log session.",
+    "afterExpiryInference": "Sole-client trace and unchanged guard source imply owners remain after expiry rejection; settled process metrics alone do not prove live-object retention or release. Heap was before expiry guard, not an after-expiry ARC graph.",
+    "heapCurrentAllocationCount": 807016,
+    "heapCurrentAllocatedBytes": 550446624,
+    "selectedHeapTypes": [
+      {
+        "type": "Swift._DictionaryStorage<Foundation.UUID, XLogCore.QSO>",
+        "allocationCount": 1,
+        "allocatedBytes": 222347264
+      },
+      {
+        "type": "Swift._DictionaryStorage<Swift.String, Swift.String>",
+        "allocationCount": 200003,
+        "allocatedBytes": 128046080
+      },
+      {
+        "type": "Swift._ContiguousArrayStorage<XLogCore.QSO>",
+        "allocationCount": 100000,
+        "allocatedBytes": 89600000
+      },
+      {
+        "type": "Swift._DictionaryStorage<XLogCore.SemanticQSOIdentity, Swift.Int>",
+        "allocationCount": 1,
+        "allocatedBytes": 33554432
+      },
+      {
+        "type": "Swift._DictionaryStorage<XLogCore.SemanticQSOIdentity, Swift.Array<XLogCore.QSO>>",
+        "allocationCount": 1,
+        "allocatedBytes": 23117824
+      },
+      {
+        "type": "Swift._ContiguousArrayStorage<XLogCore.ADIFRecord>",
+        "allocationCount": 1,
+        "allocatedBytes": 4194304
+      },
+      {
+        "type": "Swift._ContiguousArrayStorage<Foundation.UUID>",
+        "allocationCount": 1,
+        "allocatedBytes": 1605632
+      },
+      {
+        "type": "Task stack",
+        "allocationCount": 5,
+        "allocatedBytes": 6144
+      }
+    ],
+    "sharedTypeLimit": "String-to-string dictionaries and other general types are shared; their bytes are not exclusively assigned to export.",
+    "unboundedLeakConclusion": "Not established: settled samples are nonmonotonic, and one session per property remains."
+  },
+  "heapObserver": {
+    "phase": "post20 quiet, after60s settled sample, before expiry guard requests",
+    "startedAt": "2026-11-05T10:52:11.849004+00:00",
+    "endedAt": "2026-11-05T10:52:15.989592+00:00",
+    "sameExactProcessAndStartVerified": true,
+    "observers": [
+      {
+        "observer": "heap",
+        "startedAt": "2026-11-05T10:52:11.906638+00:00",
+        "endedAt": "2026-11-05T10:52:15.081455+00:00",
+        "returnCode": 0,
+        "timedOut": false,
+        "rawSHA256": "97b9a71f0ee62a94ab00a0faf7b88cb67532d249cac6ebbdb561447ba4e87112"
+      },
+      {
+        "observer": "vmmap",
+        "startedAt": "2026-11-05T10:52:15.106665+00:00",
+        "endedAt": "2026-11-05T10:52:15.959388+00:00",
+        "returnCode": 0,
+        "timedOut": false,
+        "rawSHA256": "2ba182a1874e8d05f7aeae1105f898ba08782ed5a948d3b1db73848d1a73b951"
+      }
+    ],
+    "memoryBeforeAndAfterObserver": {
+      "before": {
+        "residentBytes": 368803840,
+        "physicalFootprintBytes": 586220768
+      },
+      "after": {
+        "residentBytes": 297238528,
+        "physicalFootprintBytes": 586237152
+      }
+    },
+    "limits": [
+      "Observer-on phase separate from ordinary settled snapshots; heap/vmmap may fault pages or change timing/residency",
+      "No allocation-stack logging, permission changes, process suspension command, signals, retries or new worker probe",
+      "Heap class/allocation totals alone are not an ARC retaining-path graph or precise attribution of all footprint bytes",
+      "Later expiry samples have observer history and must not be described as unobserved idle"
+    ]
+  },
+  "correctness": {
+    "generated": {
+      "integrity": "ok",
+      "liveQsoCount": 100000,
+      "physicalQsoRows": 100000,
+      "tombstones": 0,
+      "orderedStoredQsoSHA256": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+      "hashColumns": [
+        "local_id",
+        "wavelog_id",
+        "call",
+        "qso_start",
+        "band",
+        "mode",
+        "frequency_hz",
+        "is_dirty",
+        "deleted_at",
+        "updated_at",
+        "record_json",
+        "baseline_json"
+      ],
+      "closedBackupSHA256": "abeebdd470cd2c8d5c0e17603c64883c916ee16980ba11893eb9fb516d5f348f",
+      "closedBackupBytes": 196788224,
+      "sourceFileMetricsBefore": {
+        "": {
+          "exists": true,
+          "bytes": 196788224,
+          "sha256": "e6f5a4b3d6da3d960c8c0e1368ba412daeefe60ed72341e2769c0125664683b3"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 20538232,
+          "sha256": "e06a50af6768ba473e364bf5096c7971d92e3d2c98acdb35572c3c57b488a1bb"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 65536,
+          "sha256": "c3962b7e327657f57a2e7e11bdc3325c28548da1bdbf9f9561892adf15666dce"
+        }
+      },
+      "sourceMainAndWALUnchanged": true,
+      "snapshotMethod": "SQLite backup API from stopped fixture mode=ro/query_only with WAL honored; normal RO on closed standalone destination, no immutable",
+      "ownCLIProcessesAbsent": true
+    },
+    "tinyPOTA": {
+      "integrity": "ok",
+      "liveQsoCount": 2,
+      "physicalQsoRows": 2,
+      "tombstones": 0,
+      "orderedStoredQsoSHA256": "d6848a3eb6af2d34bdb78e5672f0637447c7c221cee0275b5590993664090a51",
+      "hashColumns": [
+        "local_id",
+        "wavelog_id",
+        "call",
+        "qso_start",
+        "band",
+        "mode",
+        "frequency_hz",
+        "is_dirty",
+        "deleted_at",
+        "updated_at",
+        "record_json",
+        "baseline_json"
+      ],
+      "closedBackupSHA256": "62fdd7a5c8158cea6f12e02d79117d9e29e9b68c8edf08fc332b506e41e07f70",
+      "closedBackupBytes": 294912,
+      "sourceFileMetricsBefore": {
+        "": {
+          "exists": true,
+          "bytes": 294912,
+          "sha256": "628baf1f45df5bb784bf956b20fe7e8b8ae5d78e7d7a6e2d691aa9144428cf6b"
+        },
+        "-wal": {
+          "exists": true,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "-shm": {
+          "exists": true,
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+        }
+      },
+      "sourceMainAndWALUnchanged": true,
+      "snapshotMethod": "SQLite backup API from stopped fixture mode=ro/query_only with WAL honored; normal RO on closed standalone destination, no immutable",
+      "ownCLIProcessesAbsent": true
+    },
+    "tinyPostSetupOrderedQsoHash": "d6848a3eb6af2d34bdb78e5672f0637447c7c221cee0275b5590993664090a51",
+    "originalGeneratedInputMainSHA256MatchesPinnedSource": true,
+    "allWorkersCleanEOF": true,
+    "GUIBindingsOrStationOutput": false,
+    "productionStoreAccess": false
+  },
+  "method": [
+    "Two separate marked offline CLI roots; generated100k preserved and tiny2-QSO setup separately authorized",
+    "Exact signed19 executable/PID/PPID/full-root proof before every correlated RPC, memory observer and ordinary EOF",
+    "Public rusage samples follow1-second settle; native requests are sequential within each worker",
+    "Two workers coexist while quiet; no whole-app total or shared RSS sum",
+    "No actual export download/file output, network or hardware operation; POTA bytes only read/hash-checked privately",
+    "Post-EOF normal readonly/query-only SQLite backup honors retained WAL, then integrity/count/hash on closed copies"
+  ],
+  "limits": [
+    "No GUI close/cancel was observed; normal preview/export API has no explicit release action",
+    "Sampled maxima are not transient allocation peaks; allocator retention/compression/ambient load uncontrolled",
+    "Heap/vmmap is a separately labelled observer-on phase between60s and310s; later samples carry observer history",
+    "No full ARC retaining-path graph and no exclusive whole-process byte attribution",
+    "Original controller exited1 on wrong expected error-code label; no app failure or all-harness PASS claim",
+    "Post-replacement footprint/RSS is unavailable; no new probe/repeat was performed",
+    "No code fix, rebuild, production inspection, whole-app budget, idle leak or reported7GB incident conclusion"
+  ],
+  "RSSSummed": false
+}

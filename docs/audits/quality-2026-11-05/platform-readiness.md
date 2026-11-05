@@ -1,7 +1,9 @@
 # Platform scope and remaining acceptance
 
-This is the Q06 readiness contract. Current candidate 1.5.19 has frozen source
-`72a5926c2878ceedf70789ff4bae619ae5e14511`; its cross-platform gate is pending.
+This is the Q06 readiness contract. Successor 1.5.20 is preparing exact-source
+qualification after the QTC first-input repair. Measured candidate 1.5.19 has
+frozen source `72a5926c2878ceedf70789ff4bae619ae5e14511`; its cross-platform
+gate failed Windows frontend before packaging.
 Earlier 1.5.18 receipts retain source `0b7c669663841c2e55569b0c21c76ad03805cad7`
 and their original scope. A build target is not a claim that every provider or
 ordinary desktop journey is qualified. Older P1 runtime receipts remain historical.
@@ -34,6 +36,7 @@ physical operation are separate evidence cells.
 |---|---|---|
 | P1 runtime | Original ~7 GB htop incident and whole-app envelope | User specifies htop's MEM column. Identify its process, field definition/units and workload; collect positively attributed native/WebKit memory and relevant open/use/close cycles. Keep unknown/shared helpers separate. The worker task-retention repair alone does not close this scope. |
 | P1 runtime | Provisional idle CPU goal not met | [Concurrent offline idle](desktop-idle-1.5.18.md) measured host ~1.05% of one core; [single-candidate follow-up](desktop-steady-ten-1.5.18.md) measured 2.0063%. [Saved profiling](host-profile-1.5.18.md) points to WKWebView/Tauri IPC but cannot name the feature owner; post-profile exit cause is unobserved. Correlate redacted command/timer/subscriber counters with host/renderer work, separate private guard overhead, then repair and repeat affected intervals. Preserve isolation/lease/Stop supervision; no target was relaxed. |
+| P2 runtime | Preview/export retained storage | [Signed 1.5.19 worker-only lifetime](preview-export-lifetime-1.5.19.md) measured ~525 MiB allocated structures while owners remained valid and 559.11 MiB footprint after expired reads; source guards reject without clearing. Define explicit close/release and expiry ownership while preserving frozen snapshots, duplicate matching and in-flight readers; capture live owners and settled memory after release/replacement. Twenty cycles were nonmonotonic, not an unbounded-leak proof. The original harness error and missing replacement sample remain recorded. |
 | P1 Windows desktop | Q02 actual equipment setup | Run [WIN-SETUP-01](../../reviews/QUALITY_FIRST_RUN_2026-11-05.md#native-windows-handoff-win-setup-01) on exact installers: actual bundled radio/rotor Browse, separate save receipts, restart/readback, failure/retry; explicit read-only connection with suitable equipment separately. |
 | P1 Windows packaging | Q03 standard-user and Program Files acceptance | Execute the [scope matrix](../../WINDOWS_INSTALLER_SCOPES.md#q03-acceptance-ledger) on fresh Windows 11 snapshots. Record paths without `/D`, token/elevation, UAC approve/cancel, prerequisite outcome, both hives/shortcuts, upgrade/rollback, retained workspace/external media and a second user. |
 | P1 desktop QA | Common native outcomes | On exact supported packages, run keyboard create/edit/search/recovery, ADIF/backup round trip, large-log paging, cluster/map/awards/contest and orderly shutdown. Keep container simulations distinct from ordinary desktop runs. |
