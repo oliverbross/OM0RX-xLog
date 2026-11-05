@@ -1,0 +1,287 @@
+{
+  "schema": 1,
+  "runId": 42039550660,
+  "disposition": "FAILED; installed self-test failure repeated; diagnostic stopped before Resume at null CIM image predicate",
+  "qaExecutorSource": "f68caff24dc171268b90eafd121f94ad8462363e",
+  "packageSource": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+  "version": "1.5.20",
+  "packageRun": 42016723457,
+  "packageArtifactId": 13413349502,
+  "packageArtifactSHA256": "3869a453e665320c4fe19662595b616cebb61d8217a1e6ea80a99ac99db3d41f",
+  "workerSHA256": "2dd9a007937b0cee8240bc73785a76ce2fbe4cc6a6dbe9dcde5114abce5593e5",
+  "payloadManifestSHA256": "448ca94af62660acf51cd201eee791367fa0898a6ab355f3559e41d4a9c2060d",
+  "applicationRebuilt": false,
+  "jobs": [
+    {
+      "id": 127286437141,
+      "name": "Windows fresh-runner runtime acceptance (perMachine)",
+      "conclusion": "failure"
+    },
+    {
+      "id": 127286437529,
+      "name": "Windows fresh-runner runtime acceptance (currentUser)",
+      "conclusion": "failure"
+    },
+    {
+      "id": 127286439055,
+      "name": "Linux runtime-only container acceptance",
+      "conclusion": "skipped"
+    },
+    {
+      "id": 127286506569,
+      "name": "prototype",
+      "conclusion": "skipped"
+    }
+  ],
+  "artifacts": [
+    {
+      "id": 13420895223,
+      "name": "xlog-acceptance-windows-perMachine-3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "bytes": 446581,
+      "sha256": "ad97108a25c4d48c566979cda94c3d6460e6a239f706e8e389e7377ec01b1374"
+    },
+    {
+      "id": 13419703897,
+      "name": "xlog-acceptance-windows-currentUser-3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "bytes": 443880,
+      "sha256": "a020c350b52d123da49dcf179e57a7cdce52af4f3746e35b8c398bfcb881310a"
+    }
+  ],
+  "scopes": [
+    {
+      "scope": "currentUser",
+      "job": 127286437529,
+      "conclusion": "failure",
+      "qaExecutorSource": "f68caff24dc171268b90eafd121f94ad8462363e",
+      "packageSource": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "applicationRebuilt": false,
+      "normalizedObservedDefault": "%LOCALAPPDATA%\\OM0RX-xLog",
+      "normalizationMethod": "Actual equality-checked default mapped to observed Windows known-folder token; raw paths and process/profile coordinates private.",
+      "defaultPathPassed": true,
+      "registryScopePassed": true,
+      "startMenuScopePassed": true,
+      "harnessElevated": true,
+      "workerReply": {
+        "id": "local-logbook-self-test",
+        "ok": false,
+        "error": {
+          "code": "local_self_test_failed",
+          "message": "Local logbook acceptance failed."
+        }
+      },
+      "workerReplySHA256": "5ef8c6c6ffd142991cd5f02021c699a59058ea6d848d10db0fb250003c1e0b3e",
+      "installedWorkerExit": "UNOBSERVED; scope step exit 1 is observed",
+      "diagnostic": {
+        "status": "diagnostic-unavailable",
+        "error": "OS image/PID/PPID proof failed before Resume.",
+        "ownedSuspendedCreations": 1,
+        "resumedSelfTestProbes": 0,
+        "maximumRuns": 6,
+        "responseDeadlineSeconds": 10,
+        "failedOperand": "CIM ExecutablePath is present but null; required same-path comparison is false",
+        "cim": {
+          "status": "observed",
+          "error": null,
+          "instanceCount": 1,
+          "ProcessId": {
+            "present": true,
+            "error": null,
+            "matchesExpected": true
+          },
+          "ParentProcessId": {
+            "present": true,
+            "error": null,
+            "matchesExpected": true
+          },
+          "ExecutablePath": {
+            "present": true,
+            "error": null,
+            "value": null,
+            "expectedNonempty": true,
+            "matchesExpected": false
+          },
+          "CommandLine": {
+            "present": true,
+            "error": null,
+            "exactlyMatchesExpectedFullCommandLine": true
+          }
+        },
+        "ownedHandleImage": {
+          "api": "QueryFullProcessImageNameW",
+          "flags": 0,
+          "status": "observed",
+          "error": null,
+          "matchesExpectedExecutable": true
+        },
+        "ownedHandleCreationTime": {
+          "status": "observed",
+          "error": null,
+          "positive": true,
+          "expectedExactTimestamp": "NOT RECORDED; positivity is the source condition"
+        },
+        "laterArgvCreationAndHashAssertions": "NOT REACHED after image/PID/PPID guard failed; command equality and creation positivity above are comparisons derived from retained observations, not later executed assertion results",
+        "identityVerifiedBeforeResume": false,
+        "cleanup": {
+          "exitCode": 125,
+          "timedOut": false,
+          "abortedBeforeResume": true,
+          "resumed": false,
+          "exitConfirmed": true
+        },
+        "stdoutTotalBytes": 0,
+        "stderrTotalBytes": 0,
+        "stdoutSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "parsedReply": null,
+        "BAndRepeatA": "NOT RUN",
+        "interpretation": "Supervisor abort 125 before Resume is not an application self-test exit or A/B result."
+      },
+      "notReached": [
+        "installed GUI",
+        "uninstall",
+        "marker preservation",
+        "resumed A/B/A probes"
+      ],
+      "ordinaryUserRuntime": "NOT RUN",
+      "interactiveUAC": "NOT RUN (silent harness)"
+    },
+    {
+      "scope": "perMachine",
+      "job": 127286437141,
+      "conclusion": "failure",
+      "qaExecutorSource": "f68caff24dc171268b90eafd121f94ad8462363e",
+      "packageSource": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "applicationRebuilt": false,
+      "normalizedObservedDefault": "%ProgramFiles%\\OM0RX-xLog",
+      "normalizationMethod": "Actual equality-checked default mapped to observed Windows known-folder token; raw paths and process/profile coordinates private.",
+      "defaultPathPassed": true,
+      "registryScopePassed": true,
+      "startMenuScopePassed": true,
+      "harnessElevated": true,
+      "workerReply": {
+        "id": "local-logbook-self-test",
+        "ok": false,
+        "error": {
+          "code": "local_self_test_failed",
+          "message": "Local logbook acceptance failed."
+        }
+      },
+      "workerReplySHA256": "5ef8c6c6ffd142991cd5f02021c699a59058ea6d848d10db0fb250003c1e0b3e",
+      "installedWorkerExit": "UNOBSERVED; scope step exit 1 is observed",
+      "diagnostic": {
+        "status": "diagnostic-unavailable",
+        "error": "OS image/PID/PPID proof failed before Resume.",
+        "ownedSuspendedCreations": 1,
+        "resumedSelfTestProbes": 0,
+        "maximumRuns": 6,
+        "responseDeadlineSeconds": 10,
+        "failedOperand": "CIM ExecutablePath is present but null; required same-path comparison is false",
+        "cim": {
+          "status": "observed",
+          "error": null,
+          "instanceCount": 1,
+          "ProcessId": {
+            "present": true,
+            "error": null,
+            "matchesExpected": true
+          },
+          "ParentProcessId": {
+            "present": true,
+            "error": null,
+            "matchesExpected": true
+          },
+          "ExecutablePath": {
+            "present": true,
+            "error": null,
+            "value": null,
+            "expectedNonempty": true,
+            "matchesExpected": false
+          },
+          "CommandLine": {
+            "present": true,
+            "error": null,
+            "exactlyMatchesExpectedFullCommandLine": true
+          }
+        },
+        "ownedHandleImage": {
+          "api": "QueryFullProcessImageNameW",
+          "flags": 0,
+          "status": "observed",
+          "error": null,
+          "matchesExpectedExecutable": true
+        },
+        "ownedHandleCreationTime": {
+          "status": "observed",
+          "error": null,
+          "positive": true,
+          "expectedExactTimestamp": "NOT RECORDED; positivity is the source condition"
+        },
+        "laterArgvCreationAndHashAssertions": "NOT REACHED after image/PID/PPID guard failed; command equality and creation positivity above are comparisons derived from retained observations, not later executed assertion results",
+        "identityVerifiedBeforeResume": false,
+        "cleanup": {
+          "timedOut": false,
+          "abortedBeforeResume": true,
+          "exitCode": 125,
+          "resumed": false,
+          "exitConfirmed": true
+        },
+        "stdoutTotalBytes": 0,
+        "stderrTotalBytes": 0,
+        "stdoutSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "parsedReply": null,
+        "BAndRepeatA": "NOT RUN",
+        "interpretation": "Supervisor abort 125 before Resume is not an application self-test exit or A/B result."
+      },
+      "notReached": [
+        "installed GUI",
+        "uninstall",
+        "marker preservation",
+        "resumed A/B/A probes"
+      ],
+      "ordinaryUserRuntime": "NOT RUN",
+      "interactiveUAC": "NOT RUN (silent harness)"
+    }
+  ],
+  "logs": [
+    {
+      "job": 127286437529,
+      "file": "job-127286437529-full.log",
+      "bytes": 36412,
+      "sha256": "aad921df85b084cb702ca533027bca89ba73c3177f5491156fe79431eb043f1a"
+    },
+    {
+      "job": 127286437141,
+      "file": "job-127286437141-full.log",
+      "bytes": 34269,
+      "sha256": "0dbb3e57d66f8a2a877c39eaf3a6aa1adc5787be2baac0133af7dd2299b2a954"
+    }
+  ],
+  "ordinaryQAci": {
+    "run": 42039547815,
+    "conclusion": "success"
+  },
+  "redundantPush": {
+    "run": 42039547877,
+    "conclusion": "cancelled",
+    "reason": "Verified redundant single-Mac push; not a pass"
+  },
+  "preservedFailedRuns": [
+    42016723457,
+    42034725192,
+    42036670843
+  ],
+  "nextQA": {
+    "source": "038d542b8c35dbd8e47451f4849e8f3a600a4e4b",
+    "run": 42040743706,
+    "policy": "Mandatory matching owned-handle image; reject any nonempty contradicting CIM image. PID/parent, full arguments, creation/hash and cleanup requirements retained. CIM image availability requirement changes.",
+    "outcome": "SEPARATE RUN; NOT QUALIFIED by this f68 report"
+  },
+  "boundaries": [
+    "No resumed probes, no A/B/A or TEMP/path-length conclusion",
+    "Observed null CIM image does not establish why it is null or prove any privilege is absent",
+    "No application cause established",
+    "Hosted elevated accounts do not qualify ordinary-user/UAC/hardware operation",
+    "Raw coordinates and creation timestamps private; public comparisons are booleans"
+  ]
+}

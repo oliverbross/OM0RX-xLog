@@ -114,3 +114,39 @@ All 38 diagnostic and seven receipt contracts, ten-script syntax, installer
 policy and workflow YAML checks pass locally. Independent review found no
 actionable issue. These Mac-side tests make no Windows API or application
 calls; the next Windows-only check will reuse the original package bytes.
+
+## Observed null CIM image with positive owned-handle image
+
+[Recheck 42039550660](ci-1.5.20-windows-diagnostic-observation.md) used QA
+executor f68caff24dc171268b90eafd121f94ad8462363e and the unchanged 1.5.20
+package source 3d9cb0981c30764f1188db350ffebc22a5f328a7. Both installed
+scope assertions failed again with the retained generic local_self_test_failed
+reply. Installed worker exit remains unobserved; scope exit 1 is observed.
+
+Unlike the prior ca7 attempt, this run retained independent OS observations.
+Both CIM queries returned one object with no error. PID and parent PID matched
+expected values; full CommandLine matched exactly. ExecutablePath was present
+but **null**, with no field error. Independent owned-handle image queries
+positively matched the expected worker; creation times were observed and positive.
+Public reports retain comparison booleans, with raw coordinates kept private.
+
+The exact failed operand was the required CIM executable-path comparison.
+The f68 guard required that match in addition to the positive owned-handle image,
+so neither child resumed. Later argv/creation/hash assertions were not reached;
+observed command equality and creation positivity do not claim they executed.
+Both owned children were aborted before Resume with cleanup exit125, confirmed
+exit and empty streams. Zero probes resumed; B and repeat-A were not run.
+There is no TEMP-length or application-cause conclusion.
+
+Microsoft marks [Win32_Process.ExecutablePath](https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-process)
+with a SeDebugPrivilege qualifier. Actual privilege absence or the reason for
+the null field is unproven. [QueryFullProcessImageNameW](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-queryfullprocessimagenamew)
+returns the full executable image name through the owned process handle;
+flags0 selects Win32 path format. That independent proof succeeded here.
+
+The next QA-only source 038d542b8c35dbd8e47451f4849e8f3a600a4e4b requires
+the matching owned-handle image and rejects any nonempty contradicting CIM image.
+This changes the redundant CIM availability requirement; PID/parent, full
+arguments, creation/hash and cleanup requirements remain. Its Windows-only
+run42040743706 is a separate pending outcome against the same package bytes.
+This failed f68 run does not qualify that correction or any A/B/A result.
