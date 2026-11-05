@@ -25,6 +25,26 @@ Source inventory, 5 November 2026. Inspected canonical source based on `1dd41330
 | Other online-log delivery: [`LiveOnlineLogDeliveryService`](../../../Sources/XLogPrototypeSupport/LiveOnlineLogDeliveryService.swift#L119) | Background ownership + external I/O allowed; provider enrollment must be enabled before dispatch. Worker normal-logging startup schedules it; local contact changes also coalesce a kick. | One 15 s automatic task; one delivery task. Each pass considers at most 16 candidate IDs per provider and processes sequentially, rechecking enrollment/candidate authority before each dispatch. Provider retry/not-due/uncertain states are distinct from scheduler heartbeat; no automatic resending of uncertain work is implied. | UI closure does not own enrolled delivery. Workspace ownership change cancels/joins active delivery. Termination cancels scheduler/delivery, awaits it and recovers interrupted durable deliveries to uncertainty where needed. HTTP cancellation and durable-queue sizes: NOT MEASURED. |
 | Remote backup: [`LiveRemoteBackupService`](../../../Sources/XLogPrototypeSupport/LiveRemoteBackupService.swift#L114), [`RemoteBackupHostDriver`](../../../Sources/XLogCore/RemoteBackupHostDriver.swift#L28), [`RemoteBackupPeriodicTickSource`](../../../Sources/XLogCore/RemoteBackupLocalAdapters.swift#L94), [`RemoteBackupScheduler`](../../../Sources/XLogCore/RemoteBackupScheduler.swift#L24) | Construction starts no timer, workspace open or metadata. An explicit authorized Start owns a lane; recurring permission is separate from merely configuring a schedule. | Default live tick is 30 s. One pending tick/host advance; each tick waits a full interval (no catch-up burst). Start/stop gates and lifetime token fence replacement runs. Scheduler rearm follows configured hours and durable receipt; clock reversal or observation gap over 86,400 s suspends recurrence. Snapshot/upload working bytes, object counts and provider retry policy are NOT MEASURED here. | Backup panel close is not authorization to revoke an approved recurring lane. Stop cancels lifetime/verification, stops the driver and joins cleanup; a claimed operation may safely finish, but further recurrence is revoked. Terminal EOF has synchronous beginTermination, followed by terminate/stop. Private staging/envelope deletion and remote retention require dedicated receipts. |
 
+## Native CW supervision boundary
+
+The renderer observation timer is distinct from the native process-owned CW
+supervisor. [`cw_session_backend::owner`](../../../prototype/src-tauri/src/cw_session_backend.rs#L8)
+constructs its `OnceLock` owner on first use and starts a weak-reference thread
+with a 250 ms sleep. Once constructed, it continues calling
+[`Session::tick`](../../../prototype/src-tauri/src/cw_session.rs#L600).
+The tick locks state and tests the holder's arm expiry and three-second client
+freshness; expiration invokes the existing Stop path. A disarmed owner still
+performs that check. Last-renderer closure does not retire the static native
+owner. There is no retained join handle in this constructor.
+
+These are source scheduling facts, not measured per-feature wakeups or an
+attribution of the desktop host's interrupt-wakeup/CPU counters. The inspected
+10–25 ms loops in native window transitions are bounded transition waits, not
+evidence of an idle polling cause. Do not disable CW supervision to lower a
+process counter. Any future idle parking needs direct task attribution and
+tests proving immediate wakeup, holder freshness, expiry, urgent Stop and
+uncertain-release handling under active/hidden clients.
+
 ## Measurement handoff
 
 Use released packages on an empty workspace, a consistent private copy and the reproducible 100k fixture. Record exact source/artifact/fixture and actual process ownership for every sample. Do not combine unrelated WebKit/WebView2 processes or call virtual address reservation physical memory.
