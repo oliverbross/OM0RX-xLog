@@ -77,6 +77,22 @@ jobs:
                   stderr = [IO.Path]::GetFileName($errorPath); stdoutSHA256 = File-Hash $output
                   stderrSHA256 = File-Hash $errorPath }
           }
+          function Get-XLogStatusPaths([string]$Status) {
+              $records = $Status.Split([char]0, [StringSplitOptions]::RemoveEmptyEntries)
+              for ($index = 0; $index -lt $records.Count; $index++) {
+                  $record = $records[$index]
+                  if ($record.Length -lt 4 -or $record[2] -ne ' ') { throw 'Malformed porcelain status record.' }
+                  $code = $record.Substring(0, 2)
+                  [pscustomobject]@{ path = $record.Substring(3); status = $code; role = 'status-path' }
+                  # Porcelain v1 -z puts the destination first, then the original
+                  # path in a second NUL field for rename/copy entries.
+                  if ($code.Contains('R') -or $code.Contains('C')) {
+                      $index++
+                      if ($index -ge $records.Count) { throw 'Missing original rename/copy path.' }
+                      [pscustomobject]@{ path = $records[$index]; status = $code; role = 'status-original' }
+                  }
+              }
+          }
           function Complete-XLogDiagnosticStage([string]$Stage, [int]$StageExitCode = 0, [string]$Failure = '') {
               if ($Stage -notmatch '^\d{2}-[a-z0-9-]+$') { throw 'Invalid diagnostic stage identity.' }
               $directory = Join-Path $script:ReceiptRoot $Stage
@@ -86,19 +102,17 @@ jobs:
               $git.head = Capture-Git $directory 'head' @('rev-parse', 'HEAD')
               $git.tree = Capture-Git $directory 'tree' @('rev-parse', 'HEAD^{tree}')
               $git.status = Capture-Git $directory 'status' @('status', '--porcelain=v1', '--untracked-files=all', '-z')
-              $git.diff = Capture-Git $directory 'tracked-diff' @('diff', '--binary', '--no-ext-diff', '--no-textconv', 'HEAD', '--')
-              $git.changed = Capture-Git $directory 'changed-paths' @('diff', '--name-only', '--no-renames', '-z', 'HEAD', '--')
-              $git.untracked = Capture-Git $directory 'untracked-paths' @('ls-files', '--others', '--exclude-standard', '-z')
-              $gitFailed = @($git.Values | Where-Object { $_.exitCode -ne 0 }).Count -gt 0
-              $head = [IO.File]::ReadAllText((Join-Path $directory 'head.stdout')).Trim()
               $status = [IO.File]::ReadAllText((Join-Path $directory 'status.stdout'))
+              $statusPaths = @(Get-XLogStatusPaths $status)
               $files = @()
-              foreach ($kind in @('changed', 'untracked')) {
-                  $paths = [IO.File]::ReadAllText((Join-Path $directory $git[$kind].stdout)).Split([char]0, [StringSplitOptions]::RemoveEmptyEntries)
-                  foreach ($relative in $paths) {
+              # Snapshot every raw-status path before diff can refresh normalized
+              # stat information and return an empty changed-path list.
+              foreach ($item in $statusPaths) {
+                      $relative = $item.path
                       $path = [IO.Path]::GetFullPath((Join-Path $script:SourceRoot $relative))
                       $safe = [IO.Path]::GetRelativePath($script:SourceRoot, $path) -notmatch '^\.\.([\\/]|$)'
-                      $entry = @{ path = $relative; kind = $kind; exists = $false; bytes = $null; sha256 = $null }
+                      $entry = @{ path = $relative; status = $item.status; kind = $item.role
+                          snapshotPhase = 'before-diff'; exists = $false; bytes = $null; sha256 = $null }
                       if ($safe -and (Test-Path -LiteralPath $path)) {
                           $file = Get-Item -LiteralPath $path -Force
                           $entry.exists = $true
@@ -108,16 +122,21 @@ jobs:
                           } else { $entry.hashUnavailable = 'Directory or reparse point; not followed.' }
                       }
                       $files += $entry
-                  }
               }
+              $git.diff = Capture-Git $directory 'tracked-diff' @('diff', '--binary', '--no-ext-diff', '--no-textconv', 'HEAD', '--')
+              $git.changed = Capture-Git $directory 'changed-paths' @('diff', '--name-only', '--no-renames', '-z', 'HEAD', '--')
+              $git.untracked = Capture-Git $directory 'untracked-paths' @('ls-files', '--others', '--exclude-standard', '-z')
+              $gitFailed = @($git.Values | Where-Object { $_.exitCode -ne 0 }).Count -gt 0
+              $head = [IO.File]::ReadAllText((Join-Path $directory 'head.stdout')).Trim()
               $clean = -not $gitFailed -and $head -eq $env:XLOG_DIAGNOSTIC_SOURCE -and $status.Length -eq 0
-              $receipt = [ordered]@{ schema = 1; stage = $Stage; capturedUTC = [DateTime]::UtcNow.ToString('o')
+              $receipt = [ordered]@{ schema = 2; stage = $Stage; capturedUTC = [DateTime]::UtcNow.ToString('o')
                   sourceCommit = $head; expectedSourceCommit = $env:XLOG_DIAGNOSTIC_SOURCE
                   executorWorkflowSHA = $env:XLOG_EXECUTOR_WORKFLOW_SHA; executorRefSHA = $env:XLOG_EXECUTOR_REF_SHA
                   helperSHA256 = File-Hash (Join-Path $env:RUNNER_TEMP 'xlog-source-clean-diagnostic.ps1')
                   stageExitCode = $StageExitCode; stageFailure = $Failure; clean = $clean
                   git = $git; statusEntries = @($status.Split([char]0, [StringSplitOptions]::RemoveEmptyEntries))
-                  files = $files; untrackedBodiesCopied = $false
+                  statusPaths = $statusPaths; files = $files; inventoryBasis = 'Raw porcelain status paths before diff reads'
+                  untrackedBodiesCopied = $false
                   scope = 'Original-source diagnostic only; no installer, install, GUI or distribution qualification.' }
               Save-Json (Join-Path $directory 'receipt.json') $receipt
               Write-Host "Diagnostic boundary ${Stage}: clean=$clean; stageExit=$StageExitCode; statusExit=$($git.status.exitCode)"
