@@ -1768,3 +1768,21 @@ the original 21,335-entry full-Facts oracle pass. Focused Windows `41928552588`
 and complete native-core `41928560129` are running at that exact source before
 the separately versioned 1.5.15 candidate is built. QLog/TLF IDs and the existing
 physical/platform boundaries remain unchanged.
+
+The refined Windows diagnosis and latest source `4a5c6dd2` are in CQRLOG section
+14.1 and the existing review record. Fine observations locate the delay in cold
+reference construction/metadata, with prompt task/lock admission. Current native
+hashing retains exact identities and a Crypto fallback. A separate automatic-time
+fixture assumption is corrected in `ea6e8884`; manual UTC preservation and bounded
+automatic first-callsign capture now have separate tests. Current normal/portable
+gates and all 21,335 Facts pass locally. The final [1.5.15 successor](../releases/v1.5.15-cqrlog-candidate.md)
+must await actual required remote gates, signing and its own native acceptance.
+
+Final statistics ID collection (`0c454411`) avoids display catalogue work with
+exact bundled/custom/fallback identity parity. Focused Windows `41942409273`
+passes all six checks, including a 1,688.338 ms real held-feed read against the
+unchanged two-second deadline. `c0bcf897` isolates mute/stale-IQ test tracks to
+remove a separate monitor race without changing production CW checks. Complete
+local normal/configured portable gates and all 21,335 complete Facts pass. The
+1.5.15 preparation record keeps the complete remote gate and remaining Windows
+contest job pending until their actual results; no new package is inferred.

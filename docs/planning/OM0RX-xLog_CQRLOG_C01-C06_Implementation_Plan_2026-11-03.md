@@ -1415,3 +1415,32 @@ expose the documented finite subset. Normal native voice is macOS-only; external
 WAV libraries require their own folder backup. Real SunSDR advertised TRX count,
 physical station/device qualification, Windows/Linux packaged-runtime acceptance,
 notarization and controlled OS-cache-cold measurement remain pending.
+
+### 14.1 Windows diagnosis refinement and successor gate
+
+Fine Windows timing proves prompt task/dispatch/lock admission, followed by
+1,919 ms constructing the country resolver and 499 ms constructing entity
+metadata. Repeated token/regex work, unnecessary label sorting and resource/
+formatting overhead are reduced without changing any reference bytes or Facts.
+The remaining measured 361 ms SHA-256 cost is addressed by Windows native hashing
+with exact-output guards and the prior Crypto fallback in `4a5c6dd2`.
+
+A separate full-gate failure is a fixture provenance error: an automatic blank
+time legitimately refreshes when its first callsign is accepted. `ea6e8884`
+tests explicit manual UTC retention and automatic capture separately, without
+weakening field, receipt, revision or typing protection. Full local normal and
+portable gates, all 21,335 prior Facts and the pin guard pass at current code.
+Current Windows focused/full-native and contest outcomes are in the existing
+review's definitive-phases section and the [1.5.15 successor record](../releases/v1.5.15-cqrlog-candidate.md).
+That candidate remains unbuilt until its required gates finish. Old signed
+archives and installed 1.5.9 remain preserved; no physical acceptance is inferred.
+
+The final statistics path (`0c454411`) requests only entity IDs, avoiding the
+unrelated display catalogue while preserving exact status coverage. Focused
+Windows `41942409273`/`126966228362` passes all six tests: actual held-feed read
+**1,688.338 ms**, original two-second limit unchanged. Native hash vectors and
+operator actions also pass. `c0bcf897` removes an independent CW fixture race by
+using fresh tracks for mute and stale-IQ rejection; production freshness checks
+remain intact. Complete local normal/configured portable gates and the retained
+21,335 full Facts pass. The full remote gate and last Windows contest job remain
+pending at the 1.5.15 version/provenance preparation point, before packaging.

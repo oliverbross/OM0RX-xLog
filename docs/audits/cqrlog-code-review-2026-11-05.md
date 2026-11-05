@@ -483,3 +483,91 @@ Physical TCI/keyer/audio/PTT qualification, Windows/Linux packaged-runtime
 acceptance, notarization and controlled OS-cache-cold measurement remain pending.
 Later SunSDR qualification must observe the real advertised TRX count before
 claiming native TCI CW availability; selecting one receiver is not that evidence.
+
+### Definitive Windows phases and current closure gates
+
+The finer `1f77871b` Windows diagnostic (`41931381091`, job `126928853546`)
+rules out the earlier scheduling/lock uncertainty: GCD and task probes run
+immediately after evaluation, locks enter in about 0.007 ms, and aggregate
+publication takes about 12 ms. Resolver construction then takes 1,919 ms and
+canonical entity metadata another 499 ms. This is cold application reference
+work while the catalogue response is held, not serialization behind that feed.
+
+`aa6fa467` removes repeated annotation-regex construction, repeated token cleanup,
+unneeded per-character escaping and an unused display sort when building the
+ADIF-name dictionary. Every applicable label is compared with the full legacy
+catalogue; all 21,335 retained complete Facts still match. `8fb0d12a` uses fixed
+unlocalized resource paths, safe mapped reads of immutable bundle data and exact
+ASCII digest formatting. Its Windows breakdown isolates another 361 ms in
+SHA-256 itself (hex formatting is only 0.082 ms); the real read is 2,091.839 ms,
+still failing the unchanged two-second limit.
+
+`4a5c6dd21ab4798ec407f3b99cb1f02b00091d72` adds a Windows-only CNG SHA-256
+adapter with complete per-call cleanup, exact 32-byte output, invalid-buffer
+rejection and unchanged Swift Crypto fallback. Tests compare empty, small and
+multi-block inputs against the existing implementation. No reference bytes,
+identity format, validation, deadline, warmup or skip changed. The implementation
+uses Microsoft's [native hash API contract](https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptcreatehash),
+without keys, credential access or persistent state.
+
+The broader `7d969f36` Windows gate did pass DX (1,669 ms), but failed an
+independent operator-action fixture. Deterministic reproduction with a historical
+automatic timestamp proves the affected field is start UTC: first callsign
+capture correctly refreshes automatic time. The old fixture incorrectly expected
+manual-time retention and flaked when the action crossed a whole-second boundary.
+`ea6e8884` now seeds explicit manual start/end, asserts manual provenance, keeps
+all field/replay/revision/later-typing checks, and separately tests bounded
+automatic capture/replay. No product clock behavior changed. The before patch/log
+and three passing corrected tests are retained under `/tmp/xlog-rc15-operator-*`.
+
+Current local code passes full normal Swift (394 reported methods/53 suites plus
+8/2), complete portable Swift (620/85 plus 8/2, existing conditional skips), all
+21,335 full-Facts comparisons and the 12-test portable pin guard. Earlier
+331/340 ms read observations had warmer process-level metadata; fresh-process
+focused samples are separately labelled. OS caches and concurrent load are not
+controlled, so these are not a clean pairwise/cold-disk benchmark.
+
+Regular CI `41939913053` passed at `4a5c6dd2`. Focused Windows `41939914399`,
+full native-core `41940075023` and contest `41939912873` are pending/in progress
+at this checkpoint. Older superseded gates retain actual pass/failure/cancel/skip
+states and pre-supersession snapshots. No 1.5.15 package is built until applicable
+required gates finish. The [1.5.15 record](../releases/v1.5.15-cqrlog-candidate.md)
+will pin the new source/artifact/native receipts; 1.5.14 remains a retained failed
+qualification checkpoint, and installed production remains 1.5.9.
+
+### Final statistics identity path and independent CW fixture correction
+
+Focused Windows `41939914399` at `4a5c6dd2` passed both native SHA-256 tests
+and all three operator-action tests, but the real read still took 2,218.741 ms.
+The native hash took 4.005 ms; JSON decode took 1,098 ms, and unrelated entity
+display metadata took another 331 ms. `0c454411` makes statistics request the
+same entity ADIF set directly, avoiding display-name normalization, legacy
+catalogue construction and sorting. The full entity API is unchanged. Parity
+assertions cover bundled packed/legacy, custom and combined fallback references.
+The real focused local read passed in 366.112 ms with uncontrolled OS caches.
+No deadline, warmup, source bytes, reference identity or validation was changed.
+
+The full `4a5c6dd2` macOS job `126958582075` exposed a separate CW fixture
+race: after advancing the fake clock beyond the stale-IQ threshold, it reused
+a track that the monitor could legitimately retire. The failure came from the
+initial stale-reference guard in `mute`, after a successful stale-IQ rejection.
+`c0bcf897` gives mute and stale-IQ rejection independent fresh tracks. All 34
+CWDecodeSession tests pass locally; production freshness/monitor checks are
+unchanged. The old full run retains Linux pass, macOS failure and superseded
+Windows cancellation as separate outcomes.
+
+Current functional/test source is `c0bcf897be59d5d265fd7e03690ce911dee943b0`.
+Focused Windows `41942409273` tests identical application code at `0c454411`;
+complete three-platform native-core `41942524586` tests `c0bcf897`. The preceding
+contest run `41939912873` completed all seven jobs successfully. Final candidate
+qualification will record actual results rather than promoting a pending gate.
+
+Focused Windows `41942409273`/`126966228362` has now passed all six tests.
+The real read measured **1,688.338 ms**, with the catalogue response still held
+and the original two-second deadline. Entity ID collection took about 6 ms.
+The final full local normal and configured portable gates pass, as does the
+21,335-entry complete-Facts oracle (10,000 warm checksum `2322232`). The first
+local portable invocation omitted required `XLOG_CONTEST_PYTHON`; its one
+precondition failure is retained separately from the configured passing rerun.
+Regular CI `41942506389` passes at `c0bcf897`; complete native-core and the
+remaining Windows contest Swift job still run at this release preparation point.
