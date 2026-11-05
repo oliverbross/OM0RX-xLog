@@ -55,3 +55,6 @@ Current supported package targets follow the canonical recipes: macOS arm64
 WKWebView, Windows x64 WebView2 and Ubuntu 24.04 x64 WebKitGTK. Native voice and
 selected direct station providers remain platform-specific. A successful shared
 UI test does not add a missing native provider to another OS.
+
+[Platform requirements, scope decisions and ordered acceptance handoff](platform-readiness.md)
+record the remaining ordinary-account, real-session, provider and display cells.
