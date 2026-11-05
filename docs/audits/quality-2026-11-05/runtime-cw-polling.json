@@ -1,0 +1,13 @@
+{
+  "date": "2026-11-05",
+  "baselineSource": "da6fefb394944b28be9533ab861be9026306fa8d",
+  "status": "fixed_in_source_not_packaged",
+  "method": "Real React useSharedCW hook, jsdom visibility events, fake 30-second clock, native IPC stub; count snapshot transport calls. No app, production data or hardware used.",
+  "durationSecondsPerState": 30,
+  "before": {"visibleDisarmed": 41, "hiddenDisarmed": 40, "suspended": 0, "activeHolder": 40, "hiddenNativeHolder": 40, "shutdown": 0},
+  "after": {"visibleDisarmed": 41, "hiddenDisarmed": 0, "suspended": 0, "activeHolder": 40, "hiddenNativeHolder": 40, "shutdown": 0},
+  "initialSnapshotIncluded": "visibleDisarmed only; other states count changes after their transition",
+  "afterOutstandingTimers": {"hiddenDisarmed": 0, "suspended": 0, "shutdown": 0},
+  "tests": {"focusedCWFiles": 5, "focusedCWTests": 20, "result": "pass", "typescript": "npx tsc --noEmit pass"},
+  "limits": ["No native package or physical CW acceptance", "No measured CPU or footprint reduction", "Visible disarmed observers retain the existing 750ms refresh for canonical freshness; eliminating it needs canonical change notification coverage", "Suspension retains existing no-poll semantics; native Stop/expiry authority unchanged"]
+}
