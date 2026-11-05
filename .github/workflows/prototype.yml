@@ -127,6 +127,9 @@ jobs:
           python3 prototype/scripts/test-contest-host-staging.py
           python3 prototype/scripts/test-linux-vault-harness.py
           python3 prototype/scripts/test-portable-swift-lock.py
+      - name: Actual Linux QA process lifecycle regressions
+        if: runner.os == 'Linux'
+        run: python3 prototype/scripts/test-linux-process-receipts.py
       - name: Test atomic pinned contest catalog initialization
         env:
           PYTHONPATH: ${{ github.workspace }}/python

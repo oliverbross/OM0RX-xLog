@@ -31,22 +31,9 @@ for attempt in 1 2 3; do
   report="$evidence/ui-$attempt.json"
   [[ ! -e "$report" ]] || { echo "Report already exists: $report" >&2; exit 1; }
   # Xvfb and dbus are QA harness dependencies. They are not application deps.
-  xvfb-run -a -s '-screen 0 1600x1100x24' dbus-run-session -- bash -c '
-    set -euo pipefail
-    timeout 100 "$1/launch" --acceptance-report "$2" > "$3" 2>&1 &
-    pid=$!
-    for count in $(seq 1 200); do
-      if [[ -s "$2" ]]; then
-        # Let native window-close/focus animations settle within the app hold.
-        sleep 1
-        import -window root "$4"
-        break
-      fi
-      kill -0 "$pid" 2>/dev/null || break
-      sleep 0.5
-    done
-    wait "$pid"
-  ' qa "$launch_package" "$report" "$evidence/ui-$attempt.log" "$evidence/ui-$attempt.png"
+  xvfb-run -a -s '-screen 0 1600x1100x24' dbus-run-session -- \
+    python3 /qa/linux-process-receipts.py session "$launch_package" "$report" \
+      "$evidence/ui-$attempt.log" "$evidence/ui-$attempt.png" x11
   python3 - "$report" <<'PY'
 import json, sys
 with open(sys.argv[1]) as stream:
