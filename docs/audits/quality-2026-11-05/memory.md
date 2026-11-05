@@ -1,7 +1,8 @@
 # Completed worker request retention
 
 Status: reproduced in the released worker and corrected in source; integrated
-signed-package A/B and the complete idle/GUI envelope remain pending.
+signed 1.5.18 worker A/B verified on empty, generated 100k and private
+representative fixtures. The complete desktop/operation envelope remains open.
 
 ## Observed live session
 
@@ -77,9 +78,27 @@ uses the required `xlog-wave1-` prefix and fresh process proof. An initial build
 selected the default Swift manifest without the portable product; it failed
 without packaging. Both failures are excluded from passing evidence.
 
-Next evidence: repeat on the integrated signed candidate for empty/generated
-100k/private representative workspaces; retain settled 5/15/30-minute desk and
-operation-cycle measurements with complete WebKit ownership. The source fix
-explains a substantial observed owner and removes demonstrated request-driven
-growth. It does not establish that every byte of the original htop incident,
-all reference caches or the whole desktop memory budget is resolved.
+The [final signed 1.5.18 comparison](memory-signed-1.5.18.md) records all eleven
+samples per run and exact artifact/fixture identity. Released 1.5.15 grew
+116–120 MiB over 20,000 reads on all three fixtures. Signed 1.5.18 was flat on
+empty data and settled downward on the larger fixtures, with clean EOF.
+Candidate post-run verification uses closed WAL-consistent backup-API snapshots.
+All 69,696 stored representative rows match the protected source and recovered
+baseline. Original empty/generated baseline post-run snapshots are unavailable;
+their raw reports omitted disposable target coordinates. The generated pre-run
+copy hash matches across versions. An unpublished initial integrity summary
+used an insufficient main-file-only read; its corrected v2 and raw originals
+remain retained, with the correction recorded in the published numeric receipt.
+
+Historical JSON fields named `cpuLifetimePercent` contain `ps %cpu` samples,
+not lifetime/interval averages. New reports normalize them to `psCpuPercent`
+without rewriting the raw measurements. Negative footprint growth can reflect
+settling, compression or reclamation; it is not an app-wide memory saving.
+
+Next evidence: finish settled 5/15/30-minute desk samples and collect relevant
+operation close/expiry cycles with complete WebKit ownership. Current kernel
+responsibility/coalition probes identify a broader shared owner for both test
+hosts and WebKit candidates; those helpers remain shared/unattributed.
+The source fix explains a substantial observed owner and removes demonstrated
+request-driven growth. It does not establish that every byte of the original
+htop incident, all reference caches or the whole desktop budget is resolved.

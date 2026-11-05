@@ -1,0 +1,963 @@
+{
+  "schema": 2,
+  "candidateVersion": "1.5.18",
+  "candidateSourceCommit": "0b7c669663841c2e55569b0c21c76ad03805cad7",
+  "candidateWorkerSHA256": "31ac2cdda0254df08b57058a07b29ceae1f83acd365debdcdb13f15eea639f67",
+  "baselineVersion": "1.5.15",
+  "baselineSourceCommit": "1873dc1d1c4d1aa95b44d07f7af0482417680f5f",
+  "scope": "Isolated macOS worker only; no GUI/WebKit or whole-application budget acceptance",
+  "units": {
+    "footprintBytesRounded": "bytes converted from vmmap rounded physical footprint",
+    "rssKiB": "KiB; separate from physical footprint",
+    "psCpuPercent": "ps %cpu snapshot; not lifetime or whole-interval CPU usage",
+    "cpuTime": "ps cumulative CPU-time display; centisecond precision",
+    "cpuTimeDisplayedSeconds": "seconds at displayed precision",
+    "requestBatchSeconds": "elapsed seconds, ambient load and OS caches uncontrolled"
+  },
+  "historicalLabelCorrection": "Raw cpuLifetimePercent values are preserved in raw reports and normalized to psCpuPercent here; no rerun or lifetime interpretation.",
+  "conditions": [
+    "The three candidate worker runs were sequential.",
+    "OS caches and ambient builds/native qualification were uncontrolled.",
+    "No production process was invoked or signalled; representative data was copied only from the protected closed backup.",
+    "Negative growth can reflect settling/compression/reclamation; it is not proof the reported incident was fixed."
+  ],
+  "cases": {
+    "empty": {
+      "correctness": {
+        "integrity": "ok",
+        "liveQsoCount": 0,
+        "physicalQsoRows": 0,
+        "orderedStoredQsoSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "snapshotMethod": "SQLite backup API from mode=ro/query_only source with WAL honored; closed destination without WAL/SHM",
+        "closedConsistentBackupSHA256": "badb0b49919d6a74728d1368cee1af36dfd25aaa3ea3ee6c8914a6e7ccb4ca92"
+      },
+      "baseline": {
+        "workerSHA256": "0b4121e278d42546f793a7947af3ce3cf0b99b0cfc423f66ef1b3fb664202d6c",
+        "rawReportSHA256": "e388a3083adfaef4c3b2cc685c2da454a1d0a0fa6a37cbe2f249b0af54d76839",
+        "warmupRequests": 1000,
+        "requestsPerCycle": 2000,
+        "measuredRequests": 20000,
+        "samples": [
+          {
+            "cycle": 0,
+            "completedMeasuredRequests": 0,
+            "rssKiB": 40384,
+            "footprintBytesRounded": 27053260,
+            "cpuTime": "0:00.41",
+            "settleSeconds": 0.2,
+            "psCpuPercent": 33.6,
+            "cpuTimeDisplayedSeconds": 0.41
+          },
+          {
+            "cycle": 1,
+            "completedMeasuredRequests": 2000,
+            "rssKiB": 39120,
+            "footprintBytesRounded": 35546726,
+            "cpuTime": "0:00.99",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.997454,
+            "psCpuPercent": 25.4,
+            "cpuTimeDisplayedSeconds": 0.99
+          },
+          {
+            "cycle": 2,
+            "completedMeasuredRequests": 4000,
+            "rssKiB": 44240,
+            "footprintBytesRounded": 48549068,
+            "cpuTime": "0:01.61",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.812112,
+            "psCpuPercent": 32.1,
+            "cpuTimeDisplayedSeconds": 1.61
+          },
+          {
+            "cycle": 3,
+            "completedMeasuredRequests": 6000,
+            "rssKiB": 39376,
+            "footprintBytesRounded": 61551411,
+            "cpuTime": "0:02.15",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.93216,
+            "psCpuPercent": 32.8,
+            "cpuTimeDisplayedSeconds": 2.15
+          },
+          {
+            "cycle": 4,
+            "completedMeasuredRequests": 8000,
+            "rssKiB": 30352,
+            "footprintBytesRounded": 74553753,
+            "cpuTime": "0:02.46",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.425347,
+            "psCpuPercent": 32.5,
+            "cpuTimeDisplayedSeconds": 2.46
+          },
+          {
+            "cycle": 5,
+            "completedMeasuredRequests": 10000,
+            "rssKiB": 42960,
+            "footprintBytesRounded": 87556096,
+            "cpuTime": "0:03.04",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 1.553357,
+            "psCpuPercent": 15.0,
+            "cpuTimeDisplayedSeconds": 3.04
+          },
+          {
+            "cycle": 6,
+            "completedMeasuredRequests": 12000,
+            "rssKiB": 42944,
+            "footprintBytesRounded": 100558438,
+            "cpuTime": "0:03.47",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.921002,
+            "psCpuPercent": 24.2,
+            "cpuTimeDisplayedSeconds": 3.47
+          },
+          {
+            "cycle": 7,
+            "completedMeasuredRequests": 14000,
+            "rssKiB": 45920,
+            "footprintBytesRounded": 113560780,
+            "cpuTime": "0:04.08",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 1.159836,
+            "psCpuPercent": 29.8,
+            "cpuTimeDisplayedSeconds": 4.08
+          },
+          {
+            "cycle": 8,
+            "completedMeasuredRequests": 16000,
+            "rssKiB": 43424,
+            "footprintBytesRounded": 126458265,
+            "cpuTime": "0:04.57",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.57316,
+            "psCpuPercent": 41.5,
+            "cpuTimeDisplayedSeconds": 4.57
+          },
+          {
+            "cycle": 9,
+            "completedMeasuredRequests": 18000,
+            "rssKiB": 44736,
+            "footprintBytesRounded": 139460608,
+            "cpuTime": "0:04.99",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.58076,
+            "psCpuPercent": 48.3,
+            "cpuTimeDisplayedSeconds": 4.99
+          },
+          {
+            "cycle": 10,
+            "completedMeasuredRequests": 20000,
+            "rssKiB": 55712,
+            "footprintBytesRounded": 152462950,
+            "cpuTime": "0:05.46",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.610374,
+            "psCpuPercent": 31.0,
+            "cpuTimeDisplayedSeconds": 5.46
+          }
+        ],
+        "footprintGrowthBytesRounded": 125409690,
+        "rssGrowthKiB": 15328,
+        "fixtureCopyBeforeRunSHA256": null,
+        "fixtureIntegrityAssertedByHarness": "empty workspace",
+        "protocolCorrelationAndIsolationAssertionsPassed": true,
+        "cleanEOF": true,
+        "postRunLogicalVerification": "UNAVAILABLE: frozen historical report has no retained target coordinate; memory/protocol/EOF assertions and pre-run fixture receipt remain available"
+      },
+      "candidate": {
+        "workerSHA256": "31ac2cdda0254df08b57058a07b29ceae1f83acd365debdcdb13f15eea639f67",
+        "rawReportSHA256": "3b295a7367d02daa6365a877bf3583604213e0d7541d1838181ab1b39a73fd58",
+        "warmupRequests": 1000,
+        "requestsPerCycle": 2000,
+        "measuredRequests": 20000,
+        "samples": [
+          {
+            "cycle": 0,
+            "completedMeasuredRequests": 0,
+            "rssKiB": 34144,
+            "footprintBytesRounded": 20761804,
+            "psCpuPercent": 33.0,
+            "cpuTime": "0:00.19",
+            "settleSeconds": 0.2,
+            "cpuTimeDisplayedSeconds": 0.19
+          },
+          {
+            "cycle": 1,
+            "completedMeasuredRequests": 2000,
+            "rssKiB": 34144,
+            "footprintBytesRounded": 20761804,
+            "psCpuPercent": 30.1,
+            "cpuTime": "0:00.40",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.22249,
+            "cpuTimeDisplayedSeconds": 0.4
+          },
+          {
+            "cycle": 2,
+            "completedMeasuredRequests": 4000,
+            "rssKiB": 34144,
+            "footprintBytesRounded": 20761804,
+            "psCpuPercent": 24.9,
+            "cpuTime": "0:00.60",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.223979,
+            "cpuTimeDisplayedSeconds": 0.6
+          },
+          {
+            "cycle": 3,
+            "completedMeasuredRequests": 6000,
+            "rssKiB": 34144,
+            "footprintBytesRounded": 20761804,
+            "psCpuPercent": 34.6,
+            "cpuTime": "0:00.81",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.227694,
+            "cpuTimeDisplayedSeconds": 0.81
+          },
+          {
+            "cycle": 4,
+            "completedMeasuredRequests": 8000,
+            "rssKiB": 34144,
+            "footprintBytesRounded": 20761804,
+            "psCpuPercent": 30.0,
+            "cpuTime": "0:01.03",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.240095,
+            "cpuTimeDisplayedSeconds": 1.03
+          },
+          {
+            "cycle": 5,
+            "completedMeasuredRequests": 10000,
+            "rssKiB": 34144,
+            "footprintBytesRounded": 20761804,
+            "psCpuPercent": 26.1,
+            "cpuTime": "0:01.24",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.22977,
+            "cpuTimeDisplayedSeconds": 1.24
+          },
+          {
+            "cycle": 6,
+            "completedMeasuredRequests": 12000,
+            "rssKiB": 34144,
+            "footprintBytesRounded": 20761804,
+            "psCpuPercent": 36.6,
+            "cpuTime": "0:01.45",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.229222,
+            "cpuTimeDisplayedSeconds": 1.45
+          },
+          {
+            "cycle": 7,
+            "completedMeasuredRequests": 14000,
+            "rssKiB": 34144,
+            "footprintBytesRounded": 20761804,
+            "psCpuPercent": 29.4,
+            "cpuTime": "0:01.65",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.22251,
+            "cpuTimeDisplayedSeconds": 1.65
+          },
+          {
+            "cycle": 8,
+            "completedMeasuredRequests": 16000,
+            "rssKiB": 34144,
+            "footprintBytesRounded": 20761804,
+            "psCpuPercent": 23.7,
+            "cpuTime": "0:01.85",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.221768,
+            "cpuTimeDisplayedSeconds": 1.85
+          },
+          {
+            "cycle": 9,
+            "completedMeasuredRequests": 18000,
+            "rssKiB": 34144,
+            "footprintBytesRounded": 20761804,
+            "psCpuPercent": 32.5,
+            "cpuTime": "0:02.06",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.222367,
+            "cpuTimeDisplayedSeconds": 2.06
+          },
+          {
+            "cycle": 10,
+            "completedMeasuredRequests": 20000,
+            "rssKiB": 34144,
+            "footprintBytesRounded": 20761804,
+            "psCpuPercent": 27.6,
+            "cpuTime": "0:02.26",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.224374,
+            "cpuTimeDisplayedSeconds": 2.26
+          }
+        ],
+        "footprintGrowthBytesRounded": 0,
+        "rssGrowthKiB": 0,
+        "fixtureCopyBeforeRunSHA256": null,
+        "fixtureIntegrityAssertedByHarness": "empty workspace",
+        "protocolCorrelationAndIsolationAssertionsPassed": true,
+        "cleanEOF": true,
+        "sourceMainAfterRunSHA256": "b2e980e04e396823f39d128c6debfe7ff47ff55ccb153e3ecce48145c296c084",
+        "postRunSnapshot": {
+          "sourceMainAndWALUnchanged": true,
+          "noMatchingFixtureProcess": true,
+          "sourceFileMetrics": {
+            "main": {
+              "exists": true,
+              "bytes": 270336,
+              "sha256": "b2e980e04e396823f39d128c6debfe7ff47ff55ccb153e3ecce48145c296c084"
+            },
+            "wal": {
+              "exists": true,
+              "bytes": 8272,
+              "sha256": "dce027085ea8518fb2202069544a721d99144646bebc5fbec106a193fc4ea361"
+            },
+            "shm": {
+              "exists": true,
+              "bytes": 32768,
+              "sha256": "e200090abcfbe8d8ce9830aee1c7aebdafedace3a882f1eb7998f697a1f5e1a6"
+            }
+          },
+          "closedBackupSHA256": "badb0b49919d6a74728d1368cee1af36dfd25aaa3ea3ee6c8914a6e7ccb4ca92",
+          "closedBackupBytes": 270336,
+          "closedBackupHasWALorSHM": false
+        }
+      }
+    },
+    "generated-100k": {
+      "correctness": {
+        "integrity": "ok",
+        "liveQsoCount": 100000,
+        "physicalQsoRows": 100000,
+        "orderedStoredQsoSHA256": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+        "snapshotMethod": "SQLite backup API from mode=ro/query_only source with WAL honored; closed destination without WAL/SHM",
+        "closedConsistentBackupSHA256": "ddd47952f3f09f6ada01a4dbef4a217230f46996db126f969676332f099c70dd"
+      },
+      "baseline": {
+        "workerSHA256": "0b4121e278d42546f793a7947af3ce3cf0b99b0cfc423f66ef1b3fb664202d6c",
+        "rawReportSHA256": "db6dbd6ef7774c7121d0fa069b4619dfc5a7a1e448c2a9a2d5df5166efe4d066",
+        "warmupRequests": 1000,
+        "requestsPerCycle": 2000,
+        "measuredRequests": 20000,
+        "samples": [
+          {
+            "cycle": 0,
+            "completedMeasuredRequests": 0,
+            "rssKiB": 33504,
+            "footprintBytesRounded": 29674700,
+            "cpuTime": "0:11.93",
+            "settleSeconds": 0.2,
+            "psCpuPercent": 44.0,
+            "cpuTimeDisplayedSeconds": 11.93
+          },
+          {
+            "cycle": 1,
+            "completedMeasuredRequests": 2000,
+            "rssKiB": 27728,
+            "footprintBytesRounded": 43830476,
+            "cpuTime": "0:12.30",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.847404,
+            "psCpuPercent": 21.7,
+            "cpuTimeDisplayedSeconds": 12.3
+          },
+          {
+            "cycle": 2,
+            "completedMeasuredRequests": 4000,
+            "rssKiB": 27824,
+            "footprintBytesRounded": 56727961,
+            "cpuTime": "0:12.72",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.816288,
+            "psCpuPercent": 22.2,
+            "cpuTimeDisplayedSeconds": 12.72
+          },
+          {
+            "cycle": 3,
+            "completedMeasuredRequests": 6000,
+            "rssKiB": 28192,
+            "footprintBytesRounded": 69730304,
+            "cpuTime": "0:13.28",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 1.009309,
+            "psCpuPercent": 26.7,
+            "cpuTimeDisplayedSeconds": 13.28
+          },
+          {
+            "cycle": 4,
+            "completedMeasuredRequests": 8000,
+            "rssKiB": 18176,
+            "footprintBytesRounded": 82732646,
+            "cpuTime": "0:13.71",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.978885,
+            "psCpuPercent": 29.4,
+            "cpuTimeDisplayedSeconds": 13.71
+          },
+          {
+            "cycle": 5,
+            "completedMeasuredRequests": 10000,
+            "rssKiB": 26688,
+            "footprintBytesRounded": 86612377,
+            "cpuTime": "0:14.20",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.755483,
+            "psCpuPercent": 32.3,
+            "cpuTimeDisplayedSeconds": 14.2
+          },
+          {
+            "cycle": 6,
+            "completedMeasuredRequests": 12000,
+            "rssKiB": 17808,
+            "footprintBytesRounded": 99405004,
+            "cpuTime": "0:14.84",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 1.130423,
+            "psCpuPercent": 23.3,
+            "cpuTimeDisplayedSeconds": 14.84
+          },
+          {
+            "cycle": 7,
+            "completedMeasuredRequests": 14000,
+            "rssKiB": 21296,
+            "footprintBytesRounded": 112407347,
+            "cpuTime": "0:15.23",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.753239,
+            "psCpuPercent": 23.5,
+            "cpuTimeDisplayedSeconds": 15.23
+          },
+          {
+            "cycle": 8,
+            "completedMeasuredRequests": 16000,
+            "rssKiB": 19856,
+            "footprintBytesRounded": 125409689,
+            "cpuTime": "0:15.64",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.705929,
+            "psCpuPercent": 24.2,
+            "cpuTimeDisplayedSeconds": 15.64
+          },
+          {
+            "cycle": 9,
+            "completedMeasuredRequests": 18000,
+            "rssKiB": 27072,
+            "footprintBytesRounded": 138412032,
+            "cpuTime": "0:16.24",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.874251,
+            "psCpuPercent": 43.3,
+            "cpuTimeDisplayedSeconds": 16.24
+          },
+          {
+            "cycle": 10,
+            "completedMeasuredRequests": 20000,
+            "rssKiB": 26656,
+            "footprintBytesRounded": 151414374,
+            "cpuTime": "0:16.62",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.630198,
+            "psCpuPercent": 26.7,
+            "cpuTimeDisplayedSeconds": 16.62
+          }
+        ],
+        "footprintGrowthBytesRounded": 121739674,
+        "rssGrowthKiB": -6848,
+        "fixtureCopyBeforeRunSHA256": "6863ee35f8b19ef07ffe6ebf02d16089318b6b2ef2fc25ea240065de4911fe72",
+        "fixtureIntegrityAssertedByHarness": "ok",
+        "protocolCorrelationAndIsolationAssertionsPassed": true,
+        "cleanEOF": true,
+        "postRunLogicalVerification": "UNAVAILABLE: frozen historical report has no retained target coordinate; memory/protocol/EOF assertions and pre-run fixture receipt remain available"
+      },
+      "candidate": {
+        "workerSHA256": "31ac2cdda0254df08b57058a07b29ceae1f83acd365debdcdb13f15eea639f67",
+        "rawReportSHA256": "256c6ff1f3f8422229f64916fdeb2c99336e86df8651623926f4d0d8032d4fb3",
+        "warmupRequests": 1000,
+        "requestsPerCycle": 2000,
+        "measuredRequests": 20000,
+        "samples": [
+          {
+            "cycle": 0,
+            "completedMeasuredRequests": 0,
+            "rssKiB": 52864,
+            "footprintBytesRounded": 31771852,
+            "psCpuPercent": 46.9,
+            "cpuTime": "0:06.81",
+            "settleSeconds": 0.2,
+            "cpuTimeDisplayedSeconds": 6.81
+          },
+          {
+            "cycle": 1,
+            "completedMeasuredRequests": 2000,
+            "rssKiB": 44288,
+            "footprintBytesRounded": 31771852,
+            "psCpuPercent": 37.5,
+            "cpuTime": "0:07.02",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.227042,
+            "cpuTimeDisplayedSeconds": 7.02
+          },
+          {
+            "cycle": 2,
+            "completedMeasuredRequests": 4000,
+            "rssKiB": 44288,
+            "footprintBytesRounded": 31771852,
+            "psCpuPercent": 29.5,
+            "cpuTime": "0:07.22",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.226881,
+            "cpuTimeDisplayedSeconds": 7.22
+          },
+          {
+            "cycle": 3,
+            "completedMeasuredRequests": 6000,
+            "rssKiB": 44288,
+            "footprintBytesRounded": 31771852,
+            "psCpuPercent": 24.6,
+            "cpuTime": "0:07.43",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.227791,
+            "cpuTimeDisplayedSeconds": 7.43
+          },
+          {
+            "cycle": 4,
+            "completedMeasuredRequests": 8000,
+            "rssKiB": 35792,
+            "footprintBytesRounded": 19922944,
+            "psCpuPercent": 24.3,
+            "cpuTime": "0:07.64",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.227091,
+            "cpuTimeDisplayedSeconds": 7.64
+          },
+          {
+            "cycle": 5,
+            "completedMeasuredRequests": 10000,
+            "rssKiB": 35792,
+            "footprintBytesRounded": 19922944,
+            "psCpuPercent": 34.0,
+            "cpuTime": "0:07.85",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.227812,
+            "cpuTimeDisplayedSeconds": 7.85
+          },
+          {
+            "cycle": 6,
+            "completedMeasuredRequests": 12000,
+            "rssKiB": 35792,
+            "footprintBytesRounded": 19922944,
+            "psCpuPercent": 26.4,
+            "cpuTime": "0:08.06",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.226893,
+            "cpuTimeDisplayedSeconds": 8.06
+          },
+          {
+            "cycle": 7,
+            "completedMeasuredRequests": 14000,
+            "rssKiB": 35792,
+            "footprintBytesRounded": 19922944,
+            "psCpuPercent": 36.9,
+            "cpuTime": "0:08.27",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.226041,
+            "cpuTimeDisplayedSeconds": 8.27
+          },
+          {
+            "cycle": 8,
+            "completedMeasuredRequests": 16000,
+            "rssKiB": 35792,
+            "footprintBytesRounded": 19922944,
+            "psCpuPercent": 37.1,
+            "cpuTime": "0:08.48",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.231613,
+            "cpuTimeDisplayedSeconds": 8.48
+          },
+          {
+            "cycle": 9,
+            "completedMeasuredRequests": 18000,
+            "rssKiB": 35792,
+            "footprintBytesRounded": 19922944,
+            "psCpuPercent": 30.0,
+            "cpuTime": "0:08.69",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.226392,
+            "cpuTimeDisplayedSeconds": 8.69
+          },
+          {
+            "cycle": 10,
+            "completedMeasuredRequests": 20000,
+            "rssKiB": 35792,
+            "footprintBytesRounded": 19922944,
+            "psCpuPercent": 29.5,
+            "cpuTime": "0:08.91",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.245996,
+            "cpuTimeDisplayedSeconds": 8.91
+          }
+        ],
+        "footprintGrowthBytesRounded": -11848908,
+        "rssGrowthKiB": -17072,
+        "fixtureCopyBeforeRunSHA256": "6863ee35f8b19ef07ffe6ebf02d16089318b6b2ef2fc25ea240065de4911fe72",
+        "fixtureIntegrityAssertedByHarness": "ok",
+        "protocolCorrelationAndIsolationAssertionsPassed": true,
+        "cleanEOF": true,
+        "sourceMainAfterRunSHA256": "e6f5a4b3d6da3d960c8c0e1368ba412daeefe60ed72341e2769c0125664683b3",
+        "postRunSnapshot": {
+          "sourceMainAndWALUnchanged": true,
+          "noMatchingFixtureProcess": true,
+          "sourceFileMetrics": {
+            "main": {
+              "exists": true,
+              "bytes": 196788224,
+              "sha256": "e6f5a4b3d6da3d960c8c0e1368ba412daeefe60ed72341e2769c0125664683b3"
+            },
+            "wal": {
+              "exists": true,
+              "bytes": 20538232,
+              "sha256": "6d1644624b6b89af77e51cbbebf0b403364817250dd6735f314e776adab3ee38"
+            },
+            "shm": {
+              "exists": true,
+              "bytes": 65536,
+              "sha256": "8433a34f92db231545e2a7f943c68adec8ea3b8387e7662722a3ac0825a5b062"
+            }
+          },
+          "closedBackupSHA256": "ddd47952f3f09f6ada01a4dbef4a217230f46996db126f969676332f099c70dd",
+          "closedBackupBytes": 196788224,
+          "closedBackupHasWALorSHM": false
+        }
+      }
+    },
+    "representative-private": {
+      "correctness": {
+        "integrity": "ok",
+        "liveQsoCount": 69695,
+        "physicalQsoRows": 69696,
+        "orderedStoredQsoSHA256": "12c44831051b2b14b09d1c6e5698fc402c96a7a5dae55fe737043a5b7c3fc6a3",
+        "snapshotMethod": "SQLite backup API from mode=ro/query_only source with WAL honored; closed destination without WAL/SHM",
+        "closedConsistentBackupSHA256": "3dd4a5a2605daa3f7eab080b8ee795ee990fc2b254e3f3234fadb2ee1eeed446"
+      },
+      "baseline": {
+        "workerSHA256": "0b4121e278d42546f793a7947af3ce3cf0b99b0cfc423f66ef1b3fb664202d6c",
+        "rawReportSHA256": "a2057fda3552dd8a119b1e1376e71d74e03000826503d07c52b69e457d72fdf5",
+        "warmupRequests": 1000,
+        "requestsPerCycle": 2000,
+        "measuredRequests": 20000,
+        "samples": [
+          {
+            "cycle": 0,
+            "completedMeasuredRequests": 0,
+            "rssKiB": 50928,
+            "footprintBytesRounded": 29569843,
+            "cpuTime": "0:02.02",
+            "settleSeconds": 0.2,
+            "psCpuPercent": 58.7,
+            "cpuTimeDisplayedSeconds": 2.02
+          },
+          {
+            "cycle": 1,
+            "completedMeasuredRequests": 2000,
+            "rssKiB": 52784,
+            "footprintBytesRounded": 37643878,
+            "cpuTime": "0:02.41",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.522139,
+            "psCpuPercent": 47.6,
+            "cpuTimeDisplayedSeconds": 2.41
+          },
+          {
+            "cycle": 2,
+            "completedMeasuredRequests": 4000,
+            "rssKiB": 65472,
+            "footprintBytesRounded": 50646220,
+            "cpuTime": "0:02.74",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.370705,
+            "psCpuPercent": 36.5,
+            "cpuTimeDisplayedSeconds": 2.74
+          },
+          {
+            "cycle": 3,
+            "completedMeasuredRequests": 6000,
+            "rssKiB": 75504,
+            "footprintBytesRounded": 63648563,
+            "cpuTime": "0:03.02",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.32352,
+            "psCpuPercent": 41.0,
+            "cpuTimeDisplayedSeconds": 3.02
+          },
+          {
+            "cycle": 4,
+            "completedMeasuredRequests": 8000,
+            "rssKiB": 88160,
+            "footprintBytesRounded": 76546048,
+            "cpuTime": "0:03.33",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.365186,
+            "psCpuPercent": 45.7,
+            "cpuTimeDisplayedSeconds": 3.33
+          },
+          {
+            "cycle": 5,
+            "completedMeasuredRequests": 10000,
+            "rssKiB": 83104,
+            "footprintBytesRounded": 89548390,
+            "cpuTime": "0:03.78",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.671179,
+            "psCpuPercent": 28.1,
+            "cpuTimeDisplayedSeconds": 3.78
+          },
+          {
+            "cycle": 6,
+            "completedMeasuredRequests": 12000,
+            "rssKiB": 95792,
+            "footprintBytesRounded": 102550732,
+            "cpuTime": "0:04.04",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.298491,
+            "psCpuPercent": 29.7,
+            "cpuTimeDisplayedSeconds": 4.04
+          },
+          {
+            "cycle": 7,
+            "completedMeasuredRequests": 14000,
+            "rssKiB": 108512,
+            "footprintBytesRounded": 115553075,
+            "cpuTime": "0:04.28",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.259957,
+            "psCpuPercent": 26.9,
+            "cpuTimeDisplayedSeconds": 4.28
+          },
+          {
+            "cycle": 8,
+            "completedMeasuredRequests": 16000,
+            "rssKiB": 121216,
+            "footprintBytesRounded": 128555417,
+            "cpuTime": "0:04.52",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.276257,
+            "psCpuPercent": 41.5,
+            "cpuTimeDisplayedSeconds": 4.52
+          },
+          {
+            "cycle": 9,
+            "completedMeasuredRequests": 18000,
+            "rssKiB": 133904,
+            "footprintBytesRounded": 141452902,
+            "cpuTime": "0:04.77",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.277957,
+            "psCpuPercent": 41.3,
+            "cpuTimeDisplayedSeconds": 4.77
+          },
+          {
+            "cycle": 10,
+            "completedMeasuredRequests": 20000,
+            "rssKiB": 146608,
+            "footprintBytesRounded": 154455244,
+            "cpuTime": "0:05.01",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.259592,
+            "psCpuPercent": 36.9,
+            "cpuTimeDisplayedSeconds": 5.01
+          }
+        ],
+        "footprintGrowthBytesRounded": 124885401,
+        "rssGrowthKiB": 95680,
+        "fixtureCopyBeforeRunSHA256": "5f05a36abbd03ae08791629f2365c723653982366bc71e90294169cbf952e9d5",
+        "fixtureIntegrityAssertedByHarness": "ok",
+        "protocolCorrelationAndIsolationAssertionsPassed": true,
+        "cleanEOF": true,
+        "postRunLogicalVerification": {
+          "integrity": "ok",
+          "liveQsoCount": 69695,
+          "physicalQsoRows": 69696,
+          "orderedStoredQsoSHA256": "12c44831051b2b14b09d1c6e5698fc402c96a7a5dae55fe737043a5b7c3fc6a3",
+          "closedConsistentBackupSHA256": "3dd4a5a2605daa3f7eab080b8ee795ee990fc2b254e3f3234fadb2ee1eeed446",
+          "sourceMainAndWALUnchanged": true,
+          "snapshotMethod": "SQLite backup API; source mode=ro/query_only; closed standalone destination"
+        }
+      },
+      "candidate": {
+        "workerSHA256": "31ac2cdda0254df08b57058a07b29ceae1f83acd365debdcdb13f15eea639f67",
+        "rawReportSHA256": "f18bfaaaa57476253c7678853738e7d8eb5697716b5b3a9cb2eabf3912f50dbe",
+        "warmupRequests": 1000,
+        "requestsPerCycle": 2000,
+        "measuredRequests": 20000,
+        "samples": [
+          {
+            "cycle": 0,
+            "completedMeasuredRequests": 0,
+            "rssKiB": 27520,
+            "footprintBytesRounded": 24536678,
+            "cpuTime": "0:02.30",
+            "settleSeconds": 0.2,
+            "psCpuPercent": 36.6,
+            "cpuTimeDisplayedSeconds": 2.3
+          },
+          {
+            "cycle": 1,
+            "completedMeasuredRequests": 2000,
+            "rssKiB": 16560,
+            "footprintBytesRounded": 24536678,
+            "cpuTime": "0:02.69",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.809577,
+            "psCpuPercent": 28.0,
+            "cpuTimeDisplayedSeconds": 2.69
+          },
+          {
+            "cycle": 2,
+            "completedMeasuredRequests": 4000,
+            "rssKiB": 16464,
+            "footprintBytesRounded": 24536678,
+            "cpuTime": "0:03.07",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.681243,
+            "psCpuPercent": 33.8,
+            "cpuTimeDisplayedSeconds": 3.07
+          },
+          {
+            "cycle": 3,
+            "completedMeasuredRequests": 6000,
+            "rssKiB": 16368,
+            "footprintBytesRounded": 22020096,
+            "cpuTime": "0:03.37",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.556065,
+            "psCpuPercent": 25.0,
+            "cpuTimeDisplayedSeconds": 3.37
+          },
+          {
+            "cycle": 4,
+            "completedMeasuredRequests": 8000,
+            "rssKiB": 15264,
+            "footprintBytesRounded": 14784921,
+            "cpuTime": "0:03.81",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.854076,
+            "psCpuPercent": 24.9,
+            "cpuTimeDisplayedSeconds": 3.81
+          },
+          {
+            "cycle": 5,
+            "completedMeasuredRequests": 10000,
+            "rssKiB": 15088,
+            "footprintBytesRounded": 14784921,
+            "cpuTime": "0:04.17",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.518029,
+            "psCpuPercent": 29.0,
+            "cpuTimeDisplayedSeconds": 4.17
+          },
+          {
+            "cycle": 6,
+            "completedMeasuredRequests": 12000,
+            "rssKiB": 14592,
+            "footprintBytesRounded": 14784921,
+            "cpuTime": "0:04.43",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.379929,
+            "psCpuPercent": 31.3,
+            "cpuTimeDisplayedSeconds": 4.43
+          },
+          {
+            "cycle": 7,
+            "completedMeasuredRequests": 14000,
+            "rssKiB": 14544,
+            "footprintBytesRounded": 14784921,
+            "cpuTime": "0:04.73",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.412791,
+            "psCpuPercent": 33.0,
+            "cpuTimeDisplayedSeconds": 4.73
+          },
+          {
+            "cycle": 8,
+            "completedMeasuredRequests": 16000,
+            "rssKiB": 14528,
+            "footprintBytesRounded": 14784921,
+            "cpuTime": "0:05.02",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.498572,
+            "psCpuPercent": 31.1,
+            "cpuTimeDisplayedSeconds": 5.02
+          },
+          {
+            "cycle": 9,
+            "completedMeasuredRequests": 18000,
+            "rssKiB": 14512,
+            "footprintBytesRounded": 14784921,
+            "cpuTime": "0:05.33",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.431029,
+            "psCpuPercent": 32.4,
+            "cpuTimeDisplayedSeconds": 5.33
+          },
+          {
+            "cycle": 10,
+            "completedMeasuredRequests": 20000,
+            "rssKiB": 14512,
+            "footprintBytesRounded": 14784921,
+            "cpuTime": "0:05.63",
+            "settleSeconds": 0.2,
+            "requestBatchSeconds": 0.416963,
+            "psCpuPercent": 30.3,
+            "cpuTimeDisplayedSeconds": 5.63
+          }
+        ],
+        "footprintGrowthBytesRounded": -9751757,
+        "rssGrowthKiB": -13008,
+        "fixtureCopyBeforeRunSHA256": "6c9d8bbdb51ec699ebc49b8d6d537f97e7703d699964277ae4c1267b7ec5f4d5",
+        "fixtureIntegrityAssertedByHarness": "ok",
+        "protocolCorrelationAndIsolationAssertionsPassed": true,
+        "cleanEOF": true,
+        "sourceMainAfterRunSHA256": "6c9d8bbdb51ec699ebc49b8d6d537f97e7703d699964277ae4c1267b7ec5f4d5",
+        "postRunSnapshot": {
+          "sourceMainAndWALUnchanged": true,
+          "noMatchingFixtureProcess": true,
+          "sourceFileMetrics": {
+            "main": {
+              "exists": true,
+              "bytes": 335515648,
+              "sha256": "6c9d8bbdb51ec699ebc49b8d6d537f97e7703d699964277ae4c1267b7ec5f4d5"
+            },
+            "wal": {
+              "exists": true,
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "shm": {
+              "exists": true,
+              "bytes": 32768,
+              "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb"
+            }
+          },
+          "closedBackupSHA256": "3dd4a5a2605daa3f7eab080b8ee795ee990fc2b254e3f3234fadb2ee1eeed446",
+          "closedBackupBytes": 335515648,
+          "closedBackupHasWALorSHM": false
+        }
+      }
+    }
+  },
+  "postRunVerificationCorrection": {
+    "supersedesSHA256": "f9021256035393e6a91ba66f0fa70ec63847ed2f050be69226173b6d8ede6f8d",
+    "reason": "v1 incorrectly used immutable main-only reads although stopped fixture WAL/SHM remained; v2 replaces these with WAL-consistent closed SQLite backups. Original raw memory/EOF reports were unchanged.",
+    "snapshotReceiptSHA256": "46eee2c8a52201d63ecdc3ebad9609f827cca127035975309e59533a3816ef5e"
+  },
+  "fixtureEquivalence": {
+    "generatedBeforeRunCopySHA256MatchesBaseline": true,
+    "representativeAfterRunStoredQSOsMatchProtectedSourceAndBaseline": true,
+    "baselineEmptyAndGeneratedPostRunLogicalState": "UNAVAILABLE; no root provenance retained in frozen reports",
+    "allCandidateAfterRunSnapshotsIntegrityAndExpectedStoredQsoChecks": "passed"
+  }
+}
