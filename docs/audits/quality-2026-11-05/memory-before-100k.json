@@ -1,0 +1,127 @@
+{
+  "schema": 1,
+  "workerSHA256": "0b4121e278d42546f793a7947af3ce3cf0b99b0cfc423f66ef1b3fb664202d6c",
+  "platform": "darwin",
+  "scope": "Private offline worker, sequential health requests; no GUI/hardware; OS caches uncontrolled",
+  "fixture": "generated-100k",
+  "requestsPerCycle": 2000,
+  "warmupRequests": 1000,
+  "samples": [
+    {
+      "cycle": 0,
+      "completedMeasuredRequests": 0,
+      "rssKiB": 33504,
+      "footprintBytesRounded": 29674700,
+      "cpuLifetimePercent": 44.0,
+      "cpuTime": "0:11.93",
+      "settleSeconds": 0.2
+    },
+    {
+      "cycle": 1,
+      "completedMeasuredRequests": 2000,
+      "rssKiB": 27728,
+      "footprintBytesRounded": 43830476,
+      "cpuLifetimePercent": 21.7,
+      "cpuTime": "0:12.30",
+      "settleSeconds": 0.2,
+      "requestBatchSeconds": 0.847404
+    },
+    {
+      "cycle": 2,
+      "completedMeasuredRequests": 4000,
+      "rssKiB": 27824,
+      "footprintBytesRounded": 56727961,
+      "cpuLifetimePercent": 22.2,
+      "cpuTime": "0:12.72",
+      "settleSeconds": 0.2,
+      "requestBatchSeconds": 0.816288
+    },
+    {
+      "cycle": 3,
+      "completedMeasuredRequests": 6000,
+      "rssKiB": 28192,
+      "footprintBytesRounded": 69730304,
+      "cpuLifetimePercent": 26.7,
+      "cpuTime": "0:13.28",
+      "settleSeconds": 0.2,
+      "requestBatchSeconds": 1.009309
+    },
+    {
+      "cycle": 4,
+      "completedMeasuredRequests": 8000,
+      "rssKiB": 18176,
+      "footprintBytesRounded": 82732646,
+      "cpuLifetimePercent": 29.4,
+      "cpuTime": "0:13.71",
+      "settleSeconds": 0.2,
+      "requestBatchSeconds": 0.978885
+    },
+    {
+      "cycle": 5,
+      "completedMeasuredRequests": 10000,
+      "rssKiB": 26688,
+      "footprintBytesRounded": 86612377,
+      "cpuLifetimePercent": 32.3,
+      "cpuTime": "0:14.20",
+      "settleSeconds": 0.2,
+      "requestBatchSeconds": 0.755483
+    },
+    {
+      "cycle": 6,
+      "completedMeasuredRequests": 12000,
+      "rssKiB": 17808,
+      "footprintBytesRounded": 99405004,
+      "cpuLifetimePercent": 23.3,
+      "cpuTime": "0:14.84",
+      "settleSeconds": 0.2,
+      "requestBatchSeconds": 1.130423
+    },
+    {
+      "cycle": 7,
+      "completedMeasuredRequests": 14000,
+      "rssKiB": 21296,
+      "footprintBytesRounded": 112407347,
+      "cpuLifetimePercent": 23.5,
+      "cpuTime": "0:15.23",
+      "settleSeconds": 0.2,
+      "requestBatchSeconds": 0.753239
+    },
+    {
+      "cycle": 8,
+      "completedMeasuredRequests": 16000,
+      "rssKiB": 19856,
+      "footprintBytesRounded": 125409689,
+      "cpuLifetimePercent": 24.2,
+      "cpuTime": "0:15.64",
+      "settleSeconds": 0.2,
+      "requestBatchSeconds": 0.705929
+    },
+    {
+      "cycle": 9,
+      "completedMeasuredRequests": 18000,
+      "rssKiB": 27072,
+      "footprintBytesRounded": 138412032,
+      "cpuLifetimePercent": 43.3,
+      "cpuTime": "0:16.24",
+      "settleSeconds": 0.2,
+      "requestBatchSeconds": 0.874251
+    },
+    {
+      "cycle": 10,
+      "completedMeasuredRequests": 20000,
+      "rssKiB": 26656,
+      "footprintBytesRounded": 151414374,
+      "cpuLifetimePercent": 26.7,
+      "cpuTime": "0:16.62",
+      "settleSeconds": 0.2,
+      "requestBatchSeconds": 0.630198
+    }
+  ],
+  "state": "passed",
+  "fixtureSHA256": "6863ee35f8b19ef07ffe6ebf02d16089318b6b2ef2fc25ea240065de4911fe72",
+  "fixtureHashScope": "Closed SQLite backup including committed source WAL",
+  "fixtureIntegrity": "ok",
+  "growthBytes": 121739674,
+  "rssGrowthKiB": -6848,
+  "cleanEOF": true
+}

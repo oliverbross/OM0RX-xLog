@@ -123,7 +123,10 @@ if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test"
     // Prevent CRT text-mode CRLF translation from altering byte limits/framing.
     _ = ucrt._setmode(0, _O_BINARY)
     #endif
-    await withTaskGroup(of: Void.self) { group in
+    // Requests have no group result to consume. An ordinary TaskGroup retains
+    // every completed child until next()/scope exit, growing for the lifetime
+    // of this pipe even though Admission bounds the *running* requests at 16.
+    let retirement = await withDiscardingTaskGroup(returning: LiveWorkerShutdownOutcome.self) { group in
     func dispatch(_ requests: [Data?]) async {
         for request in requests {
             if await admission.enter() {
@@ -175,11 +178,13 @@ if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test"
     backgroundServices.cancel()
     let retirement = acceptance == nil ? await liveWorker.shutdownOutcome() : .clean
     await backgroundServices.value
-    await group.waitForAll()
+    // Returning from the discarding group still joins every admitted request.
+    // Keep station retirement before that join and fatal exit after it.
+    return retirement
+    }
     if !retirement.permitsRestart {
         FileHandle.standardError.write(Data("Background delivery retirement failed.\n".utf8))
         exit(retirement.rawValue)
-    }
     }
     if let acceptance {
         do { try await acceptance.close() }
