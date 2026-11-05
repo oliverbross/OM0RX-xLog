@@ -1,0 +1,442 @@
+{
+  "schema": 1,
+  "runId": 42055606115,
+  "sourceCommit": "b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+  "candidateVersion": "1.5.21",
+  "qualification": "Historical frozen-B0 contest portability completed; not package/runtime acceptance of later source",
+  "finalAggregateAttempt": 3,
+  "finalAggregateConclusion": "success",
+  "jobsSuccessful": 7,
+  "aggregateReceiptSHA256": "197399195ade3830b5634443f78fdfee339be799765de21bbfd053cbbe209cc2",
+  "actualMacExecutions": [
+    {
+      "actualExecutionJobId": 127533254681,
+      "executionAttempt": 2,
+      "name": "Contest native tests (macos-15)",
+      "sourceCommit": "b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+      "conclusion": "success",
+      "startedUtc": "2026-11-05T21:06:35Z",
+      "completedUtc": "2026-11-05T21:11:25Z",
+      "elapsedSeconds": 290.0,
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42055606115/job/127533254681",
+      "logFile": "127533254681.log",
+      "logBytes": 228273,
+      "logSHA256": "2053222c22e05a71e82a7a7215a44f394542ef223ea7f17b2d7f97ce88ab54f7",
+      "metadataSHA256": "27ab2e6723e4181587f7692cc7978c61e9ce82ceca76415615759df0ec312d8e",
+      "toolchain": "rustc 1.99.1; cargo 1.99.1",
+      "tests": {
+        "invocations": [
+          {
+            "filter": "contest_export::tests::",
+            "passed": 24,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "filter": "contesting_test_native_admission_tests::",
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "filter": "worker::tests::passive_reads_use_bounded_timeout_without_widening_mutation_policy",
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "filter": "operating_module::tests::",
+            "passed": 16,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "filter": "durable_file::tests::",
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "filter": "module_restart_intent::tests::",
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0
+          },
+          {
+            "filter": "worker::tests::shutdown_",
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0
+          }
+        ],
+        "passed": 68,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "actualExecutionJobId": 127538916539,
+      "executionAttempt": 3,
+      "name": "Contest tests (macos-15)",
+      "sourceCommit": "b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+      "conclusion": "success",
+      "startedUtc": "2026-11-05T21:17:03Z",
+      "completedUtc": "2026-11-05T21:25:11Z",
+      "elapsedSeconds": 488.0,
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42055606115/job/127538916539",
+      "logFile": "127538916539.log",
+      "logBytes": 1612346,
+      "logSHA256": "e8561eb4d06f68be26a4dd97f7fe81a0620cd8c3ed6044c8c40ef1cdaa6f0564",
+      "metadataSHA256": "46ed0f98b85897343eeb1e79e44f209659f0f3f5d01096369f5e9c6d9bca80bd",
+      "toolchain": "Apple Swift 6.0.3; Xcode 16.2",
+      "tests": {
+        "discoveryStepPassed": true,
+        "invocations": [
+          {
+            "filter": "PortableIQTests (generated non-macOS pure-IQ source slice)",
+            "xctest": {
+              "executed": 17,
+              "skipped": 1,
+              "failed": 0
+            },
+            "swiftTestingPassed": 0
+          },
+          {
+            "filter": "CWComputeWirePrimitiveTests",
+            "xctest": {
+              "executed": 4,
+              "skipped": 0,
+              "failed": 0
+            },
+            "swiftTestingPassed": 0
+          },
+          {
+            "filter": "portablePriorCleanupUsesFirstAdmissionClock",
+            "xctest": {
+              "executed": 0,
+              "skipped": 0,
+              "failed": 0
+            },
+            "swiftTestingPassed": 1
+          },
+          {
+            "filter": "XContestCoreTests",
+            "xctest": {
+              "executed": 227,
+              "skipped": 0,
+              "failed": 0
+            },
+            "swiftTestingPassed": 8
+          },
+          {
+            "filter": "XContestStoreTests",
+            "xctest": {
+              "executed": 83,
+              "skipped": 0,
+              "failed": 0
+            },
+            "swiftTestingPassed": 0
+          },
+          {
+            "filter": "XLogPrototypeTests.ContestADIFExportTests",
+            "xctest": {
+              "executed": 10,
+              "skipped": 0,
+              "failed": 0
+            },
+            "swiftTestingPassed": 0
+          },
+          {
+            "filter": "XLogPrototypeTests.ContestNAQPADIFExportTests",
+            "xctest": {
+              "executed": 5,
+              "skipped": 0,
+              "failed": 0
+            },
+            "swiftTestingPassed": 0
+          },
+          {
+            "filter": "XLogPrototypeTests.ContestARRLRTTYADIFExportTests",
+            "xctest": {
+              "executed": 4,
+              "skipped": 0,
+              "failed": 0
+            },
+            "swiftTestingPassed": 0
+          },
+          {
+            "filter": "XLogPrototypeTests.ContestJIDXADIFExportTests",
+            "xctest": {
+              "executed": 3,
+              "skipped": 0,
+              "failed": 0
+            },
+            "swiftTestingPassed": 0
+          },
+          {
+            "filter": "XLogPrototypeTests.ContestARRLDXADIFExportTests",
+            "xctest": {
+              "executed": 4,
+              "skipped": 0,
+              "failed": 0
+            },
+            "swiftTestingPassed": 0
+          },
+          {
+            "filter": "XLogPrototypeTests.ContestJIDXWorkerWireTests",
+            "xctest": {
+              "executed": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "swiftTestingPassed": 0
+          },
+          {
+            "filter": "XLogPrototypeTests.ContestARRLDXWorkerWireTests",
+            "xctest": {
+              "executed": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "swiftTestingPassed": 0
+          },
+          {
+            "filter": "XLogPrototypeTests.ContestExportServiceTests",
+            "xctest": {
+              "executed": 9,
+              "skipped": 0,
+              "failed": 0
+            },
+            "swiftTestingPassed": 0
+          },
+          {
+            "filter": "XLogPrototypeTests.ContestDeclarativeExportServiceTests",
+            "xctest": {
+              "executed": 1,
+              "skipped": 0,
+              "failed": 0
+            },
+            "swiftTestingPassed": 0
+          },
+          {
+            "filter": "XLogPrototypeTests.ContestDeclarativeActivationTests",
+            "xctest": {
+              "executed": 5,
+              "skipped": 0,
+              "failed": 0
+            },
+            "swiftTestingPassed": 0
+          },
+          {
+            "filter": "XLogPrototypeTests.ContestExportLaneTests",
+            "xctest": {
+              "executed": 12,
+              "skipped": 0,
+              "failed": 0
+            },
+            "swiftTestingPassed": 0
+          },
+          {
+            "filter": "XLogPrototypeTests.ContestExportWorkerWireTests",
+            "xctest": {
+              "executed": 3,
+              "skipped": 0,
+              "failed": 0
+            },
+            "swiftTestingPassed": 0
+          },
+          {
+            "filter": "XLogPrototypeTests.ContestingLaneTests",
+            "xctest": {
+              "executed": 24,
+              "skipped": 0,
+              "failed": 0
+            },
+            "swiftTestingPassed": 0
+          },
+          {
+            "filter": "XLogPrototypeTests.ContestAssistanceLaneTests",
+            "xctest": {
+              "executed": 13,
+              "skipped": 0,
+              "failed": 0
+            },
+            "swiftTestingPassed": 0
+          },
+          {
+            "filter": "XLogPrototypeTests.ContestSCPWorkerIntegrationTests",
+            "xctest": {
+              "executed": 4,
+              "skipped": 0,
+              "failed": 0
+            },
+            "swiftTestingPassed": 0
+          },
+          {
+            "filter": "XLogPrototypeTests.ContestCallHistoryServiceTests",
+            "xctest": {
+              "executed": 9,
+              "skipped": 0,
+              "failed": 0
+            },
+            "swiftTestingPassed": 0
+          },
+          {
+            "filter": "XLogPrototypeTests.ContestCallHistoryWorkerTests",
+            "xctest": {
+              "executed": 6,
+              "skipped": 0,
+              "failed": 0
+            },
+            "swiftTestingPassed": 0
+          },
+          {
+            "filter": "XLogPrototypeTests.WorkerStartupTests",
+            "xctest": {
+              "executed": 6,
+              "skipped": 0,
+              "failed": 0
+            },
+            "swiftTestingPassed": 0
+          },
+          {
+            "filter": "XLogPrototypeTests.LiveOnlineLogDeliveryServiceTests",
+            "xctest": {
+              "executed": 0,
+              "skipped": 0,
+              "failed": 0
+            },
+            "swiftTestingPassed": 13
+          },
+          {
+            "filter": "XLogPrototypeTests.NativeDraftPowerCaptureTests",
+            "xctest": {
+              "executed": 0,
+              "skipped": 0,
+              "failed": 0
+            },
+            "swiftTestingPassed": 7
+          },
+          {
+            "filter": "XLogPrototypeTests.LiveWSJTXBridgeTests",
+            "xctest": {
+              "executed": 10,
+              "skipped": 0,
+              "failed": 0
+            },
+            "swiftTestingPassed": 0
+          }
+        ],
+        "xctestExecuted": 461,
+        "xctestPassed": 460,
+        "xctestSkipped": 1,
+        "xctestFailed": 0,
+        "swiftTestingPassed": 29,
+        "preservedSkip": "FlexIQIdentityTests.testPrivateReceivedManufacturerPacketWhenSupplied: private real manufacturer packet not supplied"
+      }
+    }
+  ],
+  "finalAggregation": [
+    {
+      "aggregationJobId": 127538916539,
+      "name": "Contest tests (macos-15)",
+      "conclusion": "success",
+      "startedUtc": "2026-11-05T21:17:03Z",
+      "completedUtc": "2026-11-05T21:25:11Z"
+    },
+    {
+      "aggregationJobId": 127538918480,
+      "name": "Contest native tests (ubuntu-24.04)",
+      "conclusion": "success",
+      "startedUtc": "2026-11-05T15:30:12Z",
+      "completedUtc": "2026-11-05T16:01:34Z"
+    },
+    {
+      "aggregationJobId": 127538918597,
+      "name": "Contest native tests (macos-15)",
+      "conclusion": "success",
+      "startedUtc": "2026-11-05T21:06:35Z",
+      "completedUtc": "2026-11-05T21:11:25Z"
+    },
+    {
+      "aggregationJobId": 127538919671,
+      "name": "Contest native tests (windows-2022)",
+      "conclusion": "success",
+      "startedUtc": "2026-11-05T15:30:12Z",
+      "completedUtc": "2026-11-05T15:37:19Z"
+    },
+    {
+      "aggregationJobId": 127538920218,
+      "name": "Contest tests (windows-2022)",
+      "conclusion": "success",
+      "startedUtc": "2026-11-05T15:30:12Z",
+      "completedUtc": "2026-11-05T15:44:52Z"
+    },
+    {
+      "aggregationJobId": 127538983033,
+      "name": "Contest definition generator",
+      "conclusion": "success",
+      "startedUtc": "2026-11-05T15:30:12Z",
+      "completedUtc": "2026-11-05T15:30:39Z"
+    },
+    {
+      "aggregationJobId": 127538986202,
+      "name": "Contest tests (ubuntu-24.04)",
+      "conclusion": "success",
+      "startedUtc": "2026-11-05T15:30:12Z",
+      "completedUtc": "2026-11-05T15:36:17Z"
+    }
+  ],
+  "aggregationIdBoundary": "Attempt3 API lists carried-forward jobs with new display IDs. Actual Mac native execution/log remains attempt2 job127533254681; no second native test execution inferred.",
+  "priorFiveSuccessfulJobsReused": true,
+  "originalHistory": {
+    "attempt": 1,
+    "passedJobs": 5,
+    "serviceCancelledMacJobs": 2,
+    "noStepsForCancelledJobs": true,
+    "rejectedSpecificJobRerunHTTP": 500,
+    "rejectedFailedJobsRerunHTTP": 502,
+    "immutableReceipts": [
+      {
+        "file": "portability-attempt1-final.json",
+        "sha256": "21a12b8a4e034fa1bcd61a2c08bf5f4fd0d971660ab4597c29333880104842d1"
+      },
+      {
+        "file": "portability-first-targeted-retry-api-error.json",
+        "sha256": "14d4b696193fb826c30277c77830841982833ff53bfcc8aafde1ce45e22df85f"
+      },
+      {
+        "file": "portability-failed-jobs-api-error.root-receipt.json",
+        "sha256": "6a722cd5d157ef1d73cf9bedf2d44ad78451874f8189dd9108bd5c9dc8960d58"
+      }
+    ]
+  },
+  "acceptedBoundedRetries": [
+    {
+      "scope": "native",
+      "requestedJobId": 127343044910,
+      "recordedUtc": "2026-11-05T21:06:27.804191+00:00",
+      "acceptedUtc": "2026-11-05T21:06:29.748250+00:00",
+      "cliExit": 0,
+      "beforeSHA256": "b3dc98a4a58b7de89856bb0c667fbd2f66b044123aa18904db69767c3ba963f6",
+      "resultSHA256": "e48168f5b35974720c66db7234521e07605bf03aee3d176d2c5e57bc290dae37"
+    },
+    {
+      "scope": "swift",
+      "requestedJobId": 127533316338,
+      "recordedUtc": "2026-11-05T21:16:56.731882+00:00",
+      "acceptedUtc": "2026-11-05T21:16:58.718848+00:00",
+      "cliExit": 0,
+      "beforeSHA256": "34d1d69d4ec48e5b6a048f0e85584f028b0c0db7b2c7a5f9ff76b7beb1a4a2a4",
+      "resultSHA256": "3e08de8c7ad97da26d1875210f9e3e90c47f0cec75fae40becc16d3eb18f37de"
+    }
+  ],
+  "limits": [
+    "No new CI run/retry requested by this preservation task.",
+    "Initial capacity cancellations and HTTP500/502 receipts remain historical outcomes; successful later executions are separate.",
+    "One pre-existing private manufacturer-packet test remains explicitly skipped; no physical hardware evidence inferred.",
+    "Original1.5.21 package aggregate/Wayland failures and HELD disposition are unchanged.",
+    "Current post-B0 application changes, including exact ADIF owner retirement, require changed-input candidate gates; this completion does not qualify them.",
+    "No tracked writes, commits, application/worker launch, VM/server action or installer execution performed by this task."
+  ]
+}
