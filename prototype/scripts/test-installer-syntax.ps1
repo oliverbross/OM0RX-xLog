@@ -7,7 +7,8 @@ $scripts = @(
     'accept-windows.ps1', 'accept-windows-installer.ps1', 'build-worker.ps1',
     'windows-installer-policy.ps1', 'test-windows-installer-policy.ps1',
     'diagnose-windows-local-self-test.ps1', 'test-windows-worker-receipts.ps1',
-    'test-diagnose-windows-local-self-test.ps1'
+    'test-diagnose-windows-local-self-test.ps1',
+    'diagnose-windows-local-rpc.ps1', 'test-diagnose-windows-local-rpc.ps1'
 )
 foreach ($name in $scripts) {
     $tokens = $null
@@ -27,3 +28,5 @@ if ($WorkerReceiptResultPath) { $receiptArguments.ResultPath = $WorkerReceiptRes
 if (-not $?) { throw 'Worker failure-receipt contract tests failed.' }
 & (Join-Path $PSScriptRoot 'test-diagnose-windows-local-self-test.ps1')
 if (-not $?) { throw 'Installed worker diagnostic contract tests failed.' }
+& (Join-Path $PSScriptRoot 'test-diagnose-windows-local-rpc.ps1')
+if (-not $?) { throw 'Offline RPC diagnostic contract tests failed.' }

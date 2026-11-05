@@ -479,6 +479,28 @@ jobs:
             -InstalledDirectory $receipt.actualDirectory -InstallerReceipt $receiptPath `
             -RunnerTemp $env:RUNNER_TEMP -OriginalNestedTemp "$working/Temp" -WorkingDirectory $working `
             -EvidenceDirectory "$scopeEvidence/local-self-test-diagnostic" -ABA
+          # Keep both diagnostics in this step: GitHub changes inherited
+          # GITHUB_ENV/OUTPUT/STATE and other coordinates between steps.
+          $pairedPath = "$scopeEvidence/local-self-test-diagnostic/diagnostic.json"
+          if (-not (Test-Path -LiteralPath $pairedPath)) {
+            Write-Host 'No owned paired diagnostic; no RPC diagnostic executable is launched.'
+            exit 0
+          }
+          $paired = Get-Content -LiteralPath $pairedPath -Raw | ConvertFrom-Json -Depth 40
+          if ($paired.sourceCommit -ne $env:XLOG_EXPECTED_PACKAGE_SOURCE_SHA -or
+              $paired.status -ne 'complete-diagnostic-not-acceptance' -or -not $paired.payloadsUnchangedAfterProbes) {
+            Write-Host 'Paired diagnostic ownership/completion is unproven; no RPC executable is launched.'
+            exit 0
+          }
+          $working = "$scopeEvidence/native-runtime/synthetic-profile"
+          $receiptPath = "$scopeEvidence/installer-acceptance.json"
+          $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json -Depth 20
+          ./prototype/scripts/diagnose-windows-local-rpc.ps1 `
+            -PortableDirectory "$env:RUNNER_TEMP/xlog-windows-accept/OM0RX-xLog-Prototype-windows-x86_64" `
+            -InstalledDirectory $receipt.actualDirectory `
+            -InstallerReceipt $receiptPath -PairedDiagnostic $pairedPath `
+            -RunnerTemp $env:RUNNER_TEMP -OriginalNestedTemp "$working/Temp" -WorkingDirectory $working `
+            -EvidenceDirectory "$scopeEvidence/local-rpc-diagnostic"
       - name: Upload native Windows reports and screenshots
         if: always()
         uses: actions/upload-artifact@v4

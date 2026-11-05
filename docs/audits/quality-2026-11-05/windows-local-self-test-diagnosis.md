@@ -181,3 +181,37 @@ established. The common suspended-create/resume-once diagnostic launch differs
 from original acceptance. Diagnostic B success does not turn either failed
 installed acceptance into a pass. Installed GUI/uninstall/marker preservation
 remain not reached, and ordinary-user/UAC/hardware qualification remains open.
+
+## Bounded staged RPC preparation
+
+`diagnose-windows-local-rpc.ps1` uses only the existing
+`--local-ui-acceptance` mode of the unchanged 1.5.20 worker. It requires the
+completed six-run paired evidence, exact source/payload/default-install receipts,
+and the same original nested TEMP, CWD, profile and full non-TEMP environment
+hash. Both diagnostics run within one workflow step so GitHub's per-step
+environment coordinates do not introduce another factor.
+
+At most two sequential workers are permitted, with the first failure stopping
+the whole replay. Each has a total ten-second budget from process start,
+including loader, identity proof, 21 local RPC stages and EOF. A positively live
+owned process, OS image/PID/parent/full arguments/creation time and binary hash
+are checked before RPC or output reads. Requests, bounded chunks/replies and
+stage outcomes are saved privately before advancing. Cleanup attempts EOF;
+an EOF-close error still proceeds to retirement within the original deadline.
+Only the owned worker may be terminated after that deadline.
+
+This mode creates a differently named temporary root, seeds 137 synthetic spot
+history rows, disables native preference inheritance and initializes LiveWorker
+lanes. EOF deletes the generated workspace/defaults. Backup restore reopens the
+database but does not reproduce the direct test's final fresh-service reopen.
+A replay pass therefore narrows the failure without clearing it. No GUI,
+normal-mode worker, station or network method is used.
+
+Local checks passed: 50 new RPC, 45 paired-diagnostic and seven failure-receipt
+contracts, twelve-script syntax, installer policy and workflow YAML validation.
+The tests make zero native API calls or worker launches; independent review
+found no remaining actionable issue. A separate signed Mac 1.5.20 private CLI
+shape check completed all 21 stages in about 0.9 seconds and normal EOF exit 0;
+its largest frame was the 61,923-byte catalogue with unchanged total 192.
+That check validates result shapes, not Windows behavior or a latency budget.
+Actual Windows staged execution remains pending this QA-only preparation.
