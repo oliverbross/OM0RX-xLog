@@ -16,6 +16,10 @@ protocol FlexSessionRadio: RadioControlling {
     func cwStopIQ(leaseID:UUID) async
     func cwIQCapture(leaseID:UUID) async -> FlexIQCapture?
     func cwRevokeIQHandoffs() async
+    func cwCompositionSnapshot() async -> FlexCWXSnapshot?
+    func appendCW(generation: Int, job: String, ordinal: Int, text: String, finish: Bool) async throws -> FlexCWXSnapshot
+    func retireCWComposition(generation: Int?, job: String?) async -> Bool
+    func clearCWComposition(generation: Int) async throws
 }
 
 extension FlexSessionRadio {
@@ -25,8 +29,14 @@ extension FlexSessionRadio {
     func cwStopIQ(leaseID:UUID) async{}
     func cwIQCapture(leaseID:UUID) async -> FlexIQCapture?{nil}
     func cwRevokeIQHandoffs() async{}
+    func cwCompositionSnapshot() async -> FlexCWXSnapshot? { nil }
+    func appendCW(generation: Int, job: String, ordinal: Int, text: String, finish: Bool) async throws -> FlexCWXSnapshot { throw XCatError.notConnected }
+    func retireCWComposition(generation: Int?, job: String?) async -> Bool { generation == nil }
+    func clearCWComposition(generation: Int) async throws { throw XCatError.notConnected }
 }
 extension FlexRadioClient: FlexSessionRadio {
+    // Optional return in the protocol permits older/test adapters to fail closed.
+    func cwCompositionSnapshot() -> FlexCWXSnapshot? { compositionSnapshot() }
     func cwIQCapabilities() async -> FlexIQCapabilities?{await iqCapabilities()}
     func cwAuthorizeIQHandoff(panadapterID:String,inventoryRevision:String) async throws{try await authorizeIQHandoff(panadapterID:panadapterID,inventoryRevision:inventoryRevision)}
     func cwStartIQ(panadapterID:String,sampleRate:Int,leaseID:UUID) async throws -> FlexIQSubscription{try await startIQ(panadapterID:panadapterID,sampleRate:sampleRate,leaseID:leaseID)}
@@ -77,6 +87,7 @@ actor LiveFlexSession {
     private var guiPTTOnPending = 0
     private var guiPTTReleaseOverlappedPendingOn = false
     private var ownsCW = false
+    private var compositionRoute: String?
     private var ownsTune = false
 
     func cwIQCapabilities() async -> FlexIQCapabilities? {
@@ -146,7 +157,9 @@ actor LiveFlexSession {
             return snapshot()
         case "station_snapshot":
             try keys(params, ["provider"])
-            return snapshot()
+            var result = snapshot()
+            if let cw = await radio?.cwCompositionSnapshot() { result["cw_composition"] = Self.compositionProjection(cw) }
+            return result
         case "station_tune":
             var params = params
             if let raw = params.removeValue(forKey: "expected_generation") {
@@ -328,6 +341,27 @@ actor LiveFlexSession {
         }
         guard let control = params["control"] as? String else { throw invalid() }
         switch control {
+        case "compose_cw":
+            try keys(params, ["provider", "control", "job", "append", "text", "finish", "cwx_generation"])
+            guard let job = params["job"] as? String, UUID(uuidString: job) != nil,
+                  let append = Self.integer(params["append"]), (1...4096).contains(append),
+                  let text = params["text"] as? String, let finish = Self.bool(params["finish"]),
+                  let expected = Self.integer(params["cwx_generation"]), expected > 0,
+                  configuration?.allowTransmit == true, let route = compositionRouteKey() else { throw invalid() }
+            let admissionEpoch = operationEpoch
+            guard let status = await radio?.cwCompositionSnapshot(), status.available, status.generation == expected,
+                  !ownsCW || status.job == job && compositionRoute == route else {
+                throw WorkerFailure("station_action_blocked", "Indexed CWX ownership is unavailable; use Stop and staged Send.")
+            }
+            try requireEpoch(admissionEpoch)
+            let first = !ownsCW
+            let (radio, epoch) = try beginControl(needsTransmit: first)
+            defer { activeControl = false }
+            if first { try await requireTransmitIdle(radio); try requireEpoch(epoch) }
+            ownsCW = true; compositionRoute = route
+            let statusAfter = try await radio.appendCW(generation: Int(expected), job: job, ordinal: Int(append), text: text, finish: finish)
+            try requireEpoch(epoch)
+            return ["accepted": true, "confirmed": false, "cw_composition": Self.compositionProjection(statusAfter)]
         case "ptt":
             try keys(params, ["provider", "control", "enabled"])
             guard let enabled = Self.bool(params["enabled"]) else { throw invalid() }
@@ -346,14 +380,27 @@ actor LiveFlexSession {
             try requireEpoch(epoch)
             return ["accepted": true, "confirmed": false, "control": control, "state": snapshot()]
         case "clear_cw":
+            let expectedCWX = params.removeValue(forKey: "cwx_generation")
+            let retiredJob = params.removeValue(forKey: "cwx_job")
             try keys(params, ["provider", "control"])
+            if let retiredJob, (retiredJob as? String).flatMap(UUID.init(uuidString:)) == nil { throw invalid() }
+            let expectedCWXGeneration = expectedCWX.flatMap(Self.integer).flatMap(Int.init(exactly:))
+            if expectedCWX != nil && (expectedCWXGeneration ?? 0) <= 0 { throw invalid() }
+            // Retire first, even if an append is awaiting its radio reply. The
+            // shared owner retains release responsibility and retries only Stop.
+            operationEpoch &+= 1
+            guard await radio?.retireCWComposition(generation: expectedCWXGeneration, job: retiredJob as? String) == true else {
+                throw WorkerFailure("station_changed", "CWX connection changed; release was not redirected to a new connection. Check the radio before releasing the guard.")
+            }
             guard ownsCW else { throw WorkerFailure("station_action_blocked", "This session has no CW transmission to clear.") }
             let (radio, epoch) = try beginControl(needsTransmit: false)
             defer { activeControl = false }
             let revision = await radio.transmitObservation()?.revision ?? 0
-            try await radio.clearCW()
+            if let expectedCWXGeneration { try await radio.clearCWComposition(generation: expectedCWXGeneration) }
+            else { try await radio.clearCW() }
             try await waitForTransmitObservation(radio, after: revision, epoch: epoch, on: false)
             ownsCW = false; ownsPTT = false; ownsTune = false
+            compositionRoute = nil
             return ["accepted": true, "confirmed": true, "control": control, "state": snapshot()]
         case "set_cw_speed":
             try keys(params, ["provider", "control", "words_per_minute"])
@@ -728,6 +775,16 @@ actor LiveFlexSession {
                                      ? ["set_rit", "set_xit", "set_rf_power", "station_cat_servers"]
                                      : ["set_rit", "set_xit", "station_cat_servers"],
                                  "requires_transmit_opt_in": true] as [String: Any]]
+    }
+
+    private func compositionRouteKey() -> String? {
+        guard let observed, observed.isConnected, ["CW", "CWR"].contains(observed.mode.uppercased()),
+              observed.vfo(observed.slice)?.isReceive == true, observed.vfo(observed.transmitSlice)?.isTransmit == true else { return nil }
+        return "\(observed.slice)|\(observed.transmitSlice)|\(observed.frequencyHz)|\(observed.transmitFrequencyHz)|\(observed.mode)"
+    }
+    private static func compositionProjection(_ value: FlexCWXSnapshot) -> [String: Any] {
+        ["generation": value.generation, "available": value.available, "reason": value.reason,
+         "job": value.job as Any? ?? NSNull(), "accepted": value.accepted, "reported": value.reported, "closed": value.closed]
     }
 
     private func supportedCommands(_ current: RadioSnapshot?) -> [String] {

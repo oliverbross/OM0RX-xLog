@@ -15,7 +15,22 @@ a mode for its current unsent composition:
 * **First word live, then words:** characters through the first word boundary
   stream; later words use word mode. A new job resets the first-word boundary.
 
-Live composition and typed speed/prosign segments currently require WinKeyer.
+Live literal composition is supported by WinKeyer and the native macOS direct
+Flex LAN adapter when its CWX subscription, connection handle and indexed block
+replies provide attributable progress. Flex shows **Radio reported** characters
+separately from **Backend accepted** text. Duplicate/foreign-client/old-connection
+events cannot advance that report. Unknown handles, malformed replies, erased or
+reused index ranges disable live typing; use Stop, review the text and use staged
+Send. Reconnect never resumes a tail. A Flex append is at most 128 literal
+characters, with at most 2,048 characters in one job. Finish closes the job; Stop
+releases its retained output guard before starting another live job.
+Using the retained unindexed whole-message Flex Send, or stopping before an
+indexed append reply arrives, requires reconnect before live typing: late status
+from that unindexed/uncertain output cannot safely qualify a new live job.
+
+Typed speed/prosign segments still require WinKeyer. Buffered Flex speed changes
+are outside this milestone. Flex through the Remote Station Agent remains a
+whole-message route. Physical FLEX-8400 qualification remains **NOT_RUN**.
 TCI supports whole literal staged messages only, up to 128 characters, with
 ExpertSDR3/TCI 2.1 and exactly one advertised TRX; it has no live append or typed
 segment support.
@@ -56,7 +71,7 @@ reserve another serial. Finish or Stop a workbench job before a contest message
 or ESM action. Auto CQ, early-start and exact dual lanes keep their existing
 owners; the shared workbench is disabled in those conflicting contexts.
 
-Queued, backend accepted, keyer-reported echo and physical RF are different
+Queued, backend accepted, radio-reported characters, keyer-reported echo and physical RF are different
 evidence. The desk labels raw keyer reports as uncorrelated; they cannot complete
 a newer job. The native owner retains any uncertain output obligation even if a
 window closes. Physical keyer/radio qualification is recorded separately from

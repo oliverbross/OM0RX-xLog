@@ -20,8 +20,11 @@ export default function CWComposition({context, state, mode: initialMode = "word
   try { if (text.trim()) preview = describeCWPlan(compileCWMessage(text, context)); } catch (cause) { preview = cause instanceof Error ? cause.message : String(cause); }
   useEffect(() => { control.current.alive = true; return () => { control.current.alive=false; control.current.epoch++; }; }, []);
   useEffect(() => {
-    if (!state.armed || disabled) { control.current.enabled=false; setEnabled(false); control.current.epoch++; }
-  }, [state.armed, disabled]);
+    if (!state.armed || disabled || state.capabilities?.composition!==true) {
+      const c=control.current; c.enabled=false; c.staged=!!c.text; setEnabled(false); c.epoch++;
+      if (!state.armed) { c.job=crypto.randomUUID(); c.append=0; c.firstWord=true; }
+    }
+  }, [state.armed, disabled, state.capabilities?.composition]);
   useEffect(() => {
     const focus = () => input.current?.focus();
     const flush = () => { if (document.activeElement === input.current) void drain(true); };
@@ -88,6 +91,9 @@ export default function CWComposition({context, state, mode: initialMode = "word
     {text && <div className="cw-compose-preview"><span>Preview</span><output>{preview}</output></div>}
     {pendingText && <p role="status">Awaiting backend: <samp>{pendingText}</samp></p>}
     {state.composition?.accepted && <p>Backend accepted: <samp>{state.composition.accepted}</samp></p>}
+    {state.composition && Number.isSafeInteger(state.composition.reportedCharacters) && state.composition.reportedCharacters! >= 0 && state.composition.reportedCharacters! <= state.composition.accepted.length &&
+      <p role="status">Radio reported: <samp>{state.composition.accepted.slice(0,state.composition.reportedCharacters!)}</samp> · {state.composition.reportedCharacters}/{state.composition.accepted.length} characters · RF not verified</p>}
+    {!state.capabilities?.composition && state.capabilities?.compositionReason && <p>{state.capabilities.compositionReason}</p>}
     {uncertain && <p className="cw-error">Uncertain append: <samp>{uncertain}</samp></p>}
     {error && <p className="cw-error" role="alert">{error}</p>}
     <small>{state.capabilities?.composition ? "Only new committed typing streams. Paste, IME and tokens stay staged for Send. Hybrid resets for each new job." : "This output supports staged Send. Live typing needs a qualified append adapter."} Backend acceptance and keyer echo do not prove RF.</small>

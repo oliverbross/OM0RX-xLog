@@ -70,6 +70,7 @@ pub trait Backend: Send + Sync {
     fn continue_sequence(&self,target:&Value,sequence:&crate::winkeyer::Sequence,_stream:&str,intent:u64)->Result<Value,String>{self.sequence(target,sequence,intent)}
     fn contest_outcome(&self, _canonical: &Value, _result: &Value, _target: &Value, _outcome: &str) -> Result<(), String> { Ok(()) }
     fn keyer_snapshot(&self) -> Result<Option<Value>, String> { Ok(None) }
+    fn composition_snapshot(&self, _target: &Value) -> Result<Option<Value>, String> { Ok(None) }
 }
 struct Client { label: String, registration: String, sequence: u64, seen: u64 }
 struct State {
@@ -98,7 +99,7 @@ impl Session {
             "messageContext":message_context.as_ref().ok(),"messageContextError":message_context.as_ref().err(),
             "capabilities":{"speedSegments":state.target["speedSegments"] == true,"streaming":state.target["streaming"] == true,
                 "composition":state.target["composition"] == true,"prosigns":state.target["prosigns"] == true,
-                "progressEvidence":state.target["progressEvidence"]}})
+                "progressEvidence":state.target["progressEvidence"],"compositionReason":state.target["compositionReason"]}})
     }
     pub fn snapshot(&self) -> Result<Value, String> { let state = self.lock()?; Ok(self.snapshot_locked(&state)) }
     /// Validated offline fixtures may observe this process owner without reading
@@ -141,6 +142,22 @@ impl Session {
             state.winkeyer = value;
             drop(state);
             if keyer_lease_ended { self.stop()?; }
+        }
+        let (target, revision) = { let state=self.lock()?; (state.target.clone(),state.revision) };
+        if let Some(value)=self.backend.composition_snapshot(&target)? {
+            let mut state=self.lock()?;
+            if state.revision == revision && !state.pending && !state.stopping {
+                let before=(state.target.clone(),state.composition.clone());
+                state.target["composition"]=json!(value["available"]==true);
+                state.target["compositionReason"]=value["reason"].clone();
+                if value["available"]==true && !state.composition.is_null() && value["job"]==state.composition["jobID"]
+                    && value["accepted"]==state.composition["characters"] {
+                    if let Some(reported)=value["reported"].as_u64().filter(|n|*n<=state.composition["characters"].as_u64().unwrap_or(0)) {
+                        state.composition["reportedCharacters"]=json!(reported.max(state.composition["reportedCharacters"].as_u64().unwrap_or(0)));
+                    }
+                }
+                if before!=(state.target.clone(),state.composition.clone()) {Self::change(&mut state);}
+            }
         }
         Ok(())
     }
@@ -289,18 +306,22 @@ impl Session {
             if !same_target(&target, &observed) || self.backend.canonical()? != canonical {
                 return Err("CW draft, settings or connection changed; Stop and review the staged text.".into());
             }
+            if live && observed["composition"] != true { return Err("CWX live attribution is unavailable; use Stop and staged Send.".into()); }
             let intent = {
                 let mut state = self.lock()?; self.current(&state, epoch, client)?;
                 if state.armed_until <= (self.clock)() { return Err("CW arming expired during composition admission.".into()); }
                 state.intent = state.intent.max(observed["last_intent"].as_u64().unwrap_or(0)).checked_add(1).ok_or("CW intent exhausted")?;
-                state.owner = target.clone(); Self::change(&mut state); state.intent
+                state.owner = target.clone();
+                if live && target["provider"]=="direct_flex_lan" {state.owner["compositionJob"]=json!(job);}
+                Self::change(&mut state); state.intent
             };
             if live { self.backend.compose(&target, &plan, job, append, finish, intent)?; }
             else { self.backend.sequence(&target, &plan, intent)?; }
             let mut state = self.lock()?; self.current(&state, epoch, client)?;
             let accepted = if state.composition["jobID"] == job { state.composition["accepted"].as_str().unwrap_or("").to_owned() } else { String::new() };
+            let reported = if live && target["provider"]=="direct_flex_lan" {json!(state.composition["reportedCharacters"].as_u64().unwrap_or(0))}else{Value::Null};
             state.composition = json!({"jobID":job,"appendSequence":append,"template":source,"finish":finish,"live":live,
-                "closed":finish,"characters":count,"accepted":format!("{accepted}{}", plan.text()),"evidence":"backend-accepted; RF not verified"});
+                "closed":finish,"characters":count,"accepted":format!("{accepted}{}", plan.text()),"reportedCharacters":reported,"evidence":"backend-accepted; RF not verified"});
             Ok(())
         })();
         self.complete(epoch, outcome, true)
@@ -601,7 +622,7 @@ fn same_stream_context(before: &Value, after: &Value, stream: &Value) -> bool {
         && admission["call"].as_str().zip(stream["call"].as_str()).is_some_and(|(next, previous)| next.starts_with(previous))
 }
 fn same_target(a: &Value, b: &Value) -> bool {
-    ["output", "provider", "generation", "worker", "selection"].iter().all(|key| a[key] == b[key])
+    ["output", "provider", "generation", "worker", "selection", "cwx_generation"].iter().all(|key| a[key] == b[key])
 }
 fn validate_plan(plan: &crate::winkeyer::Sequence, target: &Value) -> Result<(), String> {
     if plan.variable_speed() && target["speedSegments"] != true { return Err("This output cannot execute per-part CW speeds.".into()); }
@@ -693,6 +714,7 @@ mod tests {
         host_frames: Mutex<std::collections::VecDeque<Value>>,
         keyer_probe: Mutex<Option<crate::winkeyer::continuation_probe::Probe>>,
         keyer_view: Mutex<Option<Value>>,
+        composition_view: Mutex<Option<Value>>,
         lost_send: AtomicBool, stop_fails: AtomicBool, receipt_fails: AtomicBool,
         gate: Mutex<Option<(mpsc::Sender<()>, mpsc::Receiver<()>)>>,
         arm_gate: Mutex<Option<(mpsc::Sender<()>, mpsc::Receiver<()>)>>,
@@ -739,6 +761,7 @@ mod tests {
         }
         fn canonical(&self) -> Result<Value, String> { Ok(self.canonical.lock().unwrap().clone()) }
         fn keyer_snapshot(&self)->Result<Option<Value>,String>{Ok(self.keyer_view.lock().unwrap().clone())}
+        fn composition_snapshot(&self,_:&Value)->Result<Option<Value>,String>{Ok(self.composition_view.lock().unwrap().clone())}
         fn inspect(&self, _: &Value, _: bool) -> Result<Value, String> { Ok(self.target.lock().unwrap().clone()) }
         fn output(&self, _: &Value, action: &str, text: Option<&str>, intent: u64) -> Result<Value, String> {
             if action == "arm" { if let Some(probe) = self.keyer_probe.lock().unwrap().as_mut() { probe.arm()?; } }
@@ -782,7 +805,7 @@ mod tests {
             "context":{"CALL":"K1ABC","MYCALL":"OM0RX","RST":"599"}})),
             target: Mutex::new(json!({"output":"radio","provider":"direct_agent","generation":7,"worker":4,"selection":"choice","limit":128})),
             writes: Mutex::new(vec![]), claims: Mutex::new(BTreeSet::new()), received_provider_context:Mutex::new(Value::Null),
-            host_frames: Mutex::new(Default::default()), keyer_probe: Mutex::new(None), keyer_view:Mutex::new(None),
+            host_frames: Mutex::new(Default::default()), keyer_probe: Mutex::new(None), keyer_view:Mutex::new(None), composition_view:Mutex::new(None),
             lost_send: AtomicBool::new(false), stop_fails: AtomicBool::new(false), receipt_fails: AtomicBool::new(false), gate: Mutex::new(None), arm_gate: Mutex::new(None) });
         let clock = Arc::new(AtomicU64::new(0)); let ticking = clock.clone();
         (Arc::new(Session::with_clock(backend.clone(), Arc::new(move || ticking.load(Ordering::SeqCst)))), backend, clock)
@@ -815,6 +838,34 @@ mod tests {
         session.stop().unwrap();
         assert!(compose_call(&mut client,&session,&job,3," LATE",true,false,"typing").is_err());
         assert_eq!(backend.writes.lock().unwrap().iter().filter(|(a,_,_)|a=="send").count(),2);
+    }
+    #[test]
+    fn flex_composition_progress_requires_exact_job_count_and_connection_and_preserves_staged_send() {
+        let(session,backend,_)=fixture();
+        {let mut target=backend.target.lock().unwrap();target["provider"]=json!("direct_flex_lan");target["composition"]=json!(true);target["cwx_generation"]=json!(11);}
+        let mut client=Client::new();ready(&mut client,&session);let job=uuid::Uuid::new_v4().to_string();
+        compose_call(&mut client,&session,&job,1,"OM0",true,false,"typing").unwrap();
+        compose_call(&mut client,&session,&job,2,"RX",true,false,"typing").unwrap();
+        compose_call(&mut client,&session,&job,2,"RX",true,false,"typing").unwrap();
+        assert_eq!(session.snapshot().unwrap()["owner"]["compositionJob"],job,"Stop must capture the identity before dispatch can be delayed");
+        *backend.composition_view.lock().unwrap()=Some(json!({"available":true,"job":"another-job","accepted":5,"reported":5}));
+        client.call(&session,"snapshot").unwrap();
+        assert_eq!(session.snapshot().unwrap()["composition"]["reportedCharacters"],0);
+        *backend.composition_view.lock().unwrap()=Some(json!({"available":true,"job":job,"accepted":5,"reported":3}));
+        client.call(&session,"snapshot").unwrap();
+        assert_eq!(session.snapshot().unwrap()["composition"]["reportedCharacters"],3);
+        *backend.composition_view.lock().unwrap()=Some(json!({"available":false,"reason":"CWX source handle unknown"}));
+        client.call(&session,"snapshot").unwrap();
+        assert_eq!(session.snapshot().unwrap()["capabilities"]["composition"],false);
+        assert!(compose_call(&mut client,&session,&job,3," LATE",true,false,"typing").is_err());
+        session.stop().unwrap();*backend.composition_view.lock().unwrap()=None;
+        backend.target.lock().unwrap()["composition"]=json!(false);
+        ready(&mut client,&session);
+        compose_call(&mut client,&session,&uuid::Uuid::new_v4().to_string(),1,"CQ TEST",false,true,"explicit-send").unwrap();
+        let sent:Vec<_>=backend.writes.lock().unwrap().iter().filter(|(a,_,_)|a=="send").map(|(_,s,_)|s.clone().unwrap()).collect();
+        assert_eq!(sent,vec!["OM0","RX","CQ TEST"]);
+        backend.target.lock().unwrap()["cwx_generation"]=json!(12);
+        assert!(compose_call(&mut client,&session,&uuid::Uuid::new_v4().to_string(),1,"OLD",false,true,"explicit-send").is_err());
     }
     #[test]
     fn staged_radio_jobs_reuse_the_same_owned_route_with_fresh_admission(){

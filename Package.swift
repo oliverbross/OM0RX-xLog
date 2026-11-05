@@ -58,7 +58,7 @@ let prototypeCoreTargets: [Target] = [
         "SmartLinkAuth.swift", "RemoteAgentAuth.swift", "FlexRadioClient+IQ.swift",
         "FlexIQDatagramReceiver.swift", "TCIIQSubscription.swift"
     ], sources: ["XCatError.swift", "PropagationConditions.swift", "TCIProtocol.swift",
-                 "TCIIQFrame.swift", "FlexIQTransport.swift", "FlexIQResources.swift", "FlexIQSubscription.swift"]),
+                 "TCIIQFrame.swift", "FlexIQTransport.swift", "FlexIQResources.swift", "FlexIQSubscription.swift", "FlexCWX.swift"]),
     .target(name: "XLogPortableCore", dependencies: portableCrypto + ["CSQLitePrototype", .target(name: "CPlatformDigest", condition: .when(platforms: [.windows]))], path: "Sources/XLogCore",
         exclude: ["DXCCBoundaries.swift", "FlexSpotForwarder.swift",
                   "QRZClient.swift", "SecretStore.swift",

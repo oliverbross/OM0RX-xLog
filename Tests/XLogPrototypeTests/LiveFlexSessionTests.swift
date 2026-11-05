@@ -23,6 +23,21 @@ actor FakeFlexRadio: FlexSessionRadio {
     private var powerRevision: UInt64 = 0
     private var powerReadback: Int?
     private var rejectPower = false
+    private var composition: FlexCWXSnapshot?
+    func setComposition(_ value: FlexCWXSnapshot?) { composition = value }
+    func cwCompositionSnapshot() -> FlexCWXSnapshot? { composition }
+    func appendCW(generation: Int, job: String, ordinal: Int, text: String, finish: Bool) throws -> FlexCWXSnapshot {
+        guard let current=composition,current.available,current.generation==generation else {throw XCatError.notConnected}
+        commands.append("append_\(ordinal)_\(text)")
+        let result=FlexCWXSnapshot(generation:generation,available:true,job:job,accepted:current.accepted+text.count,reported:current.reported,closed:finish)
+        composition=result;return result
+    }
+    func retireCWComposition(generation: Int?, job: String?) -> Bool {
+        guard generation == nil || generation == composition?.generation else {return false}
+        if let current=composition {composition=FlexCWXSnapshot(generation:current.generation,available:current.available,reason:current.reason)}
+        return true
+    }
+    func clearCWComposition(generation: Int) throws { guard composition?.generation==generation else{throw XCatError.notConnected};clearCW() }
 
     init(snapshot: RadioSnapshot, onState: @escaping FlexRadioClient.StateHandler,
          onSnapshot: @escaping FlexRadioClient.SnapshotHandler) {
@@ -195,6 +210,23 @@ actor FakeFlexRadio: FlexSessionRadio {
 }
 
 final class LiveFlexSessionTests: XCTestCase {
+    func testIndexedCWCompositionReusesOnlyItsOwnedRouteAndFencesReconnectStop() async throws {
+        let initial=RadioSnapshot(frequencyHz:14_025_000,mode:"CW")
+        let(session,radio)=try await fixture(initial,allowTransmit:true)
+        await radio.setComposition(FlexCWXSnapshot(generation:11,available:true))
+        let snapshot=try await session.handle("station_snapshot",params:["provider":"direct_flex_lan"])
+        let generation=try XCTUnwrap(snapshot["generation"] as? UInt64),job=UUID().uuidString
+        var params:[String:Any]=["provider":"direct_flex_lan","control":"compose_cw","expected_generation":generation,"cwx_generation":11,"job":job,"append":1,"text":"OM0","finish":false]
+        _=try await session.handle("station_radio_control",params:params)
+        await radio.simulateInterlock(true,publish:true)
+        params["append"]=2;params["text"]="RX"
+        _=try await session.handle("station_radio_control",params:params)
+        var wrong=params;wrong["job"]=UUID().uuidString;wrong["append"]=1
+        do{_=try await session.handle("station_radio_control",params:wrong);XCTFail("Another job acquired owned CW")}catch{}
+        await radio.setComposition(FlexCWXSnapshot(generation:12,available:true))
+        do{_=try await session.handle("station_radio_control",params:["provider":"direct_flex_lan","control":"clear_cw","expected_generation":generation,"cwx_generation":11]);XCTFail("Stop redirected to replacement TCP connection")}catch{}
+        let commands=await radio.commandLog();XCTAssertEqual(commands,["append_1_OM0","append_2_RX"])
+    }
     func testHeldNativeTuneCannotKeyAfterANewerCancelArrivesFirst() async throws {
         let(session,radio)=try await fixture(allowTransmit:true)
         let snapshot=try await session.handle("station_snapshot",params:["provider":"direct_flex_lan"])

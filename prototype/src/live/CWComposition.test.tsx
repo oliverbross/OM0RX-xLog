@@ -62,4 +62,32 @@ describe("deliberate CW workbench input",()=>{
     fireEvent.click(screen.getByText("Stop CW"));await waitFor(()=>expect(stop).toHaveBeenCalledTimes(1));
     expect((input as HTMLTextAreaElement).value).toBe("NEXT");
   });
+  it("shows attributed radio progress and disables live on an unavailable CWX route",()=>{
+    const compose=vi.fn(async()=>true),stop=vi.fn(async()=>{});
+    const view=render(<CWComposition context={{}} state={{...armed,composition:{jobID:"job",appendSequence:2,accepted:"OM0RX",closed:false,evidence:"radio",reportedCharacters:3}}} compose={compose} stop={stop}/>);
+    expect(screen.getByText(/3\/5 characters/)).toBeTruthy();
+    const reported=screen.getByText(/Radio reported:/);
+    expect(reported.textContent).toContain("OM0");expect(reported.textContent).not.toContain("OM0RX");
+    view.rerender(<CWComposition context={{}} state={{...armed,capabilities:{composition:false,compositionReason:"CWX progress has no attributable client handle"}}} compose={compose} stop={stop}/>);
+    expect((screen.getByLabelText("Enable live typing") as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getByText(/CWX progress has no attributable/)).toBeTruthy();
+    const input=screen.getByLabelText("Editable text");
+    fireEvent.input(input,{target:{value:"CQ TEST"},inputType:"insertText"});
+    expect(compose).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Send / finish"));
+    expect(compose).toHaveBeenCalledWith(expect.objectContaining({template:"CQ TEST",live:false,finish:true}));
+  });
+  it("retires the editable tail after global Stop and reconnect until explicit Send",async()=>{
+    const compose=vi.fn(async()=>true),stop=vi.fn(async()=>{});
+    const view=render(<CWComposition context={{}} state={armed} compose={compose} stop={stop} mode="word"/>);
+    fireEvent.click(screen.getByLabelText("Enable live typing"));
+    fireEvent.input(screen.getByLabelText("Editable text"),{target:{value:"OLD"},inputType:"insertText"});
+    view.rerender(<CWComposition context={{}} state={{...armed,armed:false}} compose={compose} stop={stop} mode="word"/>);
+    view.rerender(<CWComposition context={{}} state={armed} compose={compose} stop={stop} mode="word"/>);
+    expect((screen.getByLabelText("Enable live typing") as HTMLInputElement).disabled).toBe(true);
+    fireEvent.input(screen.getByLabelText("Editable text"),{target:{value:"OLD NEW "},inputType:"insertText"});
+    expect(compose).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Send / finish"));
+    await waitFor(()=>expect(compose).toHaveBeenCalledWith(expect.objectContaining({template:"OLD NEW ",live:false,finish:true})));
+  });
 });

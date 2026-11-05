@@ -96,6 +96,7 @@ public actor FlexRadioClient: RadioControlling {
     private var pingTask: Task<Void, Never>?
     private var inboundBuffer = Data()
     private var commandSequence = 1
+    private var cwx = FlexCWX()
     private var state: RadioConnectionState = .stopped
     private var value: RadioSnapshot
     private var interlockKnown = false
@@ -166,6 +167,8 @@ public actor FlexRadioClient: RadioControlling {
     /// Close this client without changing the radio's transmit state. Owners
     /// with explicit RF obligations release and observe those before calling it.
     public func stopTransportOnly() async {
+        cwx.retire()
+        cwx.invalidate("CWX connection closed; pending text was retired.")
         shouldRun=false;iqState.stopping=true
         await iqAwaitPendingCleanup()
         iqReset()
@@ -324,12 +327,41 @@ public actor FlexRadioClient: RadioControlling {
         guard !sanitized.trimmingCharacters(in: .whitespaces).isEmpty, sanitized.count <= 128 else {
             throw XCatError.server("CW text must contain 1 through 128 printable characters.")
         }
+        // This retained whole-message path has no indexed allocation. Its late
+        // status must never be credited to a later live composition on this TCP
+        // session, particularly on firmware that reuses indices after clear.
+        cwx.invalidate("Unindexed whole-message CWX was used on this connection. Reconnect before live typing; whole-message Send remains available.")
         try await sendCommand("cwx send \(sanitized)")
     }
 
     public func clearCW() async throws {
+        cwx.retire()
         try await sendCommand("cwx clear")
         try? await setTransmit(false)
+    }
+
+    public func compositionSnapshot() -> FlexCWXSnapshot { cwx.snapshot }
+    public func retireCWComposition(generation expected: Int? = nil, job: String? = nil) -> Bool {
+        guard expected == nil || expected == generation else { return false }
+        cwx.retire(job: job); return true
+    }
+    public func clearCWComposition(generation expected: Int) async throws {
+        guard expected == generation else { throw XCatError.notConnected }
+        try await clearCW()
+    }
+
+    public func appendCW(generation expected: Int, job: String, ordinal: Int, text: String, finish: Bool) async throws -> FlexCWXSnapshot {
+        guard state == .ready, transportReady, expected == generation else { throw XCatError.notConnected }
+        guard let append = try cwx.prepare(generation: expected, job: job, ordinal: ordinal, text: text, finish: finish) else { return cwx.snapshot }
+        do {
+            let reply = try await sendReply(append.command)
+            try cwx.acknowledge(append, reply: reply)
+            return cwx.snapshot
+        } catch {
+            // Never requeue an uncertain command, including after Stop/reconnect.
+            if generation == expected, cwx.snapshot.job == job, cwx.snapshot.available { cwx.invalidate("CWX append outcome is uncertain. Use Stop; do not retry.") }
+            throw error
+        }
     }
 
     public func addSpot(_ spot: FlexSpot) async throws {
@@ -414,8 +446,16 @@ public actor FlexRadioClient: RadioControlling {
                     try await waitForWANValidation()
                 }
                 try await bootstrap()
+                guard currentGeneration == generation else { return }
                 transition(.ready, "Connected; waiting for \(stationName) slice \(sliceLetter)")
                 startPingLoop(generation: currentGeneration)
+                // Optional advanced CW capability must not disable ordinary CAT
+                // or delay readiness/whole-message Send on older firmware.
+                do {
+                    try await sendCommand("sub cwx all")
+                    guard currentGeneration == generation else { return }
+                    cwx.subscriptionAccepted()
+                } catch { /* CWX live append remains unavailable. */ }
             } catch {
                 await connectionFailed("Bootstrap failed: \(error.localizedDescription)", generation: currentGeneration)
             }
@@ -510,6 +550,7 @@ public actor FlexRadioClient: RadioControlling {
         if line.first == "H" {
             clientHandleReceived = true
             ownClientHandle=FlexIQResourceInventory.handle(String(line.dropFirst()))
+            cwx.identify(ownClientHandle)
             return
         }
         guard line.first == "S" else { return }
@@ -517,6 +558,7 @@ public actor FlexRadioClient: RadioControlling {
         let statusParts = payload.split(separator: "|", maxSplits: 1, omittingEmptySubsequences: false)
         guard statusParts.count == 2 else { return }
         let body = String(statusParts[1])
+        cwx.status(handle: FlexIQResourceInventory.handle(String(statusParts[0])), body: body, generation: generation)
         iqConsumeStatus(body)
         let tokens = body.split(separator: " ")
         guard let object = tokens.first else { return }
@@ -772,6 +814,8 @@ public actor FlexRadioClient: RadioControlling {
 
     private func connectionFailed(_ message: String, generation currentGeneration: Int) async {
         guard currentGeneration == generation else { return }
+        cwx.retire()
+        cwx.invalidate("CWX connection lost; pending text was retired without replay.")
         iqReset()
         pingTask?.cancel()
         pingTask = nil
@@ -806,6 +850,7 @@ public actor FlexRadioClient: RadioControlling {
     }
 
     private func resetSessionState() {
+        cwx.reset(generation: generation)
         iqReset()
         ownClientHandle=nil
         iqBoundClientID=nil

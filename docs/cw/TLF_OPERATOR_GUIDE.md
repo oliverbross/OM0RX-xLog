@@ -12,7 +12,7 @@ In Productivity → Messages, choose a Run or S&P message. Put `{WPM:32}` before
 
 Preview shows the provider-ready cut/padded text and each speed/restore segment from the same Python compiler used for dispatch. A missing serial stays unavailable; example serials are simulated. Preview/import/save never reserve a serial or send. A final base restore is included when a speed directive was used. Literal plus/minus characters remain text.
 
-The initial advanced route is WinKeyer with documented buffered speed commands. Flex and direct TCI reject queued speed sections before sending; use an explicitly edited plain single-speed message on an ordinary supported route. Flex whole-message CW remains available. Adapter/protocol limits and primary references are in [the adapter contract](TLF_ADAPTER_PROTOCOL.md).
+WinKeyer supports documented buffered speed commands. Flex and direct TCI reject queued speed sections before sending; use an explicitly edited plain single-speed message on an ordinary supported route. The shared CW workbench now supports literal live append through native macOS direct Flex LAN when indexed replies and own-client status prove attribution. **Radio reported** character progress is separate from command acceptance and RF. Ambiguous attribution disables live typing; Stop and staged whole-message Send remain available. Flex contest early-call/exact-lane streaming and buffered speed changes are outside this milestone; physical FLEX-8400 qualification remains open. Adapter/protocol limits and primary references are in [the adapter contract](TLF_ADAPTER_PROTOCOL.md).
 
 ## Early callsign
 

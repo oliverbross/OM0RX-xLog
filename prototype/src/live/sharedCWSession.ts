@@ -5,8 +5,8 @@ import { defaultCWProfile, validateCWProfile, type CWContext, type CWMacro, type
 type Data = Record<string, any>;
 export type SharedCWState = CWState & { revision: number; lease: string | null; client: string | null; canonical: Data | null;
   messageContext?: CWContext | null; messageContextError?: string | null;
-  composition?: {jobID: string; appendSequence: number; accepted: string; closed: boolean; evidence: string} | null;
-  capabilities?: { speedSegments?: boolean; streaming?: boolean; composition?: boolean; prosigns?: boolean; progressEvidence?: string } };
+  composition?: {jobID: string; appendSequence: number; accepted: string; closed: boolean; evidence: string; reportedCharacters?: number | null} | null;
+  capabilities?: { speedSegments?: boolean; streaming?: boolean; composition?: boolean; prosigns?: boolean; progressEvidence?: string; compositionReason?: string | null } };
 export type CWComposeRequest = {jobID: string; appendSequence: number; template: string; live: boolean; finish: boolean; inputOrigin: "typing" | "explicit-send"};
 export type CWTransport = (client: string, sequence: number, params: Data) => Promise<Data>;
 const native: CWTransport = (client, sequence, params) => invoke("cw_session_request", { client, sequence, params });

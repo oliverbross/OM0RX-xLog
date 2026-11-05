@@ -67,6 +67,8 @@ fn radio_request(target: &Value, action: &str, text: Option<&str>) -> Result<Val
         else { json!({"provider":provider,"control":if action == "stop" { "clear_cw" } else { "send_cw" },"expected_generation":identity}) };
     if action == "send" { params["text"] = json!(text.ok_or("CW text unavailable")?); }
     if target["radio_id"].is_string(){params["radio_id"]=target["radio_id"].clone();}
+    if action == "stop" && target["cwx_generation"].is_u64() { params["cwx_generation"] = target["cwx_generation"].clone(); }
+    if action == "stop" && target["compositionJob"].is_string() { params["cwx_job"] = target["compositionJob"].clone(); }
     Ok(request(if provider == "hamlib" { "hamlib_control" } else { "station_radio_control" }, params))
 }
 fn contesting_test_target(canonical: &Value) -> Result<Value, String> {
@@ -184,6 +186,7 @@ impl Backend for Native {
         carrier_output_admission(output,||{crate::carrier_tune::require_cw_ready(&self.app)?;crate::ptt_session::require_idle(&self.app)})?;
         let worker = canonical["worker"].as_u64().ok_or("CW worker unavailable")?;
         let mut speed_segments=output=="winkeyer";
+        let mut flex_cwx = Value::Null;
         let (identity, limit, intent) = if output == "winkeyer" {
             let value = local("winkeyer_snapshot", json!({}))?;
             if value["phase"] != "ready" || !value["status"].is_object() || !value["status_age_ms"].as_f64().is_some_and(|age| age >= 0.0 && age <= 2_000.0) { return Err("Connect WinKeyer and wait for fresh status first.".into()); }
@@ -204,12 +207,22 @@ impl Backend for Native {
             if value["source"] != provider || value["radio"]["connected"] != true || value["radio"]["observed"] != true || value["allow_transmit"] != true || !commands.is_some_and(|commands| commands.contains(&json!("send_cw")) && commands.contains(&json!("clear_cw"))) { return Err("Connect a CW-capable radio with transmit controls enabled first.".into()); }
             if !matches!(value["radio"]["mode"].as_str(), Some("CW" | "CWR")) || !timestamp.is_some_and(|time| fresh(now() - time * 1_000.0, 5_000.0)) { return Err("Set the radio to CW and wait for fresh readback.".into()); }
             let connection=generation(&value["generation"])?;
+            if provider == "direct_flex_lan" { flex_cwx = value["cw_composition"].clone(); }
             if provider=="direct_tci"{crate::station_selection::owner(&self.app)?.require_tci_transmit_enabled(worker,connection)?;}
             (connection, 128, 0)
         };
         let mut target=json!({"output":output,"provider":if output == "winkeyer" { "winkeyer" } else { provider },"generation":identity,"limit":limit,"last_intent":intent,"worker":worker,"selection":canonical["selection"],
             "speedSegments":speed_segments, "streaming":output == "winkeyer", "composition":output == "winkeyer", "prosigns":output == "winkeyer", "progressEvidence":if output == "winkeyer" {"host-queue-and-device-status"} else {"command-acceptance-only"}});
         if canonical["selection"]["radio_id"].is_string(){target["radio_id"]=canonical["selection"]["radio_id"].clone();}
+        if provider == "direct_flex_lan" && output == "radio" {
+            let available = flex_cwx["available"] == true && generation(&flex_cwx["generation"]).is_ok();
+            target["composition"] = json!(available);
+            // Contest early-call streaming is deliberately unchanged. This
+            // milestone enables only the shared literal composition workbench.
+            target["compositionReason"] = flex_cwx["reason"].clone();
+            target["cwx_generation"] = flex_cwx["generation"].clone();
+            target["progressEvidence"] = json!("radio-reported-indexed-characters; RF-not-verified");
+        }
         Ok(target)
     }
     fn sequence(&self, target: &Value, sequence: &crate::winkeyer::Sequence, intent: u64) -> Result<Value, String> {
@@ -225,8 +238,30 @@ impl Backend for Native {
             "revision":stream["revision"],"text":stream["call"],"finish":stream["complete"]}))
     }
     fn compose(&self,target:&Value,sequence:&crate::winkeyer::Sequence,job:&str,append:u64,finish:bool,intent:u64)->Result<Value,String>{
-        if target["output"]!="winkeyer"{return Err("This output does not support owned CW composition append".into());}
-        local("winkeyer_compose",json!({"generation":generation(&target["generation"])?,"intent":intent,"job":job,"append":append,"sequence":sequence,"finish":finish}))
+        if target["output"]=="winkeyer" {
+            return local("winkeyer_compose",json!({"generation":generation(&target["generation"])?,"intent":intent,"job":job,"append":append,"sequence":sequence,"finish":finish}));
+        }
+        if target["provider"] != "direct_flex_lan" || target["composition"] != true || sequence.variable_speed() || sequence.has_prosigns() {
+            return Err("This output does not support owned literal CW composition append".into());
+        }
+        let mut params=json!({"provider":"direct_flex_lan","control":"compose_cw","expected_generation":generation(&target["generation"])?,
+            "cwx_generation":generation(&target["cwx_generation"])?,"job":job,"append":append,"text":sequence.text(),"finish":finish});
+        if target["radio_id"].is_string(){params["radio_id"]=target["radio_id"].clone();}
+        let request=request("station_radio_control",params);
+        let worker=generation(&target["worker"])?;
+        let response=crate::station_selection::owner(&self.app)?.cw_control(request.clone(),target["selection"]["generation"].as_u64().ok_or("CW selection unavailable")?,
+            target["selection"]["id"].as_str().ok_or("CW selection unavailable")?,|request|crate::worker::request_existing_generation(request,worker))?;
+        result(&request,response)
+    }
+    fn composition_snapshot(&self,target:&Value)->Result<Option<Value>,String>{
+        if target["provider"] != "direct_flex_lan" || target["output"] != "radio" { return Ok(None); }
+        let mut params=json!({"provider":"direct_flex_lan"});
+        if target["radio_id"].is_string(){params["radio_id"]=target["radio_id"].clone();}
+        let value=call(generation(&target["worker"])?,"station_snapshot",params)?;
+        if value["generation"] != target["generation"] || value["cw_composition"]["generation"] != target["cwx_generation"] {
+            return Ok(Some(json!({"available":false,"reason":"CWX connection changed; Stop and re-arm explicitly. Pending text was not replayed."})));
+        }
+        Ok(Some(value["cw_composition"].clone()))
     }
     fn continue_sequence(&self,target:&Value,sequence:&crate::winkeyer::Sequence,stream:&str,intent:u64)->Result<Value,String>{
         if target["output"]!="winkeyer"{return Err("This output cannot continue an owned callsign stream.".into());}
@@ -318,6 +353,10 @@ mod tests {
             let send = radio_request(&target, "send", Some("CQ")).unwrap();
             assert_eq!(send["params"]["text"], "CQ"); assert_eq!(send["params"]["expected_generation"], 7);
         }
+        let stop=radio_request(&json!({"provider":"direct_flex_lan","generation":7,"cwx_generation":11,"compositionJob":"captured-job","radio_id":"slot-a"}),"stop",None).unwrap();
+        assert_eq!(stop["params"]["cwx_generation"],11);
+        assert_eq!(stop["params"]["cwx_job"],"captured-job");
+        assert_eq!(stop["params"]["radio_id"],"slot-a");
     }
     #[test]
     fn malformed_acknowledgements_are_uncertain_and_cannot_be_accepted() {
