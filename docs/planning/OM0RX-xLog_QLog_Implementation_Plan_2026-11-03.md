@@ -2,6 +2,12 @@
 
 **Master implementation and project management plan**
 
+**Current CQRLOG close-out — 5 November 2026:** signed isolated 1.5.15 source
+`1873dc1d1c4d1aa95b44d07f7af0482417680f5f` passed the scoped software/CI/native
+checks in section8.13 and its [release record](../releases/v1.5.15-cqrlog-candidate.md).
+QLog/TLF task identities and integrations are retained; installed production
+remains 1.5.9. Earlier delivery statements below keep their original source/scope.
+
 **Version:** 1.0  
 **Prepared:** 3 November 2026, Australia/Darwin  
 **Source review:** 2 November 2026 UTC (3 November in Darwin)  
@@ -1786,3 +1792,35 @@ remove a separate monitor race without changing production CW checks. Complete
 local normal/configured portable gates and all 21,335 complete Facts pass. The
 1.5.15 preparation record keeps the complete remote gate and remaining Windows
 contest job pending until their actual results; no new package is inferred.
+
+### 8.13 — Completed CQRLOG successor candidate, 5 November 2026
+
+Signed isolated **1.5.15**, source `1873dc1d1c4d1aa95b44d07f7af0482417680f5f`,
+closes terminal recording cancellation and the demonstrated cold Windows read
+delay. Same-ID Finish cannot reverse Stop or publish/replace its WAV. Focused
+Windows passes six tests with a 1,688.338 ms real read while the feed is held,
+against the unchanged two-second deadline. Complete native-core passes on all
+three platforms, release CI passes, and release contest portability has seven
+passing jobs. The original missing native macOS contest job was rerun alone;
+that original run now also has seven successful jobs. Historical cancellations,
+failures, passes and skips remain separate.
+
+New canonical signing/ZIP verification, 3,546-file privacy scan, first signed
+worker (9/9, 1,912.544209 ms, unchanged five-second limits), generated 100k-worker
+diagnostic and actual native country CQ-only apply/restart/recovery passed.
+Both native launches are stopped. The other contacts, protected QSO context,
+settings/preferences and external WAV were retained. Unarmed CW/guarded voice UI
+was checked without widening the offline runtime; cancellation publication tests
+remain hardware-free native component evidence. Exact input manifests justify
+scoped reuse of unchanged frontend/Python/Rust evidence.
+
+The [release record](../releases/v1.5.15-cqrlog-candidate.md) and
+[machine receipt](../audits/cqrlog-implementation-2026-11-04/candidate-1.5.15-gates.json)
+pin source, artifact SHA-256, signing, all CI states and the new acceptance.
+No required gate remains outstanding. Mac beta passed, while optional Windows/
+Linux runtime jobs were skipped; those do not qualify installed platform behavior.
+Physical station/device checks, Windows/Linux packaged-runtime acceptance,
+notarization, controlled OS-cache-cold performance and real SunSDR advertised
+TRX-count observation remain pending. Installed 1.5.9, rollback, retained 1.5.13/
+1.5.14 artifacts and the CW-skimmer worktree are unchanged. Existing QLog/TLF
+requirements and their remaining qualification boundaries are preserved.

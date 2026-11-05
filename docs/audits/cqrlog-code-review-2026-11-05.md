@@ -1,9 +1,10 @@
 # CQRLOG C01–C06 follow-up code review
 
-The [focused release close-out](#release-candidate-close-out-follow-ups--5-november-2026)
-adds terminal recording cancellation, cold-read diagnostics and the new signed
-[1.5.14 candidate](../releases/v1.5.14-cqrlog-candidate.md). Earlier review and
-release-boundary statements below describe their original checkpoint.
+The [completed focused close-out](#completed-successor-candidate-and-bounded-acceptance)
+closes terminal recording cancellation and the reproduced cold Windows read
+delay, with signed isolated [1.5.15](../releases/v1.5.15-cqrlog-candidate.md) and
+its own bounded acceptance. Installed production remains 1.5.9. Earlier review,
+intermediate failures and release-boundary statements retain their as-of scope.
 
 Review baseline: clean canonical main `68d7b02846c94d904cdf3c9452f4c931e7167b48`,
 fast-forward fetched/pulled before work. Scope is the complete C01–C06 source
@@ -484,7 +485,7 @@ acceptance, notarization and controlled OS-cache-cold measurement remain pending
 Later SunSDR qualification must observe the real advertised TRX count before
 claiming native TCI CW availability; selecting one receiver is not that evidence.
 
-### Definitive Windows phases and current closure gates
+### Definitive Windows phases and intermediate closure gates
 
 The finer `1f77871b` Windows diagnostic (`41931381091`, job `126928853546`)
 rules out the earlier scheduling/lock uncertainty: GCD and task probes run
@@ -571,3 +572,61 @@ local portable invocation omitted required `XLOG_CONTEST_PYTHON`; its one
 precondition failure is retained separately from the configured passing rerun.
 Regular CI `41942506389` passes at `c0bcf897`; complete native-core and the
 remaining Windows contest Swift job still run at this release preparation point.
+
+## Completed successor candidate and bounded acceptance
+
+Candidate **1.5.15** source is `1873dc1d1c4d1aa95b44d07f7af0482417680f5f`;
+ZIP SHA-256 is `fce3321e3616e3e732314e0e79f688d09bf6e64a9332c16533f4e27b7e10bc02`.
+Native terminal cancellation and final publication locking retain the existing
+slot under Stop → same-ID Finish, Finish → Stop and stale-ID attempts, while
+normal Finish saves. Actual native helpers/WAV writes are covered, not just a
+renderer button. Existing identity/workspace/settings and release checks remain.
+
+Repeated Windows traces locate the delay in cold application country-reference
+work, with prompt task/dispatch/lock admission. The corrected ID-only statistics
+path avoids irrelevant display metadata; native SHA-256 vectors match the old
+implementation. Reference bytes/identity and all 21,335 complete Facts remain
+unchanged. Focused Windows `41942409273` passes six tests with a **1,688.338 ms**
+real held-feed read under the original **two seconds**. The full Windows gate
+also passes, with **1,060.828 ms** in its broader-suite context. No timeout,
+skip or warmup changed. Separate test provenance/monitor races were corrected
+without changing production automatic UTC or stale-evidence behavior.
+
+Required native-core `41942524586` passes macOS/Linux/Windows; exact-release CI
+`41944351866` and all seven contest jobs `41944351878` pass. Mac beta
+`41944351820` passes; optional Linux/Windows runtime jobs are **skipped**.
+Original contest `41901614866` now has seven successful jobs after rerunning
+only its missing native macOS job. The 22-run snapshot retains earlier actual
+failures, superseded cancellations, passes and skips separately. No required
+external-runner gate remains outstanding.
+
+New clean-canonical packaging pins the exact source before compilation. The
+arm64 host/worker have Developer ID/hardened signatures, strict ZIP-roundtrip
+and separate worker verification, a 3,546-file zero-finding privacy report,
+and **9/9 first-signed-worker checks in 1,912.544209 ms**, with the unchanged
+five-second limits. Full local normal/configured portable gates and the complete
+Facts oracle pass. Input manifests establish the scoped unchanged Rust/frontend/
+Python reuse; new packaging checks are not borrowed from the failed 1.5.14 bytes.
+
+The new signed worker repeats the generated 100k scan, comparing all contacts
+with a health reply before completion. Actual native private acceptance compares
+12 contacts, selects only OM3SYN CQ zone, applies, quits normally, explicitly
+restarts, rediscovers its saved receipt, recovers through revision checks and
+shows Already recovered. Both Quits are confirmed only by process inspection.
+Signed-worker applied/recovered reads preserve the other 11 contacts, protected
+context, retained extra fields, settings/preferences and WAV. Saved unarmed CW
+preview and guarded voice/library/footer controls are observed without output
+or capability bypass. Guarded Voice 1 UI defaults are distinguished from the
+saved seeded profile/WAV verified separately through the worker.
+
+The [release record](../releases/v1.5.15-cqrlog-candidate.md) and
+[machine receipt](cqrlog-implementation-2026-11-04/candidate-1.5.15-gates.json)
+retain exact hashes, signatures, source/input comparisons, raw logs and bounded
+acceptance. Installed 1.5.9, rollback, old 1.5.13/1.5.14 archives and the unrelated
+CW-skimmer worktree are preserved. Physical TCI/keyer/audio/PTT qualification,
+Windows/Linux packaged-runtime acceptance, notarization and controlled OS-cache-
+cold performance remain pending. Later SunSDR qualification must record the real
+advertised TRX count before claiming native TCI CW availability. Operator guides
+state the ExpertSDR3/TCI 2.1 PTT, one-TRX literal-only 128-character CW, WinKeyer
+composition/finite-preference, macOS-only normal voice and external-WAV-backup
+boundaries.

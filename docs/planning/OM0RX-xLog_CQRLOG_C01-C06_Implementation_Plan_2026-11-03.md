@@ -1,11 +1,12 @@
 # OM0RX-xLog — CQRLOG C01–C06 Implementation Programme
 
-**Current delivery — 5 November 2026:** signed isolated candidate 1.5.14 passed
-bounded macOS checks but failed the repeated Windows responsiveness gate; the
-next correction/candidate is in progress. [Section 14](#14-focused-release-candidate-close-out--5-november-2026-darwin)
-and its [release record](../releases/v1.5.14-cqrlog-candidate.md) give exact
-source/native/package/CI evidence and qualification limits. Section 13 and the
-1.5.13 archive retain their historical evidence. Installed production remains 1.5.9.
+**Current delivery — 5 November 2026:** signed isolated **1.5.15** candidate
+`1873dc1d1c4d1aa95b44d07f7af0482417680f5f` passed the focused Windows regression,
+complete three-platform native-core gate, release CI, seven contest jobs and
+its own signed-worker/native acceptance. [Section 14.2](#142-completed-successor-candidate--5-november-2026)
+and the [release record](../releases/v1.5.15-cqrlog-candidate.md) pin the actual
+artifact, evidence and remaining qualification limits. Old 1.5.13 and the failed
+1.5.14 checkpoint remain retained. Installed production remains **1.5.9**.
 
 **Comprehensive project management and implementation contract**  
 **Version:** 1.0  
@@ -1416,7 +1417,7 @@ WAV libraries require their own folder backup. Real SunSDR advertised TRX count,
 physical station/device qualification, Windows/Linux packaged-runtime acceptance,
 notarization and controlled OS-cache-cold measurement remain pending.
 
-### 14.1 Windows diagnosis refinement and successor gate
+### 14.1 Windows diagnosis refinement and successor gate — intermediate checkpoints
 
 Fine Windows timing proves prompt task/dispatch/lock admission, followed by
 1,919 ms constructing the country resolver and 499 ms constructing entity
@@ -1444,3 +1445,55 @@ using fresh tracks for mute and stale-IQ rejection; production freshness checks
 remain intact. Complete local normal/configured portable gates and the retained
 21,335 full Facts pass. The full remote gate and last Windows contest job remain
 pending at the 1.5.15 version/provenance preparation point, before packaging.
+
+### 14.2 Completed successor candidate — 5 November 2026
+
+The two requested software follow-ups are closed. Explicit recording cancellation
+is terminal through actual native publication; same-ID late Finish, Finish/Stop,
+stale-ID and normal save regressions use real disposable WAV writes. Reproduced
+Windows delay was cold reference construction/metadata, with prompt scheduling
+and lock admission. Reusing validated work, native Windows hashing and statistics
+ADIF-only collection preserve reference identity and every retained Facts result.
+Focused Windows passes all six checks with a **1,688.338 ms** held-feed read under
+the unchanged **two-second** deadline; the complete Windows gate also passes,
+with **1,060.828 ms** in its broader-suite context. No skip, warmup or deadline
+increase was introduced. Separate automatic/manual UTC and stale-track fixture
+assumptions were corrected without changing production clock/freshness behavior.
+
+Candidate **1.5.15**, source `1873dc1d1c4d1aa95b44d07f7af0482417680f5f`, has ZIP
+SHA-256 `fce3321e3616e3e732314e0e79f688d09bf6e64a9332c16533f4e27b7e10bc02`.
+The canonical clean-source build, Developer ID/hardened arm64 host and worker,
+strict ZIP round trip, 3,546-file privacy scan and first signed-worker check
+passed. All nine worker checks passed in 1,912.544209 ms under unchanged five-
+second deadlines. Exact input comparisons qualify scoped reuse; fresh package,
+generated 100k-worker and native acceptance belong to these new signed bytes.
+
+Required CI is complete: focused Windows `41942409273`, three-platform native
+`41942524586`, release CI `41944351866` and all seven contest jobs `41944351878`.
+Mac beta `41944351820` passed; optional Windows/Linux runtime jobs were **skipped**.
+The original contest `41901614866` now has seven successful jobs after rerunning
+only its missing native macOS job. Historical failures and superseded cancellations
+remain distinct. There is no outstanding required external-runner gate.
+
+Actual native acceptance in marked private storage passed complete country review,
+CQ-only selected apply, ordinary Quit, explicit restart, saved receipt rediscovery,
+revision-checked recovery and Already recovered. Post-Quit signed-worker reads
+retain the other 11 of 12 contacts, protected fields, settings/preferences and WAV.
+Unarmed CW preview and guarded voice/library/recording controls were observed;
+offline capability restrictions were retained. Component cancellation tests are
+not physical microphone acceptance. Both native launches are stopped.
+
+The [release record](../releases/v1.5.15-cqrlog-candidate.md) and
+[machine receipt](../audits/cqrlog-implementation-2026-11-04/candidate-1.5.15-gates.json)
+retain exact source, hashes, signing, CI, input manifests and acceptance evidence.
+QLog/TLF task IDs and integrations are preserved. Installed 1.5.9, rollback, old
+1.5.13/1.5.14 archives and the CW-skimmer worktree remain unchanged.
+
+Physical station/device qualification, Windows/Linux packaged-runtime acceptance,
+notarization and controlled OS-cache-cold performance remain pending. TCI PTT is
+ExpertSDR3/TCI 2.1; TCI CW requires exactly one advertised TRX and whole literal
+messages of at most 128 characters, without live append or typed speed/prosign
+segments. Live composition/typed segments require WinKeyer, whose preferences
+remain the documented finite subset. Normal native voice is macOS-only, external
+WAV folders require their own backup, and later SunSDR qualification must record
+the real server advertised TRX count before claiming native TCI CW availability.
