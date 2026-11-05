@@ -48,6 +48,78 @@ try { & $executeScopeGuard } catch {
 }
 Check $missingScopeRejected 'actual top-level AST scope guard accepts PSNoteProperty and rejects missing property'
 
+# Exercise the actual capture-through-resume region with fake probes. Each case
+# must reject at the unchanged image/PID/PPID guard, after persisting all probes.
+$capture = @($ast.FindAll({ param($node)
+    $node -is [Management.Automation.Language.AssignmentStatementAst] -and
+    $node.Left -is [Management.Automation.Language.VariableExpressionAst] -and $node.Left.VariablePath.UserPath -ceq 'observedIdentity'
+}, $true))
+$complete = @($ast.FindAll({ param($node)
+    $node -is [Management.Automation.Language.InvokeMemberExpressionAst] -and $node.Expression.Extent.Text -ceq '$child' -and $node.Member.Value -ceq 'Complete'
+}, $true))
+if ($capture.Count -ne 1 -or $complete.Count -ne 1) { throw 'Expected one actual pre-Resume identity region.' }
+$helperText = [IO.File]::ReadAllText($path)
+$identityRegion = [scriptblock]::Create($helperText.Substring($capture[0].Extent.StartOffset, $complete[0].Extent.EndOffset - $capture[0].Extent.StartOffset))
+$identityScratch = Join-Path (Join-Path (Split-Path $PSScriptRoot -Parent | Split-Path -Parent) '.build') ('qa-identity-observation-' + [guid]::NewGuid().ToString('N'))
+$null = New-Item -ItemType Directory -Path $identityScratch
+function Get-CimInstance {
+    [CmdletBinding()] param([string]$ClassName, [string]$Filter)
+    $script:identityCalls.Add('cim')
+    if ($script:identityScenario -ceq 'cim-error') { throw [ComponentModel.Win32Exception]::new(5) }
+    return $script:identityCim
+}
+try {
+    foreach ($scenario in @('cim-null-image','native-probe-errors','cim-error')) {
+        $script:identityScenario = $scenario
+        $script:identityCalls = [Collections.Generic.List[string]]::new()
+        $worker = 'C:\synthetic\xlog-prototype-worker.exe'
+        $script:identityCim = [pscustomobject]@{ ProcessId = [uint32]123; ParentProcessId = [uint32]$PID;
+            ExecutablePath = $(if ($scenario -ceq 'cim-null-image') { $null } else { $worker });
+            CommandLine = '"C:\synthetic\xlog-prototype-worker.exe" --local-logbook-self-test' }
+        $child = [pscustomobject]@{ Pid = [uint32]123; CommandLine = '"C:\synthetic\xlog-prototype-worker.exe" --local-logbook-self-test'; resumes = 0; completes = 0 }
+        $child | Add-Member ScriptMethod ImagePath {
+            $script:identityCalls.Add('image')
+            if ($script:identityScenario -ceq 'native-probe-errors') { throw [ComponentModel.Win32Exception]::new(5) }
+            return 'C:\synthetic\xlog-prototype-worker.exe'
+        }
+        $child | Add-Member ScriptMethod CreationFileTime {
+            $script:identityCalls.Add('creation')
+            if ($script:identityScenario -ceq 'native-probe-errors') { throw [ComponentModel.Win32Exception]::new(87) }
+            return [long]123456
+        }
+        $child | Add-Member ScriptMethod ResumeOnce { $this.resumes++ }
+        $child | Add-Member ScriptMethod Complete { $this.completes++ }
+        $directory = Join-Path $identityScratch $scenario
+        $null = New-Item -ItemType Directory -Path $directory
+        $record = [ordered]@{ workerSHA256 = ('a' * 64); identityVerifiedBeforeResume = $false }
+        $failure = $null
+        try { & $identityRegion } catch { $failure = $_ }
+        Assert-XLogDiagnostic ($null -ne $failure -and $failure.Exception.Message -ceq 'OS image/PID/PPID proof failed before Resume.') 'Actual unchanged identity guard did not reject as expected.'
+        $retained = Get-Content -LiteralPath (Join-Path $directory 'identity-observed-before-validation.json') -Raw | ConvertFrom-Json -Depth 30
+        Assert-XLogDiagnostic (($script:identityCalls -join ',') -ceq 'cim,image,creation') 'Probe was skipped after an earlier null/error.'
+        Assert-XLogDiagnostic ($child.resumes -eq 0 -and $child.completes -eq 0 -and -not $record.identityVerifiedBeforeResume) 'An unverified child reached resume/output observation.'
+        Assert-XLogDiagnostic ($retained.expected.pid -eq 123 -and $retained.expected.parentPID -eq $PID -and
+            $retained.expected.executablePath -ceq $worker -and $retained.expected.argv.Count -eq 2 -and
+            $retained.expected.argv[1] -ceq '--local-logbook-self-test' -and $retained.expected.workerSHA256 -ceq $record.workerSHA256) 'Expected coordinates not persisted before validation.'
+        if ($scenario -ceq 'cim-null-image') {
+            Assert-XLogDiagnostic ($retained.cim.status -ceq 'observed' -and $retained.cim.instances[0].ExecutablePath.present -and
+                $null -eq $retained.cim.instances[0].ExecutablePath.value -and $retained.image.value -ceq $worker -and
+                $retained.creationTime.value -eq 123456 -and $retained.cim.instances[0].CommandLine.value -ceq $child.CommandLine) 'Null CIM operand or independent native values were lost.'
+        } elseif ($scenario -ceq 'native-probe-errors') {
+            Assert-XLogDiagnostic ($retained.cim.instances[0].ProcessId.value -eq 123 -and $retained.image.status -ceq 'error' -and
+                $retained.creationTime.status -ceq 'error' -and $retained.image.error.nativeErrorCode -eq 5 -and
+                $retained.creationTime.error.nativeErrorCode -eq 87) 'Native errors did not survive independent capture.'
+        } else {
+            Assert-XLogDiagnostic ($retained.cim.status -ceq 'error' -and $retained.cim.error.nativeErrorCode -eq 5 -and
+                $retained.image.value -ceq $worker -and $retained.creationTime.value -eq 123456) 'CIM error prevented later native capture.'
+        }
+        $checks.Add("actual identity AST persists$scenario before unchanged guard; no resume")
+    }
+} finally {
+    Remove-Item Function:\Get-CimInstance
+    Remove-Item -LiteralPath $identityScratch -Recurse -Force
+}
+
 foreach ($scope in @('currentUser','perMachine')) {
     $r = Receipt $scope
     Assert-XLogDiagnosticReceipt $r $r.actualDirectory $r.expectedDefaultDirectory

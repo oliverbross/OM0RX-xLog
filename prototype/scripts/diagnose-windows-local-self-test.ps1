@@ -127,6 +127,44 @@ function Get-XLogDiagnosticEnvironmentEntries($Values, [switch]$WithoutTemp) {
 function Get-XLogDiagnosticTextHash([string]$Text) {
     return [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::Unicode.GetBytes($Text))).ToLowerInvariant()
 }
+function Get-XLogDiagnosticProbeError($Failure) {
+    $exception = $Failure.Exception.GetBaseException()
+    $message = [string]$exception.Message
+    return @{ type = $exception.GetType().FullName; message = $message.Substring(0, [Math]::Min(1024, $message.Length));
+        hResult = $exception.HResult; nativeErrorCode = $(if ($exception -is [ComponentModel.Win32Exception]) { $exception.NativeErrorCode } else { $null }) }
+}
+function Get-XLogDiagnosticIdentityObservations([scriptblock]$QueryCim, [scriptblock]$QueryImage, [scriptblock]$QueryCreationTime) {
+    $observations = [ordered]@{ observedUtc = [DateTime]::UtcNow.ToString('o');
+        cim = @{ status = 'not-queried'; instanceCount = $null; instances = @(); error = $null };
+        image = @{ status = 'not-queried'; value = $null; error = $null };
+        creationTime = @{ status = 'not-queried'; value = $null; error = $null } }
+    $cim = $null; $image = $null; $created = $null
+    try {
+        $cim = & $QueryCim
+        $instances = @($cim | Where-Object { $null -ne $_ })
+        $observations.cim.status = 'observed'
+        $observations.cim.instanceCount = $instances.Count
+        $observations.cim.instances = @(foreach ($instance in $instances) {
+            $fields = [ordered]@{}
+            foreach ($name in @('ProcessId','ParentProcessId','ExecutablePath','CommandLine')) {
+                $field = @{ present = $false; value = $null; error = $null }
+                try {
+                    $property = $instance.PSObject.Properties[$name]
+                    $field.present = $null -ne $property
+                    if ($field.present) { $field.value = $property.Value }
+                } catch { $field.error = Get-XLogDiagnosticProbeError $_ }
+                $fields[$name] = $field
+            }
+            $fields
+        })
+    } catch { $observations.cim.status = 'error'; $observations.cim.error = Get-XLogDiagnosticProbeError $_ }
+    # These queries must run independently, even if CIM is missing or failed.
+    try { $image = & $QueryImage; $observations.image.status = 'observed'; $observations.image.value = $image }
+    catch { $observations.image.status = 'error'; $observations.image.error = Get-XLogDiagnosticProbeError $_ }
+    try { $created = & $QueryCreationTime; $observations.creationTime.status = 'observed'; $observations.creationTime.value = $created }
+    catch { $observations.creationTime.status = 'error'; $observations.creationTime.error = Get-XLogDiagnosticProbeError $_ }
+    return [pscustomobject]@{ Observations = $observations; CimInstance = $cim; ImagePath = $image; CreationFileTime = $created }
+}
 function Test-XLogDiagnosticReply($Reply) {
     # This is the existing hardcoded acceptance contract, not a relaxed variant.
     if ($null -eq $Reply -or -not $Reply.PSObject.Properties['id'] -or -not $Reply.PSObject.Properties['ok'] -or
@@ -336,12 +374,20 @@ try {
             try {
                 $child = [XLogLocalDiagnostic.Child]::Create($worker, $WorkingDirectory, $entries)
                 $record.ownedCreation = @{ pid = $child.Pid; fullCommandLine = $child.CommandLine; handleOwnership = 'Exclusive returned CreateProcess handle; never attach or search for another target' }
-                $os = Get-CimInstance Win32_Process -Filter "ProcessId=$($child.Pid)" -ErrorAction Stop
+                $observedIdentity = Get-XLogDiagnosticIdentityObservations `
+                    -QueryCim { Get-CimInstance Win32_Process -Filter "ProcessId=$($child.Pid)" -ErrorAction Stop } `
+                    -QueryImage { $child.ImagePath() } -QueryCreationTime { $child.CreationFileTime() }
+                $record.identityObservations = $observedIdentity.Observations
+                $record.identityObservations.expected = @{ pid = $child.Pid; parentPID = $PID; executablePath = $worker;
+                    argv = @($worker, '--local-logbook-self-test'); fullCommandLine = $child.CommandLine; workerSHA256 = $record.workerSHA256 }
+                Write-XLogDiagnosticJson (Join-Path $directory 'identity-observed-before-validation.json') $record.identityObservations
+                $os = $observedIdentity.CimInstance
+                $observedImagePath = $observedIdentity.ImagePath
+                $created = $observedIdentity.CreationFileTime
                 Assert-XLogDiagnostic ($null -ne $os -and $os.ProcessId -eq $child.Pid -and $os.ParentProcessId -eq $PID -and
-                    (Test-XLogDiagnosticSamePath $os.ExecutablePath $worker) -and (Test-XLogDiagnosticSamePath $child.ImagePath() $worker)) 'OS image/PID/PPID proof failed before Resume.'
+                    (Test-XLogDiagnosticSamePath $os.ExecutablePath $worker) -and (Test-XLogDiagnosticSamePath $observedImagePath $worker)) 'OS image/PID/PPID proof failed before Resume.'
                 $argv = [XLogLocalDiagnostic.Child]::SplitCommandLine($os.CommandLine)
                 Assert-XLogDiagnostic ($argv.Count -eq 2 -and (Test-XLogDiagnosticSamePath $argv[0] $worker) -and $argv[1] -ceq '--local-logbook-self-test') 'OS full command line is not the sole disposable self-test flag.'
-                $created = $child.CreationFileTime()
                 Assert-XLogDiagnostic ($created -gt 0 -and (Get-XLogDiagnosticHash $worker) -ceq $record.workerSHA256) 'Creation identity/hash changed before Resume.'
                 $record.processIdentity = @{ pid = $child.Pid; parentPID = $os.ParentProcessId; executablePath = $os.ExecutablePath; fullCommandLine = $os.CommandLine; creationFileTime = $created; proofBeforeResumeUtc = [DateTime]::UtcNow.ToString('o') }
                 $record.identityVerifiedBeforeResume = $true

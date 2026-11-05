@@ -101,3 +101,16 @@ cause established by this attempt. No OS-proof requirement, guard, deadline,
 count or fixture policy was relaxed. Raw process/path/profile coordinates
 remain private; the published reports normalize observed defaults to their
 verified Windows known-folder tokens.
+
+The next QA-only correction independently captures all CIM fields, the
+owned-handle image query and creation time, including nulls and bounded error
+metadata. Expected PID/parent/image/arguments/hash and unverified observations
+are written privately before validation. The existing image/PID/parent/full
+arguments/creation/hash predicates and resume/cleanup policy are retained.
+Three tests execute the actual capture-through-resume source region with null
+CIM image, failing native probes and failing CIM query; each persists the
+independent observations before the unchanged guard rejects, with zero resumes.
+All 38 diagnostic and seven receipt contracts, ten-script syntax, installer
+policy and workflow YAML checks pass locally. Independent review found no
+actionable issue. These Mac-side tests make no Windows API or application
+calls; the next Windows-only check will reuse the original package bytes.
