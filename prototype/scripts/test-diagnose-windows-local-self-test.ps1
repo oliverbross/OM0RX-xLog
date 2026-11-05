@@ -49,7 +49,7 @@ try { & $executeScopeGuard } catch {
 Check $missingScopeRejected 'actual top-level AST scope guard accepts PSNoteProperty and rejects missing property'
 
 # Exercise the actual capture-through-resume region with fake probes. Each case
-# must reject at the unchanged image/PID/PPID guard, after persisting all probes.
+# must reject at the image/PID/PPID guard, after persisting all probes.
 $capture = @($ast.FindAll({ param($node)
     $node -is [Management.Automation.Language.AssignmentStatementAst] -and
     $node.Left -is [Management.Automation.Language.VariableExpressionAst] -and $node.Left.VariablePath.UserPath -ceq 'observedIdentity'
@@ -69,12 +69,12 @@ function Get-CimInstance {
     return $script:identityCim
 }
 try {
-    foreach ($scenario in @('cim-null-image','native-probe-errors','cim-error')) {
+    foreach ($scenario in @('cim-contradictory-image','native-probe-errors','cim-error')) {
         $script:identityScenario = $scenario
         $script:identityCalls = [Collections.Generic.List[string]]::new()
         $worker = 'C:\synthetic\xlog-prototype-worker.exe'
         $script:identityCim = [pscustomobject]@{ ProcessId = [uint32]123; ParentProcessId = [uint32]$PID;
-            ExecutablePath = $(if ($scenario -ceq 'cim-null-image') { $null } else { $worker });
+            ExecutablePath = $(if ($scenario -ceq 'cim-contradictory-image') { 'C:\contradiction\worker.exe' } else { $worker });
             CommandLine = '"C:\synthetic\xlog-prototype-worker.exe" --local-logbook-self-test' }
         $child = [pscustomobject]@{ Pid = [uint32]123; CommandLine = '"C:\synthetic\xlog-prototype-worker.exe" --local-logbook-self-test'; resumes = 0; completes = 0 }
         $child | Add-Member ScriptMethod ImagePath {
@@ -94,17 +94,17 @@ try {
         $record = [ordered]@{ workerSHA256 = ('a' * 64); identityVerifiedBeforeResume = $false }
         $failure = $null
         try { & $identityRegion } catch { $failure = $_ }
-        Assert-XLogDiagnostic ($null -ne $failure -and $failure.Exception.Message -ceq 'OS image/PID/PPID proof failed before Resume.') 'Actual unchanged identity guard did not reject as expected.'
+        Assert-XLogDiagnostic ($null -ne $failure -and $failure.Exception.Message -ceq 'OS image/PID/PPID proof failed before Resume.') 'Actual identity guard did not reject as expected.'
         $retained = Get-Content -LiteralPath (Join-Path $directory 'identity-observed-before-validation.json') -Raw | ConvertFrom-Json -Depth 30
         Assert-XLogDiagnostic (($script:identityCalls -join ',') -ceq 'cim,image,creation') 'Probe was skipped after an earlier null/error.'
         Assert-XLogDiagnostic ($child.resumes -eq 0 -and $child.completes -eq 0 -and -not $record.identityVerifiedBeforeResume) 'An unverified child reached resume/output observation.'
         Assert-XLogDiagnostic ($retained.expected.pid -eq 123 -and $retained.expected.parentPID -eq $PID -and
             $retained.expected.executablePath -ceq $worker -and $retained.expected.argv.Count -eq 2 -and
             $retained.expected.argv[1] -ceq '--local-logbook-self-test' -and $retained.expected.workerSHA256 -ceq $record.workerSHA256) 'Expected coordinates not persisted before validation.'
-        if ($scenario -ceq 'cim-null-image') {
+        if ($scenario -ceq 'cim-contradictory-image') {
             Assert-XLogDiagnostic ($retained.cim.status -ceq 'observed' -and $retained.cim.instances[0].ExecutablePath.present -and
-                $null -eq $retained.cim.instances[0].ExecutablePath.value -and $retained.image.value -ceq $worker -and
-                $retained.creationTime.value -eq 123456 -and $retained.cim.instances[0].CommandLine.value -ceq $child.CommandLine) 'Null CIM operand or independent native values were lost.'
+                $retained.cim.instances[0].ExecutablePath.value -ceq 'C:\contradiction\worker.exe' -and $retained.image.value -ceq $worker -and
+                $retained.creationTime.value -eq 123456 -and $retained.cim.instances[0].CommandLine.value -ceq $child.CommandLine) 'Contradictory CIM operand or independent native values were lost.'
         } elseif ($scenario -ceq 'native-probe-errors') {
             Assert-XLogDiagnostic ($retained.cim.instances[0].ProcessId.value -eq 123 -and $retained.image.status -ceq 'error' -and
                 $retained.creationTime.status -ceq 'error' -and $retained.image.error.nativeErrorCode -eq 5 -and
@@ -113,11 +113,40 @@ try {
             Assert-XLogDiagnostic ($retained.cim.status -ceq 'error' -and $retained.cim.error.nativeErrorCode -eq 5 -and
                 $retained.image.value -ceq $worker -and $retained.creationTime.value -eq 123456) 'CIM error prevented later native capture.'
         }
-        $checks.Add("actual identity AST persists$scenario before unchanged guard; no resume")
+        $checks.Add("actual identity AST persists$scenario before guard; no resume")
     }
 } finally {
     Remove-Item Function:\Get-CimInstance
     Remove-Item -LiteralPath $identityScratch -Recurse -Force
+}
+
+# Execute the actual image/PID/PPID guard independently of platform APIs.
+$imageGuard = @($ast.FindAll({ param($node)
+    $node -is [Management.Automation.Language.CommandAst] -and $node.GetCommandName() -ceq 'Assert-XLogDiagnostic' -and
+    $node.CommandElements.Count -eq 3 -and $node.CommandElements[2] -is [Management.Automation.Language.StringConstantExpressionAst] -and
+    $node.CommandElements[2].Value -ceq 'OS image/PID/PPID proof failed before Resume.'
+}, $true))
+if ($imageGuard.Count -ne 1) { throw 'Expected one actual image/PID/PPID guard.' }
+$executeImageGuard = [scriptblock]::Create($imageGuard[0].Extent.Text)
+foreach ($scenario in @('null-cim','empty-cim','matching-cim','missing-native','mismatching-native','mismatching-pid','mismatching-ppid')) {
+    $worker = 'C:\synthetic\xlog-prototype-worker.exe'
+    $child = [pscustomobject]@{ Pid = [uint32]123 }
+    $os = [pscustomobject]@{ ProcessId = [uint32]123; ParentProcessId = [uint32]$PID; ExecutablePath = $worker }
+    $observedImagePath = $worker
+    switch ($scenario) {
+        'null-cim' { $os.ExecutablePath = $null }
+        'empty-cim' { $os.ExecutablePath = '' }
+        'missing-native' { $observedImagePath = $null }
+        'mismatching-native' { $observedImagePath = 'C:\contradiction\worker.exe' }
+        'mismatching-pid' { $os.ProcessId = 124 }
+        'mismatching-ppid' { $os.ParentProcessId = $PID + 1 }
+    }
+    if ($scenario -in @('null-cim','empty-cim','matching-cim')) {
+        & $executeImageGuard
+        $checks.Add("actual image guard admits $scenario only with mandatory matching owned image and PID/PPID")
+    } else {
+        Reject { & $executeImageGuard } "actual image guard rejects $scenario despite matching CIM image"
+    }
 }
 
 foreach ($scope in @('currentUser','perMachine')) {

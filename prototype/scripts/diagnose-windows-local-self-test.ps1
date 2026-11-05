@@ -384,12 +384,14 @@ try {
                 $os = $observedIdentity.CimInstance
                 $observedImagePath = $observedIdentity.ImagePath
                 $created = $observedIdentity.CreationFileTime
+                # CIM ExecutablePath can be unavailable without SeDebugPrivilege; the exclusive owned handle image remains mandatory.
                 Assert-XLogDiagnostic ($null -ne $os -and $os.ProcessId -eq $child.Pid -and $os.ParentProcessId -eq $PID -and
-                    (Test-XLogDiagnosticSamePath $os.ExecutablePath $worker) -and (Test-XLogDiagnosticSamePath $observedImagePath $worker)) 'OS image/PID/PPID proof failed before Resume.'
+                    (Test-XLogDiagnosticSamePath $observedImagePath $worker) -and
+                    ([string]::IsNullOrEmpty($os.ExecutablePath) -or (Test-XLogDiagnosticSamePath $os.ExecutablePath $worker))) 'OS image/PID/PPID proof failed before Resume.'
                 $argv = [XLogLocalDiagnostic.Child]::SplitCommandLine($os.CommandLine)
                 Assert-XLogDiagnostic ($argv.Count -eq 2 -and (Test-XLogDiagnosticSamePath $argv[0] $worker) -and $argv[1] -ceq '--local-logbook-self-test') 'OS full command line is not the sole disposable self-test flag.'
                 Assert-XLogDiagnostic ($created -gt 0 -and (Get-XLogDiagnosticHash $worker) -ceq $record.workerSHA256) 'Creation identity/hash changed before Resume.'
-                $record.processIdentity = @{ pid = $child.Pid; parentPID = $os.ParentProcessId; executablePath = $os.ExecutablePath; fullCommandLine = $os.CommandLine; creationFileTime = $created; proofBeforeResumeUtc = [DateTime]::UtcNow.ToString('o') }
+                $record.processIdentity = @{ pid = $child.Pid; parentPID = $os.ParentProcessId; executablePath = $observedImagePath; imageProof = 'QueryFullProcessImageNameW flags0 on exclusive owned creation handle'; cimExecutablePath = $os.ExecutablePath; cimExecutablePathAvailable = (-not [string]::IsNullOrEmpty($os.ExecutablePath)); fullCommandLine = $os.CommandLine; creationFileTime = $created; proofBeforeResumeUtc = [DateTime]::UtcNow.ToString('o') }
                 $record.identityVerifiedBeforeResume = $true
                 Write-XLogDiagnosticJson (Join-Path $directory 'identity-before-resume.json') $record.processIdentity
                 $record.resumedUtc = [DateTime]::UtcNow.ToString('o'); $child.ResumeOnce(); $child.Complete()
