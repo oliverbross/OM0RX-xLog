@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "version": "1.5.15",
+  "candidateSource": "1873dc1d1c4d1aa95b44d07f7af0482417680f5f",
+  "installedApp": "/Applications/OM0RX-xLog.app",
+  "installedSHA256": {
+    "xlog-prototype": "388114efe485ea83fc56256af0774d6ee6b4f4bd9561798ba215fdd025399ef2",
+    "xlog-prototype-worker": "0b4121e278d42546f793a7947af3ce3cf0b99b0cfc423f66ef1b3fb664202d6c"
+  },
+  "backupRoot": "/Users/oliver/Documents/Backups/OM0RX-xLog/before-1.5.15-20261105T114309+0930",
+  "rollbackVersion": "1.5.9",
+  "rollbackApp": "/Users/oliver/Documents/Backups/OM0RX-xLog/before-1.5.15-20261105T114309+0930/installer-retained-1.5.9.app",
+  "rollbackZIP_SHA256": "d089b249f738f3791c56de1aee27abfdf4434dbab77b26216f1b9a8f13fc680b",
+  "rollbackSignatureVerified": true,
+  "allDataFilesByteIdenticalBeforeFirstLaunch": true,
+  "postStartupPreservation": {
+    "stage": "after-start",
+    "sourceCommit": "1873dc1d1c4d1aa95b44d07f7af0482417680f5f",
+    "version": "1.5.15",
+    "originalRecordsChecked": 69683,
+    "missingOriginalRecords": 0,
+    "changedOriginalRecords": 0,
+    "liveQSOs": 69682,
+    "benchmarkTestCallCountUnchanged": true,
+    "integrationSettingsPayloadUnchanged": true,
+    "changedDraftQSOFields": [],
+    "automaticStartUnchanged": true,
+    "operatingDefaultsMutablePreserved": true,
+    "draftRevisionNondecreasing": true,
+    "originalJournalCount": 35,
+    "missingJournals": 0,
+    "changedJournalQSOFields": [],
+    "changedWorkspaceSettingsFiles": [],
+    "referenceCacheTimestampOnlyUpdates": [],
+    "unexpectedReferenceCacheChanges": [],
+    "originalRetainedSpotCount": 260,
+    "missingOrChangedRetainedSpots": 0,
+    "passed": true
+  },
+  "voicePreservation": {
+    "state": "passed",
+    "voiceFilesChecked": 665,
+    "missing": [],
+    "changed": []
+  },
+  "startup": {
+    "hostPID": 68826,
+    "workerPID": 68916,
+    "exactExecutablePathsAndNoExtraArgumentsVerified": true,
+    "nativeDeskRendered": true,
+    "visibleContactCount": 69682,
+    "leftRunning": true
+  },
+  "limits": [
+    "No logging, settings edit, manual sync, recording, transmit or rotor command issued",
+    "Notarization and physical station/device qualification remain pending",
+    "Subsequent Flex CWX development is source-only; this installation remains the retained 1873dc1d candidate"
+  ]
+}

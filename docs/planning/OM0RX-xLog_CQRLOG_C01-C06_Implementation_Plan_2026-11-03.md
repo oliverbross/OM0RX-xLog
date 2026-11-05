@@ -6,7 +6,10 @@ complete three-platform native-core gate, release CI, seven contest jobs and
 its own signed-worker/native acceptance. [Section 14.2](#142-completed-successor-candidate--5-november-2026)
 and the [release record](../releases/v1.5.15-cqrlog-candidate.md) pin the actual
 artifact, evidence and remaining qualification limits. Old 1.5.13 and the failed
-1.5.14 checkpoint remain retained. Installed production remains **1.5.9**.
+1.5.14 checkpoint remain retained. A subsequent authorized installation of this
+exact retained candidate is verified; production is now **1.5.15**, with a verified
+1.5.9 rollback and preserved logs/settings/voice files. See the release record's
+installation section; earlier checkpoints retain their as-of meaning.
 
 **Comprehensive project management and implementation contract**  
 **Version:** 1.0  
