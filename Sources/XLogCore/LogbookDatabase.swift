@@ -1644,7 +1644,8 @@ public final class LogbookDatabase: @unchecked Sendable {
         }
     }
 
-    public func applyIntegrationSettings(_ mutation: IntegrationSettingsMutation) throws -> IntegrationSettingsReceipt {
+    public func applyIntegrationSettings(_ mutation: IntegrationSettingsMutation,
+        firstRunDraftDefaults: @autoclosure () throws -> QSO? = nil) throws -> IntegrationSettingsReceipt {
         try withDatabaseLock {
             guard (0...9_007_199_254_740_990).contains(mutation.expectedRevision) else {
                 throw IntegrationSettingsError.invalid
@@ -1672,6 +1673,27 @@ public final class LogbookDatabase: @unchecked Sendable {
                 )
                 try next.validate()
                 try rebindRestoredWavelogAuthorityWithinTransaction(to: next.settings)
+                // Setup can create/read the initial blank draft before station
+                // settings exist. Complete that untouched seed atomically with
+                // first-run setup; never retag an authored or frozen draft.
+                if !current.settings.onboardingCompleted, next.settings.onboardingCompleted,
+                   spotDraftLeaseID == nil, let draft = try readOperatorDraft(),
+                   draft.operatingDefaultsMutable, draft.qso.call.isEmpty,
+                   let defaults = try firstRunDraftDefaults() {
+                    var qso = draft.qso
+                    qso.operatorCall = defaults.operatorCall; qso.myCall = defaults.myCall
+                    qso.myGrid = defaults.myGrid; qso.stationLocation = defaults.stationLocation
+                    qso.radio = defaults.radio
+                    // Power evidence/intent belongs to its existing native owner.
+                    if draft.power == nil { qso.txPower = defaults.txPower }
+                    if qso != draft.qso {
+                        guard draft.revision < 9_007_199_254_740_990 else { throw IntegrationSettingsError.invalid }
+                        let refreshed = OperatorDraftSnapshot(revision: draft.revision + 1, qso: qso,
+                            automaticStart: draft.automaticStart, power: draft.power, operatingDefaultsMutable: true)
+                        try refreshed.validate()
+                        try writeOperatorDraft(refreshed)
+                    }
+                }
                 if next != current { try writeIntegrationSettings(next) }
                 let receipt = IntegrationSettingsReceipt(mutation: mutation, snapshot: next)
                 let payload = try encoder.encode(receipt)

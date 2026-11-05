@@ -1814,7 +1814,8 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                     throw WorkerFailure("sync_destination_change_blocked", "This logbook contains Wavelog-linked contacts. Create a new workspace or use a reviewed migration before changing the destination.")
                 }
                 do {
-                    let receipt = try database.applyIntegrationSettings(mutation)
+                    let receipt = try database.applyIntegrationSettings(mutation,
+                        firstRunDraftDefaults: newOperatorDraft(settings: safe))
                     if targetChanged {
                         workspace?.makeDefaults()?.removeObject(forKey: syncAuthorizationKey)
                     }

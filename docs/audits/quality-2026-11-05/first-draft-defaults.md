@@ -1,0 +1,22 @@
+# First-run draft station defaults
+
+Status: **fixed in source; new packaged/native acceptance pending**. Investigated against held 1.5.16/source baseline `73ae0fa0958d1e12d021982fde5c011bac0ea7ba`. No installed app, production data, radio or original acceptance fixture was changed.
+
+The isolated native journey saved setup values, then logged and edited its first synthetic QSO. Read-only inspection found blank stored `operatorCall`, `myCall`, `myGrid` and `stationLocation`. Both pre-save draft replacement receipts already had these blanks; the save receipt retained them, and the later comment-edit receipt retained the same values before/after. The next blank draft contained the configured station values. This locates the loss before initial save, rather than in comment editing or restart persistence.
+
+This is not inherited export semantics. `newOperatorDraft` copies current settings into new contacts. Existing drafts deliberately retain their values. `completeFirstRunSetup` creates the empty workspace before saving station settings; the worker's power reconciliation requests `powerOwnerSnapshot`, which persists a blank draft before its disabled-power check. A resumed incomplete workspace can also load that seed through the ordinary draft API. Subsequent settings saves previously left it unchanged. The editor's `CONFIGURED` station badges come from current settings, independently of stored contact fields. ADIF snapshots use each contact's own `adifRecord`; blank station fields are omitted, with no settings fallback.
+
+The fix joins the first-run incomplete→complete settings transition to the existing settings transaction. Only an empty, native `operatingDefaultsMutable` seed with no active spot-draft lease receives the configured operator/station/grid/location/radio defaults. A draft revision increment fences stale renderer replacements; its identity, timestamps, band/mode/frequency and native power evidence are retained. Default TX power is refreshed only when no native power owner exists. Explicitly authored or cleared fields, populated drafts, completed operators, historical contacts and replayed settings receipts are not rewritten. No schema migration or capture/lease/Stop guard changed. Preventing one eager initialization path alone was insufficient for resumed setup.
+
+The real `LiveWorker.response` regression failed before the fix: fresh and resumed first drafts retained blanks and the old 100 W instead of configured **25 W**; the first saved ADIF record omitted operator/station/grid. It now covers fresh setup, incomplete-workspace reload plus worker restart, first/subsequent saved contacts, stored location/radio/power, standard ADIF fields, stale draft conflicts, completion replay, ordinary later settings changes, populated/explicitly authored-empty draft preservation, and preservation of explicit manual **73 W** plus simulated captured **73 W** evidence. An additional eligible untouched-seed case enters the reseeding branch with an enabled native power owner and simulated 40m/CW native radio following: identity updates while the exact power object/scope, TX value, draft ID, clock provenance, frequency, band, mode and reports remain unchanged. Station location is stored local metadata; the existing ADIF mapping has no station-location tag. The regression checks its stored value and checks the existing `OPERATOR`, `STATION_CALLSIGN`, `MY_GRIDSQUARE` and `TX_PWR` export fields.
+
+Verification:
+
+```sh
+XLOG_PORTABLE_ONLY=1 swift test --scratch-path .build/prototype-tests --enable-swift-testing \
+  --filter 'FirstDraftStationDefaultsTests|FirstRunSetupTests|AntennaPortableOwnerTests|OperatorDraftPowerDatabaseTests|OperatorDraftPowerTests|SettingsSessionSafetyTests'
+```
+
+The focused first-draft XCTest suite passed **5 tests**; the first-run/portable/power Swift Testing suites passed **33 tests**, and the settings-session suite passed **4 tests**. `git diff --check` passed. Existing setup tests had checked persisted settings through service/mocked adapters, without checking the first QSO through the worker boundary.
+
+Remaining gate: exact-source 1.5.17 packaged first-run → first QSO → edit → ordinary quit/restart → stored station fields and ADIF checks, including a non-default setup power. Windows/Linux and physical hardware acceptance remain separate. Previously saved contacts with missing station evidence are not repaired by this change.
