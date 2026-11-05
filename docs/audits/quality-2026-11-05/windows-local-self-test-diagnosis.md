@@ -215,3 +215,36 @@ shape check completed all 21 stages in about 0.9 seconds and normal EOF exit 0;
 its largest frame was the 61,923-byte catalogue with unchanged total 192.
 That check validates result shapes, not Windows behavior or a latency budget.
 Actual Windows staged execution remains pending this QA-only preparation.
+
+## Bounded RPC replay localizes the first failed endpoint
+
+[Run 42044140753](ci-1.5.20-windows-diagnostic-rpc.md), QA source 35efbb13,
+reused the same application/package source 3d9cb098. Both original installed
+assertions remained failed. Both hosts repeated the six verified direct A/B/A
+probes with the same reversible failure/pass/failure pattern and stable payloads.
+
+In the same workflow step, paired receipt/source/payload ownership and the full
+non-TEMP environment hash passed before RPC. Original nested TEMP, CWD/profile
+and PATH remained fixed. Each host launched only one identity-verified portable
+worker with sole --local-ui-acceptance. The first 18 RPC stages passed, including
+settings, import/edit/stats/resources, backup_create, delete and undo. Stage 19,
+backup_restore, returned ok:false with code operation_failed and the generic
+message “Operation failed. Check the connection or configuration; no success has
+been confirmed.” Correlation matched on both hosts; raw replies are retained.
+
+Global first-failure policy prevented any installed RPC worker. EOF cleanup
+confirmed both owned exits 0 with empty stderr and no timeout termination, within
+2351 ms for currentUser and 2469 ms for perMachine (total budget 10000 ms each).
+Post-restore settings/export and successful replay completion were not reached.
+Pre-RPC payload validation passed; post-RPC payload validation was not reached
+after failure, distinct from the earlier paired post-probe payload proof.
+
+This localizes the acceptance-only endpoint failure without exposing its caught
+operation or proving the direct self-test failed on the identical exception.
+The acceptance-only worker precreates a differently named root, seeds 137
+spot-history rows, disables native preference inheritance and initializes
+LiveWorker lanes. EOF deletes its workspace/defaults, with no final fresh-service
+reopen. These differences and the generic reply leave the underlying mechanism
+unproven; no path-length threshold or Windows long-path cause is claimed.
+Installed GUI/uninstall/marker preservation and ordinary-user/UAC qualification
+remain open. No retry, application edit or acceptance-policy change occurred.

@@ -1,0 +1,996 @@
+{
+  "schema": 1,
+  "runId": 42044140753,
+  "disposition": "FAILED acceptance; bounded RPC replay stops at portable backup_restore operation_failed on both hosts",
+  "qaExecutorSource": "35efbb1344ad675f4b75cec586355450a88eeeb7",
+  "packageSource": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+  "version": "1.5.20",
+  "packageRun": 42016723457,
+  "packageArtifactId": 13413349502,
+  "packageArtifactSHA256": "3869a453e665320c4fe19662595b616cebb61d8217a1e6ea80a99ac99db3d41f",
+  "workerSHA256": "2dd9a007937b0cee8240bc73785a76ce2fbe4cc6a6dbe9dcde5114abce5593e5",
+  "applicationRebuilt": false,
+  "jobs": [
+    {
+      "id": 127302421067,
+      "name": "Windows fresh-runner runtime acceptance (currentUser)",
+      "conclusion": "failure",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Enable Windows checkout long paths",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate failed worker reply retention",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/download-artifact@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Extract isolated package",
+          "conclusion": "success"
+        },
+        {
+          "name": "Native WebView2 GUI and worker without installing Swift",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify shared payload and accept selected scope at its real default path",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Diagnose failed 1.5.20 installed local self-test with controlled temporary roots",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Upload native Windows reports and screenshots",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 127302421541,
+      "name": "Windows fresh-runner runtime acceptance (perMachine)",
+      "conclusion": "failure",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Enable Windows checkout long paths",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate failed worker reply retention",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/download-artifact@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Extract isolated package",
+          "conclusion": "success"
+        },
+        {
+          "name": "Native WebView2 GUI and worker without installing Swift",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify shared payload and accept selected scope at its real default path",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Diagnose failed 1.5.20 installed local self-test with controlled temporary roots",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Upload native Windows reports and screenshots",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 127302423061,
+      "name": "prototype",
+      "conclusion": "skipped",
+      "steps": []
+    },
+    {
+      "id": 127302423920,
+      "name": "Linux runtime-only container acceptance",
+      "conclusion": "skipped",
+      "steps": []
+    }
+  ],
+  "scopes": [
+    {
+      "scope": "currentUser",
+      "job": 127302421067,
+      "acceptanceConclusion": "failure",
+      "normalizedObservedDefault": "%LOCALAPPDATA%\\OM0RX-xLog",
+      "defaultPathPassed": true,
+      "registryScopePassed": true,
+      "startMenuScopePassed": true,
+      "harnessElevated": true,
+      "ordinaryUserRuntime": "NOT RUN",
+      "interactiveUAC": "NOT RUN (silent harness)",
+      "earlyInstalledReply": {
+        "id": "local-logbook-self-test",
+        "ok": false,
+        "error": {
+          "code": "local_self_test_failed",
+          "message": "Local logbook acceptance failed."
+        }
+      },
+      "earlyInstalledReplySHA256": "5ef8c6c6ffd142991cd5f02021c699a59058ea6d848d10db0fb250003c1e0b3e",
+      "originalInstalledWorkerExit": "UNOBSERVED; scope step exit1 observed",
+      "pairedDiagnostic": {
+        "status": "complete-diagnostic-not-acceptance",
+        "payloadsUnchangedAfterProbes": true,
+        "runs": [
+          {
+            "ordinal": 1,
+            "package": "portable",
+            "condition": "A",
+            "tempUtf16Length": 92,
+            "exitCode": 1,
+            "exitConfirmed": true,
+            "contractPassed": false
+          },
+          {
+            "ordinal": 2,
+            "package": "installed",
+            "condition": "A",
+            "tempUtf16Length": 92,
+            "exitCode": 1,
+            "exitConfirmed": true,
+            "contractPassed": false
+          },
+          {
+            "ordinal": 3,
+            "package": "portable",
+            "condition": "B",
+            "tempUtf16Length": 23,
+            "exitCode": 0,
+            "exitConfirmed": true,
+            "contractPassed": true
+          },
+          {
+            "ordinal": 4,
+            "package": "installed",
+            "condition": "B",
+            "tempUtf16Length": 23,
+            "exitCode": 0,
+            "exitConfirmed": true,
+            "contractPassed": true
+          },
+          {
+            "ordinal": 5,
+            "package": "portable",
+            "condition": "A",
+            "tempUtf16Length": 92,
+            "exitCode": 1,
+            "exitConfirmed": true,
+            "contractPassed": false
+          },
+          {
+            "ordinal": 6,
+            "package": "installed",
+            "condition": "A",
+            "tempUtf16Length": 92,
+            "exitCode": 1,
+            "exitConfirmed": true,
+            "contractPassed": false
+          }
+        ],
+        "commonNonTempEnvironmentSHA256": "07176cd2b913babbb341870c40e6652343333bf8d2ee207e0eeb4d911c8b9b55"
+      },
+      "rpcDiagnostic": {
+        "status": "failed",
+        "firstFailedStage": 19,
+        "firstFailedMethod": "backup_restore",
+        "rawReplyError": {
+          "code": "operation_failed",
+          "message": "Operation failed. Check the connection or configuration; no success has been confirmed.",
+          "outcome": "uncertain"
+        },
+        "failedReplyCorrelationMatches": true,
+        "helperSHA256": "15c7ed0bab83739f21d9e25ee4e13800d823f297497911dbdfb1864476e7d145",
+        "dependencySHA256": "53c304a94eec641bfe5b28dde5379c192142429031036c05c5f2e4f87c710510",
+        "pairedDiagnosticSHA256": "d06722b44451799092e1dda25451ce9943ba824f0fab6bbe375add373519e545",
+        "maximumWorkers": 2,
+        "workersLaunched": 1,
+        "package": "portable",
+        "installedWorker": "NOT RUN: global first-failure stop",
+        "identityVerifiedBeforeFirstRPC": true,
+        "cimPIDMatches": true,
+        "cimParentPIDMatches": true,
+        "ownedHandleImageMatches": true,
+        "creationTimePositive": true,
+        "totalBudgetMs": 10000,
+        "elapsedBeforeCleanupMs": 2322,
+        "elapsedAfterCleanupMs": 2351,
+        "cleanupInput": "EOF",
+        "actualExitCode": 0,
+        "exitConfirmed": true,
+        "ownedTimeoutTermination": false,
+        "stderrCapturedBytes": 0,
+        "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stages": [
+          {
+            "ordinal": 1,
+            "method": "health",
+            "status": "passed",
+            "elapsedStartMs": 158,
+            "elapsedEndMs": 266,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "21ce11ca834867e15edf7b2c5917961c8385d57343e6238246590da3e8b53c28",
+            "rawReplySHA256": "059d82319587f71d903cd64da3febbd9844bb93a111c886c975c6626db22bd13",
+            "rawReplyBytes": 509
+          },
+          {
+            "ordinal": 2,
+            "method": "workspace_status",
+            "status": "passed",
+            "elapsedStartMs": 268,
+            "elapsedEndMs": 272,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "21ef6bd8e8fff5178f917d0d4daa56cd891a538ffaf1309243ad032475777848",
+            "rawReplySHA256": "74fe637f6857e74d0f819caf58904b82e9f3ec789499264413a30381469aff58",
+            "rawReplyBytes": 237
+          },
+          {
+            "ordinal": 3,
+            "method": "workspace_create",
+            "status": "passed",
+            "elapsedStartMs": 272,
+            "elapsedEndMs": 322,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "7076189bd9f3b0fb41707e7562b4b235ecad5ab429e3d435fa7cad1acb419425",
+            "rawReplySHA256": "acbbdf100190876685f05f519d83460555bce9813da54d60247f12d311a58b0a",
+            "rawReplyBytes": 159
+          },
+          {
+            "ordinal": 4,
+            "method": "settings_load",
+            "status": "passed",
+            "elapsedStartMs": 323,
+            "elapsedEndMs": 332,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "544c2a06a044362406102fdaefaa544c142634dd59dfd93c52fe9ca009af5050",
+            "rawReplySHA256": "ec61e9310018eb240befe1eb166c4e0c7f52126299123ddadb10b6865c49f185",
+            "rawReplyBytes": 1139
+          },
+          {
+            "ordinal": 5,
+            "method": "settings_load",
+            "status": "passed",
+            "elapsedStartMs": 334,
+            "elapsedEndMs": 343,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "15094c06fdd5d1ed5ee3a1cd1dd84d8b66ef0a6fd6c572b47db47f0ffc680b14",
+            "rawReplySHA256": "ac2acb8bcf02be2adc1ba8dd3f1c50e5190183ef879984e0a367c90b6cf89bd2",
+            "rawReplyBytes": 1139
+          },
+          {
+            "ordinal": 6,
+            "method": "settings_save",
+            "status": "passed",
+            "elapsedStartMs": 344,
+            "elapsedEndMs": 368,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "828f6b28a16745d796f336fff8ba9a7f9509bd5be3af964ad8c274296adcfa48",
+            "rawReplySHA256": "c5fb92933534c88f71e2abd6cd986e7f221f44bb2ccc0354d05ad54a86c01bf3",
+            "rawReplyBytes": 3456
+          },
+          {
+            "ordinal": 7,
+            "method": "logbook_import_adif",
+            "status": "passed",
+            "elapsedStartMs": 369,
+            "elapsedEndMs": 381,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "dfd6a3ebcfaded1043dbd06d06448155b8079509c013f184a4b39442f401fea6",
+            "rawReplySHA256": "3f7b48c0875641bbf3a4b4ff37e5b415469b8d38cd57c9f74ad0a392363402da",
+            "rawReplyBytes": 103
+          },
+          {
+            "ordinal": 8,
+            "method": "logbook_list",
+            "status": "passed",
+            "elapsedStartMs": 382,
+            "elapsedEndMs": 405,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "80ad7acd99b36a48b3b3dc3ff160e36fc8c211fa0299de72958f564a4ec65a6e",
+            "rawReplySHA256": "eeb3e410a77fa12f4d3b28ef0100e830501242449450ff4ecc2be843a898ec24",
+            "rawReplyBytes": 1090
+          },
+          {
+            "ordinal": 9,
+            "method": "logbook_save",
+            "status": "passed",
+            "elapsedStartMs": 406,
+            "elapsedEndMs": 434,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "87449cf69e52f1dae8438b2772da4342f185c3f767995c9b4147f190dc241ed4",
+            "rawReplySHA256": "bc49ffb1e65e8485888a56ebc9063628315bfc0b04b88f486f1289f095f8dbd3",
+            "rawReplyBytes": 946
+          },
+          {
+            "ordinal": 10,
+            "method": "logbook_stats",
+            "status": "passed",
+            "elapsedStartMs": 436,
+            "elapsedEndMs": 1538,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "cf01061020994c9ca0df9732cc040cf88ef674edc81b5f4e09304dfd33b6ed55",
+            "rawReplySHA256": "691b0a446741ab4d8f776b365894060efd2331405972c29c7cdcfa7d09b66d3f",
+            "rawReplyBytes": 6935
+          },
+          {
+            "ordinal": 11,
+            "method": "logbook_catalog",
+            "status": "passed",
+            "elapsedStartMs": 1539,
+            "elapsedEndMs": 1860,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "58e15e50f3e0ca08069e52e4c93db7d8bc8aba158b187d2f3ab0831d9eba0e33",
+            "rawReplySHA256": "5d1d7f2859914029f15d0a8f4931aa6e6596cf649086449388f87ea64aa1fd5a",
+            "rawReplyBytes": 61923
+          },
+          {
+            "ordinal": 12,
+            "method": "logbook_country_facts",
+            "status": "passed",
+            "elapsedStartMs": 1861,
+            "elapsedEndMs": 1994,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "de009d7685090915c868db81bf13cbc63d84baf10591a0229f558a88b3e0cdc0",
+            "rawReplySHA256": "a14dfb23f0dfb39155c68ec42b0b2f3f5ad8a34a41c3ba67b1bd5d5044905862",
+            "rawReplyBytes": 914
+          },
+          {
+            "ordinal": 13,
+            "method": "backup_create",
+            "status": "passed",
+            "elapsedStartMs": 1995,
+            "elapsedEndMs": 2057,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "d34d041406bcf62297953a509dd20c71c9d1132392394cf36806e63c1bf8d364",
+            "rawReplySHA256": "254b613ba3fcdc944573a9489f3927df7c92d86a02a67a4b718adb4c94fca6ed",
+            "rawReplyBytes": 476
+          },
+          {
+            "ordinal": 14,
+            "method": "logbook_delete",
+            "status": "passed",
+            "elapsedStartMs": 2058,
+            "elapsedEndMs": 2067,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "a419b5fce00069556a793270d0f9709747a8f5619c62b76032edb89544b503d1",
+            "rawReplySHA256": "f308b836a6a9ecb1fa03c8ebcf9035d5342a6d767b8fd0627df4dd5763e73c66",
+            "rawReplyBytes": 981
+          },
+          {
+            "ordinal": 15,
+            "method": "logbook_list",
+            "status": "passed",
+            "elapsedStartMs": 2068,
+            "elapsedEndMs": 2086,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "f2756a76ad4d1cb97a8d64f3294a9fbb74104e683fa0836523ff9f5538b90d30",
+            "rawReplySHA256": "51be80984f1cb94e93d686c6a63b4488ab719e06fa5c807208e8d4dc79358076",
+            "rawReplyBytes": 232
+          },
+          {
+            "ordinal": 16,
+            "method": "logbook_undo",
+            "status": "passed",
+            "elapsedStartMs": 2087,
+            "elapsedEndMs": 2095,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "d4beca7a1365af7c383d23ba80f9f81fbc8e75c3f8b0e89073f4d9bafbb37c20",
+            "rawReplySHA256": "3da7871d1c77c9324699a4fc66e0837563037f531b1c3d95f40bbbe31fcb32eb",
+            "rawReplyBytes": 946
+          },
+          {
+            "ordinal": 17,
+            "method": "logbook_list",
+            "status": "passed",
+            "elapsedStartMs": 2096,
+            "elapsedEndMs": 2117,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "3e051889d1907dd5c5843221f8f52017cf302f489e9288595c646550982ffc13",
+            "rawReplySHA256": "712a03827cfc61dfede092894f3e3881db4bd20570b3e9851b26b5d0306a2c97",
+            "rawReplyBytes": 1104
+          },
+          {
+            "ordinal": 18,
+            "method": "logbook_delete",
+            "status": "passed",
+            "elapsedStartMs": 2117,
+            "elapsedEndMs": 2125,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "7d1efdb740ef7f7e2d9d5f273b6ba4edc4b35b15085cfd82e0b1803df85b0de3",
+            "rawReplySHA256": "88870384dc75c1b68181e367e5f53c2c73b39635b783c8a95d62ed1723fe0b6d",
+            "rawReplyBytes": 981
+          },
+          {
+            "ordinal": 19,
+            "method": "backup_restore",
+            "status": "failed",
+            "elapsedStartMs": 2126,
+            "elapsedEndMs": 2321,
+            "correlationMatches": true,
+            "replyOk": false,
+            "replyError": {
+              "code": "operation_failed",
+              "message": "Operation failed. Check the connection or configuration; no success has been confirmed.",
+              "outcome": "uncertain"
+            },
+            "requestSHA256": "5fda3fa54cd7904cedb923c5152453f6b7f63a91cf285fdc67f8b99e630241f6",
+            "rawReplySHA256": "d7773b90a199882f2b63595a3d6ba9038ab1f5d946a25bb3c8246581747269a4",
+            "rawReplyBytes": 215
+          }
+        ],
+        "preflightPassed": true,
+        "environmentProof": {
+          "sameStepAsPaired": true,
+          "sameOriginalNestedTemp": true,
+          "sameCwd": true,
+          "sameProfile": true,
+          "fullNonTempEnvironmentHashComparedToPairedBeforeLaunch": true,
+          "hash": "07176cd2b913babbb341870c40e6652343333bf8d2ee207e0eeb4d911c8b9b55",
+          "rawValues": "PRIVATE"
+        },
+        "payloadProof": {
+          "both3270FilePayloadsValidatedBeforeRPC": true,
+          "workerHashValidatedBeforeRPC": "2dd9a007937b0cee8240bc73785a76ce2fbe4cc6a6dbe9dcde5114abce5593e5",
+          "pairedPostProbePayloadsStable": true,
+          "RPCPostSequencePayloadValidation": "NOT REACHED after first failed stage"
+        },
+        "notReached": [
+          "installed RPC worker",
+          "post-restore settings_load",
+          "logbook_export_adif",
+          "normal successful replay completion",
+          "post-RPC payload validation"
+        ],
+        "limitations": [
+          "diagnosis only; does not clear original self-test",
+          "different generated root basename; precreated root and137 spot-history seed rows",
+          "native preference inheritance disabled; LiveWorker lanes initialized",
+          "EOF deletes generated workspace/defaults; no final fresh-service/process reopen"
+        ]
+      },
+      "notReached": [
+        "installed GUI",
+        "uninstall",
+        "marker preservation"
+      ]
+    },
+    {
+      "scope": "perMachine",
+      "job": 127302421541,
+      "acceptanceConclusion": "failure",
+      "normalizedObservedDefault": "%ProgramFiles%\\OM0RX-xLog",
+      "defaultPathPassed": true,
+      "registryScopePassed": true,
+      "startMenuScopePassed": true,
+      "harnessElevated": true,
+      "ordinaryUserRuntime": "NOT RUN",
+      "interactiveUAC": "NOT RUN (silent harness)",
+      "earlyInstalledReply": {
+        "id": "local-logbook-self-test",
+        "ok": false,
+        "error": {
+          "code": "local_self_test_failed",
+          "message": "Local logbook acceptance failed."
+        }
+      },
+      "earlyInstalledReplySHA256": "5ef8c6c6ffd142991cd5f02021c699a59058ea6d848d10db0fb250003c1e0b3e",
+      "originalInstalledWorkerExit": "UNOBSERVED; scope step exit1 observed",
+      "pairedDiagnostic": {
+        "status": "complete-diagnostic-not-acceptance",
+        "payloadsUnchangedAfterProbes": true,
+        "runs": [
+          {
+            "ordinal": 1,
+            "package": "portable",
+            "condition": "A",
+            "tempUtf16Length": 91,
+            "exitCode": 1,
+            "exitConfirmed": true,
+            "contractPassed": false
+          },
+          {
+            "ordinal": 2,
+            "package": "installed",
+            "condition": "A",
+            "tempUtf16Length": 91,
+            "exitCode": 1,
+            "exitConfirmed": true,
+            "contractPassed": false
+          },
+          {
+            "ordinal": 3,
+            "package": "portable",
+            "condition": "B",
+            "tempUtf16Length": 23,
+            "exitCode": 0,
+            "exitConfirmed": true,
+            "contractPassed": true
+          },
+          {
+            "ordinal": 4,
+            "package": "installed",
+            "condition": "B",
+            "tempUtf16Length": 23,
+            "exitCode": 0,
+            "exitConfirmed": true,
+            "contractPassed": true
+          },
+          {
+            "ordinal": 5,
+            "package": "portable",
+            "condition": "A",
+            "tempUtf16Length": 91,
+            "exitCode": 1,
+            "exitConfirmed": true,
+            "contractPassed": false
+          },
+          {
+            "ordinal": 6,
+            "package": "installed",
+            "condition": "A",
+            "tempUtf16Length": 91,
+            "exitCode": 1,
+            "exitConfirmed": true,
+            "contractPassed": false
+          }
+        ],
+        "commonNonTempEnvironmentSHA256": "2083a667dc4c57d2ce887db0f405af2da1c9442925cefdff8565106ac16e6c62"
+      },
+      "rpcDiagnostic": {
+        "status": "failed",
+        "firstFailedStage": 19,
+        "firstFailedMethod": "backup_restore",
+        "rawReplyError": {
+          "code": "operation_failed",
+          "message": "Operation failed. Check the connection or configuration; no success has been confirmed.",
+          "outcome": "uncertain"
+        },
+        "failedReplyCorrelationMatches": true,
+        "helperSHA256": "15c7ed0bab83739f21d9e25ee4e13800d823f297497911dbdfb1864476e7d145",
+        "dependencySHA256": "53c304a94eec641bfe5b28dde5379c192142429031036c05c5f2e4f87c710510",
+        "pairedDiagnosticSHA256": "ccfcc66d7284605efe6719a16f479d74e1b48b4b8fdc14f26329b35d2f10940c",
+        "maximumWorkers": 2,
+        "workersLaunched": 1,
+        "package": "portable",
+        "installedWorker": "NOT RUN: global first-failure stop",
+        "identityVerifiedBeforeFirstRPC": true,
+        "cimPIDMatches": true,
+        "cimParentPIDMatches": true,
+        "ownedHandleImageMatches": true,
+        "creationTimePositive": true,
+        "totalBudgetMs": 10000,
+        "elapsedBeforeCleanupMs": 2440,
+        "elapsedAfterCleanupMs": 2469,
+        "cleanupInput": "EOF",
+        "actualExitCode": 0,
+        "exitConfirmed": true,
+        "ownedTimeoutTermination": false,
+        "stderrCapturedBytes": 0,
+        "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stages": [
+          {
+            "ordinal": 1,
+            "method": "health",
+            "status": "passed",
+            "elapsedStartMs": 157,
+            "elapsedEndMs": 249,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "8a999cbf1f602ce21af5cc7b5f0256575832210e854f3e4225d48800ab740a37",
+            "rawReplySHA256": "232c20933d63b30753a77dbec8d9aaa670f96509ee3fffbee0323ec8e4876405",
+            "rawReplyBytes": 509
+          },
+          {
+            "ordinal": 2,
+            "method": "workspace_status",
+            "status": "passed",
+            "elapsedStartMs": 251,
+            "elapsedEndMs": 254,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "450a442ea244718e8ab08fa82616396a769a7b36ff6c0197eb4635e1a7b7791d",
+            "rawReplySHA256": "52578597b84be18f7ce2235c1e8480abf1e99e5aa1fe71fa35abfcb7a4c4a7f2",
+            "rawReplyBytes": 237
+          },
+          {
+            "ordinal": 3,
+            "method": "workspace_create",
+            "status": "passed",
+            "elapsedStartMs": 255,
+            "elapsedEndMs": 306,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "d4cdcbe79abb66683dfd55cb4794393f0b444cf97d97dc60011d8f4139cc8b65",
+            "rawReplySHA256": "bfc39a260035b48a36a33ac7c30b22c5cef3add9a62e4cb29f501065e2af2604",
+            "rawReplyBytes": 159
+          },
+          {
+            "ordinal": 4,
+            "method": "settings_load",
+            "status": "passed",
+            "elapsedStartMs": 307,
+            "elapsedEndMs": 318,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "22f47ab96a516d6010b3d40a3efeecc02ec761be41f1b4ff14226a008956e8a0",
+            "rawReplySHA256": "c55a29cf6970ec6ec3a3ebbd1c66b3265fe036734583be59d14716141da197ec",
+            "rawReplyBytes": 1139
+          },
+          {
+            "ordinal": 5,
+            "method": "settings_load",
+            "status": "passed",
+            "elapsedStartMs": 320,
+            "elapsedEndMs": 331,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "60eb367131e7a8decb83e60471bb001e96b97b6b84575287573bb30e9bd74ac8",
+            "rawReplySHA256": "a5aaaeb3a9a2eca3c4220fa283a26b9b1fa01f3fa94f265aad0c59200edf2e7c",
+            "rawReplyBytes": 1139
+          },
+          {
+            "ordinal": 6,
+            "method": "settings_save",
+            "status": "passed",
+            "elapsedStartMs": 332,
+            "elapsedEndMs": 360,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "c44d0568170a9be3fc17bc2259f92f5cc6a295730991f5fd9b85689caa9f47ba",
+            "rawReplySHA256": "74af41d225b58f0d0d1c3cbc3d7c588a47beb3aab51879af3070ff23df7438c0",
+            "rawReplyBytes": 3456
+          },
+          {
+            "ordinal": 7,
+            "method": "logbook_import_adif",
+            "status": "passed",
+            "elapsedStartMs": 362,
+            "elapsedEndMs": 386,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "e12a711c5ac92f7b34763da8a01e80d7f3b7dbd89c9aa69834724b1e90e4d53a",
+            "rawReplySHA256": "192db0fa065708ec14accddff760d0218a6bfacfbd76b9504eb90d772ac58852",
+            "rawReplyBytes": 103
+          },
+          {
+            "ordinal": 8,
+            "method": "logbook_list",
+            "status": "passed",
+            "elapsedStartMs": 387,
+            "elapsedEndMs": 414,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "b3e8ac182949537c3cd848127ea8e582420b015ec8ec2d9c550a5cb0872b5890",
+            "rawReplySHA256": "2f926bbf6537a557b9158da54cc40c0f9bbc8cb8ce762e883ce77a7f4c1a4aaa",
+            "rawReplyBytes": 1090
+          },
+          {
+            "ordinal": 9,
+            "method": "logbook_save",
+            "status": "passed",
+            "elapsedStartMs": 416,
+            "elapsedEndMs": 427,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "defd407e10f9b128b3e9c6386d8b122d78ceeb58b151109c79b2fbf4b4562a00",
+            "rawReplySHA256": "130a6abd56cb6c228dae99964965758fda97d6312c12ab2fe8fd109b319aae89",
+            "rawReplyBytes": 946
+          },
+          {
+            "ordinal": 10,
+            "method": "logbook_stats",
+            "status": "passed",
+            "elapsedStartMs": 428,
+            "elapsedEndMs": 1645,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "f27104476b4bd2997ba0d9b940e85e6b84a0016d99db78d039b73c93fc0cbc31",
+            "rawReplySHA256": "22d9f64bfc4c4d8e87f7db1176c3092d5eb58d8d5f96c97d65b2058b97314c2c",
+            "rawReplyBytes": 6935
+          },
+          {
+            "ordinal": 11,
+            "method": "logbook_catalog",
+            "status": "passed",
+            "elapsedStartMs": 1646,
+            "elapsedEndMs": 1972,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "aeba2cbdb846713576f59d96238cc79d80b378f99211b81e7c426ee442107d5b",
+            "rawReplySHA256": "34cb616007498f34330cafc5d6eb1c7104a6000e784dee039dc92e74fbcd5390",
+            "rawReplyBytes": 61923
+          },
+          {
+            "ordinal": 12,
+            "method": "logbook_country_facts",
+            "status": "passed",
+            "elapsedStartMs": 1972,
+            "elapsedEndMs": 2093,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "b79a5bff719dc05e87828ae556594ce3d674408cba087273d12ba552d519aefa",
+            "rawReplySHA256": "2aea4a279c0e93b8e3cb8e8abc7603b4203c48134964a14f6f21cb9245025aad",
+            "rawReplyBytes": 914
+          },
+          {
+            "ordinal": 13,
+            "method": "backup_create",
+            "status": "passed",
+            "elapsedStartMs": 2094,
+            "elapsedEndMs": 2156,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "4397bf374066c7d5d217fe8d2ed2bc3611c5ac42caf533289b4ce5202bad0031",
+            "rawReplySHA256": "ed08c9cd270e750e6ca3c7395b52f885287274edca7a1035a7eb673434e301d4",
+            "rawReplyBytes": 476
+          },
+          {
+            "ordinal": 14,
+            "method": "logbook_delete",
+            "status": "passed",
+            "elapsedStartMs": 2157,
+            "elapsedEndMs": 2166,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "ebcf89e19c03f2f5d68979be52b0292eb7f08ae2516b62e1d1eff649c8513309",
+            "rawReplySHA256": "d955ef576d90dbebad2edaf06abac8e518f34677e15a17db65fc07938d5a018f",
+            "rawReplyBytes": 981
+          },
+          {
+            "ordinal": 15,
+            "method": "logbook_list",
+            "status": "passed",
+            "elapsedStartMs": 2167,
+            "elapsedEndMs": 2187,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "b3305c041f5a1a8a4f56e64354a501491a59b1ebca815d6c0a5d4cc4208ab5ee",
+            "rawReplySHA256": "e39b4e6b4b76255d50967237ee8ae99ab52fc35cbb7bd350f2c2ba6dc86a0003",
+            "rawReplyBytes": 232
+          },
+          {
+            "ordinal": 16,
+            "method": "logbook_undo",
+            "status": "passed",
+            "elapsedStartMs": 2188,
+            "elapsedEndMs": 2196,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "48714012d42acb34fc682f0eb566bed303359e5e3d88ce0726e44286069c3158",
+            "rawReplySHA256": "c93b94b95642701741abd34983ab42715aea49f3dcbc52db9a6d006687d428f5",
+            "rawReplyBytes": 946
+          },
+          {
+            "ordinal": 17,
+            "method": "logbook_list",
+            "status": "passed",
+            "elapsedStartMs": 2197,
+            "elapsedEndMs": 2218,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "22ac6922e0ea7507afce4cdc96ea74381cef9c4c0cbdd0d75d5f5b247fd7d1be",
+            "rawReplySHA256": "c7b4e2648f701eef67b6ecbb6b7cb334229ff617e2f88a1e74b64ba040fc6e08",
+            "rawReplyBytes": 1104
+          },
+          {
+            "ordinal": 18,
+            "method": "logbook_delete",
+            "status": "passed",
+            "elapsedStartMs": 2219,
+            "elapsedEndMs": 2227,
+            "correlationMatches": true,
+            "replyOk": true,
+            "replyError": null,
+            "requestSHA256": "198ce8b969fe4f03a2e551ba492529b3bd30ffc8ed58248efb76af26d16aa873",
+            "rawReplySHA256": "a90f6b789180cbbf97df5208cf3ca04beec7ce0ba43309b59cd29574b2e64863",
+            "rawReplyBytes": 981
+          },
+          {
+            "ordinal": 19,
+            "method": "backup_restore",
+            "status": "failed",
+            "elapsedStartMs": 2228,
+            "elapsedEndMs": 2438,
+            "correlationMatches": true,
+            "replyOk": false,
+            "replyError": {
+              "code": "operation_failed",
+              "message": "Operation failed. Check the connection or configuration; no success has been confirmed.",
+              "outcome": "uncertain"
+            },
+            "requestSHA256": "f7283bf39431c62239e1e17a0ac77f22e5ae5645e498726a505843898cb74eb0",
+            "rawReplySHA256": "86f32a6b629cdf17224508bd5fb6550ae08e8b3f11fa02e58280e27adc9ef0a7",
+            "rawReplyBytes": 215
+          }
+        ],
+        "preflightPassed": true,
+        "environmentProof": {
+          "sameStepAsPaired": true,
+          "sameOriginalNestedTemp": true,
+          "sameCwd": true,
+          "sameProfile": true,
+          "fullNonTempEnvironmentHashComparedToPairedBeforeLaunch": true,
+          "hash": "2083a667dc4c57d2ce887db0f405af2da1c9442925cefdff8565106ac16e6c62",
+          "rawValues": "PRIVATE"
+        },
+        "payloadProof": {
+          "both3270FilePayloadsValidatedBeforeRPC": true,
+          "workerHashValidatedBeforeRPC": "2dd9a007937b0cee8240bc73785a76ce2fbe4cc6a6dbe9dcde5114abce5593e5",
+          "pairedPostProbePayloadsStable": true,
+          "RPCPostSequencePayloadValidation": "NOT REACHED after first failed stage"
+        },
+        "notReached": [
+          "installed RPC worker",
+          "post-restore settings_load",
+          "logbook_export_adif",
+          "normal successful replay completion",
+          "post-RPC payload validation"
+        ],
+        "limitations": [
+          "diagnosis only; does not clear original self-test",
+          "different generated root basename; precreated root and137 spot-history seed rows",
+          "native preference inheritance disabled; LiveWorker lanes initialized",
+          "EOF deletes generated workspace/defaults; no final fresh-service/process reopen"
+        ]
+      },
+      "notReached": [
+        "installed GUI",
+        "uninstall",
+        "marker preservation"
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "id": 13423743450,
+      "name": "xlog-acceptance-windows-perMachine-3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "bytes": 484091,
+      "sha256": "92ae84ca162f543e86bee38878e8c9f6be06670c3bd839ba0f99d1d8e760a486"
+    },
+    {
+      "id": 13422998561,
+      "name": "xlog-acceptance-windows-currentUser-3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "bytes": 485325,
+      "sha256": "89819d25c9c8d170f4af70c3fd9e548e5e17022d18b321f28b27b1f3dee57492"
+    }
+  ],
+  "logs": [
+    {
+      "job": 127302421067,
+      "file": "job-127302421067-full.log",
+      "bytes": 43668,
+      "sha256": "455eb23f41bee9d17dfcda6e7b1516500c4036402707179c3f09cf3f4878683b"
+    },
+    {
+      "job": 127302421541,
+      "file": "job-127302421541-full.log",
+      "bytes": 43905,
+      "sha256": "0190e6b337a8ae9d82f714d0c98934f66d6e4ba6ab9ccadf5aba044ca4d6e667"
+    }
+  ],
+  "ordinaryQAci": {
+    "run": 42044138560,
+    "conclusion": "success"
+  },
+  "redundantPush": {
+    "run": 42044138534,
+    "conclusion": "cancelled",
+    "reason": "Verified redundant single-Mac push; not a pass"
+  },
+  "preservedFailedRuns": [
+    42016723457,
+    42034725192,
+    42036670843,
+    42039550660,
+    42040743706
+  ],
+  "boundaries": [
+    "RPC uses sole --local-ui-acceptance, not direct --local-logbook-self-test",
+    "Different generated root basename, precreated workspace/spot-history137 rows, disabled native preference inheritance and LiveWorker lanes",
+    "EOF deletes generated workspace/defaults; no final fresh-service/process reopen",
+    "First failed RPC operation is localized, but generic operation_failed does not expose underlying error or prove original self-test exception is identical",
+    "No path-length/Windows long-path mechanism conclusion or acceptance promotion",
+    "Both original installed assertions remain failed; no app/version/TEMP/assertion/deadline/count change",
+    "Raw IDs/paths/timestamps/profile coordinates private; public default roots normalized from observed known folders"
+  ]
+}
