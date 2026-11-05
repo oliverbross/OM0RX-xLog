@@ -1,0 +1,513 @@
+{
+  "schema": 1,
+  "disposition": "FAILED Windows-only1.5.20 runtime recheck; installed assertion repeated; diagnostic unavailable before children",
+  "runId": 42034725192,
+  "qaExecutorSource": "2dc63d1e7654c92d0d5614085427e36e9ef1ab72",
+  "packageSource": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+  "version": "1.5.20",
+  "packageRun": 42016723457,
+  "packageArtifactId": 13413349502,
+  "packageArtifactSHA256": "3869a453e665320c4fe19662595b616cebb61d8217a1e6ea80a99ac99db3d41f",
+  "run": {
+    "conclusion": "failure",
+    "createdAt": "2026-11-05T13:19:16Z",
+    "event": "workflow_dispatch",
+    "headSha": "2dc63d1e7654c92d0d5614085427e36e9ef1ab72",
+    "jobs": [
+      {
+        "completedAt": "2026-11-05T13:21:44Z",
+        "conclusion": "failure",
+        "databaseId": 127269787220,
+        "name": "Windows fresh-runner runtime acceptance (perMachine)",
+        "startedAt": "2026-11-05T13:19:19Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-05T13:19:21Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-05T13:19:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:19:22Z",
+            "conclusion": "success",
+            "name": "Enable Windows checkout long paths",
+            "number": 2,
+            "startedAt": "2026-11-05T13:19:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:19:30Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v4",
+            "number": 3,
+            "startedAt": "2026-11-05T13:19:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:19:34Z",
+            "conclusion": "success",
+            "name": "Validate failed worker reply retention",
+            "number": 4,
+            "startedAt": "2026-11-05T13:19:30Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:19:38Z",
+            "conclusion": "success",
+            "name": "Run actions/download-artifact@v4",
+            "number": 5,
+            "startedAt": "2026-11-05T13:19:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:19:45Z",
+            "conclusion": "success",
+            "name": "Extract isolated package",
+            "number": 6,
+            "startedAt": "2026-11-05T13:19:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:21:13Z",
+            "conclusion": "success",
+            "name": "Native WebView2 GUI and worker without installing Swift",
+            "number": 7,
+            "startedAt": "2026-11-05T13:19:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:21:39Z",
+            "conclusion": "failure",
+            "name": "Verify shared payload and accept selected scope at its real default path",
+            "number": 8,
+            "startedAt": "2026-11-05T13:21:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:21:40Z",
+            "conclusion": "failure",
+            "name": "Diagnose failed 1.5.20 installed local self-test with controlled temporary roots",
+            "number": 9,
+            "startedAt": "2026-11-05T13:21:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:21:41Z",
+            "conclusion": "success",
+            "name": "Upload native Windows reports and screenshots",
+            "number": 10,
+            "startedAt": "2026-11-05T13:21:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:21:43Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v4",
+            "number": 20,
+            "startedAt": "2026-11-05T13:21:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:21:43Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 21,
+            "startedAt": "2026-11-05T13:21:43Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42034725192/job/127269787220"
+      },
+      {
+        "completedAt": "2026-11-05T13:22:02Z",
+        "conclusion": "failure",
+        "databaseId": 127269787471,
+        "name": "Windows fresh-runner runtime acceptance (currentUser)",
+        "startedAt": "2026-11-05T13:19:19Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-05T13:19:22Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-05T13:19:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:19:23Z",
+            "conclusion": "success",
+            "name": "Enable Windows checkout long paths",
+            "number": 2,
+            "startedAt": "2026-11-05T13:19:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:19:32Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v4",
+            "number": 3,
+            "startedAt": "2026-11-05T13:19:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:19:38Z",
+            "conclusion": "success",
+            "name": "Validate failed worker reply retention",
+            "number": 4,
+            "startedAt": "2026-11-05T13:19:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:19:48Z",
+            "conclusion": "success",
+            "name": "Run actions/download-artifact@v4",
+            "number": 5,
+            "startedAt": "2026-11-05T13:19:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:19:54Z",
+            "conclusion": "success",
+            "name": "Extract isolated package",
+            "number": 6,
+            "startedAt": "2026-11-05T13:19:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:21:28Z",
+            "conclusion": "success",
+            "name": "Native WebView2 GUI and worker without installing Swift",
+            "number": 7,
+            "startedAt": "2026-11-05T13:19:54Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:21:55Z",
+            "conclusion": "failure",
+            "name": "Verify shared payload and accept selected scope at its real default path",
+            "number": 8,
+            "startedAt": "2026-11-05T13:21:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:21:56Z",
+            "conclusion": "failure",
+            "name": "Diagnose failed 1.5.20 installed local self-test with controlled temporary roots",
+            "number": 9,
+            "startedAt": "2026-11-05T13:21:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:21:58Z",
+            "conclusion": "success",
+            "name": "Upload native Windows reports and screenshots",
+            "number": 10,
+            "startedAt": "2026-11-05T13:21:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:22:00Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v4",
+            "number": 20,
+            "startedAt": "2026-11-05T13:21:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-05T13:22:00Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 21,
+            "startedAt": "2026-11-05T13:22:00Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42034725192/job/127269787471"
+      },
+      {
+        "completedAt": "2026-11-05T13:19:17Z",
+        "conclusion": "skipped",
+        "databaseId": 127269788438,
+        "name": "prototype",
+        "startedAt": "2026-11-05T13:19:17Z",
+        "status": "completed",
+        "steps": [],
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42034725192/job/127269788438"
+      },
+      {
+        "completedAt": "2026-11-05T13:19:17Z",
+        "conclusion": "skipped",
+        "databaseId": 127269788992,
+        "name": "Linux runtime-only container acceptance",
+        "startedAt": "2026-11-05T13:19:17Z",
+        "status": "completed",
+        "steps": [],
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42034725192/job/127269788992"
+      }
+    ],
+    "status": "completed",
+    "updatedAt": "2026-11-05T13:22:03Z",
+    "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42034725192"
+  },
+  "dispatch": {
+    "runId": 42034725192,
+    "qaExecutorSource": "2dc63d1e7654c92d0d5614085427e36e9ef1ab72",
+    "packageSource": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+    "version": "1.5.20",
+    "packageRun": 42016723457,
+    "packageArtifact": {
+      "id": 13413349502,
+      "digest": "sha256:3869a453e665320c4fe19662595b616cebb61d8217a1e6ea80a99ac99db3d41f"
+    },
+    "workflowBlob": "712c9e4dd30f20200c02d4144dc14fed3e9eae04",
+    "inputs": {
+      "runtime_run_id": "42016723457",
+      "runtime_source_sha": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "runtime_platform": "windows",
+      "build_platforms": "windows",
+      "validation_only": false,
+      "package_macos": false
+    },
+    "observed": {
+      "prototype": "SKIPPED",
+      "linuxRuntime": "SKIPPED",
+      "windowsScopes": [
+        "currentUser",
+        "perMachine"
+      ]
+    },
+    "buildRepackVersionChange": false,
+    "ordinaryCi": 42034636599,
+    "preservation": "Original20failure unchanged; failed recheck scopes retained even if diagnostics complete"
+  },
+  "artifacts": [
+    {
+      "id": 13418820852,
+      "name": "xlog-acceptance-windows-currentUser-3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "size_in_bytes": 433188,
+      "url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13418820852",
+      "archive_download_url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13418820852/zip",
+      "expired": false,
+      "created_at": "2026-11-05T13:21:58Z",
+      "expires_at": "2026-12-05T13:21:56Z",
+      "updated_at": "2026-11-05T13:21:58Z",
+      "digest": "sha256:b8201385dc781331009fba140162305ee289076f624bb2e656899b565236e520",
+      "workflow_run": {
+        "id": 42034725192,
+        "repository_id": 1413914852,
+        "head_repository_id": 1413914852,
+        "head_branch": "main",
+        "head_sha": "2dc63d1e7654c92d0d5614085427e36e9ef1ab72"
+      }
+    },
+    {
+      "id": 13418750052,
+      "name": "xlog-acceptance-windows-perMachine-3d9cb0981c30764f1188db350ffebc22a5f328a7",
+      "size_in_bytes": 327517,
+      "url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13418750052",
+      "archive_download_url": "https://api.github.com/repos/oliverbross/OM0RX-xLog/actions/artifacts/13418750052/zip",
+      "expired": false,
+      "created_at": "2026-11-05T13:21:41Z",
+      "expires_at": "2026-12-05T13:21:40Z",
+      "updated_at": "2026-11-05T13:21:41Z",
+      "digest": "sha256:f636ddd4a7933bebc14c249a20deef2591c4e8cfca85d32b2f7180121ccc6cb3",
+      "workflow_run": {
+        "id": 42034725192,
+        "repository_id": 1413914852,
+        "head_repository_id": 1413914852,
+        "head_branch": "main",
+        "head_sha": "2dc63d1e7654c92d0d5614085427e36e9ef1ab72"
+      }
+    }
+  ],
+  "scopes": [
+    {
+      "scope": "currentUser",
+      "job": 127269787471,
+      "qaExecutor": {
+        "schema": 1,
+        "qaExecutorSource": "2dc63d1e7654c92d0d5614085427e36e9ef1ab72",
+        "packageSource": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+        "packageRunId": "42016723457",
+        "installerScope": "currentUser",
+        "applicationRebuiltInThisJob": false
+      },
+      "portableStatus": "passed",
+      "portableGuiLaunches": 2,
+      "localWorkerReply": {
+        "id": "local-logbook-self-test",
+        "ok": false,
+        "error": {
+          "code": "local_self_test_failed",
+          "message": "Local logbook acceptance failed."
+        }
+      },
+      "rawReplyFile": "xlog-acceptance-windows-currentUser-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-installer-evidence/currentUser/native-runtime/worker-local-logbook.json",
+      "rawReplySHA256": "5ef8c6c6ffd142991cd5f02021c699a59058ea6d848d10db0fb250003c1e0b3e",
+      "actualWorkerExit": "NOT RECORDED: assertion throws before Finish-Worker; scope step exit1 observed in job log",
+      "installedScopeStep": "FAIL",
+      "normalizedObservedDefault": "%LOCALAPPDATA%\\OM0RX-xLog",
+      "normalizationMethod": "Raw actualDirectory equaled expectedDefaultDirectory and scope-default checks passed; map observed root to verified known-folder token. Raw path/TEMP/CWD/PID/profile coordinates remain private.",
+      "defaultPathPassed": true,
+      "registryScopePassed": true,
+      "startMenuScopePassed": true,
+      "registryHive": "HKCU",
+      "harnessElevated": true,
+      "workerExeSHA256": "2dd9a007937b0cee8240bc73785a76ce2fbe4cc6a6dbe9dcde5114abce5593e5",
+      "payloadManifestSHA256": "448ca94af62660acf51cd201eee791367fa0898a6ab355f3559e41d4a9c2060d",
+      "diagnostic": {
+        "status": "diagnostic-unavailable",
+        "runs": [],
+        "responseDeadlineSeconds": 10,
+        "maximumRuns": 6,
+        "error": "Cannot process argument transformation on parameter 'Condition'. Cannot convert value \"System.Management.Automation.PSNoteProperty\" to type \"System.Boolean\". Boolean parameters accept only Boolean values and numbers, such as $True, $False, 1 or 0.",
+        "sourceAssertion": "diagnose-windows-local-self-test.ps1:289",
+        "childProcessesLaunched": 0,
+        "stdoutStderrIdentityABOutcomes": "NOT PRODUCED; preflight failed before probes"
+      },
+      "os": {
+        "powershell": "7.6.9",
+        "version": "Microsoft Windows NT 10.0.20348.0",
+        "runnerImage": "win22",
+        "runnerImageVersion": "20261101.353.1",
+        "description": "Microsoft Windows 10.0.20348",
+        "architecture": "X64"
+      },
+      "webview": {
+        "mode": "Evergreen prerequisite; acceptance does not install it",
+        "installed": true,
+        "installations": [
+          {
+            "registry": "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+            "version": "131.0.2903.86"
+          }
+        ]
+      },
+      "notReached": [
+        "installed GUI",
+        "uninstall",
+        "marker preservation",
+        "A/B/A child probes"
+      ],
+      "boundaries": {
+        "ordinaryUserRuntime": "NOT RUN",
+        "interactiveUAC": "NOT RUN (silent harness)",
+        "interactiveDefaultPath": "NOT RUN (silent harness)",
+        "upgrade": "NOT RUN",
+        "reinstallRollback": "NOT RUN",
+        "externalMediaRetention": "NOT RUN"
+      }
+    },
+    {
+      "scope": "perMachine",
+      "job": 127269787220,
+      "qaExecutor": {
+        "schema": 1,
+        "qaExecutorSource": "2dc63d1e7654c92d0d5614085427e36e9ef1ab72",
+        "packageSource": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+        "packageRunId": "42016723457",
+        "installerScope": "perMachine",
+        "applicationRebuiltInThisJob": false
+      },
+      "portableStatus": "passed",
+      "portableGuiLaunches": 2,
+      "localWorkerReply": {
+        "id": "local-logbook-self-test",
+        "ok": false,
+        "error": {
+          "code": "local_self_test_failed",
+          "message": "Local logbook acceptance failed."
+        }
+      },
+      "rawReplyFile": "xlog-acceptance-windows-perMachine-3d9cb0981c30764f1188db350ffebc22a5f328a7/xlog-windows-installer-evidence/perMachine/native-runtime/worker-local-logbook.json",
+      "rawReplySHA256": "5ef8c6c6ffd142991cd5f02021c699a59058ea6d848d10db0fb250003c1e0b3e",
+      "actualWorkerExit": "NOT RECORDED: assertion throws before Finish-Worker; scope step exit1 observed in job log",
+      "installedScopeStep": "FAIL",
+      "normalizedObservedDefault": "%ProgramFiles%\\OM0RX-xLog",
+      "normalizationMethod": "Raw actualDirectory equaled expectedDefaultDirectory and scope-default checks passed; map observed root to verified known-folder token. Raw path/TEMP/CWD/PID/profile coordinates remain private.",
+      "defaultPathPassed": true,
+      "registryScopePassed": true,
+      "startMenuScopePassed": true,
+      "registryHive": "HKLM",
+      "harnessElevated": true,
+      "workerExeSHA256": "2dd9a007937b0cee8240bc73785a76ce2fbe4cc6a6dbe9dcde5114abce5593e5",
+      "payloadManifestSHA256": "448ca94af62660acf51cd201eee791367fa0898a6ab355f3559e41d4a9c2060d",
+      "diagnostic": {
+        "status": "diagnostic-unavailable",
+        "runs": [],
+        "responseDeadlineSeconds": 10,
+        "maximumRuns": 6,
+        "error": "Cannot process argument transformation on parameter 'Condition'. Cannot convert value \"System.Management.Automation.PSNoteProperty\" to type \"System.Boolean\". Boolean parameters accept only Boolean values and numbers, such as $True, $False, 1 or 0.",
+        "sourceAssertion": "diagnose-windows-local-self-test.ps1:289",
+        "childProcessesLaunched": 0,
+        "stdoutStderrIdentityABOutcomes": "NOT PRODUCED; preflight failed before probes"
+      },
+      "os": {
+        "version": "Microsoft Windows NT 10.0.20348.0",
+        "architecture": "X64",
+        "powershell": "7.6.9",
+        "runnerImage": "win22",
+        "description": "Microsoft Windows 10.0.20348",
+        "runnerImageVersion": "20261101.353.1"
+      },
+      "webview": {
+        "mode": "Evergreen prerequisite; acceptance does not install it",
+        "installations": [
+          {
+            "registry": "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+            "version": "131.0.2903.86"
+          }
+        ],
+        "installed": true
+      },
+      "notReached": [
+        "installed GUI",
+        "uninstall",
+        "marker preservation",
+        "A/B/A child probes"
+      ],
+      "boundaries": {
+        "ordinaryUserRuntime": "NOT RUN",
+        "interactiveUAC": "NOT RUN (silent harness)",
+        "interactiveDefaultPath": "NOT RUN (silent harness)",
+        "upgrade": "NOT RUN",
+        "reinstallRollback": "NOT RUN",
+        "externalMediaRetention": "NOT RUN"
+      }
+    }
+  ],
+  "logs": [
+    {
+      "job": 127269787220,
+      "path": "job-127269787220-full.log",
+      "bytes": 36486,
+      "sha256": "f229f93784d108f21283fc1ab324d31f50f912a13a09eaf4f243b75a19486d70"
+    },
+    {
+      "job": 127269787471,
+      "path": "job-127269787471-full.log",
+      "bytes": 36627,
+      "sha256": "b42aea9c1aa2fe368e9e25d91afbe188a7b77e36734591f3a43679f4435864f8"
+    }
+  ],
+  "classification": [
+    "Installed workers returned ok:false/local_self_test_failed on both fresh hosts; no stale192-count inference",
+    "Diagnostic PSNoteProperty-to-bool binding at preflight289 is a separate QA-only defect",
+    "No children or A/B/A outcomes; no TEMP/path-length/product-cause conclusion",
+    "Original20 canonical failures retained; this recheck is not a rebuild or acceptance replacement"
+  ],
+  "ordinaryQAci": {
+    "run": 42034636599,
+    "conclusion": "success"
+  },
+  "redundantPush": {
+    "run": 42034636629,
+    "conclusion": "cancelled",
+    "reason": "Authorized duplicate Mac-only push validation; not a pass"
+  },
+  "sanitization": "Observed install roots normalized to verified Windows known-folder tokens; raw runtime path/profile/process coordinates kept private."
+}

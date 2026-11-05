@@ -48,3 +48,25 @@ Actual Windows launch/CIM/pipe behavior and paired outcomes remain pending.
 The runtime-only workflow records QA-executor and package-source SHAs separately;
 it reuses original run `42016723457` without an application rebuild. Matrix,
 assertions, install paths, guards and deadlines are unchanged.
+
+## Initial native diagnostic attempt
+
+[Windows-only recheck 42034725192](ci-1.5.20-windows-diagnostic-initial.md)
+used QA source `2dc63d1e7654c92d0d5614085427e36e9ef1ab72` and the unchanged
+original 1.5.20 packages. Both installed self-tests failed again. Early replies
+are now retained and contain `ok:false` / `local_self_test_failed`, with no
+result/count fields. Their worker exit was not captured; only the scope-step
+exit 1 is observed. The generic response still identifies no inner operation.
+
+The diagnostic itself stopped before creating any children: the top-level
+receipt-property check passed a `PSNoteProperty` into a Boolean parameter.
+Both reports contain zero runs; no A/B/A outcome or path cause exists. This
+QA preflight error is separate from the installed-worker failure.
+
+The minimal correction makes property presence explicitly Boolean. A new test
+executes that exact top-level command AST with a real present `PSNoteProperty`
+and with the property missing. The old command fails on the valid property;
+the corrected command accepts it and still rejects the missing property.
+All 35 diagnostic contracts plus seven receipt cases, ten-script syntax and
+policy checks pass locally. No launch, payload, TEMP, count, guard or deadline
+policy changed; actual Windows API execution remains pending the next recheck.

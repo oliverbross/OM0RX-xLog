@@ -24,6 +24,30 @@ function Receipt([string]$Scope = 'currentUser') {
         defaultPathPassed = $true; registryScopePassed = $true; startMenuScopePassed = $true;
         payloadManifestSHA256 = '448ca94af62660acf51cd201eee791367fa0898a6ab355f3559e41d4a9c2060d' }
 }
+# Execute the real top-level statement, not an equivalent hand-written test.
+$scopeGuard = @($ast.FindAll({ param($node)
+    $node -is [Management.Automation.Language.CommandAst] -and $node.GetCommandName() -ceq 'Assert-XLogDiagnostic' -and
+    $node.CommandElements.Count -eq 3 -and $node.CommandElements[2] -is [Management.Automation.Language.StringConstantExpressionAst] -and
+    $node.CommandElements[2].Value -ceq 'Missing installer scope receipt.'
+}, $true))
+if ($scopeGuard.Count -ne 1) { throw 'Expected one actual top-level installer-scope guard.' }
+$ancestor = $scopeGuard[0].Parent
+while ($null -ne $ancestor) {
+    if ($ancestor -is [Management.Automation.Language.FunctionDefinitionAst]) { throw 'Regression selected a function instead of the top-level preflight.' }
+    $ancestor = $ancestor.Parent
+}
+$executeScopeGuard = [scriptblock]::Create($scopeGuard[0].Extent.Text)
+$receipt = Receipt
+if ($receipt.PSObject.Properties['installationScope'] -isnot [Management.Automation.PSNoteProperty]) { throw 'Expected a real present PSNoteProperty fixture.' }
+& $executeScopeGuard # Regression: the original statement throws during [bool] binding here.
+$receipt = [pscustomobject]@{ schema = 2 }
+$missingScopeRejected = $false
+try { & $executeScopeGuard } catch {
+    if ($_.Exception.Message -cne 'Missing installer scope receipt.') { throw }
+    $missingScopeRejected = $true
+}
+Check $missingScopeRejected 'actual top-level AST scope guard accepts PSNoteProperty and rejects missing property'
+
 foreach ($scope in @('currentUser','perMachine')) {
     $r = Receipt $scope
     Assert-XLogDiagnosticReceipt $r $r.actualDirectory $r.expectedDefaultDirectory

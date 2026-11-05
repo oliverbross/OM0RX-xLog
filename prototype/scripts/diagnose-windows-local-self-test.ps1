@@ -286,7 +286,7 @@ try {
     Assert-XLogDiagnosticInside $InstallerReceipt $RunnerTemp
     $receipt = Get-Content -LiteralPath $InstallerReceipt -Raw | ConvertFrom-Json -Depth 30
     # Receipt/default proof precedes any installed worker/payload hash or launch.
-    Assert-XLogDiagnostic ($receipt.PSObject.Properties['installationScope']) 'Missing installer scope receipt.'
+    Assert-XLogDiagnostic ($null -ne $receipt.PSObject.Properties['installationScope']) 'Missing installer scope receipt.'
     $knownRoot = switch ($receipt.installationScope) { 'currentUser' { $env:LOCALAPPDATA }; 'perMachine' { $env:ProgramW6432 }; default { throw 'Unknown installer scope.' } }
     Assert-XLogDiagnostic (-not [string]::IsNullOrWhiteSpace($knownRoot)) 'Expected scope known-folder unavailable.'
     $InstalledDirectory = [IO.Path]::GetFullPath($InstalledDirectory).TrimEnd('\')
