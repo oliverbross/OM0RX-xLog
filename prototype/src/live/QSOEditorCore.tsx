@@ -163,7 +163,9 @@ export function QSOEditor({ draft, setDraft: writeDraft, save, clear, busy, draf
       return { ...current, [key]: value, extraFields };
     });
   };
-  useEffect(() => { setFrequencyDraft(null); setReceiveDraft(null); setTimeDrafts({}); setNumericDrafts({}); setNewADIFName(""); setShowErrors(false); }, [draft?.id, resetInputEpoch, isEditing]);
+  // Reset identity-bound buffers before first-commit input can be accepted;
+  // a passive mount reset can otherwise overwrite newly typed text.
+  useLayoutEffect(() => { setFrequencyDraft(null); setReceiveDraft(null); setTimeDrafts({}); setNumericDrafts({}); setNewADIFName(""); setShowErrors(false); }, [draft?.id, resetInputEpoch, isEditing]);
   useEffect(() => { setAutomaticStart(!isEditing && (canonicalAutomaticStart ?? true)); }, [draft?.id, resetInputEpoch, isEditing, canonicalAutomaticStart]);
   useEffect(() => { if (follow) setFrequencyDraft(null); }, [follow]);
   const canonicalBuffers = useRef<Record<string, any> | null>(null);

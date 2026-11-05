@@ -460,12 +460,44 @@ it("retains invalid historical editor buffers across menu navigation and Close r
   fireEvent.click(screen.getByRole("button", { name: "Edit synthetic contact" }));
   const input = await screen.findByLabelText("Frequency MHz") as HTMLInputElement;
   fireEvent.change(input, { target: { value: "14.." } });
+  expect(input.value).toBe("14..");
+  expect(host.close?.blocked()).toBe(true);
   await act(async () => { host.navigate?.("Settings"); });
   expect(screen.getByLabelText("Frequency MHz")).toBe(input); expect(input.value).toBe("14..");
   expect(host.close?.blocked()).toBe(true);
   await act(async () => { host.close?.explain(); });
   expect(screen.getByText(/before closing the Desk/)).toBeTruthy();
   expect(host.activate).not.toHaveBeenCalled();
+});
+
+it.each(["historical", "new QSO"])("retains first-committed %s editor input across menu and Close requests", async kind => {
+  await openEditor(false);
+  if (kind === "historical") sidebar("Logbook");
+  let input: HTMLInputElement | undefined;
+  const observer = new MutationObserver(() => {
+    const candidate = screen.queryByLabelText("Frequency MHz") as HTMLInputElement | null;
+    if (!candidate || input) return;
+    input = candidate; observer.disconnect();
+    // DOM availability precedes passive effects. The first accepted operator
+    // input must survive without waiting for a later presentation effect.
+    fireEvent.change(input, { target: { value: "14.." } });
+  });
+  try {
+    observer.observe(document.body, { childList: true, subtree: true });
+    if (kind === "historical") fireEvent.click(screen.getByRole("button", { name: "Edit synthetic contact" }));
+    else sidebar("Log QSO");
+    await waitFor(() => expect(input).toBeDefined());
+    expect(input!.value).toBe("14..");
+    expect(host.close?.blocked()).toBe(true);
+    await act(async () => { host.navigate?.("Settings"); });
+    expect(screen.getByLabelText("Frequency MHz")).toBe(input);
+    expect(input!.value).toBe("14..");
+    expect(host.close?.blocked()).toBe(true);
+    await act(async () => { host.close?.explain(); });
+    expect(screen.getByText(/before closing the Desk/)).toBeTruthy();
+    expect(input!.value).toBe("14..");
+    expect(host.activate).not.toHaveBeenCalled();
+  } finally { observer.disconnect(); }
 });
 
 it("does not replace the Desk contact from an embedded Logbook while its buffer is invalid", async () => {
