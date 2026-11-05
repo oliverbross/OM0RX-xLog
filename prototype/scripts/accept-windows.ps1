@@ -271,9 +271,9 @@ try {
     try {
         $stderrTask = $worker.StandardError.ReadToEndAsync()
         $response = Read-Response $worker
+        Write-Json (Join-Path $EvidenceDirectory 'worker-local-logbook.json') $response
         Assert-That ($response.ok -eq $true -and $response.result.passed -eq $true -and $response.result.award_programmes -eq 192 -and $response.result.network_contact -eq $false -and $response.result.station_io -eq $false) 'Packaged local logbook round trip failed.'
         Finish-Worker $worker $stderrTask
-        Write-Json (Join-Path $EvidenceDirectory 'worker-local-logbook.json') $response
         Record-Check 'worker-local-logbook-round-trip' @{ shutdown = 'exit 0'; syntheticRecords = $true; localFileIO = $true; stationIO = $false }
     } finally { if (-not $worker.HasExited) { $worker.Kill($true) }; $worker.Dispose() }
 
@@ -281,9 +281,9 @@ try {
     try {
         $stderrTask = $worker.StandardError.ReadToEndAsync()
         $response = Read-Response $worker
+        Write-Json (Join-Path $EvidenceDirectory 'worker-self-test.json') $response
         Assert-That ($response.id -eq 'self-test' -and $response.ok -eq $true -and $response.result.passed -eq $true) 'Worker --self-test failed.'
         Finish-Worker $worker $stderrTask
-        Write-Json (Join-Path $EvidenceDirectory 'worker-self-test.json') $response
         Record-Check 'worker-cli-self-test' @{ shutdown = 'exit 0'; syntheticOnly = $true }
     } finally { if (-not $worker.HasExited) { $worker.Kill($true) }; $worker.Dispose() }
 
