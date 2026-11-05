@@ -91,4 +91,44 @@ public enum LocalFilePermissions {
         try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
         #endif
     }
+
+    /// Restore callers retain their workspace/link checks. Native long-path
+    /// renames never replace a destination or fall back to copying across volumes.
+    /// Short paths retain the supplied FileManager dispatch, including failures.
+    public static func moveRestoreItem(at source: URL, to destination: URL,
+                                       fileManager: FileManager = .default) throws {
+        #if os(Windows)
+        func units(_ url: URL) -> Int {
+            url.withUnsafeFileSystemRepresentation { $0.map { String(cString: $0).utf16.count } ?? 0 }
+        }
+        // Include the directory249–260 gap and long rollback *sources*, not
+        // only destinations. No process manifest/machine setting is required.
+        if max(units(source), units(destination)) >= 248 {
+            guard let from = LocalFilePath.nativeFileSystemPath(for: source),
+                  let to = LocalFilePath.nativeFileSystemPath(for: destination) else {
+                throw CocoaError(.fileWriteInvalidFileName)
+            }
+            let error = from.withCString(encodedAs: UTF16.self) { sourcePointer in
+                to.withCString(encodedAs: UTF16.self) { destinationPointer -> DWORD? in
+                    if MoveFileExW(sourcePointer, destinationPointer, 0) { return nil }
+                    return GetLastError()
+                }
+            }
+            if let error {
+                let code: CocoaError.Code
+                switch error {
+                case DWORD(ERROR_ALREADY_EXISTS), DWORD(ERROR_FILE_EXISTS): code = .fileWriteFileExists
+                case DWORD(ERROR_FILE_NOT_FOUND), DWORD(ERROR_PATH_NOT_FOUND): code = .fileNoSuchFile
+                case DWORD(ERROR_ACCESS_DENIED): code = .fileWriteNoPermission
+                case DWORD(ERROR_INVALID_NAME), DWORD(ERROR_FILENAME_EXCED_RANGE): code = .fileWriteInvalidFileName
+                default: code = .fileWriteUnknown
+                }
+                throw CocoaError(code, userInfo: [NSFilePathErrorKey: source.path,
+                    NSUnderlyingErrorKey: NSError(domain: "Win32Error", code: Int(error))])
+            }
+            return
+        }
+        #endif
+        try fileManager.moveItem(at: source, to: destination)
+    }
 }

@@ -39,3 +39,33 @@ The destination lengths were 262, 263, 265 and 266 native UTF-16 units.
 Database installation and Recovery snapshot creation passed first. Final reopen
 and preservation checks were not reached. These failed expectations remain
 unchanged while a narrowly scoped rename repair is prepared.
+
+## Prepared repair and safety checks
+
+`LocalFilePermissions.moveRestoreItem` routes Windows source or destination
+names measuring at least 248 native UTF-16 units through the existing validated
+extended-path conversion and [MoveFileExW](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-movefileexw)
+with flags zero. It permits neither overwrite nor a cross-volume copy fallback;
+native failures retain the underlying Win32 error code. Short Windows names and
+all Unix calls retain the supplied FileManager dispatch. The existing caller
+containment, link, lease and ownership checks remain authoritative.
+
+Only the three reference-publication/recovery moves and two outer transaction
+rollback moves use the helper. Routing also examines the source name so a long
+rollback directory can return to the shorter live name after a later failure.
+The original four failed manager fixtures remain byte-for-byte unchanged.
+
+New safety tests cover Unicode file/directory renames in both directions,
+occupied destinations without overwrite/merge, missing or invalid sources,
+short-path injected failures, complete rollback after a later completion error,
+and a genuine occupied rollback destination that preserves both copies and the
+recovery block. A 251-unit collision-directory setup uses the existing
+native-aware directory helper; its dimension and assertions were retained.
+
+Focused Mac checks passed 18 XCTest cases and 15 Swift Testing tests; the final
+eight rename cases passed again after that fixture-setup correction. Independent
+review found no remaining actionable issue. The Windows-only validation will
+select the path-boundary, rename, atomicity, envelope and restore-authority
+suites through the existing native-core workflow. Native Windows verification
+and a newly versioned application candidate remain pending. No 1.5.20 package
+was rebuilt and no daily app was installed.

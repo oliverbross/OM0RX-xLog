@@ -543,16 +543,16 @@ public final class XLogBackupManager: @unchecked Sendable {
         do {
             var preservedURL: URL?
             if fileManager.fileExists(atPath: liveURL.path) {
-                try fileManager.moveItem(at: liveURL, to: rollback)
+                try LocalFilePermissions.moveRestoreItem(at: liveURL, to: rollback, fileManager: fileManager)
                 preservedURL = rollback
             }
-            try fileManager.moveItem(at: staging, to: liveURL)
+            try LocalFilePermissions.moveRestoreItem(at: staging, to: liveURL, fileManager: fileManager)
             return preservedURL
         } catch {
             try? fileManager.removeItem(at: staging)
             if !fileManager.fileExists(atPath: liveURL.path),
                fileManager.fileExists(atPath: rollback.path) {
-                do { try fileManager.moveItem(at: rollback, to: liveURL) }
+                do { try LocalFilePermissions.moveRestoreItem(at: rollback, to: liveURL, fileManager: fileManager) }
                 catch { throw XLogBackupError.rollbackFailed }
             }
             throw XLogBackupError.restoreFailed("Reference Data: \(error.localizedDescription)")

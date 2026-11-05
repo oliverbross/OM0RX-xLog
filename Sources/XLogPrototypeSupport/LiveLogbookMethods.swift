@@ -2444,10 +2444,10 @@ public final class LiveLogbookMethods: RemoteBackupWorkspaceGenerationSource, Re
                 if fileManager.fileExists(atPath: replacement.live.path) {
                     let failed = replacement.live.deletingLastPathComponent()
                         .appendingPathComponent(".failed-restore-\(UUID().uuidString)-\(replacement.live.lastPathComponent)")
-                    try fileManager.moveItem(at: replacement.live, to: failed)
+                    try LocalFilePermissions.moveRestoreItem(at: replacement.live, to: failed, fileManager: fileManager)
                 }
                 if let previous = replacement.previous {
-                    try fileManager.moveItem(at: previous, to: replacement.live)
+                    try LocalFilePermissions.moveRestoreItem(at: previous, to: replacement.live, fileManager: fileManager)
                 }
             } catch { failure = failure ?? error }
         }
