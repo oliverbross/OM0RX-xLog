@@ -43,7 +43,7 @@ export async function currentContestScenario({ first, record, success, error, Wo
   const fail = async (worker, method, params, code) => error(await record(worker, method, params), code);
   const catalog = await call(first, "contest_catalog");
   assert.equal(catalog.protocolVersion, 1);
-  assert.equal(catalog.plugins.length, 97);
+  assert.equal(catalog.plugins.length, 98);
   assert.ok(catalog.plugins.every(row => row.engine === "not1mm-python"));
   assert.ok(catalog.plugins.some(row => row.id === "cq_ww_cw"));
   assert.ok(catalog.plugins.some(row => row.id === "cq_wpx_cw"));

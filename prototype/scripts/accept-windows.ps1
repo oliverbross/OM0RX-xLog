@@ -235,6 +235,7 @@ try {
     try {
         $stderrTask = $worker.StandardError.ReadToEndAsync()
         $response = Read-Response $worker -TimeoutSeconds 120
+        Write-Json (Join-Path $EvidenceDirectory 'worker-contest-runtime.json') $response
         Assert-That ($response.id -eq 'contest-runtime-self-test' -and $response.ok -eq $true -and $response.result.engine -eq 'not1mm-python' -and $response.result.qso_count -eq 1) 'Bundled contest runtime response failed.'
         foreach ($field in @('passed', 'synthetic_records', 'catalogue', 'save_read', 'reopened', 'shipping_shutdown', 'temporary_store_removed')) {
             Assert-That ($response.result.$field -eq $true) "Contest runtime did not prove $field."
@@ -243,7 +244,6 @@ try {
             Assert-That ($response.result.$field -eq $false) "Contest runtime used $field."
         }
         Finish-Worker $worker $stderrTask
-        Write-Json (Join-Path $EvidenceDirectory 'worker-contest-runtime.json') $response
         Record-Check 'worker-contest-runtime-round-trip' @{ bundledLocator = $true; sanitizedChild = $true; syntheticRecords = $true; restartReopen = $true; stationIO = $false }
     } finally { if (-not $worker.HasExited) { $worker.Kill($true) }; $worker.Dispose() }
 

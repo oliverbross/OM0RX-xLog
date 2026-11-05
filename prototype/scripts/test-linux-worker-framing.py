@@ -2,8 +2,11 @@
 import copy
 import importlib.util
 import itertools
+import json
 from pathlib import Path
+import tempfile
 import unittest
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('worker_acceptance', Path(__file__).with_name('linux-worker-acceptance.py'))
 acceptance = importlib.util.module_from_spec(spec)
@@ -41,10 +44,14 @@ class PackagedContestRuntimeEvidence(unittest.TestCase):
     def test_shipping_host_and_private_persistence_proofs_are_all_required(self):
         proof = {'id': 'contest-runtime-self-test', 'ok': True, 'result': {
             'passed': True, 'engine': 'not1mm-python', 'synthetic_records': True,
-            'catalogue': True, 'catalogue_count': 97, 'save_read': True, 'reopened': True, 'qso_count': 1,
+            'catalogue': True, 'catalogue_count': 98, 'save_read': True, 'reopened': True, 'qso_count': 1,
             'station_io': False, 'network_contact': False, 'credentials_accessed': False,
             'shipping_shutdown': True, 'temporary_store_removed': True}}
         acceptance.validate_contest_runtime(proof)
+        stale = copy.deepcopy(proof)
+        stale['result']['catalogue_count'] = 97
+        with self.assertRaises(AssertionError):
+            acceptance.validate_contest_runtime(stale)
         for field, original in proof['result'].items():
             malformed = copy.deepcopy(proof)
             malformed['result'][field] = not original if isinstance(original, bool) else None
@@ -58,6 +65,18 @@ class PackagedContestRuntimeEvidence(unittest.TestCase):
             del malformed[field]
             with self.subTest(missing=field), self.assertRaises(AssertionError):
                 acceptance.validate_contest_runtime(malformed)
+
+
+    def test_contest_reply_is_retained_before_parsing_or_validation(self):
+        for raw in [b'{"id":"contest-runtime-self-test","ok":false}\n', b'invalid JSON\n']:
+            with self.subTest(raw=raw), tempfile.TemporaryDirectory() as directory:
+                report = Path(directory) / 'worker.json'
+                with patch.object(acceptance.subprocess, 'check_output', return_value=raw) as invoke:
+                    with self.assertRaises((AssertionError, json.JSONDecodeError)):
+                        acceptance.validate_contest_runtime(acceptance.contest_runtime_reply('worker', report))
+                    invoke.assert_called_once_with(['worker', '--contest-runtime-self-test'], timeout=120)
+                self.assertEqual(report.with_name('worker-contest-runtime-reply.json').read_bytes(), raw)
+                self.assertFalse(report.exists())
 
 
 if __name__ == '__main__':
