@@ -19,7 +19,7 @@ and physical evidence remain separate.
 | Q04 | Fixed in source; packaged/idle verification pending | `5fac0a06` + `afdef570`: hidden disarmed dispatches 40→0/30s, holder heartbeat preserved, context-churn starvation corrected; 21 focused tests and TypeScript pass. [Counters](runtime-cw-polling.md). |
 | Q05 | Fixed in source; packaged verification pending | `1ab1f647`: POTA byte construction 3.807 GB→6.75 MB per synthetic file transfer; exact Unicode/multi-park service checks pass. [Measurements](runtime-pota-chunks.md). This is separate from retained task memory; no schema/durability change. |
 | Q06 | Packaged common journeys pending | Native Windows/Linux ordinary-desktop cells and physical hardware remain NOT RUN. Browser/component tests cannot close them. |
-| Q07 | 1.5.16 held; successor correction underway; phase OPEN | [Signed 1.5.16 native qualification](native-1.5.16.md) found missing own-station fields in the first QSO after setup. Memory A/B and nine packaged-worker checks passed. This demonstrated failure requires a new candidate version after correction. No daily-app install or public release. |
+| Q07 | 1.5.16 held; 1.5.17 qualification pending; phase OPEN | [Signed 1.5.16 qualification](native-1.5.16.md) found missing first-contact own-station fields. `0c872634` corrects initialization atomically; [42 targeted checks pass](first-draft-defaults.md). [1.5.17](../../releases/v1.5.17-quality-candidate.md) advances candidate identity for new packaged acceptance. No daily-app install or public release. |
 
 ## Preservation baseline
 
