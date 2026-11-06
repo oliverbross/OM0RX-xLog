@@ -704,7 +704,7 @@
     "limit": "Both ordinary Quit name queries returned Count0 without query errors; these do not establish actual exit codes/EOF or every WebView/helper-family absence. Restart tokens were not independently measured."
   },
   "preservationBeforeAllUsers22": {
-    "status": "Guest image source-hashed/small files preserved; one host transfer approved and media built but unmounted; no listener/upload, durable host disk preservation, clone or AU22 qualification",
+    "status": "TRANSFER MEDIA VERIFIED MOUNTED; transfer NOT STARTED; latest host capacity FAIL supersedes historical approval; original UI/CLI-paused",
     "candidates": {
       "1.5.21": "HELD",
       "1.5.22": "HELD"
@@ -716,8 +716,11 @@
       "baseBundleCopyIsCheckpoint": false,
       "recoveryOrBootableCloneVerified": false,
       "historicalAfterPreflightState": "paused; confirmed by UTM UI and utmctl",
-      "latestObservedState": "Resumed/live after post-capture NetKVM install and adapter/IP query; no Stop/restart/reboot/discard",
-      "cliStatusBeforeLatestPause": "started; before fresh UI pause action"
+      "latestObservedState": "Paused by root CUA with observed Start/play, subsequently confirmed paused by utmctl; no Stop/restart/discard",
+      "cliStatusBeforeLatestPause": "started; before fresh UI pause action",
+      "latestPausedCLIConfirmed": true,
+      "latestOpenUnlinkedDiskLogicalBytesObserved": 41683124224,
+      "logicalLengthLimit": "Logical file length only; physical allocation and cause of host-space changes NOT ESTABLISHED"
     },
     "backupOnlyPreflight": {
       "executionCount": 1,
@@ -784,7 +787,7 @@
     },
     "nativeX64Windows11": "No suitable connected desktop identified; ARM emulation remains distinct",
     "productSourceOrPackageChanged": false,
-    "boundary": "One host transfer approved against fresh actual-image capacity and transfer media built, but unmounted/no listener/upload. Original remains live; pre-driver guest baseline image source-hashed and small files preserved. No durable host disk copy, VHDX validity, restore, conversion/clone, RAM snapshot, blank-Desk fix or AU22 claim; both candidates HELD.",
+    "boundary": "Independent latest cleanup target/inventory/presence validation PASS, without new large rehash; fresh capacity still FAILS by10212508160bytes. No physical-allocation cause, host transfer/listener/upload, clone, AU22 or full-phase completion claim. Original UI/CLI-paused/alive; both candidates HELD.",
     "projectBuildCleanup": {
       "authorization": "User explicitly authorized old project temporary/build cleanup to avoid an external drive",
       "deletedCargoDependencyDirectories": 9,
@@ -1092,20 +1095,151 @@
       "privateProofContentsReadOrPublishedByReportingAgent": false,
       "actualListenerStarted": false,
       "actualUploadExecuted": false,
-      "limit": "Capacity approval only; no completed transfer/host image or clone inferred"
+      "limit": "Capacity approval only; no completed transfer/host image or clone inferred",
+      "historicalApprovalOnly": true,
+      "supersededByLatestCapacityFail": true
     },
     "transferMediaPreparation": {
       "isoActuallyBuilt": true,
       "isoBytes": 921600,
       "isoSHA256": "eec554a4a9038f08b224d83f5e5027834463f94faae202af857ea0ba117f519a",
       "mediaManifestSHA256": "58c78ae2a078b3127b7ec99a518d3cfabf4fc2cd5da94e9735e018de5961e1b3",
-      "mounted": false,
+      "mounted": true,
       "listenerStarted": false,
       "uploadStarted": false,
-      "uiBoundary": "UTM media-menu keyboard focus lost; root requested user bring UTM forward once",
+      "uiBoundary": "After Ready/user Mounted report, root observed chooser at old NetKVM folder and completed exact transfer ISO selection/Open; guest hashes/label then verified",
       "originalVMAlive": true,
       "rebootPerformed": false,
-      "sourceImage": "Pre-driver source-hashed AU21 image remains guest-only"
+      "sourceImage": "Pre-driver source-hashed AU21 image remains guest-only",
+      "historicalNotMountedAtBuild": true,
+      "guestDriveVerified": "D: XLOGXFR CDROM",
+      "guestMediaManifestMatched": true,
+      "uploadCommandSHA256": "2610d298fca4879fa9158ce8769e57f9e705a70b1d98fae8061a82ad0347d1ad",
+      "uploadCommandHashMatched": true,
+      "guestReadbackPromptReturned": true,
+      "guestReadbackErrorsObserved": false,
+      "launcherExecuted": false,
+      "latestOriginalVMState": "UI/CLI-paused; alive"
+    },
+    "latestTransferCapacityObservation02": {
+      "status": "FAIL; TRANSFER NOT STARTED",
+      "observationReceiptSHA256": "b688992faa1e9d36626ac6736f223c57526f40a715cf141a0efa13504e0fafd3",
+      "hostAvailableKiB": 25737224,
+      "hostAvailableBytes": 26354917376,
+      "laterHostAvailableKiB": 25697312,
+      "laterHostAvailableBytesCalculated": 26314047488,
+      "requiredImageBytes": 21359493632,
+      "reserveBytes": 12884901888,
+      "otherActivityHeadroomBytes": 2147483648,
+      "requiredBudgetBytes": 36391879168,
+      "firstObservationDeficitBytes": 10036961792,
+      "capacityPlanPass": false,
+      "historicalApprovalSuperseded": true,
+      "launcherExecuted": false,
+      "receiverStarted": false,
+      "hostTransferStarted": false,
+      "physicalAllocationOrCapacityLossCause": "UNKNOWN",
+      "furtherCleanupProposal": "Reviewed cleanup subsequently executed; latest result/validation recorded separately; capacity remains insufficient"
+    },
+    "productSourceOrPackageChangedScope": "Current product source/candidate21/22 package bytes only; specifically listed obsolete signed app artifacts intentionally retired",
+    "additionalCleanupAfterCapacityFail": {
+      "authorization": "User-authorized old project temporary/build cleanup; root reviewed exact code/manifests before execution",
+      "rustIncrementalCaches": {
+        "initialAttempt": {
+          "status": "FAILED BEFORE ANY DELETE",
+          "errorType": "TypeError",
+          "reason": "rmtree() got an unexpected keyword argument 'dir_fd'",
+          "deletedDirectories": 0,
+          "ledgerSHA256": "161f8ad04d23411c7a086d85822de2543b7c9d91652fb9c837f65e7444e0706e"
+        },
+        "correctedAttempt": {
+          "jobExitCode": 0,
+          "deletedDirectories": 4,
+          "approvedFiles": 4322,
+          "helperSHA256": "0c2c53a73202d537db17fa39e642e4e3d91a1ac082f2af55f57f81db65bd87b7",
+          "hostAPIPreflight": "Verified parent FD/fchdir; no unsupported rmtree dir_fd keyword",
+          "ledgerSHA256": "99f5e3d4b78ac27ad9adfdc2a99f878070ef343381de6feb890c6bad6fea81a6",
+          "beforeAvailableBytes": 26298159104,
+          "afterAvailableBytes": 26299146240,
+          "availableDeltaBytes": 987136
+        }
+      },
+      "obsoleteArtifacts": {
+        "status": "completed-23-directories-retired-siblings-preserved",
+        "obsoleteSignedAppBundles": 21,
+        "appVersionRanges": [
+          "1.3.37–1.3.54",
+          "1.3.56–1.3.58"
+        ],
+        "exactDuplicateArchiveVerificationDirectories": 2,
+        "duplicateVersions": [
+          "1.5.3",
+          "1.5.4"
+        ],
+        "totalRetiredDirectories": 23,
+        "siblingsPreservedByHelperResult": true,
+        "proposalSHA256": "b0095353193b5bc93bf8bc51dda3c88158eb3a0bdf53957ca0cc3055b44b6aaf",
+        "helperSHA256": "2b172536fea008d2ffe4236d16ab9f763864c3a64dfc13a64c96744d90ecde40",
+        "resultSHA256": "05adf01a14b8539a70b5ce88550983776dff69914c4a8e8e75c4fcc84dc633a8",
+        "beforeAvailableBytes": 26296885248,
+        "afterAvailableBytes": 26225713152,
+        "availableDeltaBytes": -71172096,
+        "signedArtifactBytesIntentionallyRetired": true,
+        "sourceCommitsAndEvidenceRetained": true,
+        "byteIdenticalSignedRebuildGuaranteed": false
+      },
+      "retained": "All ZIPs/receipts/logs/evidence/fixtures/source/Git/current helpers/rollback1.5.9/installed1.5.15/quality1.5.16–1.5.22",
+      "nominalReportedAllocationGiB": {
+        "fourRustCachesApprox": 5.92,
+        "appsAndDuplicateExtractionsApprox": 6.108,
+        "combinedApprox": 12.029,
+        "physicalFreeGain": false
+      },
+      "latestMeasuredAvailableBytes": 26179371008,
+      "requiredTransferBudgetBytes": 36391879168,
+      "transferCapacityPass": false,
+      "physicalAllocationOrCapacityLossCause": "UNKNOWN",
+      "independentAgentValidation": "PASS; bounded target/inventory/presence checks, no new large-file rehash",
+      "independentValidation": {
+        "allFourCacheTargetsENOENT": true,
+        "all23RetiredAppOrDuplicateTargetsENOENT": true,
+        "correctedLedgerEvents": 11,
+        "correctedLedgerTerminalEvent": "complete",
+        "correctedLedgerTerminalDeletedDirectories": 4,
+        "correctedLedgerSHA256": "99f5e3d4b78ac27ad9adfdc2a99f878070ef343381de6feb890c6bad6fea81a6",
+        "failedZeroDeleteLedgerRetained": true,
+        "failedLedgerSHA256": "161f8ad04d23411c7a086d85822de2543b7c9d91652fb9c837f65e7444e0706e",
+        "retirementResultSHA256": "05adf01a14b8539a70b5ce88550983776dff69914c4a8e8e75c4fcc84dc633a8",
+        "retirementResultTerminalTargets": 23,
+        "siblingInventoriesEqual": true,
+        "allZIPsPreserved": true,
+        "all21AppPlus2DuplicateSourceCommitObjectsInGit": true,
+        "installedInfoVersion": "1.5.15",
+        "protected15And21And22ZIPsPresent": true,
+        "native21And22AppDirectoriesPresent": true,
+        "currentCIAuditReceiptsPresent": true,
+        "newLargeFileRehashClaim": false
+      },
+      "latestAvailableGiBRounded": 24.38,
+      "latestTransferBudgetDeficitBytes": 10212508160
+    },
+    "latestTransferCapacityAfterCleanup": {
+      "hostAvailableBytes": 26179371008,
+      "hostAvailableGiBRounded": 24.38,
+      "requiredBudgetBytes": 36391879168,
+      "deficitBytes": 10212508160,
+      "capacityPlanPass": false,
+      "physicalAllocationOrSpaceLossCause": "UNKNOWN",
+      "hostTransferExecuted": false,
+      "launcherListenerOrUploadExecuted": false,
+      "cloneOrAU22Executed": false
+    },
+    "closeoutVMStateRecheck": {
+      "intermediateCLIState": "started after earlier paused confirmation; cause unknown",
+      "rootObservedPauseUsedAgain": true,
+      "startPlayObserved": true,
+      "subsequentCLIState": "paused",
+      "stopRestartDiscardPerformed": false
     }
   }
 }
