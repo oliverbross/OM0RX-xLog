@@ -34,15 +34,7 @@ for attempt in 1 2 3; do
   xvfb-run -a -s '-screen 0 1600x1100x24' dbus-run-session -- \
     python3 /qa/linux-process-receipts.py session "$launch_package" "$report" \
       "$evidence/ui-$attempt.log" "$evidence/ui-$attempt.png" x11
-  python3 - "$report" <<'PY'
-import json, sys
-with open(sys.argv[1]) as stream:
-    value = json.load(stream)
-assert value['schema'] == 1 and value['status'] == 'passed'
-assert value['scope'] == 'integrated-local-ui'
-assert value['embeddedUi'] is True and value['worker'] is True
-assert value['platform'] == 'linux'
-PY
+  python3 /qa/linux-evidence.py validate "$report" x11
   [[ -s "$evidence/ui-$attempt.png" ]]
 done
 xvfb-run -a -s '-screen 0 1600x1100x24' dbus-run-session -- \

@@ -356,6 +356,8 @@ jobs:
           path: prototype/dist-linux
           run-id: ${{ inputs.runtime_run_id || github.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Validate private Linux evidence contracts
+        run: python3 prototype/scripts/test-linux-evidence.py
       - name: Build runtime-only Ubuntu image with packaged deb
         run: |
           docker build -f prototype/scripts/Dockerfile.linux-runtime -t xlog-prototype-runtime .
@@ -369,6 +371,11 @@ jobs:
           docker image inspect xlog-prototype-runtime > prototype/packaging-evidence/linux/container-image.json
           docker run --rm --network none --cap-drop ALL -v "$PWD/prototype/packaging-evidence/linux:/evidence" xlog-prototype-runtime
           docker run --rm --network none --cap-drop ALL --entrypoint cat xlog-prototype-runtime /qa/installed-payload-scan.json > prototype/packaging-evidence/linux/installed-payload-scan.json
+      - name: Recover private synthetic Linux report ownership
+        if: always()
+        run: |
+          mkdir -p prototype/packaging-evidence/linux
+          sudo python3 prototype/scripts/linux-evidence.py recover "$PWD/prototype/packaging-evidence/linux" "$(id -u)" "$(id -g)"
       - name: Upload native Linux reports and screenshots
         if: always()
         uses: actions/upload-artifact@v4
