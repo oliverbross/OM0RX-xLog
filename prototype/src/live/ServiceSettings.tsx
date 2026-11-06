@@ -198,6 +198,12 @@ export default function ServiceSettings({ values, savedValues, request, onChange
   const ftpBackup = { protocol: "disabled", endpoint: "", directory: "/OM0RX-xLog", username: "", plainFTPConfirmed: false,
     ...(form.ftpBackup ?? {}) };
   const saveToast = useSettingsSaveToast();
+  const submissionSequence = useRef(0);
+  const submitting = useRef(false);
+  const [submission, setSubmission] = useState({ attempt: 0, status: "idle" });
+  const formSaving = saving || submission.status === "saving";
+  const submissionStatus = workspaceChanged ? "workspace_changed" : conflict ? "conflict"
+    : sessionError ? "failed" : submission.status;
   const [onlineLogRevision, setOnlineLogRevision] = useState(0);
   const blocked = pending || conflict || workspaceChanged;
   const update = (change: Partial<Data>) => {
@@ -209,17 +215,27 @@ export default function ServiceSettings({ values, savedValues, request, onChange
     min={key === "wavelogStationID" ? 1 : undefined} step={key === "wavelogStationID" ? 1 : undefined}
     onChange={event => update({ [key]: event.target.value })} /></label>;
   const save = async (event: FormEvent) => {
-    event.preventDefault(); if (saving || blocked) return;
+    event.preventDefault(); if (saving || blocked || submitting.current) return;
+    submitting.current = true;
+    const attempt = ++submissionSequence.current;
+    setSubmission({ attempt, status: "saving" });
     try {
       const rawStationID = String(form.wavelogStationID ?? "");
       if (!/^\d+$/.test(rawStationID) || !Number.isSafeInteger(Number(rawStationID)) || Number(rawStationID) < 0 || Number(rawStationID) > 2_147_483_647)
         throw new Error("Wavelog station ID must be a whole number between 0 and 2147483647.");
       const saved = { ...form, wavelogStationID: Number(rawStationID), ...(form.cwProfile ? { cwProfile: validateCWProfile(form.cwProfile) } : {}) };
       await onSave(saved);
+      setSubmission({ attempt, status: "applied" });
       saveToast.show(tab === "Backups" ? "Backup settings saved" : "Settings saved");
-    } catch (error) { saveToast.show(error instanceof Error ? error.message : "Could not save settings. Check the fields and try again.", "error"); }
+    } catch (error) {
+      setSubmission({ attempt, status: "failed" });
+      saveToast.show(error instanceof Error ? error.message : "Could not save settings. Check the fields and try again.", "error");
+    } finally { submitting.current = false; }
   };
-  return <section className="service-settings" aria-label="Station and service settings">
+  // Keep completion tied to this form submission after the transient toast fades.
+  // Draft values (including the sidebar station call) do not prove a saved change.
+  return <section className="service-settings" aria-label="Station and service settings" aria-busy={formSaving}
+    data-settings-save-attempt={submission.attempt} data-settings-save-status={submissionStatus}>
     <nav className="service-tabs" aria-label="Settings sections"><div role="tablist" aria-orientation="vertical">{settingsGroups.map(group => {
       const groupTabs = group.tabs.filter(name => visibleTabs.includes(name));
       return groupTabs.length ? <div className="service-tab-group" key={group.label} role="presentation"><span>{group.label}</span>{groupTabs.map(name => {
@@ -251,7 +267,7 @@ export default function ServiceSettings({ values, savedValues, request, onChange
         <button type="button" disabled={saving} onClick={() => void onRetry?.()}>Retry same save</button></>}
       {!pending && (dirty || conflict || workspaceChanged) && <button type="button" disabled={saving} onClick={onUseSaved}>Use saved Settings</button>}
     </div>}
-    <form onSubmit={event => void save(event)} noValidate><fieldset disabled={saving || blocked}>
+    <form onSubmit={event => void save(event)} noValidate><fieldset disabled={formSaving || blocked}>
       <section hidden={tab !== "Experimental"}><h2>Alpha and unfinished features</h2>
         <p>Choose which experimental tools appear in the application menus. Showing a tool does not start it or change its release qualification.</p>
         <label className="service-enable"><input type="checkbox" checked={form.showCWDecode === true} onChange={event => update({ showCWDecode: event.target.checked })} />Show CW Decode in menus</label>
@@ -321,9 +337,9 @@ export default function ServiceSettings({ values, savedValues, request, onChange
         <Credential account="ftp-backup-password" label="FTP / FTPS password" request={request} visible={tab === "Backups"}
           showSavedStatus allowRemove savedStatus="Saved securely. It has not been sent to the server."
           missingStatus="No saved FTP / FTPS password." />
-        <div className="live-actions"><button type="submit" className="primary">{saving ? "Saving settings…" : "Save backup settings"}</button></div>
+        <div className="live-actions"><button type="submit" className="primary">{formSaving ? "Saving settings…" : "Save backup settings"}</button></div>
       </section>
-      <div className="live-actions" hidden={!showFormSave}><button type="submit" className="primary">{saving ? "Saving settings…" : "Save settings"}</button></div>
+      <div className="live-actions" hidden={!showFormSave}><button type="submit" className="primary">{formSaving ? "Saving settings…" : "Save settings"}</button></div>
     </fieldset></form>
     {(visibleTabs.includes("Reference data") || visibleTabs.includes("Backups")) && <div hidden={tab !== "Reference data" && tab !== "Backups"}>{dataRequest ? <Suspense fallback={<p>Loading data tools…</p>}><DataManagementPanel onRequest={dataRequest} onChanged={onDataChanged ?? (() => {})} workspaceGeneration={dataWorkspaceGeneration} visible={tab === "Reference data" || tab === "Backups"} section={tab === "Backups" ? "backups" : "references"} sourceSettings={savedValues ?? form} /></Suspense> : <p>Reference and backup tools are unavailable in this view.</p>}</div>}
     <p className="service-security-note" hidden={!showAccountHelp && tab !== "Online logs" && tab !== "Display"}>Credentials stay in the integrated app’s separate system credential store. Existing application credentials are not changed. Never paste credentials into a support chat.</p>

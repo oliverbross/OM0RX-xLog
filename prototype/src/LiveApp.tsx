@@ -291,7 +291,7 @@ function MainLiveApp() {
   const workspaceLoadCause = useRef("");
   useEffect(() => { if (normalAccess.error) setError(normalAccess.error); }, [normalAccess.error]);
   const presentationError = useRef("");
-  useEffect(() => connectSettingsChanges(() => { void settingsSession.load(); }, setError), [settingsSession]);
+  useEffect(() => connectSettingsChanges(() => settingsSession.load(), setError), [settingsSession]);
   useEffect(() => connectRotorConfigurationChanges(() => { void rotorConfigurationSession.load(); }, setError), [rotorConfigurationSession]);
   const editorInputState = useCallback((pending: boolean) => {
     editorBufferPending.current = pending;

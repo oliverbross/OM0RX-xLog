@@ -8,13 +8,20 @@ export async function requestSettings(method: string, params: Record<string, unk
 
 /** Wake-only invalidation. Every surface reloads and validates the authoritative
  * snapshot; no settings or command authority travels in the event payload. */
-export function connectSettingsChanges(changed: () => void, failed: (message: string) => void) {
+export function connectSettingsChanges(changed: () => void | Promise<void>, failed: (message: string) => void) {
   if (!isTauri()) return () => {};
   let active = true, timer: ReturnType<typeof setTimeout> | undefined, stop: (() => void) | undefined;
+  const reload = async () => {
+    if (!active) return;
+    try { await changed(); }
+    catch (cause) {
+      if (active) failed(cause instanceof Error ? cause.message : "Settings could not be reloaded.");
+    }
+  };
   const schedule = () => {
     if (!active) return;
     clearTimeout(timer);
-    timer = setTimeout(() => { timer = undefined; if (active) changed(); }, 50);
+    timer = setTimeout(() => { timer = undefined; void reload(); }, 50);
   };
   window.addEventListener("focus", schedule);
   void listen("xlog:settings-changed", schedule).then(dispose => {

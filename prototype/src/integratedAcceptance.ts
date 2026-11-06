@@ -17,6 +17,7 @@ import { verifyWorkspaceMenuRoutes } from "./workspaceMenuAcceptance";
 import { verifyADIFTransferRoundtrip } from "./adifTransferAcceptance";
 import { framedWorkerRequest } from "./worker";
 import { verifyFirstRunSetup } from "./onboardingAcceptance";
+import { verifySettingsSave } from "./settingsSaveAcceptance";
 
 export const essentialSettingsLabels = ["General", "Logbook", "Wavelog", "Sync", "Rotator", "Radio spots", "Workspace"] as const;
 
@@ -286,11 +287,15 @@ async function main(report: Json) {
   const labels = [...document.querySelectorAll<HTMLLabelElement>(".service-fields label")];
   const stationCall = labels.find(label => label.textContent?.trim() === "Station call")?.querySelector("input");
   if (!stationCall) throw new Error("Station call setting is missing");
-  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(stationCall, "TEST1");
-  stationCall.dispatchEvent(new Event("input", { bubbles: true })); await frame();
-  await click("Save settings");
-  await waitForAcceptance("settings saved", () => document.querySelector(".sidebar-foot")?.textContent?.includes("TEST1") === true);
-  check("settings_save_readback", (await worker("settings_load")).result.settings.stationCall === "TEST1");
+  report.details.settingsSave = {};
+  check("settings_save_readback", await verifySettingsSave({
+    worker, diagnostics: report.details.settingsSave,
+    edit: async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(stationCall, "TEST1");
+      stationCall.dispatchEvent(new Event("input", { bubbles: true })); await frame();
+    },
+    save: () => click("Save settings"),
+  }, "TEST1"));
   if (largeLog) await prepareLargeLog(report, check);
   const awardsStarted = performance.now();
   await navigate("Awards");

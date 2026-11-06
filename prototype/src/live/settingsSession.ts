@@ -146,14 +146,16 @@ export class SettingsSession {
       try {
         const response = await this.request("settings_save", mutation);
         if (response?.status === "workspace_changed") {
-          this.update({ workspaceChanged: true, error: "The workspace was restored or replaced. Your Settings text is retained." });
-          return;
+          const message = "The workspace was restored or replaced. Your Settings text is retained.";
+          this.update({ workspaceChanged: true, error: message });
+          throw new Error(message);
         }
         if (response?.status === "conflict") {
           const conflict = checkedSettingsSnapshot(response);
-          this.update({ pending: null, conflict, error: "Settings changed in another window. Your unsaved text is retained." });
+          const message = "Settings changed in another window. Your unsaved text is retained.";
+          this.update({ pending: null, conflict, error: message });
           this.journal(null);
-          return;
+          throw new Error(message);
         }
         if (response?.status !== "applied") throw new Error("The Settings acknowledgement could not be verified.");
         const committed = checkedReceiptSnapshot(response.receipt, mutation, this.state.base!);
