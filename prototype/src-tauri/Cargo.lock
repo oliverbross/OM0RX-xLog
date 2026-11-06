@@ -5648,7 +5648,7 @@ dependencies = [
 
 [[package]]
 name = "xlog-prototype"
-version = "1.5.23"
+version = "1.5.24"
 dependencies = [
  "base64 0.22.1",
  "cpal",
