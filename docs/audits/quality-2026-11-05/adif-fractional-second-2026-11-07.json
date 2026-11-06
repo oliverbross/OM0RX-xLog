@@ -93,7 +93,7 @@
       "sha256": "59fe4ccdb09316ba61b5f6c8edac62d8fa378cef6d371b1b5e92299e3eedf18b"
     }
   ],
-  "qualificationBoundary": "Exact reviewed bytes integrated; fresh hosted source gates separate and pending.",
+  "qualificationBoundary": "Exact corrected-source CI, full Mac source/build and selected all-platform ADIF passed; package and desktop qualification remain separate.",
   "freshSourceGates": [
     {
       "run": 42304273180,
@@ -112,17 +112,296 @@
     {
       "run": 42304273362,
       "sourceCommit": "e7fce13b093ccaa8b9c0a6e343aea3d162987f04",
-      "status": "pending"
+      "status": "completed",
+      "conclusion": "success",
+      "logSHA256": "44c47ef4a14226c6abd47f2e65ca2c7f4542ff88ca7f8f1c170308898f9efde4",
+      "jobs": [
+        {
+          "id": 128189541312,
+          "name": "prototype (macos-15)",
+          "conclusion": "success"
+        },
+        {
+          "id": 128207955111,
+          "name": "Windows fresh-runner runtime acceptance (${{ matrix.installer_scope }})",
+          "conclusion": "skipped"
+        },
+        {
+          "id": 128207955984,
+          "name": "Linux runtime-only container acceptance",
+          "conclusion": "skipped"
+        }
+      ]
     },
     {
       "run": 42304281429,
       "sourceCommit": "e7fce13b093ccaa8b9c0a6e343aea3d162987f04",
-      "status": "pending"
+      "status": "completed",
+      "conclusion": "success",
+      "logSHA256": "52e5cd531657b2aca3736197020a1e579f73c3da72b6a7b4c28e394c5ab2ff05",
+      "jobs": [
+        {
+          "id": 128189574483,
+          "name": "core (windows-2022)",
+          "conclusion": "success"
+        },
+        {
+          "id": 128189574987,
+          "name": "core (ubuntu-24.04)",
+          "conclusion": "success"
+        },
+        {
+          "id": 128189575022,
+          "name": "core (macos-15)",
+          "conclusion": "success"
+        }
+      ]
     }
   ],
   "originalFailedGate": {
     "run": 42293138087,
     "sourceCommit": "f53ab0ed27444d9280485489b70c1656713ee625",
     "conclusion": "failure"
+  },
+  "selectedNativeVerification": [
+    {
+      "schema": 1,
+      "verifiedUTC": "2026-11-06T22:35:24.679723+00:00",
+      "runID": 42304281429,
+      "sourceCommit": "e7fce13b093ccaa8b9c0a6e343aea3d162987f04",
+      "sourceTestPins": [
+        {
+          "file": "Tests/XLogPrototypeTests/ADIFTransferTests.swift",
+          "sha256": "197d0d12eb78561205a7f14f4841bef2bd8d061ba5578cb0fc7ec3eee77095d7"
+        },
+        {
+          "file": "Tests/XLogPrototypeTests/LegacyADIFTransferTests.swift",
+          "sha256": "ce3ac811e543ac59b8348e3175a283fee492629206e80a87ff5ee8e19828f032"
+        }
+      ],
+      "parameterizedArgumentCounts": {
+        "\"Fractional-second ADIF updates retain typed validation and exact stored timestamps\"": 6,
+        "\"Fractional-second targets retain revision fences including selected no-ops\"": 2,
+        "\"ADIF candidate lookup retains its conservative 128-contact bound\"": 2,
+        "\"Selected DXCC rejects noncanonical, overflowing and out-of-range values atomically\"": 12
+      },
+      "platforms": [
+        {
+          "platform": "macOS",
+          "passed": true,
+          "artifactID": 13546435901,
+          "archiveBytes": 1362,
+          "archiveSHA256": "d81d9f90192a2975e92885276a401c0e62d02505d415d3ca103234261ddc5cd7",
+          "receiptSHA256": "4c398490ce10def449d4e9040e2a6f13d6ec7ff3ca7c289507774d6502f82487",
+          "actualCompletedTests": 21,
+          "expectedTests": 21,
+          "completedTestNames": [
+            "\"Ranged USERDEF metadata persists, exports exact bounds and rejects invalid native saves\"",
+            "\"Versioned extension metadata survives persistence and frozen export beside ordinary fields\"",
+            "\"Canonical Latin-1 C1 field code points survive native preview, import, export and reviewed updates\"",
+            "\"Preview rejects malformed input and reports duplicates without writes\"",
+            "\"All, filtered and selected exports freeze content and reject stale tokens\"",
+            "\"Preview indexes one frozen contact view across chunks and fences token context and order\"",
+            "\"Fractional-second ADIF updates retain typed validation and exact stored timestamps\"",
+            "\"ADIF candidate neighbors still require exact timestamp and call identity\"",
+            "\"ADIF apply rejects a new duplicate whose fractional time formats into the reviewed second\"",
+            "\"Fractional-second targets retain revision fences including selected no-ops\"",
+            "\"ADIF candidate lookup retains its conservative 128-contact bound\"",
+            "\"Selected updates preserve unrelated fields and mapping, create ordinary pending edits and replay safely\"",
+            "\"Expanded metadata fields persist exactly, preserve absent values and clear present empty values\"",
+            "\"Canonical DXCC updates preserve absence, distinguish zero and empty, and replay safely\"",
+            "\"Selected DXCC rejects noncanonical, overflowing and out-of-range values atomically\"",
+            "\"A stale target aborts its complete batch and repeated records apply only once across chunks\"",
+            "\"Apply rechecks current duplicate ambiguity and rejects changed workspace, token and order\"",
+            "mixedInvalidInputAndRepeatImportHaveTruthfulAtomicCounts()",
+            "laterSQLiteFailureRollsBackEarlierRowsAndRetryIsSafe()",
+            "fileReaderRejectsInvalidUTF8AndLimitsBeforeImport()",
+            "entireLogExportExceedsDisplayCapAndRetainsFrozenScope()"
+          ],
+          "filter": "ADIFTransferTests",
+          "fullProductQualification": false,
+          "sourceCommit": "e7fce13b093ccaa8b9c0a6e343aea3d162987f04"
+        },
+        {
+          "platform": "Windows",
+          "passed": true,
+          "artifactID": 13545039199,
+          "archiveBytes": 1502,
+          "archiveSHA256": "abb41e89bfaf17bb84b3f47ab2f8cb0668e46237cc0401510349a1e8ad125715",
+          "receiptSHA256": "79e795331915d7e05e6b8b894a63d98b893b3dcd555778f767f71e8be147469e",
+          "actualCompletedTests": 21,
+          "expectedTests": 21,
+          "completedTestNames": [
+            "\"Ranged USERDEF metadata persists, exports exact bounds and rejects invalid native saves\"",
+            "\"Versioned extension metadata survives persistence and frozen export beside ordinary fields\"",
+            "\"Canonical Latin-1 C1 field code points survive native preview, import, export and reviewed updates\"",
+            "\"Preview rejects malformed input and reports duplicates without writes\"",
+            "\"All, filtered and selected exports freeze content and reject stale tokens\"",
+            "\"Preview indexes one frozen contact view across chunks and fences token context and order\"",
+            "\"Fractional-second ADIF updates retain typed validation and exact stored timestamps\" with 6 test cases",
+            "\"ADIF candidate neighbors still require exact timestamp and call identity\"",
+            "\"ADIF apply rejects a new duplicate whose fractional time formats into the reviewed second\"",
+            "\"Fractional-second targets retain revision fences including selected no-ops\" with 2 test cases",
+            "\"ADIF candidate lookup retains its conservative 128-contact bound\" with 2 test cases",
+            "\"Selected updates preserve unrelated fields and mapping, create ordinary pending edits and replay safely\"",
+            "\"Expanded metadata fields persist exactly, preserve absent values and clear present empty values\"",
+            "\"Canonical DXCC updates preserve absence, distinguish zero and empty, and replay safely\"",
+            "\"Selected DXCC rejects noncanonical, overflowing and out-of-range values atomically\" with 12 test cases",
+            "\"A stale target aborts its complete batch and repeated records apply only once across chunks\"",
+            "\"Apply rechecks current duplicate ambiguity and rejects changed workspace, token and order\"",
+            "mixedInvalidInputAndRepeatImportHaveTruthfulAtomicCounts()",
+            "laterSQLiteFailureRollsBackEarlierRowsAndRetryIsSafe()",
+            "fileReaderRejectsInvalidUTF8AndLimitsBeforeImport()",
+            "entireLogExportExceedsDisplayCapAndRetainsFrozenScope()"
+          ],
+          "filter": "ADIFTransferTests",
+          "fullProductQualification": false,
+          "sourceCommit": "e7fce13b093ccaa8b9c0a6e343aea3d162987f04"
+        }
+      ],
+      "passed": true,
+      "verificationHistory": "Initial local reader v1 rejected Windows completion-name suffixes; v2 validates every suffix count against frozen source arrays. Original downloaded bytes retained; no workflow/test rerun.",
+      "privateVerificationReceiptSHA256": "2bb4c05310c4d7a03acb03c2cd8e543ad2035944f8e1e8e298d10676764111a4"
+    },
+    {
+      "schema": 1,
+      "verifiedUTC": "2026-11-06T22:35:46.866510+00:00",
+      "runID": 42304281429,
+      "sourceCommit": "e7fce13b093ccaa8b9c0a6e343aea3d162987f04",
+      "sourceTestPins": [
+        {
+          "file": "Tests/XLogPrototypeTests/ADIFTransferTests.swift",
+          "sha256": "197d0d12eb78561205a7f14f4841bef2bd8d061ba5578cb0fc7ec3eee77095d7"
+        },
+        {
+          "file": "Tests/XLogPrototypeTests/LegacyADIFTransferTests.swift",
+          "sha256": "ce3ac811e543ac59b8348e3175a283fee492629206e80a87ff5ee8e19828f032"
+        }
+      ],
+      "parameterizedArgumentCounts": {
+        "\"Fractional-second ADIF updates retain typed validation and exact stored timestamps\"": 6,
+        "\"Fractional-second targets retain revision fences including selected no-ops\"": 2,
+        "\"ADIF candidate lookup retains its conservative 128-contact bound\"": 2,
+        "\"Selected DXCC rejects noncanonical, overflowing and out-of-range values atomically\"": 12
+      },
+      "platforms": [
+        {
+          "platform": "Linux",
+          "passed": true,
+          "artifactID": 13546855985,
+          "archiveBytes": 1439,
+          "archiveSHA256": "f7421e7411c2dfb726664757a1fece776c052f8be3079c47984efe2173fe1da5",
+          "receiptSHA256": "a154fbdc5cde531a5734470e8f69b93b31f052cafcfc66a1ba818e9a5d0a70a5",
+          "actualCompletedTests": 21,
+          "expectedTests": 21,
+          "completedTestNames": [
+            "\"Ranged USERDEF metadata persists, exports exact bounds and rejects invalid native saves\"",
+            "\"Versioned extension metadata survives persistence and frozen export beside ordinary fields\"",
+            "\"Canonical Latin-1 C1 field code points survive native preview, import, export and reviewed updates\"",
+            "\"Preview rejects malformed input and reports duplicates without writes\"",
+            "\"All, filtered and selected exports freeze content and reject stale tokens\"",
+            "\"Preview indexes one frozen contact view across chunks and fences token context and order\"",
+            "\"Fractional-second ADIF updates retain typed validation and exact stored timestamps\" with 6 test cases",
+            "\"ADIF candidate neighbors still require exact timestamp and call identity\"",
+            "\"ADIF apply rejects a new duplicate whose fractional time formats into the reviewed second\"",
+            "\"Fractional-second targets retain revision fences including selected no-ops\" with 2 test cases",
+            "\"ADIF candidate lookup retains its conservative 128-contact bound\" with 2 test cases",
+            "\"Selected updates preserve unrelated fields and mapping, create ordinary pending edits and replay safely\"",
+            "\"Expanded metadata fields persist exactly, preserve absent values and clear present empty values\"",
+            "\"Canonical DXCC updates preserve absence, distinguish zero and empty, and replay safely\"",
+            "\"Selected DXCC rejects noncanonical, overflowing and out-of-range values atomically\" with 12 test cases",
+            "\"A stale target aborts its complete batch and repeated records apply only once across chunks\"",
+            "\"Apply rechecks current duplicate ambiguity and rejects changed workspace, token and order\"",
+            "mixedInvalidInputAndRepeatImportHaveTruthfulAtomicCounts()",
+            "laterSQLiteFailureRollsBackEarlierRowsAndRetryIsSafe()",
+            "fileReaderRejectsInvalidUTF8AndLimitsBeforeImport()",
+            "entireLogExportExceedsDisplayCapAndRetainsFrozenScope()"
+          ],
+          "filter": "ADIFTransferTests",
+          "fullProductQualification": false,
+          "sourceCommit": "e7fce13b093ccaa8b9c0a6e343aea3d162987f04"
+        }
+      ],
+      "passed": true,
+      "verificationHistory": "Initial local reader v1 rejected Windows completion-name suffixes; v2 validates every suffix count against frozen source arrays. Original downloaded bytes retained; no workflow/test rerun.",
+      "privateVerificationReceiptSHA256": "f8ff3c9341ab842a179dfcb352a6aa0edf859fab04e67bfdf43924cda690e064"
+    }
+  ],
+  "fullMacVerification": {
+    "sourceCommit": "e7fce13b093ccaa8b9c0a6e343aea3d162987f04",
+    "runID": 42304273362,
+    "conclusion": "success",
+    "jobID": 128189541312,
+    "counts": {
+      "frontendFilesPassed": 387,
+      "frontendTestsPassed": 5278,
+      "FLEXIQXCTestCount": 24,
+      "completePortableCoreXCTestReported": 1405,
+      "completePortableCoreXCTestSkipped": 9,
+      "completePortableCoreXCTestFailures": 0,
+      "completePortableCoreSwiftTestingPassed": 633
+    },
+    "skippedJobs": [
+      {
+        "jobID": 128207955111,
+        "name": "Windows fresh-runner runtime acceptance (${{ matrix.installer_scope }})",
+        "conclusion": "skipped"
+      },
+      {
+        "jobID": 128207955984,
+        "name": "Linux runtime-only container acceptance",
+        "conclusion": "skipped"
+      }
+    ],
+    "skippedSteps": [
+      "Enable Windows checkout long paths",
+      "Linux build dependencies",
+      "Swift toolchain (Linux)",
+      "Swift toolchain (Windows)",
+      "Windows SQLite",
+      "Actual Linux QA process lifecycle regressions",
+      "Parse Windows installer scripts and validate scope policy",
+      "Linux C vault in a private Secret Service session",
+      "Compile portable native test fixtures early (Windows)",
+      "Test portable Swift core (Windows)",
+      "Linux credential vault in a private Secret Service session",
+      "Build Swift worker (Windows)",
+      "Build pinned Hamlib radio and rotor helpers (Linux integration)",
+      "Stage pinned Hamlib radio and rotor helpers (Windows integration)",
+      "Test worker process framing (Windows)",
+      "Bundled Hamlib dummy protocol and lifecycle tests (Windows)",
+      "Package macOS application",
+      "Upload macOS package",
+      "Package Linux runtime and Debian application",
+      "Package Windows portable runtime",
+      "Package current-user and all-users EXE installers from one audited runtime",
+      "Upload Linux runtime packages",
+      "Upload Windows runtime package",
+      "Upload portable Swift pin verification receipts"
+    ],
+    "fullLog": {
+      "file": "run42304273362.log",
+      "bytes": 3973995,
+      "sha256": "44c47ef4a14226c6abd47f2e65ca2c7f4542ff88ca7f8f1c170308898f9efde4"
+    },
+    "jobLog": {
+      "file": "job128189541312.log",
+      "bytes": 2638390,
+      "sha256": "b8956932f44010d490aa5a632d867f1d58d126712cbdc72d0a1e61fd6281201d"
+    },
+    "finalRunReceipt": {
+      "file": "final-run42304273362.json",
+      "sha256": "30452ec8e522d94e0c9d4578fe0918746b6cea69d48c9b0b1cd7c9c1103b9500"
+    },
+    "evidenceCaptureIssue": {
+      "originalHelperExit": 1,
+      "HTTPStatus": 404,
+      "request": "logs for skipped job 128207955111",
+      "effect": "Main successful job log already retained; skipped jobs have no execution log. Final run/log fetched independently without workflow rerun.",
+      "gateResultChanged": false
+    },
+    "scope": "Full Mac source/build gate; package steps and separate Windows/Linux runtime acceptance skipped.",
+    "summaryMethod": "Exact gh run --log step labels; ANSI removed only for matching/display. Timestamp-coarse preliminary summary retained separately and superseded because boundary lines could fall in the next step.",
+    "privateVerificationReceiptSHA256": "1c50fb99fe65e4f0c8f6a7fec52225c4edfdbe26ee5e33fd743c144285f11c2d"
   }
 }

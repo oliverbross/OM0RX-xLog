@@ -62,8 +62,23 @@ Fresh corrected-source checks are bound to `e7fce13b`:
 | Gate | Run | Result |
 |---|---|---|
 | Automatic CI | [42304273180](https://github.com/oliverbross/OM0RX-xLog/actions/runs/42304273180) | PASS: 336 XCTest and 402 Swift Testing tests; build/resources passed |
-| Full Mac source/build | [42304273362](https://github.com/oliverbross/OM0RX-xLog/actions/runs/42304273362) | Pending |
-| Selected native ADIF, macOS/Linux/Windows | [42304281429](https://github.com/oliverbross/OM0RX-xLog/actions/runs/42304281429) | Pending |
+| Full Mac source/build | [42304273362](https://github.com/oliverbross/OM0RX-xLog/actions/runs/42304273362) | PASS: 5,278 frontend tests; 24 FLEX IQ tests; portable core reports 1,405 XCTest with nine skipped and zero failures, plus 633 Swift Testing tests; worker/desktop builds passed |
+| Selected native ADIF, macOS/Linux/Windows | [42304281429](https://github.com/oliverbross/OM0RX-xLog/actions/runs/42304281429) | PASS: the exact 21-test inventory and child exit 0 verified on each platform |
+
+Downloaded selection receipts were matched to the frozen test source, run,
+filter and archive hashes. A first local evidence reader rejected the
+Windows completion-name suffixes emitted by Swift 6.3; the corrected reader
+checks those suffix counts against the frozen parameter arrays (6/2/2/12).
+The original mismatch is retained. This reader correction reran no product
+test or workflow, and does not convert a failed test into a pass.
+
+The full Mac run also passed worker framing, shell-contract and bundled
+Hamlib dummy/lifecycle checks. Package steps and separate Windows/Linux
+runtime jobs were **skipped**. The evidence collector initially received
+HTTP 404 requesting logs for a skipped job; the actual successful main-job
+log was already retained, and final metadata/full logs were fetched without
+rerunning the workflow. The full log SHA-256 is
+`44c47ef4a14226c6abd47f2e65ca2c7f4542ff88ca7f8f1c170308898f9efde4`.
 
 The [numeric record](adif-fractional-second-2026-11-07.json) distinguishes
 these fresh gates from the original failed run. No signed package, native
