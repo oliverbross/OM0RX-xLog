@@ -704,7 +704,7 @@
     "limit": "Both ordinary Quit name queries returned Count0 without query errors; these do not establish actual exit codes/EOF or every WebView/helper-family absence. Restart tokens were not independently measured."
   },
   "preservationBeforeAllUsers22": {
-    "status": "TRANSFER MEDIA VERIFIED MOUNTED; transfer NOT STARTED; latest host capacity FAIL supersedes historical approval; original UI/CLI-paused",
+    "status": "TRANSFER MEDIA VERIFIED MOUNTED; transfer NOT STARTED; latest host capacity FAIL; final VM CLI state started after confirmed pause history",
     "candidates": {
       "1.5.21": "HELD",
       "1.5.22": "HELD"
@@ -716,7 +716,7 @@
       "baseBundleCopyIsCheckpoint": false,
       "recoveryOrBootableCloneVerified": false,
       "historicalAfterPreflightState": "paused; confirmed by UTM UI and utmctl",
-      "latestObservedState": "Paused by root CUA with observed Start/play, subsequently confirmed paused by utmctl; no Stop/restart/discard",
+      "latestObservedState": "Final CLI query returned started after two UI/CLI-confirmed pauses; original alive, cause unknown; no Stop/restart/discard",
       "cliStatusBeforeLatestPause": "started; before fresh UI pause action",
       "latestPausedCLIConfirmed": true,
       "latestOpenUnlinkedDiskLogicalBytesObserved": 41683124224,
@@ -787,7 +787,7 @@
     },
     "nativeX64Windows11": "No suitable connected desktop identified; ARM emulation remains distinct",
     "productSourceOrPackageChanged": false,
-    "boundary": "Independent latest cleanup target/inventory/presence validation PASS, without new large rehash; fresh capacity still FAILS by10212508160bytes. No physical-allocation cause, host transfer/listener/upload, clone, AU22 or full-phase completion claim. Original UI/CLI-paused/alive; both candidates HELD.",
+    "boundary": "Reviewed cleanup independently validated; nominal allocation removed is not physical free gain and current capacity still FAILS. No launcher/listener/upload/host image copy/clone/AU22. Original alive; final CLI state started after confirmed pauses, cause unknown; both candidates HELD.",
     "projectBuildCleanup": {
       "authorization": "User explicitly authorized old project temporary/build cleanup to avoid an external drive",
       "deletedCargoDependencyDirectories": 9,
@@ -1119,7 +1119,7 @@
       "guestReadbackPromptReturned": true,
       "guestReadbackErrorsObserved": false,
       "launcherExecuted": false,
-      "latestOriginalVMState": "UI/CLI-paused; alive"
+      "latestOriginalVMState": "Final CLI started; alive; prior UI/CLI pause confirmations retained"
     },
     "latestTransferCapacityObservation02": {
       "status": "FAIL; TRANSFER NOT STARTED",
@@ -1239,6 +1239,9 @@
       "rootObservedPauseUsedAgain": true,
       "startPlayObserved": true,
       "subsequentCLIState": "paused",
+      "finalCLIState": "started",
+      "continuedPauseAtCloseoutVerified": false,
+      "causeOfStateChange": "UNKNOWN",
       "stopRestartDiscardPerformed": false
     }
   }
