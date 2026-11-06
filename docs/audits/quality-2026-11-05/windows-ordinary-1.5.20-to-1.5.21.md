@@ -254,3 +254,110 @@ and indexes 24 private captures/receipts under
 No host transfer, restore, ordinary AU22 journey or package qualification is
 claimed. Both candidates remain **HELD**. Installed 1.5.15, the production log,
 rollback artifacts and the public release were not changed by these operations.
+
+## Authorized persistent recovery and fresh AU22 installation — 6 November 2026
+
+The user explicitly authorized discarding the disposable session and proceeding
+with the prepared persistent base. This supersedes the preceding pending-permission
+checkpoint. At **10:49:30 UTC**, the original QEMU process exited through UTM's
+observed Stop confirmation, and its guest reported stopped. UTM itself remained
+open. **The unique disposable overlays and the guest-only 21,359,493,632-byte
+capture were discarded with that authorization. No host copy of that capture
+was completed.** Its earlier source hash is historical; no retained failing-state
+clone or restore is claimed. The original base disk was not deleted.
+
+### Persistent base recovery
+
+The independently prepared base bundle was imported through UTM's supported API.
+The imported disk had a separate inode and matched the complete preboot source
+SHA-256 `a0bb2120b0f4d3b48fd577f2988fdeeda1f2f5d0332d04b43c3ec98aca534561`
+at **14,551,285,760 bytes**. The staged copy remains separate. The registered VM
+has UUID `7AF444B6-55A8-4D23-BBE5-F97DFE621FB0` and retains the 8 GiB/4-vCPU
+configuration. Its launch used persistent storage, without `-snapshot`.
+
+The first launch reached Windows sign-in. An ACPI shutdown request returned but
+did not establish shutdown; the later observed Windows Power menu **Shut down**
+did. At **11:08:47 UTC**, the guest reported stopped and that QEMU process had
+exited, without a forced stop. The existing removable CD was then configured
+through the supported stopped-VM update, retaining both existing drive IDs.
+UTM's save renamed the imported bundle to `xLog Quality Base Recovery 2026-11-06.utm`.
+The next persistent start at **11:11:43 UTC** opened the expected writable disk
+and read-only AU22 ISO. Its active window subsequently reached the Windows desktop.
+Postboot disk bytes naturally differ from the preboot copy; no current-disk
+hash equality is inferred.
+
+This clears the unusable-guest blocker for the **fresh base**. It does not recover
+the discarded failing profile or diagnose the original firmware/boot hang.
+
+### Fresh account and media observations
+
+The actual desktop is Windows 11 Pro **build 26200, ARM64**. The current account
+is an administrator running with its **restricted ordinary token**, not a verified
+Standard account. A preliminary managed `WindowsIdentity.Groups` query returned
+false for Administrators and `IsInRole` returned false. The subsequent raw
+`whoami /groups` CSV showed **SID S-1-5-32-544, Group used for deny only**, plus
+medium integrity **S-1-16-8192**. That raw readback corrects the preliminary
+classification: the managed Groups property omits deny-only membership. No new
+full native-token probe or app/worker token result is claimed.
+
+The Program Files target and both retained installer-location keys
+(`HKCU` and `HKLM` under `Software\oliverbross\OM0RX-xLog`) were absent before
+installation. Scoped AppData directory queries returned no xLog entries. These
+are the observed checks, not a complete preinstall registration/profile audit.
+The installed EdgeWebView registry version was **140.0.3485.66**; this is not an
+active xLog WebView engine observation.
+
+New read-only media contains the frozen AU22 installer and provenance, without
+an acceptance/debug launcher. ISO **58,433,536 bytes**, SHA-256:
+`63aa752d909080107a6fccf5f5386ed0ce6fe6d269866941e7688d72e7c4874e`.
+The guest observed **D: / XLOGAU22 / CD-ROM**, and its own installer rehash matched
+`fafeb2f3ff579c05d26e8c65ba8e7987aed0f5e46a68053b52bd922adf013d7d`.
+The package remains source **fc7909d63aa0f4d9fd9abf278c2b08bfd557cdd5**; no rebuild
+or version change is involved.
+
+### Actual AU22 installation
+
+The installer was invoked normally from the interactive user's PowerShell,
+without `/D`, silent mode or acceptance flags. Its first UAC consent was cancelled
+using the observed **No** button; PowerShell reported the operation cancelled and
+returned to its prompt. A normal retry presented the same consent, which was
+accepted under the user's authorization.
+
+The installer displayed **C:\Program Files\OM0RX-xLog** as its default destination
+and subsequently reported successful installation. **Run OM0RX-xLog was unchecked
+and visually verified before Finish**; the desktop-shortcut option remained
+checked. Thus this installation adds no Finish-launch token evidence.
+
+Readback of the actual installed files matched the frozen pins:
+
+| Installed item | SHA-256 |
+| --- | --- |
+| `xlog-prototype.exe` | `24f965be24ab90689b9f049290ceda956b7aa539d473f11fa5c412471b452967` |
+| `xlog-prototype-worker.exe` | `deb7c02b793cb7c21764d52368afa901320a562e35c1276752e6eef5f323c488` |
+
+The actual common Programs shortcut resolved to that Program Files host with
+**empty arguments**. Installed registration/version, the complete installed
+payload, the live app/worker token and ordinary GUI behavior are separate checks;
+the two executable hashes alone do not qualify those cells.
+
+### Desktop setup still needed before GUI acceptance
+
+Windows Display Settings showed **800×600 at 100%**, with its resolution selector
+disabled. This is below xLog's configured **1000×720** minimum window. The optional
+UTM guest-agent query also reported no running/installed QEMU guest agent. The
+supported guest display setup is being investigated before an ordinary UI journey.
+No app launch, setup save, Dummy configuration, QSO entry, quit/reopen or fresh
+AU22 blank-Desk result has occurred at this checkpoint.
+
+The original Standard-profile blank-Desk failure remains **FAILED/OPEN**. This
+fresh filtered-admin installation cannot replace its discarded AU21→AU22 paired
+comparison. True Standard-user acceptance, native x64 Windows and equipment
+qualification remain separate. Both candidates stay **HELD** and the quality
+phase stays **OPEN**. Installed Mac 1.5.15, the production log, rollback artifacts
+and public release were not changed.
+
+Private recovery/installation checkpoint SHA-256: `d92e25fc19e2b6db3ee63e9f205425fc88d1178708ec04742af2bae5993ee5e6`.
+It indexes 44 retained captures/receipts under
+`.build/quality-windows-persistent-20261106T104844Z/`. Earlier checkpoint files
+retain their original preinstallation facts; this subsequent record establishes
+the completed installation and its stated limits.
