@@ -361,3 +361,64 @@ It indexes 44 retained captures/receipts under
 `.build/quality-windows-persistent-20261106T104844Z/`. Earlier checkpoint files
 retain their original preinstallation facts; this subsequent record establishes
 the completed installation and its stated limits.
+
+## Verified guest-tools media and Windows sign-in handoff — 6 November 2026
+
+The supported UTM 4.7.5 guest-tools source was checked before changing the guest.
+Its non-3D download resolves to the official
+[QEMU v10.0.2-utm release](https://github.com/utmapp/qemu/releases/tag/v10.0.2-utm).
+No existing full guest-tools ISO was found in the scoped UTM cache, Downloads,
+project preparation or VM-bundle locations. The exact release asset was then
+downloaded and verified against the digest published by GitHub's release API:
+
+| Item | Verified value |
+| --- | --- |
+| Asset | `utm-guest-tools-0.1.271.iso`, ID **274215954** |
+| Length | **127,084,544 bytes** |
+| SHA-256 | `65b6a69b392ee01dd314c10f3dad9ebbf9c4160be43f5f0dd6bb715944d9095b` |
+| Contained installer | `utm-guest-tools-0.1.271.exe`, **78,488,152 bytes** |
+| Contained installer SHA-256, read from a temporary read-only Mac mount | `839cdf4c00e5ff564f8337aba16ad7bbe8f02edd2b5c908b5daca31d88a6cdd1` |
+
+The temporary host inspection volume was detached. No contained Windows
+executable was run on the host. The official package's driver/service installation
+is still **NOT RUN**, as are the guest's installer-signature check, display-driver
+readback and resolution correction. The ISO hash is not a Windows certificate
+validation result.
+
+The native UTM live-media menu did not expose a usable menu after the observed
+AX and pointer actions, so no live media selection was invented. Windows was
+shut down normally using its Run dialog and **shutdown.exe /s /t 0**, without a
+force flag. At **11:42:48 UTC**, the old QEMU process had exited and UTM reported
+stopped. The supported stopped-VM media update retained both exact drive IDs;
+serialized configuration remained semantically unchanged. No graphics-card,
+3D, CPU, RAM or app setting was changed.
+
+At **11:44:07 UTC**, the same persistent VM started again. Its observed QEMU
+process **28874** opened the existing disk writable, without `-snapshot`, and the
+exact guest-tools ISO read-only. The disk retained inode **622061014** and link
+count one; this is file/mode evidence, not a new disk-content hash. The active
+native window returned to Windows lock/sign-in. After the ordinary Enter action,
+it showed the existing **codex password field**. No credential was entered,
+guessed or reset. The relevant setup records contain no usable saved sign-in
+credential, so interactive authentication is required to continue.
+
+**Current handoff:** UTM remains open and the persistent guest remains running
+at Windows sign-in, with the verified guest-tools CD attached. Sign into the
+existing account, inspect and install the official tools, perform the required
+normal restart and verify a usable display. Then run the installed frozen AU22
+through its actual common shortcut, verify the live host/worker context, and
+complete the ordinary setup, Dummy settings, synthetic-data and quit/reopen
+journey. None of those GUI/runtime results is supplied by this preparation.
+The current account's filtered-admin scope remains distinct from a separate
+Standard-user credential test and native x64 acceptance.
+
+Private handoff manifest SHA-256: `485c89822a4b1f19cc2220d33a8894c588f54d573aa52798f14e8bffbd4b6989`; it indexes
+14 guest-tools preparation/capture records under
+`.build/quality-windows-persistent-20261106T104844Z/guest-tools/`.
+The preceding installation checkpoint remains unchanged and historical.
+
+The [CI run for recovery documentation commit 2b35e7c0](https://github.com/oliverbross/OM0RX-xLog/actions/runs/42211653135)
+completed **SUCCESS**. Source beta run **42204377529** also remains successful
+within its already recorded bounds; skipped packaged-runtime jobs do not supply
+new acceptance. Both candidates stay **HELD** and the quality phase stays **OPEN**.
+Installed daily Mac 1.5.15 and public release remain untouched.
