@@ -4,7 +4,7 @@ use serde_json::{json, Map, Value};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream, ToSocketAddrs};
 use std::path::PathBuf;
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::{
     atomic::{AtomicU64, Ordering},
     Mutex, OnceLock,
@@ -17,6 +17,81 @@ const START_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_FRAME: usize = 8_192;
 const MAX_MODELS: usize = 512 * 1024;
 const MAX_CAPABILITIES: usize = 256 * 1024;
+
+// These helpers communicate through pipes or loopback, never a user console.
+fn configure_background_process(command: &mut Command) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    #[cfg(not(windows))]
+    let _ = command;
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+enum ModelCatalogueCategory {
+    LocateFailed,
+    SpawnFailed,
+    StreamUnavailable,
+    InspectFailed,
+    Timeout,
+    ReaderFailed,
+    ReadFailed,
+    UnsuccessfulExit,
+    OutputLimit,
+    InvalidUtf8,
+    NoModels,
+    Success,
+}
+
+// Metadata only: no executable paths, arguments, model rows or external error text.
+// The existing wait budget begins after spawn; elapsed_ms covers the whole attempt.
+struct ModelCatalogueDiagnostic {
+    device: Device,
+    started: Instant,
+    category: ModelCatalogueCategory,
+    os_error: Option<i32>,
+    exit_code: Option<i32>,
+    stdout_bytes: Option<usize>,
+    model_count: Option<usize>,
+}
+impl ModelCatalogueDiagnostic {
+    fn new(device: Device) -> Self {
+        Self {
+            device,
+            started: Instant::now(),
+            category: ModelCatalogueCategory::LocateFailed,
+            os_error: None,
+            exit_code: None,
+            stdout_bytes: None,
+            model_count: None,
+        }
+    }
+
+    fn metadata(&self) -> Value {
+        json!({
+            "device": self.device.name(),
+            "category": self.category,
+            "elapsed_ms": self.started.elapsed().as_millis().min(u64::MAX as u128) as u64,
+            "wait_budget_ms": IO_TIMEOUT.as_millis() as u64,
+            "os_error": self.os_error,
+            "exit_code": self.exit_code,
+            "stdout_bytes": self.stdout_bytes,
+            "model_count": self.model_count,
+            "stderr_captured": false
+        })
+    }
+}
+impl Drop for ModelCatalogueDiagnostic {
+    fn drop(&mut self) {
+        // Existing host stderr is the diagnostic sink; the wizard still redacts errors.
+        // A missing/closed diagnostic sink must not change catalogue behavior.
+        let _ = writeln!(std::io::stderr().lock(), "hamlib_catalogue {}", self.metadata());
+    }
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Device {
@@ -296,6 +371,7 @@ fn start_managed(device: Device, params: &Value, generation: u64) -> Result<Sess
         .port();
     let executable = binary_path(device)?;
     let mut command = Command::new(executable);
+    configure_background_process(&mut command);
     command.args([
         "-m",
         &model.to_string(),
@@ -1113,14 +1189,22 @@ fn disconnect_session(session_slot: &mut Option<Session>, device: Device) -> Res
 }
 
 fn models(device: Device) -> Result<Value, String> {
+    let mut diagnostic = ModelCatalogueDiagnostic::new(device);
     let path = binary_path(device)?;
-    let mut child = Command::new(path)
+    let mut command = Command::new(path);
+    configure_background_process(&mut command);
+    diagnostic.category = ModelCatalogueCategory::SpawnFailed;
+    let mut child = command
         .arg("-l")
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()
-        .map_err(|_| "Cannot enumerate bundled Hamlib models")?;
+        .map_err(|error| {
+            diagnostic.os_error = error.raw_os_error();
+            "Cannot enumerate bundled Hamlib models"
+        })?;
+    diagnostic.category = ModelCatalogueCategory::StreamUnavailable;
     let mut output = child
         .stdout
         .take()
@@ -1133,35 +1217,66 @@ fn models(device: Device) -> Result<Value, String> {
         (result, bytes)
     });
     let deadline = Instant::now() + IO_TIMEOUT;
-    loop {
-        if child
-            .try_wait()
-            .map_err(|_| "Cannot inspect Hamlib model process")?
-            .is_some()
-        {
-            break;
+    diagnostic.category = ModelCatalogueCategory::InspectFailed;
+    let status = loop {
+        if let Some(status) = child.try_wait().map_err(|error| {
+            diagnostic.os_error = error.raw_os_error();
+            "Cannot inspect Hamlib model process"
+        })? {
+            break status;
         }
         if Instant::now() >= deadline {
+            diagnostic.category = ModelCatalogueCategory::Timeout;
             let _ = child.kill();
-            let _ = child.wait();
+            if let Ok(status) = child.wait() {
+                diagnostic.exit_code = status.code();
+            }
             return Err("Hamlib model enumeration timed out".into());
         }
         std::thread::sleep(Duration::from_millis(20));
-    }
+    };
+    diagnostic.exit_code = status.code();
+    diagnostic.category = ModelCatalogueCategory::ReaderFailed;
     let (read_result, bytes) = reader.join().map_err(|_| "Hamlib model reader failed")?;
-    read_result.map_err(|_| "Hamlib model listing failed")?;
+    diagnostic.stdout_bytes = Some(bytes.len());
+    diagnostic.category = ModelCatalogueCategory::ReadFailed;
+    read_result.map_err(|error| {
+        diagnostic.os_error = error.raw_os_error();
+        "Hamlib model listing failed"
+    })?;
+    parse_model_output(device, status, bytes, &mut diagnostic)
+}
+
+fn parse_model_output(
+    device: Device,
+    status: ExitStatus,
+    bytes: Vec<u8>,
+    diagnostic: &mut ModelCatalogueDiagnostic,
+) -> Result<Value, String> {
+    diagnostic.exit_code = status.code();
+    diagnostic.stdout_bytes = Some(bytes.len());
+    diagnostic.category = ModelCatalogueCategory::UnsuccessfulExit;
+    if !status.success() {
+        return Err("Bundled Hamlib model enumeration failed".into());
+    }
+    diagnostic.category = ModelCatalogueCategory::OutputLimit;
     if bytes.len() > MAX_MODELS {
         return Err("Hamlib model listing exceeds limit".into());
     }
+    diagnostic.category = ModelCatalogueCategory::InvalidUtf8;
     let text = String::from_utf8(bytes).map_err(|_| "Hamlib model list is not UTF-8")?;
     let entries: Vec<Value> = text.lines().filter_map(parse_model_line).collect();
+    diagnostic.model_count = Some(entries.len());
+    diagnostic.category = ModelCatalogueCategory::NoModels;
     if entries.is_empty() {
         return Err("Bundled Hamlib returned no models".into());
     }
+    diagnostic.category = ModelCatalogueCategory::Success;
     Ok(json!({"device":device.name(),"models":entries}))
 }
 
 fn bounded_helper_output(mut command: Command, limit: usize) -> Result<String, String> {
+    configure_background_process(&mut command);
     let mut child = command
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -2177,6 +2292,71 @@ mod tests {
         assert_eq!(row["model"], "KX3");
         assert_eq!(row["maturity"], "Stable");
     }
+    fn model_test_exit_status(code: i32) -> ExitStatus {
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::ExitStatusExt;
+            ExitStatus::from_raw(code << 8)
+        }
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::ExitStatusExt;
+            ExitStatus::from_raw(code as u32)
+        }
+    }
+
+    #[test]
+    fn model_output_rejects_unsuccessful_exit_even_with_valid_rows() {
+        let bytes = b"  1  PrivateVendor  PrivateModelName  20250515.22  Stable\n".to_vec();
+        for device in [Device::Radio, Device::Rotor] {
+            let mut diagnostic = ModelCatalogueDiagnostic::new(device);
+            let error = parse_model_output(
+                device, model_test_exit_status(7), bytes.clone(), &mut diagnostic,
+            ).unwrap_err();
+            assert_eq!(error, "Bundled Hamlib model enumeration failed");
+            let metadata = diagnostic.metadata();
+            assert_eq!(metadata["category"], "unsuccessful_exit");
+            assert_eq!(metadata["exit_code"], 7);
+            assert_eq!(metadata["stdout_bytes"], bytes.len());
+            assert!(!metadata.to_string().contains("Private"));
+        }
+    }
+
+    #[test]
+    fn model_output_accepts_success_without_logging_catalogue_rows() {
+        let bytes = b"  1  PrivateVendor  PrivateModelName  20250515.22  Stable\n".to_vec();
+        let mut diagnostic = ModelCatalogueDiagnostic::new(Device::Radio);
+        let result = parse_model_output(
+            Device::Radio, model_test_exit_status(0), bytes, &mut diagnostic,
+        ).unwrap();
+        assert_eq!(result["models"][0]["model"], "PrivateModelName");
+        let metadata = diagnostic.metadata();
+        assert_eq!(metadata["category"], "success");
+        assert_eq!(metadata["exit_code"], 0);
+        assert_eq!(metadata["model_count"], 1);
+        assert_eq!(metadata["stderr_captured"], false);
+        assert!(metadata["elapsed_ms"].is_u64());
+        let serialized = metadata.to_string();
+        assert!(!serialized.contains("Private"));
+        assert!(serialized.len() < 512);
+    }
+
+    #[test]
+    fn model_output_rejects_malformed_or_oversized_listing() {
+        for (bytes, category) in [
+            (vec![b' '; MAX_MODELS + 1], ModelCatalogueCategory::OutputLimit),
+            (vec![0xff], ModelCatalogueCategory::InvalidUtf8),
+            (b"model listing header only\n".to_vec(), ModelCatalogueCategory::NoModels),
+        ] {
+            let mut diagnostic = ModelCatalogueDiagnostic::new(Device::Rotor);
+            assert!(parse_model_output(
+                Device::Rotor, model_test_exit_status(0), bytes, &mut diagnostic,
+            ).is_err());
+            assert_eq!(diagnostic.category, category);
+            assert_eq!(diagnostic.exit_code, Some(0));
+        }
+    }
+
     #[test]
     fn external_mode_refuses_non_loopback() {
         assert!(loopback_address(&json!({"host":"8.8.8.8","port":4532})).is_err());
