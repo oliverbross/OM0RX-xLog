@@ -1130,11 +1130,16 @@ public final class LogbookDatabase: @unchecked Sendable {
                         AND qso_start >= ? AND qso_start < ? LIMIT 129;
                         """) { statement in
                         let second = floor(incoming.start.timeIntervalSince1970)
-                        sqlite3_bind_double(statement, 1, second); sqlite3_bind_double(statement, 2, second + 1)
+                        // Second-resolution ADIF/ISO formatting can round a stored
+                        // fractional timestamp into the following second. Include
+                        // the prior numeric second as candidates; the shared planner
+                        // below still authorizes only exact semantic identities.
+                        sqlite3_bind_double(statement, 1, second - 1)
+                        sqlite3_bind_double(statement, 2, second + 1)
                         return try decodeRows(statement)
                     }
                     // Keep identity normalization in the shared planner. Reject
-                    // pathological same-second populations rather than truncate.
+                    // pathological candidate populations rather than truncate.
                     guard matches.count <= 128 else { throw LogbookContactError.invalid }
                     for match in matches { candidates[match.id] = match }
                 }

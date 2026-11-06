@@ -165,6 +165,148 @@ struct ADIFTransferTests {
         }
     }
 
+    @Test("Fractional-second ADIF updates retain typed validation and exact stored timestamps",
+          arguments: [0.0, 0.25, 0.999499, 0.9995, 0.999999, 1.0])
+    func fractionalSecondSelectedUpdates(_ fraction: Double) throws {
+        // Include ordinary, UTC year rollover and pre-Unix-epoch seconds.
+        for base in [1_700_000_000.0, 1_735_689_599.0, -1.0] {
+            try fixture { service, db in
+                let original = QSO(call: "W1AW", start: Date(timeIntervalSince1970: base + fraction),
+                    band: "20m", mode: "CW", name: "Old", dxcc: 291, comment: "Keep")
+                try db.save(original, markDirty: false)
+                let before = try #require(try db.contactSnapshot(localID: original.id))
+                var fields = original.adifRecord.fields
+                fields["DXCC"] = "+291"; fields["NAME"] = "New"
+                let preview = try service.handle(method: "logbook_import_adif",
+                    params: ["action": "preview", "text": ADIFRecord(fields: fields).adifDocument])
+                #expect(preview["inserts"] as? Int == 0 && preview["duplicates"] as? Int == 1)
+                #expect((preview["issues"] as? [[String: Any]])?.isEmpty == true)
+                let command: [String: Any] = ["action": "update", "token": try #require(preview["token"]),
+                    "generation": try #require(preview["generation"]), "chunk": 0,
+                    "fields": ["DXCC", "NAME"], "confirmed": true]
+                #expect(throws: ADIFPlanningError.invalidUpdateValue(field: "DXCC")) {
+                    try service.handle(method: "logbook_import_adif", params: command)
+                }
+                #expect(try db.contactSnapshot(localID: original.id) == before)
+                #expect(try db.pending().isEmpty)
+                let nameOnly = command.merging(["fields": ["NAME"]]) { _, value in value }
+                #expect(try service.handle(method: "logbook_import_adif", params: nameOnly)["updated"] as? Int == 1)
+                let saved = try #require(try db.lookup(localID: original.id))
+                #expect(saved.start == before.qso.start && saved.dxcc == 291)
+                #expect(saved.name == "New" && saved.comment == "Keep")
+                #expect(try db.pending().map(\.id) == [original.id])
+                let revision = try db.contactSnapshot(localID: original.id)?.revision
+                #expect(try service.handle(method: "logbook_import_adif", params: nameOnly)["updated"] as? Int == 1)
+                #expect(try db.contactSnapshot(localID: original.id)?.revision == revision)
+            }
+        }
+    }
+
+    @Test("ADIF candidate neighbors still require exact timestamp and call identity")
+    func fractionalSecondExactMatching() throws {
+        try fixture { service, db in
+            let original = QSO(call: "W1AW", start: Date(timeIntervalSince1970: 1_700_000_000.9996),
+                band: "20m", mode: "CW", name: "Old")
+            let second = try #require(QSO(adif: original.adifRecord)).start.timeIntervalSince1970
+            let neighbors = [
+                QSO(call: "W1AW", start: Date(timeIntervalSince1970: second - 1 + 0.25), band: "20m", mode: "CW", name: "Prior"),
+                QSO(call: "W1AW", start: Date(timeIntervalSince1970: second + 1), band: "20m", mode: "CW", name: "Next"),
+                QSO(call: "K1ABC", start: Date(timeIntervalSince1970: second), band: "20m", mode: "CW", name: "Other call"),
+            ]
+            for qso in [original] + neighbors { try db.save(qso, markDirty: false) }
+            let before = try neighbors.map { try db.contactSnapshot(localID: $0.id) }
+            let command = try reviewedNameUpdate(service, qso: original)
+            #expect(try service.handle(method: "logbook_import_adif", params: command)["updated"] as? Int == 1)
+            #expect(try db.lookup(localID: original.id)?.start == original.start)
+            #expect(try db.lookup(localID: original.id)?.name == "New")
+            #expect(try neighbors.map { try db.contactSnapshot(localID: $0.id) } == before)
+            #expect(try db.pending().map(\.id) == [original.id])
+        }
+    }
+
+    @Test("ADIF apply rejects a new duplicate whose fractional time formats into the reviewed second")
+    func fractionalSecondNewDuplicate() throws {
+        try fixture { service, db in
+            let duplicate = QSO(call: "W1AW", start: Date(timeIntervalSince1970: 1_700_000_000.9996),
+                band: "20m", mode: "CW", name: "New duplicate")
+            let original = QSO(call: "W1AW", start: try #require(QSO(adif: duplicate.adifRecord)).start,
+                band: "20m", mode: "CW", name: "Old")
+            try db.save(original, markDirty: false)
+            let command = try reviewedNameUpdate(service, qso: original)
+            try db.save(duplicate, markDirty: false)
+            let before = try [original, duplicate].map { try db.contactSnapshot(localID: $0.id) }
+            #expect(throws: ADIFPlanningError.ambiguousDuplicate(recordNumber: 1)) {
+                try service.handle(method: "logbook_import_adif", params: command)
+            }
+            #expect(try [original, duplicate].map { try db.contactSnapshot(localID: $0.id) } == before)
+            #expect(try db.pending().isEmpty)
+        }
+    }
+
+    @Test("Fractional-second targets retain revision fences including selected no-ops",
+          arguments: [false, true])
+    func fractionalSecondStaleTargets(_ noOp: Bool) throws {
+        try fixture { service, db in
+            var original = QSO(call: "W1AW", start: Date(timeIntervalSince1970: 1_700_000_000.9996),
+                band: "20m", mode: "CW", name: "Old")
+            try db.save(original, markDirty: false)
+            let command = try reviewedNameUpdate(service, qso: original, name: noOp ? "Old" : "New")
+            original.comment = "Concurrent edit"
+            try db.save(original, markDirty: false)
+            let current = try db.contactSnapshot(localID: original.id)
+            do {
+                _ = try service.handle(method: "logbook_import_adif", params: command)
+                Issue.record("Expected the reviewed target revision to conflict")
+            } catch LogbookContactError.conflict(let snapshot) {
+                #expect(snapshot == current)
+            }
+            #expect(try db.contactSnapshot(localID: original.id) == current)
+            #expect(try db.pending().isEmpty)
+        }
+    }
+
+    @Test("ADIF candidate lookup retains its conservative 128-contact bound",
+          arguments: [127, 128])
+    func fractionalSecondCandidateBound(_ adjacentCount: Int) throws {
+        try fixture { service, db in
+            let second = 1_700_000_001.0
+            let original = QSO(call: "W1AW", start: Date(timeIntervalSince1970: second),
+                band: "20m", mode: "CW", name: "Old")
+            try db.save(original, markDirty: false)
+            for index in 0..<adjacentCount {
+                try db.save(QSO(call: "K\(index)ABC", start: Date(timeIntervalSince1970: second - 0.75),
+                    band: "20m", mode: "CW"), markDirty: false)
+            }
+            let command = try reviewedNameUpdate(service, qso: original)
+            let before = try db.contactSnapshot(localID: original.id)
+            if adjacentCount == 127 {
+                #expect(try service.handle(method: "logbook_import_adif", params: command)["updated"] as? Int == 1)
+                #expect(try db.lookup(localID: original.id)?.name == "New")
+                #expect(try db.pending().map(\.id) == [original.id])
+            } else {
+                do {
+                    _ = try service.handle(method: "logbook_import_adif", params: command)
+                    Issue.record("Expected the bounded candidate lookup to reject 129 contacts")
+                } catch LogbookContactError.invalid {}
+                #expect(try db.contactSnapshot(localID: original.id) == before)
+                #expect(try db.pending().isEmpty)
+            }
+            #expect(try db.fetchAll().filter { $0.id != original.id }.allSatisfy { $0.name.isEmpty && !$0.isDirty })
+        }
+    }
+
+    private func reviewedNameUpdate(_ service: LiveLogbookMethods, qso: QSO,
+                                    name: String = "New") throws -> [String: Any] {
+        var fields = qso.adifRecord.fields; fields["NAME"] = name
+        let preview = try service.handle(method: "logbook_import_adif",
+            params: ["action": "preview", "text": ADIFRecord(fields: fields).adifDocument])
+        #expect(preview["inserts"] as? Int == 0 && preview["duplicates"] as? Int == 1)
+        #expect((preview["issues"] as? [[String: Any]])?.isEmpty == true)
+        return ["action": "update", "token": try #require(preview["token"]),
+            "generation": try #require(preview["generation"]), "chunk": 0,
+            "fields": ["NAME"], "confirmed": true]
+    }
+
     private func fixture(_ body: (LiveLogbookMethods, LogbookDatabase) throws -> Void) throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("xlog-adif-transfer-" + UUID().uuidString)
         let service = LiveLogbookMethods(supportDirectory: root, inheritNativePreferences: false)
