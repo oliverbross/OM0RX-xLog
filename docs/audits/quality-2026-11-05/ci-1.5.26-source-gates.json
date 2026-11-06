@@ -1,0 +1,4103 @@
+{
+  "schema": 1,
+  "capturedAtUTC": "2026-11-06T23:56:01.863050+00:00",
+  "candidateVersion": "1.5.26",
+  "sourceCommit": "8acc236c32fb31d58c86c4d673e0ed57fe76fdad",
+  "sourceTree": "7c4b2a4d43c6aebf51048d8d80b3c6cc44ee35a3",
+  "sourceParent": "1bb37c93098963149c3482f047a94d1b5aae0022",
+  "scope": "Automatic exact-source push gates. Source tests/build evidence only. No package, desktop, installed application, daily-data, Windows VM or physical radio acceptance is inferred.",
+  "countMethod": "Counts are retained per framework and exact full-run log step label. Separate filtered invocations and duplicate suite summaries are not added into a unique-test total. Skipped tests and skipped jobs remain skipped.",
+  "historicalDisposition": "Earlier failed evidence remains historical; success on this corrected source does not erase prior failure or qualify an earlier candidate.",
+  "releaseDisposition": "HELD; quality phase remains OPEN pending remaining candidate acceptance.",
+  "gates": [
+    {
+      "name": "CI",
+      "runID": 42310555102,
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42310555102",
+      "event": "push",
+      "conclusion": "success",
+      "createdAt": "2026-11-06T23:14:43Z",
+      "jobs": [
+        {
+          "id": 128210757237,
+          "name": "test-and-build",
+          "conclusion": "success",
+          "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42310555102/job/128210757237",
+          "skippedSteps": [],
+          "failedSteps": [],
+          "retainedLog": {
+            "file": "job128210757237.log",
+            "bytes": 279502,
+            "sha256": "d7e78eae11f87df65cd4914068e0c56f638fc8b440540f531b6c9f875bbc5d7f"
+          }
+        }
+      ],
+      "fullLog": {
+        "file": "run42310555102.log",
+        "bytes": 327675,
+        "sha256": "c925b69a1298753bb55a6bc3b25fdf9f3eec868b5ad4be614470054072c3b6b5"
+      },
+      "runReceipt": {
+        "file": "final-run42310555102.json",
+        "bytes": 2785,
+        "sha256": "07612e6ca38b4a9262e8a3edd28d866cc6cfcad0e379e911c52954d24a3db490"
+      },
+      "artifacts": {
+        "schema": 1,
+        "sourceCommit": "8acc236c32fb31d58c86c4d673e0ed57fe76fdad",
+        "runID": 42310555102,
+        "metadataSHA256": "244563f989470892c537c9a4622920af0d228ee4528f7d00c64a06d6cd95856c",
+        "artifactCount": 0,
+        "artifacts": [],
+        "scope": "Archived source-gate artifacts only; no execution, package acceptance or runtime qualification inferred."
+      },
+      "testSummaries": [
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 356,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 371,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 380,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 385,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 402,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 409,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 428,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 443,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 454,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 471,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 502,
+          "summary": "Executed 14 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 511,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 526,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 541,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 548,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 555,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 578,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 601,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 636,
+          "summary": "Executed 16 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 667,
+          "summary": "Executed 14 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 680,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 685,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 706,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 719,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 730,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 751,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 762,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 779,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 800,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 813,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 826,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 851,
+          "summary": "Executed 11 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 864,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 879,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 898,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 905,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 920,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 931,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 948,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 955,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 974,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 983,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 1002,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 1023,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 1094,
+          "summary": "Executed 34 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 1107,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 1120,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 1137,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 1144,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 1165,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 1167,
+          "summary": "Executed 336 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 1169,
+          "summary": "Executed 336 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "test-and-build",
+          "step": "Test",
+          "logLine": 2204,
+          "summary": "Test run with 402 tests passed"
+        }
+      ]
+    },
+    {
+      "name": "Full Mac source/build",
+      "runID": 42310555428,
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42310555428",
+      "event": "push",
+      "conclusion": "success",
+      "createdAt": "2026-11-06T23:14:43Z",
+      "jobs": [
+        {
+          "id": 128210630309,
+          "name": "prototype (macos-15)",
+          "conclusion": "success",
+          "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42310555428/job/128210630309",
+          "skippedSteps": [
+            "Enable Windows checkout long paths",
+            "Linux build dependencies",
+            "Swift toolchain (Linux)",
+            "Swift toolchain (Windows)",
+            "Windows SQLite",
+            "Actual Linux QA process lifecycle regressions",
+            "Parse Windows installer scripts and validate scope policy",
+            "Linux C vault in a private Secret Service session",
+            "Compile portable native test fixtures early (Windows)",
+            "Test portable Swift core (Windows)",
+            "Linux credential vault in a private Secret Service session",
+            "Build Swift worker (Windows)",
+            "Build pinned Hamlib radio and rotor helpers (Linux integration)",
+            "Stage pinned Hamlib radio and rotor helpers (Windows integration)",
+            "Test worker process framing (Windows)",
+            "Bundled Hamlib dummy protocol and lifecycle tests (Windows)",
+            "Package macOS application",
+            "Upload macOS package",
+            "Package Linux runtime and Debian application",
+            "Package Windows portable runtime",
+            "Package current-user and all-users EXE installers from one audited runtime",
+            "Upload Linux runtime packages",
+            "Upload Windows runtime package",
+            "Upload portable Swift pin verification receipts"
+          ],
+          "failedSteps": [],
+          "retainedLog": {
+            "file": "job128210630309.log",
+            "bytes": 2622035,
+            "sha256": "cefc29591e7b8be50597cd2bca47144027eaf37ea9fb6b3b07fa3e7b94e82fe7"
+          }
+        },
+        {
+          "id": 128225173420,
+          "name": "Linux runtime-only container acceptance",
+          "conclusion": "skipped",
+          "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42310555428/job/128225173420",
+          "skippedSteps": [],
+          "failedSteps": []
+        },
+        {
+          "id": 128225174023,
+          "name": "Windows fresh-runner runtime acceptance (${{ matrix.installer_scope }})",
+          "conclusion": "skipped",
+          "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42310555428/job/128225174023",
+          "skippedSteps": [],
+          "failedSteps": []
+        }
+      ],
+      "fullLog": {
+        "file": "run42310555428.log",
+        "bytes": 3950769,
+        "sha256": "227ced2b6452ed823e917d4963c965da71f09548784edb6a7766904ec42bfe7a"
+      },
+      "runReceipt": {
+        "file": "final-run42310555428.json",
+        "bytes": 15456,
+        "sha256": "8d2dc6e39f845f1e96000464e9e9c881ab354cdc054f5c9e2bf977d79b96794f"
+      },
+      "artifacts": {
+        "schema": 1,
+        "sourceCommit": "8acc236c32fb31d58c86c4d673e0ed57fe76fdad",
+        "runID": 42310555428,
+        "metadataSHA256": "ce672d340dec79c65520eb145c91ffc24e4775e66483886a389ecad6127a19b5",
+        "artifactCount": 1,
+        "artifacts": [
+          {
+            "artifactID": 13549554798,
+            "name": "xlog-prototype-macos-15-8acc236c32fb31d58c86c4d673e0ed57fe76fdad",
+            "sourceCommit": "8acc236c32fb31d58c86c4d673e0ed57fe76fdad",
+            "runID": 42310555428,
+            "archiveBytes": 27954558,
+            "archiveSHA256": "3ecd54d02eb4478e6af568bd6cb52500edbddd53cc2bebcaeeb4ff812956c568",
+            "extracted": false,
+            "executed": false,
+            "entryCount": 4
+          }
+        ],
+        "scope": "Archived source-gate artifacts only; no execution, package acceptance or runtime qualification inferred."
+      },
+      "testSummaries": [
+        {
+          "job": "prototype (macos-15)",
+          "step": "Release payload guard tests",
+          "logLine": 333,
+          "summary": "Ran 16 tests in 15.875s"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Release payload guard tests",
+          "logLine": 338,
+          "summary": "Ran 5 tests in 0.012s"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Release payload guard tests",
+          "logLine": 536,
+          "summary": "Ran 4 tests in 0.336s"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Release payload guard tests",
+          "logLine": 541,
+          "summary": "Ran 5 tests in 0.006s"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Release payload guard tests",
+          "logLine": 551,
+          "summary": "Ran 12 tests in 0.027s"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test atomic pinned contest catalog initialization",
+          "logLine": 571,
+          "summary": "Ran 3 tests in 0.088s"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Frontend tests and build",
+          "logLine": 11130,
+          "summary": "Test Files  387 passed (387)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Frontend tests and build",
+          "logLine": 11131,
+          "summary": "Tests  5278 passed (5278)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test FLEX IQ loopback fixture (Mac)",
+          "logLine": 11531,
+          "summary": "Executed 24 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test FLEX IQ loopback fixture (Mac)",
+          "logLine": 11533,
+          "summary": "Executed 24 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test FLEX IQ loopback fixture (Mac)",
+          "logLine": 11535,
+          "summary": "Executed 24 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test FLEX IQ loopback fixture (Mac)",
+          "logLine": 11558,
+          "summary": "Test run with 0 tests passed"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 11598,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 11607,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 11646,
+          "summary": "Executed 18 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 11667,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 11710,
+          "summary": "Executed 20 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 11725,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 11731,
+          "summary": "Executed 1 test, with 1 test skipped and 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 11756,
+          "summary": "Executed 11 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 11769,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 11782,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 11787,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 11794,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 11805,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 11816,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 11823,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 11834,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 11843,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 11914,
+          "summary": "Executed 34 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 11920,
+          "summary": "Executed 1 test, with 1 test skipped and 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 11939,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 11952,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 11959,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 11976,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 11993,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12008,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12031,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12036,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12057,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12078,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12119,
+          "summary": "Executed 19 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12134,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12151,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12174,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12185,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12202,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12209,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12228,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12233,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12244,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12259,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12270,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12287,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12292,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12323,
+          "summary": "Executed 14 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12352,
+          "summary": "Executed 13 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12361,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12368,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12383,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12398,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12405,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12412,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12433,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12456,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12471,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12494,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12529,
+          "summary": "Executed 16 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12560,
+          "summary": "Executed 14 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12573,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12586,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12591,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12596,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12617,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12630,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12641,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12662,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12673,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12700,
+          "summary": "Executed 12 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12721,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12738,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12747,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12768,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12777,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12790,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12803,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12828,
+          "summary": "Executed 11 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12833,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12848,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12861,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12874,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12889,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12908,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12915,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12930,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12936,
+          "summary": "Executed 1 test, with 1 test skipped and 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12947,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12964,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12971,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 12990,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13004,
+          "summary": "Executed 5 tests, with 1 test skipped and 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13015,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13024,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13043,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13064,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13071,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13142,
+          "summary": "Executed 34 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13155,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13168,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13185,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13236,
+          "summary": "Executed 24 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13259,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13276,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13289,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13308,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13323,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13334,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13344,
+          "summary": "Executed 3 tests, with 1 test skipped and 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13359,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13410,
+          "summary": "Executed 24 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13439,
+          "summary": "Executed 13 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13446,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13459,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13478,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13493,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13500,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13547,
+          "summary": "Executed 22 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13614,
+          "summary": "Executed 32 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13659,
+          "summary": "Executed 21 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13678,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13759,
+          "summary": "Executed 39 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13780,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13845,
+          "summary": "Executed 31 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13860,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13903,
+          "summary": "Executed 20 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13926,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13941,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13964,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 13991,
+          "summary": "Executed 12 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14010,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14037,
+          "summary": "Executed 12 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14047,
+          "summary": "Executed 3 tests, with 1 test skipped and 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14077,
+          "summary": "Executed 13 tests, with 1 test skipped and 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14084,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14093,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14104,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14111,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14124,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14129,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14170,
+          "summary": "Executed 19 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14175,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14212,
+          "summary": "Executed 17 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14225,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14234,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14243,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14249,
+          "summary": "Executed 1 test, with 1 test skipped and 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14267,
+          "summary": "Executed 7 tests, with 1 test skipped and 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14288,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14303,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14340,
+          "summary": "Executed 17 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14359,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14370,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14395,
+          "summary": "Executed 11 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14412,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14419,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14444,
+          "summary": "Executed 11 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14463,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14656,
+          "summary": "Executed 95 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14775,
+          "summary": "Executed 58 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14796,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14819,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14840,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14889,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14904,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14913,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14930,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14932,
+          "summary": "Executed 1405 tests, with 9 tests skipped and 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 14934,
+          "summary": "Executed 1405 tests, with 9 tests skipped and 0 failures (0 unexpected)"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Test complete portable Swift core (Unix)",
+          "logLine": 16655,
+          "summary": "Test run with 633 tests passed"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Shell contract tests",
+          "logLine": 19254,
+          "summary": "test result: ok. 1120 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Shell contract tests",
+          "logLine": 19300,
+          "summary": "test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"
+        },
+        {
+          "job": "prototype (macos-15)",
+          "step": "Bundled Hamlib dummy protocol and lifecycle tests",
+          "logLine": 19724,
+          "summary": "test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"
+        }
+      ]
+    },
+    {
+      "name": "Contest portability",
+      "runID": 42310555305,
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42310555305",
+      "event": "push",
+      "conclusion": "success",
+      "createdAt": "2026-11-06T23:14:43Z",
+      "jobs": [
+        {
+          "id": 128210628405,
+          "name": "Contest native tests (windows-2022)",
+          "conclusion": "success",
+          "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42310555305/job/128210628405",
+          "skippedSteps": [
+            "Linux Tauri compile dependencies",
+            "Discover and run bounded native contest tests"
+          ],
+          "failedSteps": [],
+          "retainedLog": {
+            "file": "job128210628405.log",
+            "bytes": 292466,
+            "sha256": "9c74eaff2f721fe83861f3afed45faf62bfe4a1b79350d5bdf1c11b89d1daaa6"
+          }
+        },
+        {
+          "id": 128210628693,
+          "name": "Contest tests (macos-15)",
+          "conclusion": "success",
+          "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42310555305/job/128210628693",
+          "skippedSteps": [
+            "Enable Windows checkout long paths",
+            "Linux SQLite dependency",
+            "Swift toolchain (Linux)",
+            "Swift toolchain (Windows)",
+            "Windows SQLite dependency",
+            "Verify contest test discovery (Windows)",
+            "Test portable CW primitives and cluster admission (Windows)",
+            "Test contest core, store, and export support (Windows)",
+            "Test Windows ConnectionDoctor boolean fallback",
+            "Test Windows remote backup revision validation"
+          ],
+          "failedSteps": [],
+          "retainedLog": {
+            "file": "job128210628693.log",
+            "bytes": 1613139,
+            "sha256": "10c6c8187204a87840460b3fbce695025cc8b5879d52e1daa76b23b40fd820eb"
+          }
+        },
+        {
+          "id": 128210628716,
+          "name": "Contest tests (ubuntu-24.04)",
+          "conclusion": "success",
+          "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42310555305/job/128210628716",
+          "skippedSteps": [
+            "Enable Windows checkout long paths",
+            "Select macOS Swift toolchain",
+            "Swift toolchain (Windows)",
+            "Windows SQLite dependency",
+            "Verify non-macOS pure IQ source slice on macOS",
+            "Verify contest test discovery (Windows)",
+            "Test portable CW primitives and cluster admission (Windows)",
+            "Test contest core, store, and export support (Windows)",
+            "Test Windows ConnectionDoctor boolean fallback",
+            "Test Windows remote backup revision validation"
+          ],
+          "failedSteps": [],
+          "retainedLog": {
+            "file": "job128210628716.log",
+            "bytes": 874349,
+            "sha256": "556041e17a792c50ec4d6fd0c40990ad6902b706535cfc29d356c8b3bc150bb6"
+          }
+        },
+        {
+          "id": 128210628720,
+          "name": "Contest definition generator",
+          "conclusion": "success",
+          "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42310555305/job/128210628720",
+          "skippedSteps": [],
+          "failedSteps": [],
+          "retainedLog": {
+            "file": "job128210628720.log",
+            "bytes": 38957,
+            "sha256": "f3e518b7e04319f557454c2d42c65807ec3483db0450d615c44f471c802b45c0"
+          }
+        },
+        {
+          "id": 128210628793,
+          "name": "Contest tests (windows-2022)",
+          "conclusion": "success",
+          "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42310555305/job/128210628793",
+          "skippedSteps": [
+            "Select macOS Swift toolchain",
+            "Linux SQLite dependency",
+            "Swift toolchain (Linux)",
+            "Verify non-macOS pure IQ source slice on macOS",
+            "Verify contest test discovery (macOS and Linux)",
+            "Test portable CW primitives and cluster admission (macOS and Linux)",
+            "Test contest core, store, and export support (macOS and Linux)"
+          ],
+          "failedSteps": [],
+          "retainedLog": {
+            "file": "job128210628793.log",
+            "bytes": 1321675,
+            "sha256": "31593f27952b71fc5e5b697c08372aae689405f31ea185ab2c64650eccb29b5d"
+          }
+        },
+        {
+          "id": 128210628830,
+          "name": "Contest native tests (macos-15)",
+          "conclusion": "success",
+          "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42310555305/job/128210628830",
+          "skippedSteps": [
+            "Enable Windows checkout long paths",
+            "Linux Tauri compile dependencies",
+            "Discover and run bounded native contest tests (Windows)"
+          ],
+          "failedSteps": [],
+          "retainedLog": {
+            "file": "job128210628830.log",
+            "bytes": 227359,
+            "sha256": "ce5912c3d4345f52c0cf86d7fd644762fd893e3701c3de697e157101dd1fc2e1"
+          }
+        },
+        {
+          "id": 128210628989,
+          "name": "Contest native tests (ubuntu-24.04)",
+          "conclusion": "success",
+          "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42310555305/job/128210628989",
+          "skippedSteps": [
+            "Enable Windows checkout long paths",
+            "Discover and run bounded native contest tests (Windows)"
+          ],
+          "failedSteps": [],
+          "retainedLog": {
+            "file": "job128210628989.log",
+            "bytes": 386732,
+            "sha256": "831d722f8f57b6064430af17df9896820e13d1f3ddcacc79c3aaee27bcaa4bc8"
+          }
+        }
+      ],
+      "fullLog": {
+        "file": "run42310555305.log",
+        "bytes": 8388444,
+        "sha256": "5806ba17b8d1ccde889291f0605ced0f22a0403e843ace4d1922edf16e9b0357"
+      },
+      "runReceipt": {
+        "file": "final-run42310555305.json",
+        "bytes": 30975,
+        "sha256": "44ae5cf259bfe51672f5650c0564a9392b14a881114abd2f2c0535996cecbbe2"
+      },
+      "artifacts": {
+        "schema": 1,
+        "sourceCommit": "8acc236c32fb31d58c86c4d673e0ed57fe76fdad",
+        "runID": 42310555305,
+        "metadataSHA256": "244563f989470892c537c9a4622920af0d228ee4528f7d00c64a06d6cd95856c",
+        "artifactCount": 0,
+        "artifacts": [],
+        "scope": "Archived source-gate artifacts only; no execution, package acceptance or runtime qualification inferred."
+      },
+      "testSummaries": [
+        {
+          "job": "Contest native tests (windows-2022)",
+          "step": "Discover and run bounded native contest tests (Windows)",
+          "logLine": 1215,
+          "summary": "test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 1087 filtered out"
+        },
+        {
+          "job": "Contest native tests (windows-2022)",
+          "step": "Discover and run bounded native contest tests (Windows)",
+          "logLine": 1624,
+          "summary": "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 1104 filtered out"
+        },
+        {
+          "job": "Contest native tests (windows-2022)",
+          "step": "Discover and run bounded native contest tests (Windows)",
+          "logLine": 2021,
+          "summary": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1110 filtered out"
+        },
+        {
+          "job": "Contest native tests (windows-2022)",
+          "step": "Discover and run bounded native contest tests (Windows)",
+          "logLine": 2448,
+          "summary": "test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 1095 filtered out"
+        },
+        {
+          "job": "Contest native tests (windows-2022)",
+          "step": "Discover and run bounded native contest tests (Windows)",
+          "logLine": 2859,
+          "summary": "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1103 filtered out"
+        },
+        {
+          "job": "Contest native tests (windows-2022)",
+          "step": "Discover and run bounded native contest tests (Windows)",
+          "logLine": 3266,
+          "summary": "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 1105 filtered out"
+        },
+        {
+          "job": "Contest native tests (windows-2022)",
+          "step": "Discover and run bounded native contest tests (Windows)",
+          "logLine": 3675,
+          "summary": "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 1104 filtered out"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Verify non-macOS pure IQ source slice on macOS",
+          "logLine": 3927,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Verify non-macOS pure IQ source slice on macOS",
+          "logLine": 3937,
+          "summary": "Executed 3 tests, with 1 test skipped and 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Verify non-macOS pure IQ source slice on macOS",
+          "logLine": 3952,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Verify non-macOS pure IQ source slice on macOS",
+          "logLine": 3954,
+          "summary": "Executed 17 tests, with 1 test skipped and 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Verify non-macOS pure IQ source slice on macOS",
+          "logLine": 3956,
+          "summary": "Executed 17 tests, with 1 test skipped and 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Verify non-macOS pure IQ source slice on macOS",
+          "logLine": 3959,
+          "summary": "Test run with 0 tests passed"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test portable CW primitives and cluster admission (macOS and Linux)",
+          "logLine": 15663,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test portable CW primitives and cluster admission (macOS and Linux)",
+          "logLine": 15665,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test portable CW primitives and cluster admission (macOS and Linux)",
+          "logLine": 15667,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test portable CW primitives and cluster admission (macOS and Linux)",
+          "logLine": 15670,
+          "summary": "Test run with 0 tests passed"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test portable CW primitives and cluster admission (macOS and Linux)",
+          "logLine": 15674,
+          "summary": "Executed 0 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test portable CW primitives and cluster admission (macOS and Linux)",
+          "logLine": 15676,
+          "summary": "Executed 0 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test portable CW primitives and cluster admission (macOS and Linux)",
+          "logLine": 15683,
+          "summary": "Test run with 1 test passed"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 15737,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 15756,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 15771,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 15788,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 15819,
+          "summary": "Executed 14 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 15828,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 15843,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 15858,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 15865,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 15888,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 15911,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 15946,
+          "summary": "Executed 16 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 15959,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 15964,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 15985,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 15998,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16019,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16030,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16047,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16068,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16081,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16106,
+          "summary": "Executed 11 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16119,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16138,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16153,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16164,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16181,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16200,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16219,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16240,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16253,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16270,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16272,
+          "summary": "Executed 227 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16274,
+          "summary": "Executed 227 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16297,
+          "summary": "Test run with 8 tests passed"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16309,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16320,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16327,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16358,
+          "summary": "Executed 14 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16369,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16382,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16397,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16404,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16411,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16420,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16491,
+          "summary": "Executed 34 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16504,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16506,
+          "summary": "Executed 83 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16508,
+          "summary": "Executed 83 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16511,
+          "summary": "Test run with 0 tests passed"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16539,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16541,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16543,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16546,
+          "summary": "Test run with 0 tests passed"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16564,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16566,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16568,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16571,
+          "summary": "Test run with 0 tests passed"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16587,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16589,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16591,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16594,
+          "summary": "Test run with 0 tests passed"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16608,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16610,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16612,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16615,
+          "summary": "Test run with 0 tests passed"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16631,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16633,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16635,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16638,
+          "summary": "Test run with 0 tests passed"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16648,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16650,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16652,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16655,
+          "summary": "Test run with 0 tests passed"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16665,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16667,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16669,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16672,
+          "summary": "Test run with 0 tests passed"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16698,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16700,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16702,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16705,
+          "summary": "Test run with 0 tests passed"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16715,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16717,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16719,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16722,
+          "summary": "Test run with 0 tests passed"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16740,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16742,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16744,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16747,
+          "summary": "Test run with 0 tests passed"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16779,
+          "summary": "Executed 12 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16781,
+          "summary": "Executed 12 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16783,
+          "summary": "Executed 12 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16786,
+          "summary": "Test run with 0 tests passed"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16800,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16802,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16804,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16807,
+          "summary": "Test run with 0 tests passed"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16863,
+          "summary": "Executed 24 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16865,
+          "summary": "Executed 24 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16867,
+          "summary": "Executed 24 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16870,
+          "summary": "Test run with 0 tests passed"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16904,
+          "summary": "Executed 13 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16906,
+          "summary": "Executed 13 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16908,
+          "summary": "Executed 13 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16911,
+          "summary": "Test run with 0 tests passed"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16927,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16929,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16931,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16934,
+          "summary": "Test run with 0 tests passed"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16960,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16962,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16964,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16967,
+          "summary": "Test run with 0 tests passed"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16987,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16989,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16991,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 16994,
+          "summary": "Test run with 0 tests passed"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 17014,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 17016,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 17018,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 17021,
+          "summary": "Test run with 0 tests passed"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 17028,
+          "summary": "Executed 0 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 17030,
+          "summary": "Executed 0 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 17061,
+          "summary": "Test run with 13 tests passed"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 17068,
+          "summary": "Executed 0 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 17070,
+          "summary": "Executed 0 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 17089,
+          "summary": "Test run with 7 tests passed"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 17117,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 17119,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 17121,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 17124,
+          "summary": "Test run with 0 tests passed"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test portable CW primitives and cluster admission (macOS and Linux)",
+          "logLine": 23245,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test portable CW primitives and cluster admission (macOS and Linux)",
+          "logLine": 23247,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test portable CW primitives and cluster admission (macOS and Linux)",
+          "logLine": 23251,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test portable CW primitives and cluster admission (macOS and Linux)",
+          "logLine": 23254,
+          "summary": "Executed 0 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test portable CW primitives and cluster admission (macOS and Linux)",
+          "logLine": 23262,
+          "summary": "Test run with 1 test in 1 suite passed"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23325,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23344,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23359,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23376,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23407,
+          "summary": "Executed 14 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23416,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23431,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23446,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23453,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23476,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23499,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23534,
+          "summary": "Executed 16 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23547,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23552,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23573,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23586,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23607,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23618,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23635,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23656,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23669,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23694,
+          "summary": "Executed 11 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23707,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23726,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23741,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23752,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23769,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23788,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23807,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23828,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23841,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23858,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23860,
+          "summary": "Executed 227 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23884,
+          "summary": "Test run with 8 tests in 2 suites passed"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23895,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23906,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23913,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23944,
+          "summary": "Executed 14 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23955,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23968,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23983,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23990,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 23997,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24006,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24077,
+          "summary": "Executed 34 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24090,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24092,
+          "summary": "Executed 83 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24096,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24123,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24125,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24129,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24146,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24148,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24152,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24167,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24169,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24173,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24186,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24188,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24192,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24207,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24209,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24213,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24222,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24224,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24228,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24237,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24239,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24243,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24268,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24270,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24274,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24283,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24285,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24289,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24306,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24308,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24312,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24343,
+          "summary": "Executed 12 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24345,
+          "summary": "Executed 12 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24349,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24362,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24364,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24368,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24423,
+          "summary": "Executed 24 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24425,
+          "summary": "Executed 24 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24429,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24462,
+          "summary": "Executed 13 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24464,
+          "summary": "Executed 13 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24468,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24483,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24485,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24489,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24514,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24516,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24520,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24539,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24541,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24545,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24558,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24560,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24564,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24570,
+          "summary": "Executed 0 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24602,
+          "summary": "Test run with 13 tests in 1 suite passed"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24608,
+          "summary": "Executed 0 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (macOS and Linux)",
+          "logLine": 24628,
+          "summary": "Test run with 7 tests in 1 suite passed"
+        },
+        {
+          "job": "Contest definition generator",
+          "step": "Test contest definition generator",
+          "logLine": 24968,
+          "summary": "Ran 42 tests in 6.890s"
+        },
+        {
+          "job": "Contest definition generator",
+          "step": "Test reviewed Rust dependency policy",
+          "logLine": 25023,
+          "summary": "Ran 7 tests in 0.001s"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test portable CW primitives and cluster admission (Windows)",
+          "logLine": 36845,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test portable CW primitives and cluster admission (Windows)",
+          "logLine": 36849,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test portable CW primitives and cluster admission (Windows)",
+          "logLine": 36857,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test portable CW primitives and cluster admission (Windows)",
+          "logLine": 36863,
+          "summary": "Executed 0 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test portable CW primitives and cluster admission (Windows)",
+          "logLine": 36879,
+          "summary": "Test run with 1 test in 1 suite passed"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37094,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37132,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37162,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37196,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37258,
+          "summary": "Executed 14 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37276,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37306,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37336,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37350,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37396,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37442,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37512,
+          "summary": "Executed 16 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37538,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37548,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37590,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37616,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37658,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37680,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37714,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37756,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37782,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37832,
+          "summary": "Executed 11 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37858,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37896,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37926,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37948,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 37982,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38020,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38058,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38100,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38126,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38160,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38164,
+          "summary": "Executed 227 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38212,
+          "summary": "Test run with 8 tests in 2 suites passed"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38231,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38253,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38267,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38349,
+          "summary": "Executed 19 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38371,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38397,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38427,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38441,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38455,
+          "summary": "Executed 2 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38473,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38615,
+          "summary": "Executed 34 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38641,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38645,
+          "summary": "Executed 88 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38653,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38704,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38708,
+          "summary": "Executed 10 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38716,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38747,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38751,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38759,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38786,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38790,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38798,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38821,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38825,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38833,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38860,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38864,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38872,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38887,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38891,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38899,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38914,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38918,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38926,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38973,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38977,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 38985,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39000,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39004,
+          "summary": "Executed 1 test, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39012,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39043,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39047,
+          "summary": "Executed 5 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39055,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39114,
+          "summary": "Executed 12 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39118,
+          "summary": "Executed 12 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39126,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39149,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39153,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39161,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39268,
+          "summary": "Executed 24 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39272,
+          "summary": "Executed 24 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39280,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39343,
+          "summary": "Executed 13 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39347,
+          "summary": "Executed 13 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39355,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39382,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39386,
+          "summary": "Executed 4 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39394,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39441,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39445,
+          "summary": "Executed 9 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39453,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39488,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39492,
+          "summary": "Executed 6 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39500,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39523,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39527,
+          "summary": "Executed 3 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39535,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39544,
+          "summary": "Executed 0 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39608,
+          "summary": "Test run with 13 tests in 1 suite passed"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39617,
+          "summary": "Executed 0 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (Windows)",
+          "logLine": 39657,
+          "summary": "Test run with 7 tests in 1 suite passed"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test Windows ConnectionDoctor boolean fallback",
+          "logLine": 39866,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test Windows ConnectionDoctor boolean fallback",
+          "logLine": 39870,
+          "summary": "Executed 7 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test Windows ConnectionDoctor boolean fallback",
+          "logLine": 39878,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test Windows remote backup revision validation",
+          "logLine": 40091,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test Windows remote backup revision validation",
+          "logLine": 40095,
+          "summary": "Executed 8 tests, with 0 failures (0 unexpected)"
+        },
+        {
+          "job": "Contest tests (windows-2022)",
+          "step": "Test Windows remote backup revision validation",
+          "logLine": 40103,
+          "summary": "Test run with 0 tests in 0 suites passed"
+        },
+        {
+          "job": "Contest native tests (macos-15)",
+          "step": "Discover and run bounded native contest tests",
+          "logLine": 42229,
+          "summary": "test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 1103 filtered out"
+        },
+        {
+          "job": "Contest native tests (macos-15)",
+          "step": "Discover and run bounded native contest tests",
+          "logLine": 42388,
+          "summary": "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 1120 filtered out"
+        },
+        {
+          "job": "Contest native tests (macos-15)",
+          "step": "Discover and run bounded native contest tests",
+          "logLine": 42541,
+          "summary": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1126 filtered out"
+        },
+        {
+          "job": "Contest native tests (macos-15)",
+          "step": "Discover and run bounded native contest tests",
+          "logLine": 42709,
+          "summary": "test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 1111 filtered out"
+        },
+        {
+          "job": "Contest native tests (macos-15)",
+          "step": "Discover and run bounded native contest tests",
+          "logLine": 42868,
+          "summary": "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 1120 filtered out"
+        },
+        {
+          "job": "Contest native tests (macos-15)",
+          "step": "Discover and run bounded native contest tests",
+          "logLine": 43026,
+          "summary": "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 1121 filtered out"
+        },
+        {
+          "job": "Contest native tests (macos-15)",
+          "step": "Discover and run bounded native contest tests",
+          "logLine": 43185,
+          "summary": "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 1120 filtered out"
+        },
+        {
+          "job": "Contest native tests (ubuntu-24.04)",
+          "step": "Discover and run bounded native contest tests",
+          "logLine": 46914,
+          "summary": "test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 1100 filtered out"
+        },
+        {
+          "job": "Contest native tests (ubuntu-24.04)",
+          "step": "Discover and run bounded native contest tests",
+          "logLine": 47120,
+          "summary": "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 1117 filtered out"
+        },
+        {
+          "job": "Contest native tests (ubuntu-24.04)",
+          "step": "Discover and run bounded native contest tests",
+          "logLine": 47320,
+          "summary": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1123 filtered out"
+        },
+        {
+          "job": "Contest native tests (ubuntu-24.04)",
+          "step": "Discover and run bounded native contest tests",
+          "logLine": 47535,
+          "summary": "test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 1108 filtered out"
+        },
+        {
+          "job": "Contest native tests (ubuntu-24.04)",
+          "step": "Discover and run bounded native contest tests",
+          "logLine": 47741,
+          "summary": "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 1117 filtered out"
+        },
+        {
+          "job": "Contest native tests (ubuntu-24.04)",
+          "step": "Discover and run bounded native contest tests",
+          "logLine": 47946,
+          "summary": "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 1118 filtered out"
+        },
+        {
+          "job": "Contest native tests (ubuntu-24.04)",
+          "step": "Discover and run bounded native contest tests",
+          "logLine": 48152,
+          "summary": "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 1117 filtered out"
+        }
+      ]
+    }
+  ]
+}
