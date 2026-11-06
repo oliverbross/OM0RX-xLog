@@ -1,0 +1,231 @@
+{
+  "schema": 1,
+  "status": "passed-within-signed-macOS-tiny-transfer-and-restart-scope; release-qualification-open",
+  "source": "fc7909d63aa0f4d9fd9abf278c2b08bfd557cdd5",
+  "version": "1.5.22",
+  "artifact": {
+    "SHA256": {
+      "zip": "01dc4cbc5544efa251c3b83f7732ab897c8164da82b85c749767dbf8d8db8fb4",
+      "host": "da3d4834421e854454f4d414773cf94b19a52394278ea49d9849406d63d22c7a",
+      "worker": "80b4b6da225d4c2a2e1f82d513ed35e02905a9acec1865eab3c03e5579157390"
+    },
+    "architectures": {
+      "host": "arm64",
+      "worker": "arm64"
+    },
+    "bundleIdentifier": "com.oliverbross.xlog.integration",
+    "strictSignatureVerified": true,
+    "bundleDeepStrictSignatureVerified": true,
+    "matchingDeveloperIDAuthoritiesVerified": true,
+    "archiveVerified": true,
+    "buildManifestSHA256": "12636d537a3fbd06bafa6d6859eec62755f072687fb0e5d1f1c2fc931b3af9b9",
+    "buildManifestHashSemantics": "Manifest inputs describe pre-sign files; signed executable hashes independently verified",
+    "recipe": {
+      "exitCode": 0,
+      "finalSourceGuard": true,
+      "recordedBeforeCompilation": true,
+      "startIntentAtUTC": "2026-11-06T00:47:21.806170+00:00",
+      "actualEndAtUTC": "2026-11-06T01:04:06.569555+00:00"
+    },
+    "signedWorkerTests": {
+      "tests": 9,
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "executedByExtraction": false
+    },
+    "payloadPrivacy": {
+      "passed": true,
+      "filesChecked": 3546,
+      "findings": []
+    },
+    "extractionOnlyNoLaunch": true
+  },
+  "fixture": {
+    "kind": "fresh-marked-isolated-offline-native-root",
+    "normalLoggingEnum": "normal_logging",
+    "externalStationIO": false,
+    "syntheticOnly": true,
+    "inputADIF": {
+      "bytes": 630,
+      "sha256": "8e846fec87e1e141d36704bafcacee3015da8067af3f5b5c5443f28381ffda3c",
+      "records": 2,
+      "stationCall": "K1TEST",
+      "operatorCall": "K1TEST",
+      "grid": "FN31PR",
+      "importedPowerWatts": 37,
+      "ownParks": [
+        "SK-0001",
+        "SK-0002"
+      ],
+      "ownState": "SK-BL",
+      "contactedParks": [
+        "US-0001",
+        "US-0002",
+        "US-0003"
+      ]
+    },
+    "ownerSourceValidation": [
+      "ADIF.swift: standardfield catalog/strictUTF8 byte-length record parsing",
+      "QSOADIF.swift: strictUTC/frequency and station/grid/power/extraFields mapping",
+      "POTAExport.swift: ADIF3.1.8 park syntax, counting and own/contacted cross-product"
+    ]
+  },
+  "rootNativeObservations": [
+    {
+      "stage": "onboarding",
+      "result": "Exact isolated app bound only after fresh host/worker PID/executable/full-root proof; K1TEST/FN31PR setup skipped radio and rotor; Finish rendered Desk, Logbook0"
+    },
+    {
+      "stage": "empty-transfers",
+      "result": "Export all said no QSOs without a chooser; native import chooser explicit Cancel returned Logbook0"
+    },
+    {
+      "stage": "import-review-cancel",
+      "result": "Reviewed630B fixture preview2contacts/0duplicates; explicit Cancel returned Logbook0"
+    },
+    {
+      "stage": "import",
+      "result": "Reopened same fixture and Confirm imported2/skipped0"
+    },
+    {
+      "stage": "ADIF-export",
+      "result": "Native save chooser Cancel showed cancellation notice; repeated Export all and Save reported2exported"
+    },
+    {
+      "stage": "POTA",
+      "result": "Freeze showed2physical/2included/12derived/2files; each own park2contacts/6records; captured2026-11-06T01:18:57Z. After review checkbox, save chooser Cancel retained same captured preview and enabled Save. Repeat Save published2ADI files plus manifest; explicit Close dismissed dialog"
+    },
+    {
+      "stage": "duplicate-consent",
+      "result": "Same fixture preview showed2duplicates; Confirm imported0/skipped2; Logbook remained2"
+    },
+    {
+      "stage": "first-Quit",
+      "result": "Native app-menu ordinary Quit; process-only stopped helper passed; durable checker passed"
+    },
+    {
+      "stage": "same-root-restart",
+      "result": "Explicit restart and fresh full-coordinate proof preceded exact app binding; retained K1TEST/FN31PR Desk without onboarding and Logbook2 with calls/date/frequency/comments"
+    },
+    {
+      "stage": "second-Quit",
+      "result": "Native app-menu ordinary Quit; stopped helper and second durable checker passed; export-byte validator passed"
+    }
+  ],
+  "durableStore": {
+    "beforeRestart": {
+      "integrity": "ok",
+      "liveQsoCount": 2,
+      "physicalQsoRows": 2,
+      "orderedAllStoredQsoSHA256": "5fcb86038f62ea82d213ec2336dc561301b222a9ed73fb0d50a8a5852716dd53",
+      "hashColumns": [
+        "local_id",
+        "wavelog_id",
+        "call",
+        "qso_start",
+        "band",
+        "mode",
+        "frequency_hz",
+        "is_dirty",
+        "deleted_at",
+        "updated_at",
+        "record_json",
+        "baseline_json"
+      ],
+      "recordChecks": "Both imported calls, date/time, mode/frequency, own station/grid/37W and POTA fields match",
+      "settingsChecks": "onboarding/local/autoSync/station/grid match; default power is not inferred from imported37W"
+    },
+    "afterRestart": {
+      "integrity": "ok",
+      "liveQsoCount": 2,
+      "physicalQsoRows": 2,
+      "orderedAllStoredQsoSHA256": "5fcb86038f62ea82d213ec2336dc561301b222a9ed73fb0d50a8a5852716dd53",
+      "hashColumns": [
+        "local_id",
+        "wavelog_id",
+        "call",
+        "qso_start",
+        "band",
+        "mode",
+        "frequency_hz",
+        "is_dirty",
+        "deleted_at",
+        "updated_at",
+        "record_json",
+        "baseline_json"
+      ],
+      "recordChecks": "Both imported calls, date/time, mode/frequency, own station/grid/37W and POTA fields match",
+      "settingsChecks": "onboarding/local/autoSync/station/grid match; default power is not inferred from imported37W"
+    },
+    "orderedAll12ColumnHashUnchangedAcrossRestart": true,
+    "sourceMainAndWALUnchangedDuringEachRead": true,
+    "normalROClosedCopiesNoWALOrSHM": true,
+    "snapshotMethod": "Stopped source mode=ro/query_only WAL-aware backup; diagnostic intermediate ONLY DELETE/close; closed MAIN-only copy then normalRO integrity/all12columns; no immutable",
+    "SQLiteRuntimeVersion": "3.53.4",
+    "wholeDatabasePhysicalEqualityAcrossRestartClaimed": false
+  },
+  "exportBytes": {
+    "ADIF": {
+      "bytes": 636,
+      "sha256": "1ef13d9378e754cb43214b93c8a5f332657b57a41538f815ffff725c1ee0b63a",
+      "records": 2
+    },
+    "POTA": {
+      "manifestSHA256": "7bdae0e5f904c041cd9ef71fc4f84b1df661f009bb7101f18a8b56ce60abe781",
+      "capturedAt": "2026-11-06T01:18:57Z",
+      "physicalContacts": 2,
+      "includedContacts": 2,
+      "derivedRecords": 12,
+      "files": [
+        {
+          "filename": "1-K1TEST@SK-0001-SK-BL-all-days.adi",
+          "bytes": 2100,
+          "sha256": "8367988c7bc785711b195cb07972cb8bb87e19f49154a7b05502c889d92f73bd",
+          "ownPark": "SK-0001",
+          "records": 6
+        },
+        {
+          "filename": "2-K1TEST@SK-0002-SK-BL-all-days.adi",
+          "bytes": 2100,
+          "sha256": "82fb134919bdf04a51449d1ad5f2bd60649a4435de9e4764547fdbc571f950ce",
+          "ownPark": "SK-0002",
+          "records": 6
+        }
+      ],
+      "issueCount": 0
+    },
+    "publishedFilesUnchangedDuringRead": true,
+    "strictUTF8LengthTaggedRecordsAndCrossProductsVerified": true
+  },
+  "shutdown": {
+    "ordinaryQuitObservedTwice": true,
+    "scopedCandidateRootKnownPIDAbsenceVerifiedAfterEachQuit": true,
+    "actualAppOwnedWorkerExitCode": null,
+    "actualWorkerEOF": "UNOBSERVED; process absence is not an exit receipt",
+    "appOrWorkerSignals": false
+  },
+  "ownerLimits": {
+    "signed22MatchingRetirementRPCReplyObserved": false,
+    "frontendAllUsersDrained": "UNKNOWN",
+    "signedWorker300SecondTTL": "NOT MEASURED",
+    "liveAllocatedHeapOrCPU": "NOT MEASURED"
+  },
+  "receiptSHA256": {
+    "artifactSeal": "373325690bdf4d2c77a2c805f45b5078b527e855a499f3ef960769aed7a3d877",
+    "nativeExtraction": "954db1201eabba9f717285cf60e533b0884e803cde3c9ef4e03f5f97d997a0de",
+    "buildResult": "6fa3586daa4b0763534cbffca29e469c1c94e4cbc7642e9c163e4162469cb125",
+    "invocationBeforeCompilation": "72e126243b2f2d4300c81a91d8b062f131f6e793b6518ecaae33ff297351e786",
+    "signedWorkerTests": "8415ca8635fbda32a3117ea7ce124e8cb53d177137091c401f1e1901b057a005",
+    "beforeRestartStore": "8bcc8d8d024aaf47807e46606174db1d7a141744c266a73df9fd2f5280ff6cf3",
+    "afterRestartStore": "605c0d27983285459cf7694145a86b8b00e1c247fb7187f7a8d8897222ce2528",
+    "exportFiles": "2612c63e0256b4a9926871470d12c9bf5e9ce53faa6648ea54a404ed42467786"
+  },
+  "limits": [
+    "Tiny two-contact signed macOS transfer/restart observation only; no100k/representative workload or general latency/CPU/memory budget pass.",
+    "Imported37W is explicit source ADIF data, not a new first-draft/default-power capture qualification.",
+    "Actual native controls and bytes are separate from prior development worker automatic-expiry/heap and instrumented matching-retire evidence; no universal async-drain claim.",
+    "No ordinary Windows repair, full Linux/platform/equipment qualification, notarization, daily install or public release is implied.",
+    "Artifact seal no-launch flags describe extraction only; later root-owned isolated native launches are recorded separately."
+  ]
+}
