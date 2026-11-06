@@ -1,0 +1,224 @@
+{
+  "schema": 1,
+  "reportedDateDarwin": "2026-11-07",
+  "sourceCommit": "8acc236c32fb31d58c86c4d673e0ed57fe76fdad",
+  "version": "1.5.26",
+  "disposition": "HELD; desktop memory/idle interval BLOCKED BEFORE READINESS; quality OPEN",
+  "artifact": {
+    "version": "1.5.26",
+    "sourceCommit": "8acc236c32fb31d58c86c4d673e0ed57fe76fdad",
+    "SHA256": {
+      "zip": "0fe181c1efcdc0371875a0d23456b0f050454642f34b24a63f9724e692ee444e",
+      "host": "434c24e2c1779fb214a4492978274f29fe74cb064ef1283c98660ba20ffee693",
+      "worker": "6a22d720a3874cfff96492f20cb44a3a5be2bcf07c3eed831d821e918044ab88"
+    },
+    "sealSHA256": "88325228426ca3309039ff7bb33922cf3186ddf20a34bd3ae41db675775009ce",
+    "extractionSHA256": "0db2e18eb98445005a0b68721750ffc6bf9b6cde6dd87f638d6950100a6efd0b",
+    "manifestSHA256": "6ef32a3ae0ad488557dee373db6c6e9efe4b8eee0b7d420c7b5951bb314e8f99"
+  },
+  "fixture": {
+    "workload": "Generated 100000-QSO normal Operator Desk; separate from provisional approximately-70000-QSO budget",
+    "physicalRows": 100000,
+    "liveRows": 100000,
+    "generatedCommentRows": 100000,
+    "hashRows": 100000,
+    "hashColumns": [
+      "local_id",
+      "wavelog_id",
+      "call",
+      "qso_start",
+      "band",
+      "mode",
+      "frequency_hz",
+      "is_dirty",
+      "deleted_at",
+      "updated_at",
+      "record_json",
+      "baseline_json"
+    ],
+    "orderedStoredQSOHash": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+    "beforeMigrationAfterMigrationAfterQuitEqual": true,
+    "retainedSourceMainWALStable": true,
+    "postQuitMainWALStableAcrossReadOnlyBackup": true,
+    "SHMRetainedAsLockBookkeeping": true,
+    "settingsPayloadBytePreserved": true,
+    "settingsRevision": 2,
+    "syncTargetRevision": 0,
+    "localMode": true,
+    "automaticSync": false,
+    "onboardingCompleted": true,
+    "stationOperatorGridBlank": true,
+    "noQSOCommittedDuringNormalization": true,
+    "setupWorkersNormalEOFExits": [
+      0,
+      0
+    ]
+  },
+  "ownership": {
+    "proofs": 4,
+    "stableAttributedOwners": 5,
+    "roles": [
+      "host",
+      "Swift worker",
+      "WebKit GPU",
+      "WebKit WebContent",
+      "WebKit Networking"
+    ],
+    "method": "Exact executable/full private argv, native birth/UID/parent/path, dedicated LaunchServices domain, associated WebKit roles, matching resource/jetsam coalitions disjoint from daily app",
+    "ambientDailyHostWorkerAndUTMStable": true,
+    "freshPreQuitProof": true
+  },
+  "ui": {
+    "evidenceType": "Coordinator CUA observations retained in chat, no separate screenshot artifact",
+    "markedOperatorDeskObserved": true,
+    "generatedLogbookCountObserved": 100000,
+    "rangeObserved": "1\u2013100 of 100000",
+    "actionsBeforeInterval": [
+      "Raise marked candidate window",
+      "Click Logbook",
+      "Return to Operator Desk"
+    ],
+    "ordinaryQuit": "Coordinator requested Command-Q after fresh pre-Quit process proof",
+    "foregroundEstablished": false
+  },
+  "interval": {
+    "complete": false,
+    "readyEvents": 0,
+    "samples": 0,
+    "blocker": "Candidate is not the visible foreground application",
+    "collectorError": "Visibility observer refused readiness; inspect retained evidence, no interval",
+    "observerExitCode": 2,
+    "observerObservedExited": true,
+    "observerEOFRequested": true,
+    "signalsSent": false,
+    "observerCleanupSeconds": 0.0012899159919470549,
+    "memoryBudgetResult": null,
+    "finalTenMinuteCPUResult": null,
+    "noRetryOfThisAttempt": true
+  },
+  "shutdown": {
+    "boundedProcessOnlyAbsence": true,
+    "boundSeconds": 30,
+    "attributedKnownOwnersAbsent": 5,
+    "sameUserCoalitionInventoryBefore": 471,
+    "sameUserCoalitionInventoryAfter": 471,
+    "candidateCoalitionSurvivors": 0,
+    "unresolvedCoalitions": 0,
+    "signalsSent": false,
+    "closedUTC": "2026-11-06T23:40:19.868151+00:00"
+  },
+  "earlierFailure": {
+    "phase": "Setup before worker RPC or GUI",
+    "failure": "RuntimeError('Setup worker argv/parent differs')",
+    "originalObservedRowRetained": false,
+    "separateRootDiagnosis": "Nonfinal ps COMM truncation demonstrated on a separate read-only process observation; not reconstruction of the missing original row",
+    "originalWorkerNormalEOFExit": 0,
+    "originalScopedSurvivors": 0,
+    "originalEvidencePreserved": true,
+    "correction": "Separate final COMM and argv queries with native identity brackets; complete mismatch observations before errors",
+    "mockChecksPassed": 9,
+    "laterHarnessRerun": "Coordinator reports FileExistsError on existing logic-tests-v2.log; no tests executed or new pass claimed"
+  },
+  "limits": [
+    "No valid desktop interval, footprint sample, 30-minute memory result, or final-ten-minute CPU result",
+    "No foreground/visibility budget pass; raising/clicking controls did not establish observer-required foreground state",
+    "No historical approximately 7 GB incident attribution or causal CPU/memory improvement claim",
+    "Generated 100000-QSO workload is not calibrated acceptance of the provisional approximately-70000-QSO budget",
+    "No new hardware, native-x64 Windows, true Standard-user, Linux package, notarization or public-release qualification",
+    "Signed candidate held; daily installation/public release not replaced; UTM not controlled"
+  ],
+  "evidence": {
+    "candidate/actual26-pins.json": {
+      "bytes": 609,
+      "sha256": "bd7a27f8657a36128c9301d89fbeed6803d8d8332cf9b216ddab3a5ed5d28d73"
+    },
+    "candidate/tooling-pins.json": {
+      "bytes": 780,
+      "sha256": "b7f77a70dcc3cefdc050f5a1ffd6a646f5d35ce964c9fa8d34197df324197852"
+    },
+    "candidate/artifact26.py": {
+      "bytes": 11102,
+      "sha256": "dd90e0bc7fca79bd50e36ccccbebde175a136cc2fcfbbdf93f73c063546969cf"
+    },
+    "candidate/fixture-s26.py": {
+      "bytes": 29087,
+      "sha256": "7eee73c91844f9bdcdccd5c7403e87776d3771327c03e67c575a946fa006c6ba"
+    },
+    "candidate/collect-s26-budget.py": {
+      "bytes": 16494,
+      "sha256": "e904536f6f70f5d260de47005cf364482a9d8b0c3e66649889da588e26e90e8e"
+    },
+    "candidate/visibility-observer.m": {
+      "bytes": 13218,
+      "sha256": "87ecd281e4b202e9a141b4b72fe91c406958204892eb77e04a98a83febebfb10"
+    },
+    "candidate/visibility-observer": {
+      "bytes": 77360,
+      "sha256": "68c8281b58cb488773b4c0f998622186d9579d7d93e4c19f380a08d7392e3bc4"
+    },
+    "candidate/logic-tests-v2.json": {
+      "bytes": 382,
+      "sha256": "9c3811e1e75e51122a3b838dc85be7eee913d90fd086099e257226a6449a3590"
+    },
+    "desktop/manifest.json": {
+      "bytes": 38407,
+      "sha256": "f5ea61b33c3563a13eddfd833345373997a52271f729dcf545b297072cacb7da"
+    },
+    "desktop/initial-process-proof.json": {
+      "bytes": 12043,
+      "sha256": "488ca2f971631a24aa6d5cdd4c8c5ecd07e57020c923e54a4c9f6720e441fa8e"
+    },
+    "desktop/fresh-proof-2bb180c3af094925b36dde02da715880.json": {
+      "bytes": 12056,
+      "sha256": "aa12d71c5d88efa13f3bb8f150d5bda437cd5d1b274702a0bbfb4fcc960f57bb"
+    },
+    "desktop/launchservices-client.json": {
+      "bytes": 731,
+      "sha256": "efa2040647f8a67911ef0e4177d42de56bba5a5f7161f76ebdb8efb163ac3066"
+    },
+    "desktop/pre-quit-process-proof.json": {
+      "bytes": 12061,
+      "sha256": "3751a11e438d47e4a364973bd4c2b6626aa90334ed393bd33843172993a68ca5"
+    },
+    "desktop/ordinary-quit-absence.json": {
+      "bytes": 1003,
+      "sha256": "f1c0a5b5d0e16136897639112ce2fe86e8e00c7af2bc9fbf7a14a2d6e7ec21a2"
+    },
+    "desktop/post-quit-coalition-scans.jsonl": {
+      "bytes": 646,
+      "sha256": "43c104ecff9198eda36412dd950ebbd1c1acbac7c151b666e5978c36a7f743e6"
+    },
+    "desktop/empty-workspace-EOF-exit.json": {
+      "bytes": 384,
+      "sha256": "4924cb047d1a2e30b9b78576f39bae7b714b6fe888db6ae8c7614b7d5cc464bb"
+    },
+    "desktop/supported-migration-EOF-exit.json": {
+      "bytes": 384,
+      "sha256": "a30fa3a695202895ebe702a5b7c1d4f761ecccb54b4cd549e313277802323a53"
+    },
+    "interval/pre-ui-proof.json": {
+      "bytes": 12059,
+      "sha256": "9a403c87e7e81480a8d0cd2f9136aa55a17c253a68d3466dc4d6e65fe9911d28"
+    },
+    "interval/result.json": {
+      "bytes": 483,
+      "sha256": "e4488302c81c4fed0f1927764730643947bd4fc278463123689fc30923e15cd9"
+    },
+    "interval/visibility.jsonl": {
+      "bytes": 82,
+      "sha256": "f69c12dc97c1ec0701d07db59a7ecd3f910cfd954f5f40e1812198e915dfe2ab"
+    },
+    "interval/visibility.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "earlierSetupFailure/manifest.json": {
+      "bytes": 2767,
+      "sha256": "4c571aa31c3a56ff89fee577fe54e89260b9c8ccaceaff670cb5891f6b2cbd99"
+    },
+    "earlierSetupFailure/empty-workspace-initialization-failure-cleanup.json": {
+      "bytes": 441,
+      "sha256": "2fd9e7331d5e3e7e17296b0b8f0e3f2ee9e09c940bd90800850921451b91fd49"
+    }
+  }
+}
