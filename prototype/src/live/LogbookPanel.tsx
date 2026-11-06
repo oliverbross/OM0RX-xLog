@@ -6,7 +6,7 @@ import type { DraftSnapshot } from "./operatorDraftSession";
 import { useLogbookCapacity } from "./logbookCapacity";
 import { LogbookColumnHeader, LogbookColumns, useLogbookColumns } from "./LogbookColumns";
 import { orderedLogbookColumns, type LogbookColumn, type LogbookColumnContext } from "./logbookColumnPreferences";
-import { adifImportBatches, decodeADIFDocument, ADIFExportDocument, type ADIFExportFormat, type ADIFImportEncoding, type ADIFFieldMetadata } from "./adifTransfer";
+import type { ADIFExportFormat, ADIFImportEncoding, ADIFFieldMetadata } from "./adifTransfer";
 import { ADIFSessionOwner } from "./adifSessionOwner";
 import { emptyLogbookQuery, logbookQuerySummary, type LogbookQuery } from "./logbookQuery";
 import { clusterBandColors, clusterModeColors, paletteColor } from "./clusterPalette";
@@ -375,9 +375,10 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
     setError(""); setNotice(""); setImportReview(null); setUpdateDuplicates(false); setUpdateFields([]);
     try {
       if (file.size > 32 * 1024 * 1024) throw new Error("Choose an ADIF file smaller than 32 MiB.");
-      const document = decodeADIFDocument(await file.arrayBuffer(), importEncoding);
+      const [codec, bytes] = await Promise.all([import("./adifTransfer"), file.arrayBuffer()]);
       if (!owner.active) return;
-      const frames = adifImportBatches(document);
+      const document = codec.decodeADIFDocument(bytes, importEncoding);
+      const frames = codec.adifImportBatches(document);
       const batches = frames.map(frame => frame.text);
       const fieldMetadata = frames.map(frame => frame.fieldMetadata ?? []);
       let records = 0, duplicates = 0, generation = "", token = "";
@@ -459,6 +460,8 @@ export function LogbookPanel({ onRequest, onEdit, refreshKey, readScope, mutatio
       const total = snapshot.total;
       if (!Number.isSafeInteger(total) || total < 0 || typeof snapshot.token !== "string" || !snapshot.token) throw new Error("Export snapshot could not be verified.");
       if (!total) throw new Error("There are no QSOs to export.");
+      const { ADIFExportDocument } = await import("./adifTransfer");
+      if (!owner.active) return;
       const exportDocument = new ADIFExportDocument(format);
       let exported = 0;
       while (exported < total) {
