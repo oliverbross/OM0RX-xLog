@@ -21,6 +21,30 @@ and physical evidence remain separate.
 | Q06 | S22 packages verified; separate Linux runtime PASS, original gate FAIL retained | Frozen S22 `fc7909d6`: [signed Mac pins/build](../../releases/v1.5.22-quality-candidate.md), 9/9 signed-worker tests and [tiny native journey](native-1.5.22.md) retain their bounds. [Original all-platform run 42139380197](ci-1.5.22-original.md): all three builds, actual 12 Linux lifecycle regressions and both hosted Windows scopes PASS, but Linux runtime assertion and secondary report upload FAIL; original journey/operand/cause remain UNKNOWN. [Separate Linux run 42150401167](linux-runtime-1.5.22-audit.md), QA executor `b66c433c`, consumes unchanged original S22 artifact 13469437610: three X11 and nested Wayland 36/36 checks each, owned host/wrapper exits 0, no app signals, observed workers absent; direct GUI-worker wait/EOF UNKNOWN. Recovery 52 / errors 0 preserved private reports. All four `layoutConflictRecovered` values are false, so recovery branch not runtime-exercised. No app rebuild, deadline or assertion relaxation; ordinary desktop/equipment remains OPEN. |
 | Q07 | Signed/frozen 1.5.22 HELD; quality phase OPEN | Source `fc7909d63aa0f4d9fd9abf278c2b08bfd557cdd5`; [provenance](../../releases/v1.5.22-quality-candidate.md). [S22 source gates](ci-1.5.22-source-gates.md): ordinary CI 42139277810, all seven original portability 42139277814 jobs and automatic Mac Beta 42139277785 SUCCESS with retained skips/bounds. Original package gate 42139380197 remains FAILED; bounded Linux-only run 42150401167 PASS is a distinct QA-executor/source result on the same S22 package, not relabelled original acceptance. Earlier d2 ordinary CI 42135022335 / Beta 42135022818 both SUCCESS. [1.5.21](../../releases/v1.5.21-quality-candidate.md) remains HELD; [B0 portability](ci-1.5.21-portability-completed.md) retains original capacity/API failures. Core htop/desktop budget, idle CPU, ordinary Windows blank GUI and successful ordinary GUI/nonempty retention remain OPEN. Prior failures/bytes preserved; no relaxed fixture/deadline/budget, daily install or public release. |
 
+## Render failure containment — source only
+
+The resumed development adds a terminal React error boundary around the selected
+window surface and its UI-scale provider. A descendant render failure now leaves
+an accessible, fixed error message and `UI_RENDER_FAILED` code. The boundary
+stores only a boolean and adds no timer, background task, automatic retry, reload,
+window-close override or new logging. Existing local React console diagnostics
+remain available for diagnosis; the rendered fallback contains no raw exception
+or operator data. Healthy surface state and existing child cleanup are preserved
+by focused regressions.
+
+Validation: `vitest run src/WindowRenderBoundary.test.tsx --maxWorkers=1` passed
+**3/3** after the final review correction, and `tsc --noEmit` passed with no
+diagnostics. The tests cover retained healthy state, an actual throwing child,
+private rendered output with the original React diagnostic retained, terminal
+fallback behavior, unconsumed Escape and existing child cleanup after failure.
+No new native, physical-output or packaged-runtime acceptance is inferred.
+
+This is independent error containment, **not a diagnosed correction for the
+ordinary Windows 1.5.20/1.5.21 blank Desk**. It does not catch document/module
+loading failures, event-handler/asynchronous errors or native WebView painting
+failures. Source-only work does not qualify the frozen 1.5.22 package or change
+the installed daily application. No package/version/release change is included.
+
 ## Preservation baseline
 
 Installed version 1.5.15 was observed in place before any test launch, quit,

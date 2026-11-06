@@ -2,6 +2,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { loadWindowSurface } from "./windowSurface";
 import { UiScaleProvider } from "./live/uiScale";
+import { WindowRenderBoundary } from "./WindowRenderBoundary";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { activateMapAcceptance } from "./acceptance";
 import "./surfaceStyles";
@@ -37,7 +38,7 @@ async function mount() {
     return;
   }
   root.render(
-    <React.StrictMode><UiScaleProvider><App /></UiScaleProvider></React.StrictMode>,
+    <React.StrictMode><WindowRenderBoundary><UiScaleProvider><App /></UiScaleProvider></WindowRenderBoundary></React.StrictMode>,
   );
   if (acceptance) void import("./integratedAcceptance").then(module => module.startIntegratedAcceptance()).catch(error => {
     const surface = new URLSearchParams(location.search).get("view");
