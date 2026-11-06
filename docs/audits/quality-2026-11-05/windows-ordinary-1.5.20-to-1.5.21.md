@@ -180,3 +180,77 @@ calculation and hashes for the three native window captures. This is a storage
 and observation checkpoint, not a transfer, restore, Windows GUI acceptance or
 release pass. Both candidates remain **HELD**; installed 1.5.15 and public release
 were not changed by this work.
+
+## Guest boot recovery and base-only preparation — 6 November 2026
+
+After the user explicitly asked to fix the boot screen, root continued recovery
+inside the existing QEMU process. The no-input/no-lifecycle statement in the
+preceding storage-resume section describes that earlier checkpoint; the actions
+below are subsequent and separately recorded.
+
+UTM **4.7.5 (118)** was checked against its tagged implementation before using
+Restart. Its guest reset sends QMP `system_reset` inside the existing process.
+The actual launch had no `-no-reboot` or reboot-as-shutdown option, and the
+persisted registry had `Suspended = false`. The source paths reviewed were
+[the QEMU VM implementation](https://github.com/utmapp/UTM/blob/v4.7.5/Services/UTMQemuVirtualMachine.swift),
+[the native reset control](https://github.com/utmapp/UTM/blob/v4.7.5/Platform/macOS/Display/VMDisplayWindowController.swift)
+and [the pinned QEMU monitor](https://github.com/utmapp/QEMUKit/blob/589765abff27a8764d58b1a90999a204ac09881e/Sources/QEMUKitInternal/QEMUMonitor.m).
+
+| Recovery action | Observed result |
+| --- | --- |
+| Three in-process resets, with initial F2 taps, a separate F2 hold from about 2–14 seconds, and an existing-UART startup observation | Native captures remained at the firmware logo; neither Boot Manager nor a Windows recovery/desktop surface appeared. Each reset retained the original QEMU process and disk-overlay inode. |
+| One unsaved pause followed by guarded scripting resume | Pause returned `paused`; resume was allowed only from that state and returned `started`. The direct scripting route avoided the toolbar resume wrapper's extra snapshot-deletion attempt. It did not restore guest progress. |
+| Existing serial port observation and firmware keys | The already configured PTY was used without adding a device. Its observed canonical/echo settings were temporarily changed to raw with no flush and restored afterward. A standalone Escape probe returned no bytes; a later attached-startup/F2 observation returned 57 bytes of terminal clear/cursor/colour control sequences, without a menu or prompt. Earlier output is not recoverable merely by attaching this console. |
+| Final pause without saving | At **10:36:34 UTC**, UTM remained open, the guest still reported `paused`, and the original QEMU PID and both unlinked overlay inodes remained present. This is retained live state, not an independent backup. |
+
+The retained QEMU PID is **82360**, with its original start time. Disk overlay
+**inode 621304952** remains open with link count zero and logical length
+**41,683,124,224 bytes**; EFI overlay **inode 621304951** also remains open and
+unlinked. Ordinary read-only `/.vol` opens for these two file IDs returned
+`ENOENT`. There was no Stop/Start, process termination, snapshot save/discard,
+disk repair or replacement of the original base disk. These observations do not
+diagnose a Windows bootloader, BCD, storage or firmware fault, and do not reverify
+the closed guest capture's contents.
+
+### Independent base-only recovery preparation
+
+Root copied the **unchanged base disk**, which QEMU held read-only, into a new
+private recovery bundle. Its QCOW2 header identifies a standalone version-3
+image with no backing filename or incompatible feature flags. The APFS copy has
+an independent inode; full reads of source and copy matched:
+
+- Length: **14,551,285,760 bytes**.
+- Source/copy SHA-256: `a0bb2120b0f4d3b48fd577f2988fdeeda1f2f5d0332d04b43c3ec98aca534561`.
+- Staged bundle: `.build/quality-windows-base-recovery-20261106T103157Z/xlog-quality-base-recovery.utm`.
+- Base-copy receipt SHA-256: `1ebb4c04b208adfcc744ce9dcf1b4b5617c771562a60f70e9a96472fef059c1f`.
+
+The new configuration changes only the VM UUID/name, MAC address and disk
+filename. Archived, hash-pinned base EFI and persistent TPM files were copied to
+independent private files; their active-overlay/volatile-state limitations remain.
+All staged files are mode 0600, and the bundle directories are private. The
+prepared bundle retains the original 8 GiB guest configuration; it has **not been
+registered or booted** alongside the original on this 16 GiB host.
+
+**This bundle excludes the disposable session and its guest-only
+21,359,493,632-byte VHDX.** It is an option for a fresh persistent test environment,
+not the missing capture, a verified restore or a clone of the failing state.
+The old pause-dependent VHDX clone builder was not run and received no fabricated
+proof.
+
+### Remaining decision and qualification status
+
+The usable-guest blocker remains open. A cold stop would close the last handles
+to the unique disposable overlays and discard that session, including the
+untransferred capture. The earlier instruction to preserve that session remains
+binding. The base recovery option is prepared, but explicit permission to discard
+that session is still needed before a cold stop. A later fresh-base GUI pass must
+be recorded separately from the existing failed-profile retention and blank-Desk
+history.
+
+The boot-recovery evidence manifest has SHA-256
+`0c7f23792ba56678ca02fbfeb931ee320d1bf9e35f7b5be5fb82d2c5c32b76c0`
+and indexes 24 private captures/receipts under
+`.build/quality-vm-backup-transport/boot-recovery-20261106T100121Z/`.
+No host transfer, restore, ordinary AU22 journey or package qualification is
+claimed. Both candidates remain **HELD**. Installed 1.5.15, the production log,
+rollback artifacts and the public release were not changed by these operations.
