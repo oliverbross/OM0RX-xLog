@@ -4,7 +4,6 @@ import { loadWindowSurface } from "./windowSurface";
 import { UiScaleProvider } from "./live/uiScale";
 import { WindowRenderBoundary } from "./WindowRenderBoundary";
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { activateMapAcceptance } from "./acceptance";
 import "./surfaceStyles";
 import "./live/DetachedQSOSurface.css";
 import "./live/DetachedSpotHistorySurface.css";
@@ -26,7 +25,10 @@ async function mount() {
   let acceptance = false;
   if (new URLSearchParams(location.search).get("acceptance") === "local") {
     acceptance = isTauri() && await invoke<boolean>("acceptance_enabled").catch(() => false);
-    if (acceptance) activateMapAcceptance();
+    if (acceptance) {
+      // Load the harness only after native opt-in, before the surface mounts.
+      (await import("./acceptance")).activateMapAcceptance();
+    }
   }
   const root = createRoot(document.getElementById("root")!);
   let App: React.ComponentType;

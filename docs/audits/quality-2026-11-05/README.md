@@ -45,6 +45,34 @@ loading failures, event-handler/asynchronous errors or native WebView painting
 failures. Source-only work does not qualify the frozen 1.5.22 package or change
 the installed daily application. No package/version/release change is included.
 
+## Acceptance harness loading — source only
+
+The [hosted macOS beta job for `e14b181c`](https://github.com/oliverbross/OM0RX-xLog/actions/runs/42197903500/job/127825671994)
+passed 385 test files / 5,261 tests, then failed the existing Settings startup
+JavaScript assertion: **408,635 bytes exceeded the unchanged 408,000-byte limit**.
+This was a build-budget failure, not a test or infrastructure pass. The separate
+[ordinary CI run](https://github.com/oliverbross/OM0RX-xLog/actions/runs/42197903434)
+succeeded.
+
+The common window entry now imports the acceptance harness only inside the
+existing native-confirmed acceptance branch. Its activation is awaited before
+the surface loads or mounts. Normal Settings startup no longer includes that
+harness through the common bootstrap. The query-string/native authorization,
+render boundary, diagnostics and all budget limits remain unchanged.
+
+Focused boundary **3/3** and existing acceptance **9/9** tests passed. The local
+production build passed TypeScript and every window-bundle assertion; Settings
+measured **405,301 bytes**, 2,699 bytes below the limit. Built-manifest inspection
+found no acceptance entry in either the common bootstrap or Settings startup
+import closure, while retaining the dynamic acceptance entry. The failed hosted
+run used Node **22.23.4** and this local check used Node **24.11.1**; these are
+qualified build results, not a controlled performance comparison. Hosted CI for
+the corrected source remains to be observed.
+
+Private result receipt SHA-256:
+`15efae088a959a63f3a496b63522a4f2cccb968c52606d8f912ab2bd306f7c5d`.
+This change adds no package, installation or ordinary Windows acceptance claim.
+
 ## Preservation baseline
 
 Installed version 1.5.15 was observed in place before any test launch, quit,
