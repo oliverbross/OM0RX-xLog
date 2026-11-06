@@ -138,3 +138,45 @@ Startup diagnostics are prepared, not executed. The collector separates document
 A closeout status query reported started after the earlier paused confirmation; no cause of that state change is established. Root used the freshly observed Pause control again, verified Start/play, and a subsequent CLI query returned paused. A final CLI query again returned started. The pause did not remain confirmed through closeout; no cause is established and no further pause loop was attempted. No Stop/restart/discard occurred.
 
 Both candidates remain **HELD**. No product source, current 1.5.21/1.5.22 package bytes or versions changed; the installed Mac 1.5.15 app and public release were untouched. The specifically listed obsolete app artifacts were intentionally retired as recorded above. The AU22 common-shortcut, ordinary Quit/reopen, synthetic QSO retention and both Dummy settings GUI checks remain unexecuted pending preservation. The existing ordinary Windows blank-desk failure remains **FAILED/OPEN**.
+
+## Resume after storage recovery — 6 November 2026
+
+The user reported more than 540 GB available and authorized continuation. A new
+read-only host check measured **461,484,531,712 bytes (461.48 GB)** actually
+available to the existing transfer directory. Against the unchanged one-image
+transfer budget of **36,391,879,168 bytes** (image 21,359,493,632, 12 GiB reserve and
+2 GiB other-activity headroom), the planning margin is **425,092,652,544 bytes**.
+**The earlier storage blocker is cleared for the first host transfer.** No cause
+for the recovered space is attributed, and conversion/clone capacity remains a
+separate operation. Historical failed checks and cleanup receipts above remain valid.
+
+The original UTM and QEMU processes still have their earlier start times, and
+`utmctl status` reports **started**. Three fresh captures of the existing native
+VM window showed the UTM firmware/boot logo; the first also showed `Start boot
+option`. Bringing that existing window forward did not expose the previously
+recorded Windows desktop/CMD. No guest keystroke, pause, resume, stop, restart,
+reset or discard was issued during this continuation. The QEMU process still
+holds its approximately 41.68 GB logical disk overlay, but that observation does
+not establish the current guest-file contents or whether the capture is lost.
+The optional guest-agent IP query reported that the QEMU guest agent was absent,
+consistent with the earlier transport constraints.
+
+**Current execution blocker: a usable Windows guest session is not available.**
+The prepared transfer media and unchanged uploader/receiver pins were located;
+the receiver output directory remains absent. No listener, upload, host image
+copy, clone or ordinary AU22 journey ran. The prior source-image hash is historical
+and was not reverified inside the guest during this continuation.
+
+Review also found that the old clone builder explicitly requires a fresh paused
+live source. It was not run or given a fabricated pause receipt. Any continuation
+that keeps the original running must instead use the already preserved, pinned
+configuration/base-EFI/persistent-TPM copies as archived inputs, retaining their
+known active-EFI/RAM limitations. After host preservation and a verified clone,
+run the existing AU22 package once normally before adding startup instrumentation
+if the ordinary blank state recurs.
+
+Private resume checkpoint SHA-256: `2ecde14a74d2f454fc5881fbae0e1c1962bf0de1fedb384d97fbd3704eea0340`. It includes the fresh capacity
+calculation and hashes for the three native window captures. This is a storage
+and observation checkpoint, not a transfer, restore, Windows GUI acceptance or
+release pass. Both candidates remain **HELD**; installed 1.5.15 and public release
+were not changed by this work.
