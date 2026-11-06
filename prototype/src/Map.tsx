@@ -1167,7 +1167,7 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
     return next;
   });
   return (
-    <div className={`map-wrap${compact ? " map-compact" : ""}`}>
+    <div className={`map-wrap${compact ? " map-compact" : ""}${error ? " map-has-error" : ""}`}>
       <div
         ref={container}
         className="map"

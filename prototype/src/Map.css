@@ -114,3 +114,34 @@
 .map-rbn-toggle{position:absolute;top:8px;left:8px;z-index:2}
 .map-rbn-panel{position:absolute;right:8px;top:62px;z-index:3;max-width:min(360px,85%);max-height:65%;overflow:auto;background:#0b1728;color:#e6edf6;border:1px solid #243a55;border-radius:6px;padding:10px;font-size:12px}
 .map-rbn-panel p{margin:6px 0}.map-rbn-panel small{display:block;color:#92a7bf}.map-rbn-panel button{margin-top:6px}
+
+/* Keep wrapped controls and diagnostics in separate rows when the map fails. */
+.map-wrap.map-has-error {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  overflow: auto;
+}
+.map-wrap.map-has-error > .map {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+.map-wrap.map-has-error > :is(.map-toolbar, .map-error, .map-rbn-toggle, .map-rbn-panel, .map-offline, .map-legend) {
+  position: relative;
+  inset: auto;
+  z-index: 1;
+  flex: none;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+}
+.map-wrap.map-has-error > .map-error {
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+.map-wrap.map-has-error > .map-rbn-toggle { align-self: flex-start; }
+.map-wrap.map-has-error > .map-rbn-panel { max-height: none; overflow: visible; }
+.map-wrap.map-has-error > .map-rbn-panel select { max-width: 100%; }
+.map-wrap.map-has-error > .map-legend { margin-top: auto; }
