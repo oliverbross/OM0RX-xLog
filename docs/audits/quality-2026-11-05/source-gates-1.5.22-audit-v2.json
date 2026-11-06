@@ -1,0 +1,116 @@
+{
+  "schema": 2,
+  "source": "fc7909d63aa0f4d9fd9abf278c2b08bfd557cdd5",
+  "runId": 42139380197,
+  "sourceGateCounts": {
+    "macos-15": {
+      "jobId": 127635564358,
+      "fullPortableStep": "Test complete portable Swift core (Unix)",
+      "fullPortableXCTestSummary": [
+        "1399",
+        "9 tests skipped and 0 failures (0 unexpected) in 304.692 (304.803) seconds"
+      ],
+      "fullPortableSwiftTesting": [
+        [
+          "0",
+          "0.009"
+        ],
+        [
+          "628",
+          "80.461"
+        ]
+      ],
+      "vitestFiles": [
+        [
+          "384",
+          "384"
+        ]
+      ],
+      "vitestTests": [
+        [
+          "5258",
+          "5258"
+        ]
+      ]
+    },
+    "ubuntu-24.04": {
+      "jobId": 127635563851,
+      "fullPortableStep": "Test complete portable Swift core (Unix)",
+      "fullPortableXCTestSummary": [
+        "963",
+        "7 tests skipped and 0 failures (0 unexpected) in 670.934 (670.934) seconds"
+      ],
+      "fullPortableSwiftTesting": [],
+      "vitestFiles": [
+        [
+          "384",
+          "384"
+        ]
+      ],
+      "vitestTests": [
+        [
+          "5258",
+          "5258"
+        ]
+      ]
+    },
+    "windows-2022": {
+      "jobId": 127635564030,
+      "fullPortableStep": "Test portable Swift core (Windows)",
+      "fullPortableXCTestSummary": [
+        "966",
+        "7 tests skipped and 0 failures (0 unexpected) in 1129.608 (1129.608) seconds"
+      ],
+      "fullPortableSwiftTesting": [],
+      "vitestFiles": [
+        [
+          "384",
+          "384"
+        ]
+      ],
+      "vitestTests": [
+        [
+          "5258",
+          "5258"
+        ]
+      ]
+    }
+  },
+  "developmentArtifactCrossChecks": {
+    "ubuntu-24.04": {
+      "sourceLocks": [
+        {
+          "name": "Cargo.lock",
+          "sourceEqualAfterCRLFNormalization": true,
+          "CRLFRows": 0,
+          "actualSHA256": "6513b60321e5cef99796de06fcf63bb9e9544b2a6b09c9758d4a5aaf11ff52dc"
+        },
+        {
+          "name": "package-lock.json",
+          "sourceEqualAfterCRLFNormalization": true,
+          "CRLFRows": 0,
+          "actualSHA256": "72a1057e9ddeab6a9c24c383a878fd5a737b4eacfc415305fc221ecf6713247a"
+        }
+      ],
+      "developmentExecutablesEqualActualRuntime": true
+    },
+    "windows-2022": {
+      "sourceLocks": [
+        {
+          "name": "Cargo.lock",
+          "sourceEqualAfterCRLFNormalization": true,
+          "CRLFRows": 5899,
+          "actualSHA256": "19468867d10868a8f07b640f9ff23285d3423af1e458bd5001b57134fc8a5fd8"
+        },
+        {
+          "name": "package-lock.json",
+          "sourceEqualAfterCRLFNormalization": true,
+          "CRLFRows": 3354,
+          "actualSHA256": "66128bd207214048b9ff89edcfa7d87a50f25c6ff503de28cd983461ee0970a6"
+        }
+      ]
+    }
+  },
+  "priorAuditPreserved": "source-gates-1.5.22-audit.json",
+  "correction": "Full portable source counts selected by successful owning step timestamps (end rounded up one second for GitHub metadata precision), rather than last focused-suite summary in whole log. No app/CI/source change."
+}

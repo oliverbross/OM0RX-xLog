@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "source": "fc7909d63aa0f4d9fd9abf278c2b08bfd557cdd5",
+  "version": "1.5.22",
+  "runId": 42139380197,
+  "artifactId": 13469437610,
+  "artifactZIP": {
+    "bytes": 315737277,
+    "sha256": "7c2a9190aaa51c5718a5bf94cabf0cdcac186d6f885533341e910c49f383f64a",
+    "digestVerified": true
+  },
+  "distributionSHA256": {
+    "OM0RX-xLog-1.5.22-Beta-Linux-x64.tar.gz": "da408986be0b11e4a276e8a30ba58c30509f6e31cb0037cd7d309992b8bbf825",
+    "OM0RX-xLog-1.5.22-Beta-Linux-x64.deb": "0497e2ba66deeba815949f0b40ff901c9690a166451fc93b2d921846fa731454"
+  },
+  "distributionSidecarsVerified": true,
+  "runtimeManifestSHA256": "0c8fb741077f7cee67b8896d0d3ef9b1a54194aedb1d923edcd2a4b3d98251c1",
+  "runtimePayloadFileCount": 1013,
+  "debPayloadFileCount": 1016,
+  "debStagingFileCount": 1017,
+  "tarRuntimePayloadExact": true,
+  "debActualDataPayloadExact": true,
+  "debControlExact": true,
+  "plainAndDebRuntimeSamePayload": true,
+  "privacy": {
+    "-payload-scan.json": {
+      "files": 1013,
+      "findings": 0
+    },
+    "-deb-payload-scan.json": {
+      "files": 1017,
+      "findings": 0
+    }
+  },
+  "sourceConfigurationAndCargoLockExact": true,
+  "ELFArchitecture": "x86_64-little-endian-64bit",
+  "executableSHA256": {
+    "xlog-prototype": "c7792597cf96e1990290b665b95d86dd1b6dcf993d986b72785b92d6b19bd612",
+    "xlog-prototype-worker": "04df0354db564ff1174e853fee20b0fbe0af2c5a700eca9cb83ae3c0264c1fa1"
+  },
+  "execution": "No packaged file executed; archive-byte/read-only inspection only",
+  "runtimeAcceptance": "PENDING"
+}

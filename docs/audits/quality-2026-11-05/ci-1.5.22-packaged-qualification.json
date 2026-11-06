@@ -1,0 +1,370 @@
+{
+  "schema": 1,
+  "createdAtUTC": "2026-11-06T02:40:58.533997+00:00",
+  "version": "1.5.22",
+  "source": "fc7909d63aa0f4d9fd9abf278c2b08bfd557cdd5",
+  "status": "Bounded packaged platform evidence passed using separate Linux follow-up; overall quality/release qualification OPEN",
+  "originalRun": {
+    "id": 42139380197,
+    "attempt": 1,
+    "event": "workflow_dispatch",
+    "conclusion": "failure",
+    "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42139380197",
+    "inputs": {
+      "build_platforms": "all",
+      "validation_only": false,
+      "package_macos": false,
+      "runtime_run_id": "",
+      "runtime_source_sha": "",
+      "runtime_platform": "both"
+    },
+    "inputEvidence": "Root dispatch receipt; actual three-platform matrix/new Linux+Windows package branches, hosted Mac-package skip and same-run scope QA bindings independently observed"
+  },
+  "jobs": {
+    "buildLinux": {
+      "id": 127635563851,
+      "conclusion": "success"
+    },
+    "buildWindows": {
+      "id": 127635564030,
+      "conclusion": "success"
+    },
+    "buildMac": {
+      "id": 127635564358,
+      "conclusion": "success"
+    },
+    "runtimeLinux": {
+      "id": 127664728886,
+      "conclusion": "failure"
+    },
+    "runtimeWindowsCurrentUser": {
+      "id": 127664728936,
+      "conclusion": "success"
+    },
+    "runtimeWindowsPerMachine": {
+      "id": 127664729139,
+      "conclusion": "success"
+    }
+  },
+  "actualLinuxLifecycleRegression": {
+    "tests": 12,
+    "passed": 12,
+    "seconds": 10.412,
+    "skipped": 0,
+    "rawBlockSHA256": "8b395bb4b5c7a6edb7fae4d2d0b4fd182c77f88fe6061bd4e441dad0e4d818ee",
+    "scope": "Actual Ubuntu source QA fake-child lifecycle tests, not packaged application runtime acceptance"
+  },
+  "linux": {
+    "bytes": "passed",
+    "artifact": {
+      "id": 13469437610,
+      "outerZIPBytes": 315737277,
+      "outerZIPSHA256": "7c2a9190aaa51c5718a5bf94cabf0cdcac186d6f885533341e910c49f383f64a"
+    },
+    "distributionSHA256": {
+      "OM0RX-xLog-1.5.22-Beta-Linux-x64.tar.gz": "da408986be0b11e4a276e8a30ba58c30509f6e31cb0037cd7d309992b8bbf825",
+      "OM0RX-xLog-1.5.22-Beta-Linux-x64.deb": "0497e2ba66deeba815949f0b40ff901c9690a166451fc93b2d921846fa731454"
+    },
+    "runtimeManifestSHA256": "0c8fb741077f7cee67b8896d0d3ef9b1a54194aedb1d923edcd2a4b3d98251c1",
+    "executableSHA256": {
+      "xlog-prototype": "c7792597cf96e1990290b665b95d86dd1b6dcf993d986b72785b92d6b19bd612",
+      "xlog-prototype-worker": "04df0354db564ff1174e853fee20b0fbe0af2c5a700eca9cb83ae3c0264c1fa1"
+    },
+    "runtimePayloadFileCount": 1013,
+    "debActualDataFileCount": 1016,
+    "debStagingScanFileCount": 1017,
+    "allActualTarAndDebContentsCompared": true,
+    "sameRuntimePayload": true,
+    "sourceVersionArchitectureConfigurationCargoLockVerified": true,
+    "privacyScanFindings": 0,
+    "originalRuntime": {
+      "status": "FAILED; not qualified",
+      "firstFailure": "Unlabelled Python stdin line5 AssertionError",
+      "firstFailureAtUTC": "2026-11-06T02:09:37Z",
+      "failedOperand": "UNKNOWN: X11 scope assertion or nested-Wayland schema/status assertion; original reports unavailable",
+      "upload": "FAILED EACCES opening ui-1.process.host.json",
+      "filesSelectedByUploader": 47,
+      "LinuxAcceptanceArtifactAvailable": false,
+      "originalReportRecovery": "UNAVAILABLE from completed original run",
+      "evidencedUploadCause": "Lifecycle save writes0600 as Docker UID10001; host artifact uploader runs under a different UID",
+      "appCauseEstablished": false,
+      "X11AllChecksQualified": false,
+      "WaylandAllChecksQualified": false,
+      "actualHostWaitAndFinalInventory": "UNKNOWN; receipts were not uploaded",
+      "actualWorkerEOF": "UNKNOWN; not independently owned/observed"
+    },
+    "separateRuntimeRecheck": {
+      "status": "passed-within-separate-runtime-recheck-scope",
+      "runId": 42150401167,
+      "qaExecutorSource": "b66c433c9e9d8913713202cff93c12863bb6dbc1",
+      "packageSource": "fc7909d63aa0f4d9fd9abf278c2b08bfd557cdd5",
+      "packageArtifactDigest": "7c2a9190aaa51c5718a5bf94cabf0cdcac186d6f885533341e910c49f383f64a",
+      "actualDownloadDigestVerified": true,
+      "artifactId": 13472188172,
+      "acceptanceArtifactDigest": "2c681f7189608e618cbb9eb9059d85686f5b530d4c882cbd1b0bfcd2ebfe2a99",
+      "receipt": "linux-runtime-1.5.22-audit.json",
+      "receiptSHA256": "03685a78ef4c3115fcde5b7e7d338f08cec6ad977e83b93aac3c65a2be19ecd3",
+      "GUIJourneys": 4,
+      "X11Journeys": 3,
+      "nestedWaylandJourneys": 1,
+      "checksEach": 36,
+      "allChecksTrue": true,
+      "actualHostAndWrapperWaits": [
+        0,
+        0
+      ],
+      "appSignals": [],
+      "observedWorkerCountEach": 1,
+      "observedWorkersAbsentEach": true,
+      "actualAppWorkerWait": null,
+      "actualAppWorkerEOF": "unknown-not-observed",
+      "ownershipRecovered": 52,
+      "ownershipErrors": 0,
+      "allLayoutConflictRecoveredFields": false,
+      "runtimeConflictRecoveryBranchExercised": false,
+      "waylandCompositorOwnedTERM": true,
+      "physicalDesktop": false,
+      "screenshotObservation": "Static nested-Wayland PNG shows rendered Desk/map/band-map and Native automatic rotor status unavailable toast; toast is outside the36checks, cause not established"
+    }
+  },
+  "windows": {
+    "staticBytes": "passed",
+    "outerArtifactDigestVerified": true,
+    "portableZIP": {
+      "sha256": "ebb18bbc92c096b71c28bfb1fa6a303d0bda0b5f9d1edc3680fc560937dd1f3e",
+      "bytes": 83180514,
+      "sidecarVerified": true
+    },
+    "payloadManifestSHA256": "18bea979d87fbd2cb84c7c87903b134e82e61009b5fa627bcf0806b2815ed0c2",
+    "manifestEntryCount": 3270,
+    "actualPayloadFileCount": 3271,
+    "sameAuditedMainAndPayloadAcrossScopeConfigs": true,
+    "everyActualPortableEntryAndExactInventoryVerified": true,
+    "privacyScanFindings": 0,
+    "executableSHA256": {
+      "xlog-prototype.exe": "24f965be24ab90689b9f049290ceda956b7aa539d473f11fa5c412471b452967",
+      "xlog-prototype-worker.exe": "deb7c02b793cb7c21764d52368afa901320a562e35c1276752e6eef5f323c488"
+    },
+    "installers": {
+      "currentUser": {
+        "sha256": "97cf4954326dee9efb6295f275160ee639b58d4813b692e240bea5914d762163",
+        "bytes": 58377202,
+        "configurationSHA256": "a6d93a2b32dcc3d73f08e76c7347fe8c2b272a046a7afc892fdbb7380382a52e",
+        "installation": {
+          "executionLevel": "user",
+          "registryHive": "HKCU",
+          "mode": "currentUser",
+          "artifactLabel": "current-user",
+          "startMenu": "Programs",
+          "defaultDirectory": "%LOCALAPPDATA%\\OM0RX-xLog",
+          "requiresAdministrator": false
+        }
+      },
+      "perMachine": {
+        "sha256": "fafeb2f3ff579c05d26e8c65ba8e7987aed0f5e46a68053b52bd922adf013d7d",
+        "bytes": 58371453,
+        "configurationSHA256": "7aafbb5945371aa3bd3951a957d4c27e8a1ddda0936b68ea4305d4fafc734fb0",
+        "installation": {
+          "executionLevel": "admin",
+          "registryHive": "HKLM",
+          "mode": "perMachine",
+          "artifactLabel": "all-users",
+          "startMenu": "CommonPrograms",
+          "defaultDirectory": "%ProgramFiles%\\OM0RX-xLog",
+          "requiresAdministrator": true
+        }
+      }
+    },
+    "actualHostedRuntime": {
+      "status": "passed",
+      "platform": "elevated Windows Server2022 x86_64, WebView2 present",
+      "bothFreshScopesDefaultPathRegistryStartMenuPassed": true,
+      "installedPayloadEntryCount": 3270,
+      "installedGUIRuns": 4,
+      "portableGUIRuns": 4,
+      "allGUIChecksEach": 36,
+      "hard192LocalSelfTestBothScopesAndPortable": true,
+      "originalInstalledNestedTempUTF16Units": {
+        "currentUser": 92,
+        "perMachine": 91
+      },
+      "localSelfTestBackupRestoreIncluded": true,
+      "localSelfTestNetworkStationCredentialsFalse": true,
+      "uninstallBothScopesPassed": true,
+      "harnessOwnedMarkerPreservedBoth": true,
+      "preservationScope": "Owned synthetic current-user LocalAppData marker only; existing contacts/account settings/media were not read",
+      "ordinaryWindows11UACFinishTokenUpgradeEquipment": "NOT RUN in these CI receipts",
+      "directWorkerEOFPolicy": "Unchanged owned worker stdin close, exit0, empty stderr/no extra output with10s response/EOF;100s GUI timeout",
+      "guiAppOwnedWorkerEOF": "UNOBSERVED; successful UI reports do not establish a direct app-owned worker wait/EOF receipt"
+    }
+  },
+  "signedMacRootOwned": {
+    "status": "passed-within-signed-macOS-tiny-transfer-and-restart-scope; release-qualification-open",
+    "report": "docs/audits/quality-2026-11-05/native-1.5.22.md",
+    "receipt": "docs/audits/quality-2026-11-05/native-1.5.22.json",
+    "receiptSHA256": "8f4295c393ee01a90f1e8e6624b4d559795bfb2dbf0218592a81dd2c477246ce",
+    "SHA256": {
+      "zip": "01dc4cbc5544efa251c3b83f7732ab897c8164da82b85c749767dbf8d8db8fb4",
+      "host": "da3d4834421e854454f4d414773cf94b19a52394278ea49d9849406d63d22c7a",
+      "worker": "80b4b6da225d4c2a2e1f82d513ed35e02905a9acec1865eab3c03e5579157390"
+    },
+    "manifestSHA256": "12636d537a3fbd06bafa6d6859eec62755f072687fb0e5d1f1c2fc931b3af9b9",
+    "signedWorkerTests": {
+      "tests": 9,
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0
+    },
+    "tinySyntheticQsoCount": 2,
+    "orderedAllStoredQsoSHA256": "5fcb86038f62ea82d213ec2336dc561301b222a9ed73fb0d50a8a5852716dd53",
+    "sameRootRestartHashUnchanged": true,
+    "ordinaryQuitObservedTwice": true,
+    "appOwnedWorkerEOF": "UNOBSERVED; absence is not an exit receipt",
+    "scope": "Root-owned tiny signed-Mac import/export/POTA/readback/restart only; separate from this hosted CI run"
+  },
+  "manualWindowsBoundary": "All actual ordinary-account guest observations are version20/21 and remain separately recorded; no manual22 guest installation inferred",
+  "artifactsDownloadedOnceByOwner": [
+    {
+      "id": 13469766906,
+      "name": "portable-swift-pins-ubuntu-24.04-fc7909d63aa0f4d9fd9abf278c2b08bfd557cdd5",
+      "sha256": "f4208ed4da1e7ea19988f03d8d40acf098eff678dc681bace3275cbd0a397f45",
+      "digestVerified": true
+    },
+    {
+      "id": 13471260749,
+      "name": "portable-swift-pins-windows-2022-fc7909d63aa0f4d9fd9abf278c2b08bfd557cdd5",
+      "sha256": "c478e5e43e74f786bec3e6645fa8411291f41d58a3902940689504bd5fb5f6a5",
+      "digestVerified": true
+    },
+    {
+      "id": 13470734132,
+      "name": "xlog-acceptance-windows-currentUser-fc7909d63aa0f4d9fd9abf278c2b08bfd557cdd5",
+      "sha256": "5aa8c08abc5ec8a38f117081db84de6ae25ba904d98e9123589880cdcd9eb5d0",
+      "digestVerified": true
+    },
+    {
+      "id": 13470728996,
+      "name": "xlog-acceptance-windows-perMachine-fc7909d63aa0f4d9fd9abf278c2b08bfd557cdd5",
+      "sha256": "7bb5979d5771e937cb1927a565a41631f0e5d7c91b71f3a6b04789d3ab1f8c61",
+      "digestVerified": true
+    },
+    {
+      "id": 13469472612,
+      "name": "xlog-prototype-ubuntu-24.04-fc7909d63aa0f4d9fd9abf278c2b08bfd557cdd5",
+      "sha256": "93407ffd6703f869aaa6876583859fdf0d7ee673415c8afb6ad1cef1d970dcf5",
+      "digestVerified": true
+    },
+    {
+      "id": 13471185893,
+      "name": "xlog-prototype-windows-2022-fc7909d63aa0f4d9fd9abf278c2b08bfd557cdd5",
+      "sha256": "b67bb9ed099be663846828ac9d4c5aea0917607c91c335cca341b45b76c29d6c",
+      "digestVerified": true
+    },
+    {
+      "id": 13469437610,
+      "name": "xlog-runtime-linux-fc7909d63aa0f4d9fd9abf278c2b08bfd557cdd5",
+      "sha256": "7c2a9190aaa51c5718a5bf94cabf0cdcac186d6f885533341e910c49f383f64a",
+      "digestVerified": true
+    },
+    {
+      "id": 13471355550,
+      "name": "xlog-runtime-windows-fc7909d63aa0f4d9fd9abf278c2b08bfd557cdd5",
+      "sha256": "bfe0046e8a1ca1a264e8c24dabb839464ed94207811d1331e0c95d95e2a74154",
+      "digestVerified": true
+    },
+    {
+      "id": 13472188172,
+      "name": "xlog-acceptance-linux-fc7909d63aa0f4d9fd9abf278c2b08bfd557cdd5",
+      "sha256": "2c681f7189608e618cbb9eb9059d85686f5b530d4c882cbd1b0bfcd2ebfe2a99",
+      "digestVerified": true,
+      "runId": 42150401167
+    }
+  ],
+  "macDevelopmentArtifact": "Metadata only; not downloaded; local signed Mac distribution remains separate",
+  "evidenceSHA256": {
+    "linux-package-1.5.22-audit.json": "2304f4a6712db92510a98624701eff31a55b9603c8955ff585e96a4b00e7c5fc",
+    "windows-package-1.5.22-audit.json": "4eb2299cf370e8ee518b7364829ff91e3b4a0f5594701a2777ee2810771e1460",
+    "windows-runtime-1.5.22-audit.json": "dc5a0407ba5d95f4dba91a2b1bb47274a81349ce2c30c3fd0321682d282e8e6b",
+    "source-gates-1.5.22-audit-v2.json": "e63b988084bbffdf83a9774bf9c610962c09c99abf237b2787a9891164b286fd",
+    "linux-portable-pins-audit.json": "988518f7baeb6ce90829a1233f93a170ab50b0595a56189a99058c1fd001926d",
+    "windows-portable-pins-audit.json": "98b0c1b27d3857b1e08717a332070d3c277144de0420f16c0076b0d29025f6f4",
+    "linux-runtime-1.5.22-audit.json": "03685a78ef4c3115fcde5b7e7d338f08cec6ad977e83b93aac3c65a2be19ecd3"
+  },
+  "rawJobLogs": {
+    "127635563851": {
+      "conclusion": "success",
+      "rawLogBytes": 1927944,
+      "rawLogSHA256": "bd2aac72b50d0495f20024ac044da162f2d50b38c74aad77995039e65404ac18"
+    },
+    "127635564030": {
+      "conclusion": "success",
+      "rawLogBytes": 2338051,
+      "rawLogSHA256": "558d3640b2a7c93ded779830a7f1f20d64ff3403567fc93ac56d21d2dc58e996"
+    },
+    "127635564358": {
+      "conclusion": "success",
+      "rawLogBytes": 2617295,
+      "rawLogSHA256": "22c9f1ff5540d0f25c7b2c9791c5c35bd77433c8439d16c12aef81e7e480b7e5"
+    },
+    "127664728886": {
+      "conclusion": "failure",
+      "rawLogBytes": 274603,
+      "rawLogSHA256": "607f53760bcd8837395822d23d66919698804db83222e401e724bdcf1bbe4c81"
+    },
+    "127664728936": {
+      "conclusion": "success",
+      "rawLogBytes": 37030,
+      "rawLogSHA256": "725f39f1ed5f1ae055b791f43db9ee3b2396c7112f4081c4a86f4f2fe9dda2ba"
+    },
+    "127664729139": {
+      "conclusion": "success",
+      "rawLogBytes": 37267,
+      "rawLogSHA256": "101f5072c08bf8a3604ab3f52da3b958b0c3bf3a8c6e0bc154e66b1d8a701f11"
+    },
+    "127671986339": {
+      "conclusion": "success",
+      "rawLogBytes": 276772,
+      "rawLogSHA256": "c73c3a10b068900902c3fe2fee532be7237e2f7da697cdb322bd027c25b6824e",
+      "qaExecutorSource": "b66c433c9e9d8913713202cff93c12863bb6dbc1",
+      "packageSource": "fc7909d63aa0f4d9fd9abf278c2b08bfd557cdd5"
+    }
+  },
+  "followupDiagnostic": {
+    "status": "PASSED in separately authorized runtime-only run",
+    "runId": 42150401167,
+    "attempt": 1,
+    "jobId": 127671986339,
+    "qaExecutorSource": "b66c433c9e9d8913713202cff93c12863bb6dbc1",
+    "packageSource": "fc7909d63aa0f4d9fd9abf278c2b08bfd557cdd5",
+    "packageRunId": 42139380197,
+    "applicationRebuilt": false,
+    "buildAndWindowsJobsSkipped": true,
+    "dispatchCalls": 1,
+    "retryCalls": 0,
+    "originalRunFailurePreserved": true,
+    "originalAssertionCause": "UNKNOWN; passing follow-up does not establish transience or an application repair"
+  },
+  "limits": [
+    "Unsigned Windows/Linux beta hashes prove byte integrity, not publisher authenticity",
+    "Original Linux reports remain unavailable; the separate follow-up qualifies its own normal X11/Wayland flows, not the lost original attempt or its cause",
+    "Hosted Windows silent/elevated scope acceptance is not ordinary Win11/UAC/Finish-token/upgrade or real-data preservation",
+    "No absent-WebView2/external-media/equipment/RF/notarization/daily-install/public-release qualification",
+    "No new native CPU/memory/retention campaign or whole-phase PASS claimed",
+    "The original Linux assertion remains cause-unknown; four normal-flow passes do not claim runtime conflict-recovery branch coverage"
+  ],
+  "ownerActions": {
+    "originalRunAuditReadOnly": true,
+    "authorizedLinuxRuntimeOnlyDispatches": 1,
+    "retryCalls": 0,
+    "cancelCalls": 0,
+    "unapprovedCIMutations": 0,
+    "applicationOrWorkerLaunches": 0,
+    "installs": 0,
+    "trackedWrites": 0
+  },
+  "originalDisposition": {
+    "file": "ci-1.5.22-original.json",
+    "sha256": "5529b533ecb7baeb92b944acd955f8811af80f5fbe12bb88844b1b6c492e9f34",
+    "originalRunConclusionsUnchanged": true
+  }
+}

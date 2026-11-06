@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "source": "fc7909d63aa0f4d9fd9abf278c2b08bfd557cdd5",
+  "platform": "ubuntu-24.04",
+  "actualReceipts": 7,
+  "allChildExitZero": true,
+  "preparedAndVerifiedExact": true,
+  "pinPolicySourceExact": true,
+  "pinPolicySHA256": "6461a826fcaf26015ce42645f82fce4fe83bdb24ee617d0ade5224fcafcbde38",
+  "lockSHA256": [
+    "1782b1768c4f690084d46e99d63b84105e4e7d5fb949d7529b03d14cc7ceb862"
+  ],
+  "originHash": [
+    "c028c7369743881a8c66bfe41f8dd28d9b1008d92a4eda8372b6e98a6b5ea213"
+  ],
+  "scope": "dependency pin guard receipts, not runtime acceptance"
+}

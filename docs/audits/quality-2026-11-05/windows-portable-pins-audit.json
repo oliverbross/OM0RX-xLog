@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "source": "fc7909d63aa0f4d9fd9abf278c2b08bfd557cdd5",
+  "platform": "windows-2022",
+  "actualReceipts": 5,
+  "allChildExitZero": true,
+  "preparedAndVerifiedExact": true,
+  "pinPolicySourceSemanticallyExact": true,
+  "pinPolicySourceLFSHA256": "6461a826fcaf26015ce42645f82fce4fe83bdb24ee617d0ade5224fcafcbde38",
+  "pinPolicyActualWindowsCRLFSHA256": "0774f185a659bec2acbb9da209fa8e779baa01d77b026c487080212713af6942",
+  "lineEndingBoundary": "Actual receipt hash equals exact sourceLF-to-CRLF conversion; no policy semantic change",
+  "initialAuditStrictLFByteComparison": "failed solely due exact recorded CRLF boundary, corrected audit scope; not CI/source failure",
+  "lockSHA256": [
+    "9d08e5fb7e28f96fd413245c32213fc4bddabba11fa450140a0ef1af8396e614"
+  ],
+  "originHash": [
+    "3f13a67507b15a2fbf459f2bbf40a6362c719cb13a90bf9486def7bef1cf3c93"
+  ],
+  "scope": "dependency pin guard receipts, not runtime acceptance"
+}

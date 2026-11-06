@@ -1,0 +1,181 @@
+{
+  "schema": 1,
+  "status": "passed-within-separate-runtime-recheck-scope",
+  "runId": 42150401167,
+  "attempt": 1,
+  "jobId": 127671986339,
+  "qaExecutorSource": "b66c433c9e9d8913713202cff93c12863bb6dbc1",
+  "packageSource": "fc7909d63aa0f4d9fd9abf278c2b08bfd557cdd5",
+  "version": "1.5.22",
+  "packageRunId": 42139380197,
+  "packageArtifactId": 13469437610,
+  "packageArtifactDigest": "7c2a9190aaa51c5718a5bf94cabf0cdcac186d6f885533341e910c49f383f64a",
+  "actualDownloadDigestIndependentlyObservedInJobLog": true,
+  "applicationRebuilt": false,
+  "WindowsJobsSkipped": true,
+  "buildJobSkipped": true,
+  "acceptanceArtifact": {
+    "id": 13472188172,
+    "bytes": 833420,
+    "sha256": "2c681f7189608e618cbb9eb9059d85686f5b530d4c882cbd1b0bfcd2ebfe2a99",
+    "digestVerified": true,
+    "fileCount": 55
+  },
+  "installedRuntimeManifestSHA256": "0c8fb741077f7cee67b8896d0d3ef9b1a54194aedb1d923edcd2a4b3d98251c1",
+  "installedScanFiles": 1013,
+  "installedScanExactOriginal": true,
+  "installedAndRelocatedPayloadHashChecksPassed": true,
+  "runtimeUserNonRoot": true,
+  "noDeveloperToolchains": true,
+  "runtimeCommandFlags": [
+    "--network none",
+    "--cap-drop ALL"
+  ],
+  "workerReceipts": {
+    "worker.json": {
+      "status": "passed",
+      "framingTests": 2,
+      "awards": 192,
+      "contestCatalogue": 98,
+      "networkContact": false,
+      "stationIO": false,
+      "credentialsAccessed": false,
+      "receiptSHA256": "0fee7d07278a2a921c56f61dfb8f0ec3cfe4d171cb01170f859e6ddfad569522"
+    },
+    "archive-worker.json": {
+      "status": "passed",
+      "framingTests": 2,
+      "awards": 192,
+      "contestCatalogue": 98,
+      "networkContact": false,
+      "stationIO": false,
+      "credentialsAccessed": false,
+      "receiptSHA256": "0fee7d07278a2a921c56f61dfb8f0ec3cfe4d171cb01170f859e6ddfad569522"
+    }
+  },
+  "journeys": {
+    "ui-1": {
+      "backend": "x11",
+      "status": "passed",
+      "checksTrue": 36,
+      "reportSHA256": "4334de8fb5d7cda9dd32ff8e19e473b4a7503c67350242d783327da84352d273",
+      "validationSHA256": "2b0fc523983abb41c218b2ee757def30610fd960fbfb562a6e2a5c813f4cfada",
+      "screenshotSHA256": "fdc25cb50d105b8e144a4e6774988912afad762f9a232ae95822385033994a08",
+      "screenshotPixels": [
+        1600,
+        1100
+      ],
+      "actualHostWait": 0,
+      "actualTimeoutWrapperWait": 0,
+      "appSignals": [],
+      "scopedFinalInventory": "host plus one observed worker absent",
+      "workerWait": null,
+      "workerEOF": "unknown-not-observed",
+      "cleanup": "complete-known-scope",
+      "applicationDeadlineSeconds": 100,
+      "waylandKillAfterSeconds": null,
+      "layoutConflictRecovered": false,
+      "processReceiptSHA256": "69cf87d0c1a5156dc5905e82a7540a267d472136602ae85fd4b627ee2f9b553f",
+      "sessionReceiptSHA256": "c63ba2b3b2ee0b292ec6f33b73ba14ba1614b2f314b175419c33b454fa1b934f"
+    },
+    "ui-2": {
+      "backend": "x11",
+      "status": "passed",
+      "checksTrue": 36,
+      "reportSHA256": "a3b5591d06a6ed185103742c80b8ea03e83b0e758b403d4f2c4500a7cb126f6a",
+      "validationSHA256": "d0eade1d6b5afd6b56d56cca6c4bcfad76093de4805d322bb78933309f94f6b9",
+      "screenshotSHA256": "8bcf02999eed188dd207c53b1d09d5821b740e2c39d48ae100ef92e6d6c28ecb",
+      "screenshotPixels": [
+        1600,
+        1100
+      ],
+      "actualHostWait": 0,
+      "actualTimeoutWrapperWait": 0,
+      "appSignals": [],
+      "scopedFinalInventory": "host plus one observed worker absent",
+      "workerWait": null,
+      "workerEOF": "unknown-not-observed",
+      "cleanup": "complete-known-scope",
+      "applicationDeadlineSeconds": 100,
+      "waylandKillAfterSeconds": null,
+      "layoutConflictRecovered": false,
+      "processReceiptSHA256": "43eaeb221059bc658fa80994b75d2fda71af92ed9339715dbeb8c58bc1049658",
+      "sessionReceiptSHA256": "416584a07850264d4e769765b2a1c06fe84ad1eb55aaf2c4637b650864df05cb"
+    },
+    "ui-3": {
+      "backend": "x11",
+      "status": "passed",
+      "checksTrue": 36,
+      "reportSHA256": "f3b2212e14adada0fa4a041882d42ad48698f6daa032d686f30f57c92670be68",
+      "validationSHA256": "333735b9af36d965ee2b1f266c225ed778adedd04183e53ea3d0ae00e76b7d67",
+      "screenshotSHA256": "5d3819e2da6b684cea8763d5b750eef5447eba1d288b247f878e12cd17bcccc8",
+      "screenshotPixels": [
+        1600,
+        1100
+      ],
+      "actualHostWait": 0,
+      "actualTimeoutWrapperWait": 0,
+      "appSignals": [],
+      "scopedFinalInventory": "host plus one observed worker absent",
+      "workerWait": null,
+      "workerEOF": "unknown-not-observed",
+      "cleanup": "complete-known-scope",
+      "applicationDeadlineSeconds": 100,
+      "waylandKillAfterSeconds": null,
+      "layoutConflictRecovered": false,
+      "processReceiptSHA256": "40066b019b2244c1d9d0a40ac9f2d814e7e0233168ab37725f9436047a957946",
+      "sessionReceiptSHA256": "32c8c7067cc8b2ababdc08fe104236094d8c6d641cb112d7af2c7085381b8d9c"
+    },
+    "ui-wayland": {
+      "backend": "wayland",
+      "status": "passed",
+      "checksTrue": 36,
+      "reportSHA256": "7ab87afd12d920b2c489cd6a59dda0f2ff2107d809dc20213b1f634b30112993",
+      "validationSHA256": "69d078cc699ebfff4a2ce51f7a973cf09683cdf9a9b3410aba7e53118cdba2bd",
+      "screenshotSHA256": "c983a588d3725fc64e0dbce7f5bfc77c11e2141852c79762dc40fa911b7df4a1",
+      "screenshotPixels": [
+        1600,
+        1100
+      ],
+      "actualHostWait": 0,
+      "actualTimeoutWrapperWait": 0,
+      "appSignals": [],
+      "scopedFinalInventory": "host plus one observed worker absent",
+      "workerWait": null,
+      "workerEOF": "unknown-not-observed",
+      "cleanup": "complete-known-scope",
+      "applicationDeadlineSeconds": 100,
+      "waylandKillAfterSeconds": 5,
+      "layoutConflictRecovered": false,
+      "processReceiptSHA256": "d87bc7bf9651b7a975b501d1be2b039a1a4610c12d533916b57ab2e9b6d0ed56",
+      "sessionReceiptSHA256": "d405750f39e37ed3d2d847ffad9c94e01ca3192fd88ca197e6b75fd92b0a55dc"
+    }
+  },
+  "wayland": {
+    "applicationBackend": "wayland",
+    "applicationDISPLAYAbsent": true,
+    "compositor": "Weston nested X11/pixman",
+    "physicalDesktop": false,
+    "ownedCompositorCleanupSignal": "TERM",
+    "actualCompositorWait": 0,
+    "compositorAbsent": true,
+    "ordinaryCompositorExit": false
+  },
+  "ownershipRecovery": {
+    "status": "passed",
+    "recoveredCount": 52,
+    "errorCount": 0,
+    "receiptSHA256": "81ece0c6b928b4b436a07a64df668fdf56cefc7a183d75ee3e99242369672e0a"
+  },
+  "screenshotObservation": "Static nested-Wayland PNG shows rendered Desk/map/band-map and Native automatic rotor status unavailable toast; toast is outside the36checks, cause not established",
+  "limits": [
+    "Original run42139380197 remains FAILED; its unlabelled assertion cause is UNKNOWN and original GUI reports were not recovered",
+    "All4layoutConflictRecovered fields are false; no runtime exercise of that recovery branch is claimed",
+    "Host/wrapper actual waits are0; observed app workers are absent, but no direct app-worker wait/EOF was observed",
+    "Scoped inventory is host/observed-worker only, not a whole-WebKit/helper ownership or physical-desktop claim",
+    "Nested Wayland/Xvfb synthetic acceptance, not ordinary Linux desktop, equipment, memory/CPU, daily installation or public release"
+  ],
+  "rawLogSHA256": "c73c3a10b068900902c3fe2fee532be7237e2f7da697cdb322bd027c25b6824e",
+  "packagedProcessLaunchesByAuditor": 0,
+  "retryDispatches": 0
+}

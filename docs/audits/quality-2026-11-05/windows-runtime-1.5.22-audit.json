@@ -1,0 +1,160 @@
+{
+  "schema": 1,
+  "runId": 42139380197,
+  "source": "fc7909d63aa0f4d9fd9abf278c2b08bfd557cdd5",
+  "version": "1.5.22",
+  "scopes": {
+    "currentUser": {
+      "installerReceiptSHA256": "bc94fac10ee8561d04d69405ea5b34d9f71ef426eba5b2e75219d4d3ce60ddeb",
+      "defaultPathPassed": true,
+      "registryHive": "HKCU",
+      "startMenuScopePassed": true,
+      "expectedDefaultKind": "%LOCALAPPDATA%\\OM0RX-xLog",
+      "installerSHA256": "97cf4954326dee9efb6295f275160ee639b58d4813b692e240bea5914d762163",
+      "payloadManifestSHA256": "18bea979d87fbd2cb84c7c87903b134e82e61009b5fa627bcf0806b2815ed0c2",
+      "nativeRuntimePassed": true,
+      "uninstallPassed": true,
+      "ownedProfileMarkerPreserved": true,
+      "preservationScope": "Harness-owned marker in current-user LocalAppData; existing logbooks and account settings were not read",
+      "harnessElevated": true,
+      "notRun": {
+        "interactiveUAC": "NOT RUN (silent harness)",
+        "ordinaryUserRuntime": "NOT RUN",
+        "interactiveDefaultPath": "NOT RUN (silent harness)",
+        "upgrade": "NOT RUN",
+        "reinstallRollback": "NOT RUN",
+        "externalMediaRetention": "NOT RUN"
+      },
+      "qaPackageSourceAndOriginalRunBound": true,
+      "contexts": {
+        "portable": {
+          "acceptanceSHA256": "36d3577fc3cd5cbf6fccdfa844adb8028ee54eca3f350ae97077ff40239d65c7",
+          "checksPassed": 13,
+          "guiLaunches": 2,
+          "guiCheckCounts": [
+            36,
+            36
+          ],
+          "allGUIChecksTrue": true,
+          "workerRegressionTests": 2,
+          "localSelfTestAwards": 192,
+          "localSelfTestChecks": 9,
+          "localSelfTestSHA256": "867dc5d0da0fa26be0fe4b23b018b1c5819e0f7e57bd0eeebbe0daa91d7b98d5",
+          "workerSHA256": "deb7c02b793cb7c21764d52368afa901320a562e35c1276752e6eef5f323c488",
+          "networkContact": false,
+          "stationIO": false,
+          "credentialsAccessed": false,
+          "originalNestedTempUTF16Units": 55,
+          "noSwiftToolchainProbesPassed": true,
+          "workerShutdown": "Successful unchanged Finish-Worker closes stdin, waits original child exit0, drains stderr/output; 10s response/EOF bound",
+          "GuiTimeoutSeconds": 100,
+          "isolation": "Original synthetic profile/CWD/child PATH and nested TEMP, not shortened diagnostic TEMP"
+        },
+        "installed": {
+          "acceptanceSHA256": "b0ab230d3a82955c54a2726cfc14827752d10a12a353d115640711579b1823cd",
+          "checksPassed": 15,
+          "guiLaunches": 2,
+          "guiCheckCounts": [
+            36,
+            36
+          ],
+          "allGUIChecksTrue": true,
+          "workerRegressionTests": 2,
+          "localSelfTestAwards": 192,
+          "localSelfTestChecks": 9,
+          "localSelfTestSHA256": "867dc5d0da0fa26be0fe4b23b018b1c5819e0f7e57bd0eeebbe0daa91d7b98d5",
+          "workerSHA256": "deb7c02b793cb7c21764d52368afa901320a562e35c1276752e6eef5f323c488",
+          "networkContact": false,
+          "stationIO": false,
+          "credentialsAccessed": false,
+          "originalNestedTempUTF16Units": 92,
+          "noSwiftToolchainProbesPassed": true,
+          "workerShutdown": "Successful unchanged Finish-Worker closes stdin, waits original child exit0, drains stderr/output; 10s response/EOF bound",
+          "GuiTimeoutSeconds": 100,
+          "isolation": "Original synthetic profile/CWD/child PATH and nested TEMP, not shortened diagnostic TEMP"
+        }
+      }
+    },
+    "perMachine": {
+      "installerReceiptSHA256": "587ceeadfd7a9a9ce2e9fa7eded2a8e582b55f112261f19691af0ab2d8de31b9",
+      "defaultPathPassed": true,
+      "registryHive": "HKLM",
+      "startMenuScopePassed": true,
+      "expectedDefaultKind": "%ProgramFiles%\\OM0RX-xLog",
+      "installerSHA256": "fafeb2f3ff579c05d26e8c65ba8e7987aed0f5e46a68053b52bd922adf013d7d",
+      "payloadManifestSHA256": "18bea979d87fbd2cb84c7c87903b134e82e61009b5fa627bcf0806b2815ed0c2",
+      "nativeRuntimePassed": true,
+      "uninstallPassed": true,
+      "ownedProfileMarkerPreserved": true,
+      "preservationScope": "Harness-owned marker in current-user LocalAppData; existing logbooks and account settings were not read",
+      "harnessElevated": true,
+      "notRun": {
+        "interactiveUAC": "NOT RUN (silent harness)",
+        "ordinaryUserRuntime": "NOT RUN",
+        "interactiveDefaultPath": "NOT RUN (silent harness)",
+        "upgrade": "NOT RUN",
+        "reinstallRollback": "NOT RUN",
+        "externalMediaRetention": "NOT RUN"
+      },
+      "qaPackageSourceAndOriginalRunBound": true,
+      "contexts": {
+        "portable": {
+          "acceptanceSHA256": "f94f2474f3a34d6a792c2e0b24d526b9c57bad0f0c4b44881fc254e40f2861f3",
+          "checksPassed": 14,
+          "guiLaunches": 2,
+          "guiCheckCounts": [
+            36,
+            36
+          ],
+          "allGUIChecksTrue": true,
+          "workerRegressionTests": 2,
+          "localSelfTestAwards": 192,
+          "localSelfTestChecks": 9,
+          "localSelfTestSHA256": "867dc5d0da0fa26be0fe4b23b018b1c5819e0f7e57bd0eeebbe0daa91d7b98d5",
+          "workerSHA256": "deb7c02b793cb7c21764d52368afa901320a562e35c1276752e6eef5f323c488",
+          "networkContact": false,
+          "stationIO": false,
+          "credentialsAccessed": false,
+          "originalNestedTempUTF16Units": 55,
+          "noSwiftToolchainProbesPassed": true,
+          "workerShutdown": "Successful unchanged Finish-Worker closes stdin, waits original child exit0, drains stderr/output; 10s response/EOF bound",
+          "GuiTimeoutSeconds": 100,
+          "isolation": "Original synthetic profile/CWD/child PATH and nested TEMP, not shortened diagnostic TEMP"
+        },
+        "installed": {
+          "acceptanceSHA256": "b942c5b76da92bced3de65570eb58e3e67aaafb2f4df1370cd3f46671e5d6e9c",
+          "checksPassed": 15,
+          "guiLaunches": 2,
+          "guiCheckCounts": [
+            36,
+            36
+          ],
+          "allGUIChecksTrue": true,
+          "workerRegressionTests": 2,
+          "localSelfTestAwards": 192,
+          "localSelfTestChecks": 9,
+          "localSelfTestSHA256": "867dc5d0da0fa26be0fe4b23b018b1c5819e0f7e57bd0eeebbe0daa91d7b98d5",
+          "workerSHA256": "deb7c02b793cb7c21764d52368afa901320a562e35c1276752e6eef5f323c488",
+          "networkContact": false,
+          "stationIO": false,
+          "credentialsAccessed": false,
+          "originalNestedTempUTF16Units": 91,
+          "noSwiftToolchainProbesPassed": true,
+          "workerShutdown": "Successful unchanged Finish-Worker closes stdin, waits original child exit0, drains stderr/output; 10s response/EOF bound",
+          "GuiTimeoutSeconds": 100,
+          "isolation": "Original synthetic profile/CWD/child PATH and nested TEMP, not shortened diagnostic TEMP"
+        }
+      }
+    }
+  },
+  "fullInstalledPayloadManifestValidatedByHarness": true,
+  "installedPayloadEntryCount": 3270,
+  "scope": "Hosted elevated Windows Server2022 x86_64 synthetic acceptance only",
+  "limits": [
+    "Silent default paths are actual; interactive path chooser NOT RUN",
+    "Owned marker preservation does not prove existing logbook/settings/media retention",
+    "No ordinary Win11/UAC/Finish-token/upgrade/equipment claim",
+    "No direct packaged process launched by this read-only audit"
+  ],
+  "overallWindowsHostedAcceptance": "passed"
+}

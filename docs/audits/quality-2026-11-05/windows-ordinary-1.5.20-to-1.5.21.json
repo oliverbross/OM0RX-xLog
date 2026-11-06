@@ -1,0 +1,706 @@
+{
+  "schema": 3,
+  "status": "CU20-to-CU21-to-AU21-empty-profile-retention-observed; AU-Standard-token-components-observed; Runtime-outer-failed; restart-GUI-blank; final-ordinary-Quit-name-count-zero",
+  "scope": {
+    "applicationVersion": "Historical20; retained-data transition to21",
+    "installationScope": "Historical current-user20/current-user21; subsequent all-users21",
+    "observedDefaultDirectoryCategory": "LocalAppData/OM0RX-xLog",
+    "guestOS": "Windows 11",
+    "guestArchitecture": "ARM64",
+    "packageArchitecture": "x86_64 under emulation",
+    "accountKind": "disposable Standard account",
+    "nativeWindowsX64DesktopQualified": false,
+    "originalWindowsVMUntouched": "root-reported scope; no independent disk audit",
+    "productionDataOrConnectedStationUsed": false,
+    "evidenceKind": "Root CUA observation transcriptions and component receipts; this report adds no guest actions"
+  },
+  "ordinaryInstallationAndOnboarding": {
+    "tokenProbe": {
+      "nonAdmin": true,
+      "elevated": false,
+      "adminSidPresent": false,
+      "integrityRid": 8192,
+      "exitCode": 0
+    },
+    "setupCompletionAndFinishLaunchObserved": true,
+    "uacPromptObserved": false,
+    "actualFinishLaunchedAppTokenMeasured": false,
+    "registryShortcutCompletePayloadAuditClaimed": false,
+    "radioFirstBrowse": "FAILED: bundled catalogue could not load",
+    "radioRetry": {
+      "attempts": 1,
+      "listedModels": 313,
+      "selectedDummyModel": 1
+    },
+    "rotorFirstBrowse": {
+      "listedModels": 57,
+      "selectedDummyModel": 1
+    },
+    "bothDraftDevices": "dummy",
+    "bothDraftBaud": 9600,
+    "ConnectOrMotionAction": false,
+    "Finish": "Integrated logbook selected; Finish invoked; blank navy webcontent/native menus remained about two minutes",
+    "ordinaryRestart": "Again blank navy webcontent/native menus",
+    "earlierOrdinaryExit": "Native File Exit closed each original window normally; no force quit observed",
+    "SaveAndRestartGUIPassed": false,
+    "cause": "UNDETERMINED"
+  },
+  "historicalDiagnostics": {
+    "v3Runtime": {
+      "result": "FAILED",
+      "exitCode": 1,
+      "observedError": "Reserved HOME assignment; VariableNotWritable",
+      "stage": "Before private directory or try block",
+      "readbackCataloguesProcessProofBackup": "NOT RUN"
+    },
+    "v4Runtime": {
+      "result": "FAILED",
+      "exitCode": 2,
+      "errors": 2,
+      "catalogues": [
+        {
+          "tool": "rigctld -l",
+          "rows": 313,
+          "dummyModel1": true,
+          "exitCode": 0,
+          "forced": false,
+          "elapsedMilliseconds": 328
+        },
+        {
+          "tool": "rotctld -l",
+          "rows": 57,
+          "dummyModel1": true,
+          "exitCode": 0,
+          "forced": false,
+          "elapsedMilliseconds": 140
+        }
+      ],
+      "metadataComponents": "Read-only Python settings revision2/onboarding=true; rotor revision1/Hamlib/model1/managed/9600/dummy; source main/WAL unchanged during read",
+      "outerSummarySHA256": "ff32a5cef8852c6e3e22e1cfcc6d16f1ded22304c767efd6f4f257644fb5338a",
+      "privateGuestErrorsRead": false,
+      "limit": "Host reproduction of an empty-key JSON boundary is not actual guest error detail or the cause of blank webcontent"
+    },
+    "v4Before": {
+      "result": "FAILED",
+      "exitCode": 2,
+      "errors": 1,
+      "summarySHA256": "cb49684fdc01bf3a1649d4ea569e3d11c75d787430ffa9bb0433de34f59f9498",
+      "componentIntegrity": "ok",
+      "liveQsoCount": 0,
+      "physicalQsoRows": 0,
+      "orderedAllStoredQsoSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "backupDigestFromEarlierTranscriptionPublished": false,
+      "limit": "Result was initially unobserved while display was black; after display restoration root observed completion and components, but outer result remains failed"
+    },
+    "v5Runtime": {
+      "result": "FAILED",
+      "exitCode": 2,
+      "errors": 1,
+      "errorStages": [
+        {
+          "stage": null,
+          "code": null
+        }
+      ],
+      "eventCount": 0,
+      "summarySHA256": "340360e7a6beb021fb2d9b8c187f91f8ffe381ade5d93ab00a23ded86f73088b",
+      "processCandidates": 0,
+      "provedHosts": 0,
+      "provedWorkers": 0,
+      "workspaceCandidates": 1,
+      "catalogues": [
+        {
+          "tool": "rigctld -l",
+          "rows": 313,
+          "dummyModel1": true,
+          "exitCode": 0,
+          "forced": false,
+          "elapsedMilliseconds": 172
+        },
+        {
+          "tool": "rotctld -l",
+          "rows": 57,
+          "dummyModel1": true,
+          "exitCode": 0,
+          "forced": false,
+          "elapsedMilliseconds": 250
+        }
+      ],
+      "settingsRevision": 2,
+      "onboardingCompleted": true,
+      "rotorRevision": 1,
+      "privateEventErrorRead": false,
+      "limit": "Scalar metadata/catalogues are components. No cause inferred from GetWinEvent source, null error fields or eventCount0"
+    }
+  },
+  "v5Before": {
+    "result": "PASSED within the diagnostic's empty-workspace scope",
+    "exitCode": 0,
+    "errors": 0,
+    "errorStages": [],
+    "eventCount": 0,
+    "summarySHA256": "de5fedf13011090a0825ae6e9df0ad7cb5edec138afe41282da70a842340fa62",
+    "processCandidates": 0,
+    "provedHosts": 0,
+    "provedWorkers": 0,
+    "workspaceCandidates": 1,
+    "workspace": {
+      "integrity": "ok",
+      "liveQsoCount": 0,
+      "physicalQsoRows": 0,
+      "orderedAllStoredQsoSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "backupSHA256": "c3fbe8c1cb6dbf33b8e15651eea7efa6f60c1686f3a8f63b2fffdcdf4e2218ca"
+    },
+    "settings": {
+      "revision": 2,
+      "onboardingCompleted": true
+    },
+    "rotor": {
+      "revision": 1,
+      "owner": "hamlib",
+      "model": 1,
+      "mode": "managed",
+      "baud": 9600,
+      "pathIsDummy": true
+    },
+    "radioBaseConfirmedForThisBackup": false,
+    "separateRadioBackupPassed": false,
+    "fullProfileOrMediaRetentionPassed": false,
+    "limit": "Reported hashes were read by root from actual output and validate64hex; no independent guest-file hash by this agent. Zero name candidates do not establish actual exit/EOF or complete WebView/helper-family absence"
+  },
+  "subsequentSavedRadioReadback": {
+    "ordinaryAccountRoamingRadio1JSONReadByRoot": true,
+    "version": 2,
+    "revision": 2,
+    "baseURLEmpty": true,
+    "hamlib": {
+      "baud": 9600,
+      "mode": "managed",
+      "model": 1,
+      "pathIsDummy": true
+    },
+    "flex": null,
+    "tci": null,
+    "profile": {
+      "enabled": true,
+      "provider": "hamlib"
+    },
+    "saveReceipt": {
+      "count": 1,
+      "action": "save_hamlib",
+      "status": "saved",
+      "configurationMatchesReadback": true
+    },
+    "savedModelReadbackComponentClosed": true,
+    "nativeGUIReadbackPassed": false,
+    "limit": "Closes stored radio model/configuration readback, not native rendering, restart success or inclusion in the earlier Before backup"
+  },
+  "independentDebugLaunch": {
+    "controllerExitCode": 0,
+    "finalState": "proved-live-awaiting-root-Console-observation",
+    "sourceCommit": "3d9cb0981c30764f1188db350ffebc22a5f328a7",
+    "version": "1.5.20",
+    "hostSHA256": "d6bad092ffbde54ba9b299087da4d40f7d35fd9bac9cdcb3c066650774b975a4",
+    "workerSHA256": "2dd9a007937b0cee8240bc73785a76ce2fbe4cc6a6dbe9dcde5114abce5593e5",
+    "exactHostChildImageArgumentsParentageAndTokenProofPassed": true,
+    "callerHostAndWorkerTokenGuards": {
+      "nonAdmin": true,
+      "elevated": false,
+      "elevationType": 1,
+      "integrityRid": 8192
+    },
+    "signalsIssued": false,
+    "remoteDebugPort": false,
+    "childOnlyBrowserArgument": "--auto-open-devtools-for-tabs",
+    "journalReportedSHA256": "6d312c81463eb876af4f6f26575a7ed6c01d27728c4e75b88e583e3e147df19e",
+    "journalHashEvidence": "Observed reported hash, not independently hashed guest file",
+    "laterUI": "Blue blank xLog webcontent/native menu and separate black console",
+    "localDevToolsWindowObserved": false,
+    "actualConsoleErrorObserved": false,
+    "ordinaryQuitAfterDebugObserved": true,
+    "currentProcessLivenessAfterLastProof": "Later ordinary Alt-F4 closed original Debug window/taskbar icons; confirmed Before name-candidate0; no actual exit/EOF or complete helper-family absence",
+    "rootContinuation": "Earlier UTM focus/paint obstruction preserved. Later Alt-Tab/taskbar activation restored input; oneF12 did not reveal Console and File menu gave no observed response. Ordinary Alt-F4 closed the window after lag; no app crash/cause inferred.",
+    "limit": "Independent later Debug launch proof identifies these source20 bytes and ordinary tokens at proof time; it does not retroactively measure the original Finish-launched token or qualify GUI setup"
+  },
+  "nextBeforeProposal": {
+    "executedByRoot": true,
+    "unchangedV5Helper": true,
+    "radioBaseKnownFolder": "ApplicationData",
+    "typedEqualsMappedPlusLineExecuted": false,
+    "unexecutedLineCleared": true,
+    "equivalentSetItemChildEnvironmentCommandExecuted": true,
+    "ordinaryQuitBeforeStorage": true,
+    "confirmedSelectedRadioBackup": true,
+    "limit": "Original unexecuted mistyped line is not a diagnostic attempt. No persistent environment or helper/media changes."
+  },
+  "retainedProvenanceSHA256": {
+    "originalInterimJSON": "c37d287e74101d7be43d99b2a65984c64a419f71a63ca2015b045372114fe3b3",
+    "supplement01": "196c05fe550b5ff325183f180ee6cfadc136c87faaaefbebf350888196a5ead4",
+    "supplement02": "cfde913801d1d530e1840f4ef5c83633be18a32e1197b0e317499a3f7cb4a465",
+    "supplement03": "b52d9190c2681366ea3f71bc27ba85ba3efc863f37afe9766a150b69281f96df",
+    "supplement04": "ec8d2e22284ec2162da81701c5b096f81642288f16f274c6f6ae66dfca7aae3a",
+    "v5DebugISO": "e4b1102ee9cc39170d7007c48637849579c0059d042d9fd4f2bbd91be7a4fa15",
+    "v5Manifest": "8f40e0a51c3617e7f42b80bce184b979ad374f60432c7f6665d240240fd5271c",
+    "v5DiagnosticScript": "54408c0d020ed3fa1b9208af646173a773586922f200d6f04980048f7af68f49",
+    "v5DebugLaunchScript": "ac32ce7b9c9294b70fa704f91ecb1a0a745e8df9da7f670dd3ac8bac545b9443",
+    "combinedV2JSON": "69689dc8376c462fae2a8633fa68b5deb7e8d916c909618e14711c2b1f40254c"
+  },
+  "stillOpen": [
+    "Blank Finish/restart cause, stable native GUI and actual Console error observation",
+    "Actual Finish-launched tokens, process exit/EOF and full helper-family absence",
+    "Nonempty QSO/media retention, full-profile backup and restore, direct in-place upgrade",
+    "Stable AU GUI/blank-state cause, actual Console error and later AU uninstall; actual process exit codes/EOF and complete WebView-family absence unobserved",
+    "Native x64 desktop, complete ordinary-account qualification and Windows22bytes"
+  ],
+  "releaseDisposition": "Interim transition/component evidence only. Version21 GUI remains unresolved; no general Windows PASS, Windows22 qualification, daily installation or public release. Prior v2 and all supplements remain unchanged.",
+  "agentActions": {
+    "UIOrAppAccess": false,
+    "guestProcessOrStoreAccess": false,
+    "launchOrSignal": false,
+    "trackedEdit": false
+  },
+  "currentUser20To21": {
+    "method": "Explicit same-scope20 uninstall retaining app data, then21 install at the retained LocalAppData location; not a direct in-place installer upgrade or cross-scope migration",
+    "priorUninstall": {
+      "version": "1.5.20",
+      "completedObserved": true,
+      "DeleteApplicationDataChecked": false
+    },
+    "installer": {
+      "version": "1.5.21",
+      "source": "b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+      "scope": "current-user",
+      "sha256": "db37e22c5993dceed4d05ab3e1a1dc1c7a8bd9f5506cec08a79f85f9c2438ff1",
+      "rootObservedGuestCertutilMatch": true,
+      "setupCompleted": true,
+      "uacPromptObserved": false,
+      "observedDirectoryCategory": "LocalAppData/OM0RX-xLog",
+      "freshDefaultClaimed": false,
+      "FinishRunChecked": true
+    },
+    "GUI": {
+      "briefPartialDeskNavigationBehindWorkerConsoleObserved": true,
+      "afterMinimizingConsole": "Blank navy webcontent/native menus again",
+      "stableDeskOrSetupRestartPassed": false,
+      "cause": "UNDETERMINED; substantial stale/tearing terminal paint prevents causal inference",
+      "ordinaryAltF4ClosedApplication": true,
+      "actualFinishLaunchedTokenMeasured": false
+    },
+    "before": {
+      "mode": "Before",
+      "summarySHA256": "a1dc82162afd42f21a095ab77ecfe46e2a66adcaff47e82c323f68fc4226ce67",
+      "summaryPinnedByAfterInvocation": true,
+      "exitCode": 0,
+      "errors": [],
+      "eventCount": 0,
+      "version": "1.5.20",
+      "processCandidates": 0,
+      "provedHosts": 0,
+      "provedWorkers": 0,
+      "workspaceCandidates": 1,
+      "radioBackup": "CAPTURED PRIVATE; exact chosen base",
+      "radioStateSHA256": "5be58daab1b3b79d31b81dd46418cbd58895c0c680dc1a58a7147a643eeef980",
+      "radioKnownFolderCode": 1,
+      "radioStableRead": true,
+      "radioGuestBaseConfirmed": true,
+      "media": []
+    },
+    "after": {
+      "mode": "After",
+      "summarySHA256": "5f5d8d3108f8e2af1d479b59c3ff6ad41184d287b0f6d67e22b392349aab014b",
+      "exitCode": 0,
+      "errors": [],
+      "eventCount": 0,
+      "version": "1.5.21",
+      "processCandidates": 0,
+      "provedHosts": 0,
+      "provedWorkers": 0,
+      "workspaceCandidates": 1,
+      "integrity": "ok",
+      "liveQsoCount": 0,
+      "physicalQsoRows": 0,
+      "orderedAllStoredQsoSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "backupSHA256": "c3fbe8c1cb6dbf33b8e15651eea7efa6f60c1686f3a8f63b2fffdcdf4e2218ca",
+      "settings": {
+        "revision": 2,
+        "onboardingCompleted": true
+      },
+      "rotor": {
+        "revision": 1,
+        "owner": "hamlib",
+        "model": 1,
+        "mode": "managed",
+        "baud": 9600,
+        "pathIsDummy": true
+      },
+      "radio": {
+        "knownFolderCode": 1,
+        "stableRead": true,
+        "guestBaseConfirmed": true,
+        "version": 2,
+        "revision": 2,
+        "hamlibSaved": true,
+        "profilePresent": true,
+        "receiptCount": 1,
+        "radioBackup": "CAPTURED PRIVATE; exact chosen base",
+        "radioStateSHA256": "5be58daab1b3b79d31b81dd46418cbd58895c0c680dc1a58a7147a643eeef980"
+      },
+      "explicitFullSummaryFlags": {
+        "qsoRetention": true,
+        "canonicalSettingsBytesUnchanged": true,
+        "canonicalRotorBytesUnchanged": true,
+        "radioStateBytesUnchanged": true
+      }
+    },
+    "retentionConclusion": "PASSED only empty0-QSO all12-column equality, same closed workspace backup digest and canonical settings/rotor plus selected-radio bytes across this explicit uninstall/reinstall version transition",
+    "digestEvidence": "Root-observed reported hashes, all64hex validated; not independent guest-file hashes by this reporting agent",
+    "processLimit": "Completed name nomination0 after ordinaryAltF4 is not an actual app/worker exit/EOF receipt or full WebView-family absence",
+    "notQualified": [
+      "NonemptyQSO retention",
+      "External-media retention",
+      "Full-profile backup/restore",
+      "Direct in-place upgrade",
+      "Finish-launched actual tokens",
+      "Stable nativeGUI",
+      "Native x64 desktop",
+      "Signed22Windows behavior"
+    ]
+  },
+  "pendingScopeEvidence": {
+    "currentUser21RegistryShortcutAndExecutableScope": "Historical pre-uninstall HKCU64 version/location, exact host hash and matching user-link TargetPath observed; subsequent CU artifacts explicitly removed",
+    "currentUserUninstallScopeRemoval": "Completion and main EXE/user shortcut/HKCU64 uninstall removal observed; later scoped AU After compared retained original profile",
+    "allUsersUACCancelAndAccept": "Cancellation and separate accepted credential-prompt installation/default/scope components observed; narrow original-profile retention After passed",
+    "scopeAwareAllUsersRuntimeOrRetention": "After original-profile/empty-data retention passed; Runtime outer failed with actual GetWinEvent NoMatchingEventsFound error; Standard caller/host/worker token and no-extra-argv components observed, GUI remains blank"
+  },
+  "currentUser21ScopeReadback": {
+    "HKCU64UninstallDisplayVersion": "1.5.21",
+    "uninstallStringResolvesTo": "Original ordinary-account LocalAppData/OM0RX-xLog/uninstall.exe",
+    "installedHostSHA256": "4c1f9f13408858a8b0b5ebb2794247dc655d699aee6e8f87825b6b3309fe7dfd",
+    "guestCertutilMatchesReviewed21Host": true,
+    "userStartMenuShortcutExists": true,
+    "shortcutTargetPath": "Exact original ordinary-account LocalAppData/OM0RX-xLog/xlog-prototype.exe; matches registered21 location",
+    "oppositeHKLMOrCommonShortcutAbsence": "NOT YET OBSERVED",
+    "limit": "Registry version/location, exact host hash, user-link existence and matching TargetPath are observed components; opposite-scope absence and complete scope acceptance remain unverified",
+    "shortcutTargetMatchesRegistered21Host": true,
+    "observedBeforeUninstall": true
+  },
+  "currentUser21Uninstall": {
+    "ordinaryUninstallerUsed": true,
+    "DeleteApplicationDataChecked": false,
+    "completedSuccessfullyObserved": true,
+    "postUninstall": {
+      "mainExe": "File Not Found",
+      "userStartMenuLink": "File Not Found",
+      "HKCU64UninstallRegistration": "Explicit key/value not found"
+    },
+    "retainedManufacturerLocationDeleted": false,
+    "profileRetentionAfterThisUninstall": "Not independently compared yet; prior CU20-to21 comparisons retain their own bounds"
+  },
+  "allUsersUACCancel": {
+    "status": "PASS within observed credential-prompt cancellation and checked scope artifacts only",
+    "initiatedFromOriginalStandardCMD": true,
+    "installer": {
+      "version": "1.5.21",
+      "source": "b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+      "scope": "all-users",
+      "sha256": "a62dc4c83331c8666e91ef9c046b9ee1164fa8e7c00e42a538f5d61347caaf27",
+      "rootObservedGuestCertutilMatch": true
+    },
+    "before": {
+      "programFiles64Resolved": true,
+      "mainExe": "File Not Found",
+      "commonStartMenuLink": "File Not Found",
+      "HKLM64UninstallRegistration": "Explicit key/value not found"
+    },
+    "UAC": {
+      "secureDesktopCredentialPromptObserved": true,
+      "separateAdministratorPasswordRequested": true,
+      "unknownPublisherDisplayed": true,
+      "internalUnsignedCandidateExpected": true,
+      "action": "No"
+    },
+    "returnedToSameCMD": true,
+    "returnedText": "Access is denied.",
+    "installerExitCode": null,
+    "after": {
+      "mainExe": "File Not Found",
+      "commonStartMenuLink": "File Not Found",
+      "HKLM64UninstallRegistration": "Explicit key/value not found"
+    },
+    "absenceEvidence": "The explicit independent file/key not-found observations before and after; Access is denied is the cancelled launch result, never used as absence proof",
+    "allUsersInstallAcceptedOrCompleted": false,
+    "scopeDataRetentionAcrossCancellationCompared": false,
+    "limit": "No accepted-AU/default-path/runtime/profile retention/cleanup or global process absence pass; unknown-publisher text is preserved and installer hash does not supply publisher authenticity"
+  },
+  "currentCheckedInstallationState": "AU21 exact ProgramFiles host/worker, HKLM64 registration and matching common link observed; all three opposite CU artifacts explicitly absent after AU installation",
+  "allUsersAcceptedInstall": {
+    "secondExactReviewedInstallerRun": true,
+    "initiatedFromOriginalStandardCMD": true,
+    "version": "1.5.21",
+    "source": "b0d6a93c314bfa2f24036121acd7b4a42ecdd173",
+    "installerSHA256": "a62dc4c83331c8666e91ef9c046b9ee1164fa8e7c00e42a538f5d61347caaf27",
+    "UAC": {
+      "credentialPromptObserved": true,
+      "separateAdministratorCredentialAccepted": true
+    },
+    "WelcomeObserved": true,
+    "defaultDirectoryCategory": "64-bit Program Files/OM0RX-xLog",
+    "directoryOverrideUsed": false,
+    "installationCompletedSuccessfullyObserved": true,
+    "Finish": {
+      "RunInitiallyChecked": true,
+      "RunUncheckedAndVisuallyVerified": true,
+      "FinishClosed": true,
+      "appAutoLaunchRequested": false
+    },
+    "returnedToOriginalStandardCMD": true,
+    "readOnlyScopeComponents": {
+      "HKLM64DisplayVersion": "1.5.21",
+      "UninstallString": "Exact quoted64-bit Program Files/OM0RX-xLog/uninstall.exe",
+      "installedHostSHA256": "4c1f9f13408858a8b0b5ebb2794247dc655d699aee6e8f87825b6b3309fe7dfd",
+      "installedWorkerSHA256": "dc1a4c27b358fb53078c7d5ec4a430ae93568c39a2a863dc247dc442707ab218",
+      "guestCertutilBothMatchReviewed21Pins": true,
+      "commonStartMenuLinkExists": true,
+      "commonShortcutTargetMatchesExactProgramFilesHost": true
+    },
+    "postInstallOppositeCUAbsence": {
+      "LocalAppDataMain": "File Not Found",
+      "originalUserStartMenuLink": "File Not Found",
+      "HKCU64UninstallRegistration": "Specific key/value not found"
+    },
+    "rootManualManufacturerKeyQueriesOrDeletes": false,
+    "controlInterruption": "One read-only registry line was interrupted by a30-second CUA timeout before Enter; root cleared the unexecuted partial and retyped the whole command. No registry failure or extra installer run inferred.",
+    "actualAUAppRuntimeOrTokenProof": "One Runtime outerexit2/errors1; actual Standard caller/host/worker tokens and no-extra-argv readback observed separately, not overall Runtime or GUI PASS",
+    "AUOriginalProfileRetentionAfter": "Actual scoped After passed; see scopedAllUsersAfter for narrow bounds",
+    "actualAppOrWorkerExitOrEOF": "Actual exit codes/EOF unobserved; both ordinary AU Alt-F4 closures followed by fresh error-terminating CIM name queries Count0",
+    "limit": "UACaccepted/install/default/registry/link/executable components only; no app auto-launch/runtime/profile retention or general ordinary Windows pass"
+  },
+  "scopedAllUsersAfter": {
+    "status": "PASS within original Standard profile, empty-workspace/settings/rotor/selected-radio retention and checked scope components",
+    "executions": 1,
+    "beforeAnyAUAppLaunch": true,
+    "mode": "After",
+    "installationScope": "perMachine",
+    "installedRootCategory": "ProgramFiles64",
+    "originalStandardProfileMatched": true,
+    "selectedRegistryShortcutAndOppositeThreeAbsencePassed": true,
+    "fullPayloadAudit": "NOT RUN",
+    "version": "1.5.21",
+    "summarySHA256": "d4dc85735658793565c3a35935dc97c330292aca6b2b65763a1ab307aa115e41",
+    "beforeSummarySHA256": "a1dc82162afd42f21a095ab77ecfe46e2a66adcaff47e82c323f68fc4226ce67",
+    "exitCode": 0,
+    "errors": [],
+    "eventCount": 0,
+    "processCandidates": 0,
+    "provedHosts": 0,
+    "provedWorkers": 0,
+    "workspaceCandidates": 1,
+    "workspace": {
+      "integrity": "ok",
+      "liveQsoCount": 0,
+      "physicalQsoRows": 0,
+      "orderedAllStoredQsoSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "backupSHA256": "c3fbe8c1cb6dbf33b8e15651eea7efa6f60c1686f3a8f63b2fffdcdf4e2218ca"
+    },
+    "settings": {
+      "revision": 2,
+      "onboardingCompleted": true
+    },
+    "rotor": {
+      "revision": 1,
+      "owner": "hamlib",
+      "model": 1,
+      "mode": "managed",
+      "baud": 9600,
+      "pathIsDummy": true
+    },
+    "radio": {
+      "knownFolderCode": 1,
+      "stableRead": true,
+      "guestBaseConfirmed": true,
+      "version": 2,
+      "revision": 2,
+      "hamlibSaved": true,
+      "profilePresent": true,
+      "receiptCount": 1,
+      "radioStateSHA256": "5be58daab1b3b79d31b81dd46418cbd58895c0c680dc1a58a7147a643eeef980"
+    },
+    "explicitFullSummaryFlags": {
+      "qsoRetention": true,
+      "canonicalSettingsBytesUnchanged": true,
+      "canonicalRotorBytesUnchanged": true,
+      "radioStateBytesUnchanged": true
+    },
+    "media": [],
+    "diagnosticProvenance": {
+      "helperSHA256": "76afbacf1c0c4893f54c32604ff718839d086ee811f682fe4a1687bfdded1d53",
+      "manifestSHA256": "1e73a08df7cf9948e04421877e0c8b7eff5b45ec4056414c6111e8cd03f108c2",
+      "ISOSHA256": "fd32ebd3ff71e2bf648819a092acc95fef6077c6c0f55ffb8104765112c4ef4d",
+      "volumeObserved": "XLOGSCP",
+      "exactBeforePrecheckConfirmed": true,
+      "guestManifestHashConfirmed": true,
+      "explicitScopeRadioAndProfileReferenceParameters": true
+    },
+    "digestEvidence": "Root-observed reported hashes,64hex validated; no independent guest-file hashes by this reporting agent",
+    "limit": "Closes original Standard-profile empty data/settings/rotor/radio retention across CU20→CU21 retained-data transition, CU21 uninstall, AU21 install. This prelaunch After did not itself observe actual app tokens; later Runtime readback did. Nonempty/media/full restore, Finish token, stable GUI, native x64 desktop, full payload and actual exit/EOF remain unqualified."
+  },
+  "allUsersRuntimeAttempt": {
+    "executions": 1,
+    "overallResult": "FAILED",
+    "exitCode": 2,
+    "errors": 1,
+    "errorStages": [
+      {
+        "stage": null,
+        "code": null
+      }
+    ],
+    "eventCount": 0,
+    "summarySHA256": "6a211dd91ce98ec0f001603aac2c6562b5cb43cc93d6fe2226329eb85c2597de",
+    "installationScope": "perMachine",
+    "installedRootCategory": "ProgramFiles64",
+    "originalStandardProfileMatched": true,
+    "selectedScopeAndOppositeAbsenceChecksPassed": true,
+    "version": "1.5.21",
+    "processCandidates": 2,
+    "provedHosts": 1,
+    "provedWorkers": 1,
+    "workspaceCandidates": 1,
+    "nativeUI": {
+      "commonShortcutLaunchedFromOriginalStandardCMD": true,
+      "UACPromptObserved": false,
+      "surface": "Native app menus and navy blank webcontent; worker console opened and was minimized",
+      "stableGUIResult": "NOT PASSED"
+    },
+    "metadataRO": {
+      "settingsRevision": 2,
+      "onboardingCompleted": true,
+      "rotorRevision": 1,
+      "rotorModel": 1,
+      "rotorOwner": "hamlib",
+      "rotorMode": "managed",
+      "rotorBaud": 9600,
+      "rotorPathIsDummy": true,
+      "sourceMainOrWALChangedDuringRead": false,
+      "SQLWritesOrCheckpointsIssued": false
+    },
+    "radio": {
+      "knownFolderCode": 1,
+      "stableRead": true,
+      "guestBaseConfirmed": true,
+      "version": 2,
+      "revision": 2,
+      "hamlibSaved": true,
+      "profilePresent": true,
+      "receiptCount": 1
+    },
+    "catalogues": [
+      {
+        "tool": "rigctld -l",
+        "diagnosticExit": 0,
+        "processExit": 0,
+        "forced": false,
+        "dummyModel1": true,
+        "rows": 313,
+        "elapsedMilliseconds": 406
+      },
+      {
+        "tool": "rotctld -l",
+        "diagnosticExit": 0,
+        "processExit": 0,
+        "forced": false,
+        "dummyModel1": true,
+        "rows": 57,
+        "elapsedMilliseconds": 125
+      }
+    ],
+    "capturedAppAndWorkerTokenAndArgvReadback": {
+      "status": "ROOT OBSERVED PRIVATE OPERANDS",
+      "caller": {
+        "live": true,
+        "elevated": false,
+        "adminSidPresent": false,
+        "adminPrincipal": false,
+        "elevationType": 1,
+        "integrityRid": 8192
+      },
+      "host": {
+        "proved": true,
+        "liveAcrossRead": true,
+        "tokenElevated": false,
+        "tokenElevationType": 1,
+        "integrityRid": 8192,
+        "SIDMatchesOriginalStandard": true
+      },
+      "worker": {
+        "proved": true,
+        "liveAcrossRead": true,
+        "tokenElevated": false,
+        "tokenElevationType": 1,
+        "integrityRid": 8192,
+        "SIDMatchesOriginalStandard": true,
+        "associatedGUIHost": true
+      },
+      "commandLine": {
+        "actualForm": "Only the quoted exact installed ProgramFiles host/worker image; no extra arguments observed",
+        "literalExactComparison": {
+          "host": false,
+          "worker": true
+        },
+        "trimmedComparison": {
+          "host": true,
+          "worker": true
+        },
+        "limit": "Host literal comparison was false with surrounding whitespace; trimmed comparisons are separate observed readback, not a replacement identity-guard result"
+      }
+    },
+    "privateErrorReadback": {
+      "observed": true,
+      "stage": 2,
+      "code": -2146233088,
+      "exceptionType": "System.Exception",
+      "fullyQualifiedErrorId": "NoMatchingEventsFound,Microsoft.PowerShell.Commands.GetWinEventCommand",
+      "boundary": "Explains this Runtime outer error/query found no events; does not explain blank GUI. Earlier v5 private errors remain unread and unexplained."
+    },
+    "actualAppOrWorkerExitOrEOF": "UNOBSERVED",
+    "limit": "OS/image/association, observed Standard-token/no-extra-argument, read-only metadata and catalogue components only. No overall Runtime PASS, stable GUI, health-RPC, actual exit/EOF or blank-state cause inferred."
+  },
+  "allUsersOrdinaryQuitAndRestart": {
+    "firstLaunchQuit": {
+      "action": "Ordinary Alt-F4",
+      "windowClosedObserved": true,
+      "freshCIMHostAndWorkerNameQuery": {
+        "errorAction": "Stop",
+        "count": 0
+      },
+      "actualExitOrEOF": "UNOBSERVED",
+      "completeWebViewFamilyAbsence": "UNPROVEN"
+    },
+    "restart": {
+      "attempts": 1,
+      "launch": "Same observed common Programs shortcut, ordinary launch",
+      "UACPromptObserved": false,
+      "surface": "Native menus and navy blank webcontent; separate worker console minimized using observed minus control",
+      "DeskOrSettingsUIObserved": false,
+      "boundedGUIResult": "FAILED",
+      "secondRuntimeRun": false
+    },
+    "finalOrdinaryQuit": {
+      "action": "Ordinary Alt-F4 after observed app-title activation",
+      "windowAndTaskbarClosedToOriginalStandardCMD": true,
+      "freshCIMHostAndWorkerNameQuery": {
+        "API": "Get-CimInstance Win32_Process",
+        "errorAction": "Stop",
+        "count": 0,
+        "queryErrorsObserved": false,
+        "promptReturned": true
+      },
+      "forceSignalsOrUnsavedBypass": false,
+      "secondRuntimeRun": false,
+      "CUASequenceCompleted": true,
+      "actualExitCodesOrEOF": "UNOBSERVED",
+      "completeWebViewFamilyAbsence": "UNPROVEN"
+    },
+    "limit": "Both ordinary Quit name queries returned Count0 without query errors; these do not establish actual exit codes/EOF or every WebView/helper-family absence. Restart tokens were not independently measured."
+  }
+}

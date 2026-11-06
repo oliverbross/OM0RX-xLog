@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "runId": 42139380197,
+  "source": "fc7909d63aa0f4d9fd9abf278c2b08bfd557cdd5",
+  "version": "1.5.22",
+  "artifactId": 13471355550,
+  "outerArtifactDigestVerified": true,
+  "portableZIP": {
+    "sha256": "ebb18bbc92c096b71c28bfb1fa6a303d0bda0b5f9d1edc3680fc560937dd1f3e",
+    "bytes": 83180514,
+    "sidecarVerified": true
+  },
+  "manifestSHA256": "18bea979d87fbd2cb84c7c87903b134e82e61009b5fa627bcf0806b2815ed0c2",
+  "manifestEntryCount": 3270,
+  "actualPayloadFileCount": 3271,
+  "everyPayloadEntryByteHashAndExactInventoryVerified": true,
+  "sourceLockFilesEqualAfterCRLFNormalization": [],
+  "PEArchitecture": "x86_64",
+  "executableSHA256": {
+    "xlog-prototype.exe": "24f965be24ab90689b9f049290ceda956b7aa539d473f11fa5c412471b452967",
+    "xlog-prototype-worker.exe": "deb7c02b793cb7c21764d52368afa901320a562e35c1276752e6eef5f323c488"
+  },
+  "developmentExecutablesAndSQLiteSameAsPortable": true,
+  "scopeConfigurationsEqualExceptMode": true,
+  "scopePayloadManifestAndMainSameAsActualPortable": true,
+  "installers": {
+    "currentUser": {
+      "filename": "OM0RX-xLog-1.5.22-windows-x86_64-current-user-setup.exe",
+      "bytes": 58377202,
+      "sha256": "97cf4954326dee9efb6295f275160ee639b58d4813b692e240bea5914d762163",
+      "configurationSHA256": "a6d93a2b32dcc3d73f08e76c7347fe8c2b272a046a7afc892fdbb7380382a52e",
+      "mainExecutableSHA256": "24f965be24ab90689b9f049290ceda956b7aa539d473f11fa5c412471b452967",
+      "payloadManifestSHA256": "18bea979d87fbd2cb84c7c87903b134e82e61009b5fa627bcf0806b2815ed0c2",
+      "installation": {
+        "executionLevel": "user",
+        "registryHive": "HKCU",
+        "mode": "currentUser",
+        "artifactLabel": "current-user",
+        "startMenu": "Programs",
+        "defaultDirectory": "%LOCALAPPDATA%\\OM0RX-xLog",
+        "requiresAdministrator": false
+      },
+      "resourceCount": 3270,
+      "bundlerVersion": "tauri-cli 2.12.2"
+    },
+    "perMachine": {
+      "filename": "OM0RX-xLog-1.5.22-windows-x86_64-all-users-setup.exe",
+      "bytes": 58371453,
+      "sha256": "fafeb2f3ff579c05d26e8c65ba8e7987aed0f5e46a68053b52bd922adf013d7d",
+      "configurationSHA256": "7aafbb5945371aa3bd3951a957d4c27e8a1ddda0936b68ea4305d4fafc734fb0",
+      "mainExecutableSHA256": "24f965be24ab90689b9f049290ceda956b7aa539d473f11fa5c412471b452967",
+      "payloadManifestSHA256": "18bea979d87fbd2cb84c7c87903b134e82e61009b5fa627bcf0806b2815ed0c2",
+      "installation": {
+        "executionLevel": "admin",
+        "registryHive": "HKLM",
+        "mode": "perMachine",
+        "artifactLabel": "all-users",
+        "startMenu": "CommonPrograms",
+        "defaultDirectory": "%ProgramFiles%\\OM0RX-xLog",
+        "requiresAdministrator": true
+      },
+      "resourceCount": 3270,
+      "bundlerVersion": "tauri-cli 2.12.2"
+    }
+  },
+  "privacy": {
+    "filesChecked": 3271,
+    "findings": 0,
+    "allActualPayloadBytesMatchScan": true
+  },
+  "limits": [
+    "Unsigned beta checksums provide integrity, not publisher authenticity",
+    "Static provenance/config evidence is not installed payload or runtime acceptance; actual scope receipts pending",
+    "Hosted elevated Server2022 does not qualify ordinary Win11/UAC/Finish-token/upgrade/equipment"
+  ],
+  "packagedFilesExecutedByAudit": 0,
+  "runtimeAcceptance": "PENDING"
+}
