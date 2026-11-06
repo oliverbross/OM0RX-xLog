@@ -926,6 +926,13 @@ fn start() -> Result<Arc<Session>, String> {
         return Err("Bundled station service is missing. Reinstall the application.".into());
     }
     let mut command = Command::new(path);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // The worker speaks over pipes and must not open a Windows console.
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
     // The native persisted owner, rather than renderer payload, binds every
     // worker generation to one operating module for its entire lifetime.
     command.env("XLOG_OPERATING_MODULE", crate::operating_module::selected_worker_value()?);
