@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "sourceCommit": "8acc236c32fb31d58c86c4d673e0ed57fe76fdad",
+  "version": "1.5.26",
+  "status": "FAILED_BEFORE_GUI",
+  "candidateDisposition": "HELD",
+  "qualityPhase": "OPEN",
+  "failure": "Setup worker argv/parent differs",
+  "fixturePhysicalRows": 100000,
+  "fixtureAll12ColumnHash": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+  "setupWorker": {
+    "normalEOF": true,
+    "exitCode": 0,
+    "noScopedSurvivors": true,
+    "signalsSent": false,
+    "healthOrWorkspaceRPCSent": false
+  },
+  "candidateGUILaunched": false,
+  "desktopIntervalStarted": false,
+  "memoryCPUResult": null,
+  "diagnosis": "Separate read-only observation demonstrated macOS ps truncates nonfinal COMM despite -ww; separate final COMM returns full executable path. The failed worker row was not retained, so its exact row is unknown.",
+  "nextCorrection": "Preserve original helper and failed fixture. Review a new helper copy using separate complete executable/argv queries and native identity bracketing, retaining mismatch evidence. Re-pin tooling, then create a new fixture; never reuse failed launch state.",
+  "privateEvidenceSHA256": {
+    "manifest.json": "4c571aa31c3a56ff89fee577fe54e89260b9c8ccaceaff670cb5891f6b2cbd99",
+    "manifest-history.jsonl": "9eec82bd04be22fe7648b2478a110fbb81ffadf68a9d88d33773f2156e0cca54",
+    "empty-workspace-initialization-failure-cleanup.json": "2fd9e7331d5e3e7e17296b0b8f0e3f2ee9e09c940bd90800850921451b91fd49",
+    "empty-workspace.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "pause": "User requested temporary stop to change reasoning effort; no new runtime attempt before continuation."
+}

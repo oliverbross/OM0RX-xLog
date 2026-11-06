@@ -1,0 +1,92 @@
+{
+  "schema": 1,
+  "version": "1.5.26",
+  "sourceCommit": "8acc236c32fb31d58c86c4d673e0ed57fe76fdad",
+  "sourceTree": "7c4b2a4d43c6aebf51048d8d80b3c6cc44ee35a3",
+  "actualParent": "1bb37c93098963149c3482f047a94d1b5aae0022",
+  "candidateDisposition": "HELD",
+  "qualityPhase": "OPEN",
+  "scope": "Signed internal macOS arm64 build and artifact-only extraction; desktop qualification is separate",
+  "build": {
+    "status": "PASS",
+    "actualOwnedChildExitCode": 0,
+    "ownedChildIdentityMatched": true,
+    "signalsIssued": false,
+    "startIntentUTC": "2026-11-06T23:16:52.178963+00:00",
+    "childCreatedUTC": "2026-11-06T23:16:52.182542+00:00",
+    "completedUTC": "2026-11-06T23:30:32.638867+00:00",
+    "inputBeforeCompilation": true,
+    "sourceCleanAtInputAndCompletion": true,
+    "remoteMainMatchedAtInput": true,
+    "recipeSHA256": "64c86969a2d46dec5dca663524dd6c20a43ca26dae029450c0a26662259f2379",
+    "packageScriptSHA256": "b0a9d37314a07a25be32f704389bd06c6846ba391e8aa9e6a4f37e1efc2dbf60",
+    "versionInputSHA256": {
+      "prototype/package.json": "a14557a6d7ba827d4cb958fa8252e3d9b3c544458c4dd0dd6d7a96f857a2e05e",
+      "prototype/package-lock.json": "302620c8fb1e6729317a188f41c7a5d652b53e8df41899c8f9d7571ba46dcb51",
+      "prototype/src-tauri/Cargo.toml": "1313a058d590099ebfad3964f826f4d0e207064cb8596aea79ab2950821e77f0",
+      "prototype/src-tauri/Cargo.lock": "61fb6b0748512c8abbb06cba73256025b941f0d84977bdd64414912698b0c7e8",
+      "prototype/src-tauri/tauri.conf.json": "5611713f612a76e0d97827ab5e6f915010287629d23e764b8ad36a6643680fa5"
+    },
+    "consoleLogSHA256": "af9d407fa2ebcb9e60c9bb470c0462f82ede3ba484ca6f6b7c88714bb6e8ea36"
+  },
+  "artifactSHA256": {
+    "zip": "0fe181c1efcdc0371875a0d23456b0f050454642f34b24a63f9724e692ee444e",
+    "host": "434c24e2c1779fb214a4492978274f29fe74cb064ef1283c98660ba20ffee693",
+    "worker": "6a22d720a3874cfff96492f20cb44a3a5be2bcf07c3eed831d821e918044ab88",
+    "manifest": "6ef32a3ae0ad488557dee373db6c6e9efe4b8eee0b7d420c7b5951bb314e8f99",
+    "seal": "88325228426ca3309039ff7bb33922cf3186ddf20a34bd3ae41db675775009ce",
+    "extraction": "0db2e18eb98445005a0b68721750ffc6bf9b6cde6dd87f638d6950100a6efd0b"
+  },
+  "archiveBytes": 129564455,
+  "signing": {
+    "developerIDApplication": true,
+    "hostAndWorkerAuthorityMatch": true,
+    "deepStrictBundleVerified": true,
+    "architectures": {
+      "host": "arm64",
+      "worker": "arm64"
+    },
+    "notarizationClaimed": false
+  },
+  "signedWorker": {
+    "tests": 9,
+    "passed": 9,
+    "failed": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "tapSHA256": "c6d8ade25c64610c0ac2f60c887d2535d2099f52012d1aaa4897c61face8652a",
+    "executedByExtraction": false
+  },
+  "privacy": {
+    "passed": true,
+    "filesChecked": 3546,
+    "findings": [],
+    "receiptSHA256": "24a3dd71cdc0095dc4bbe6729ea489ecb839e7c1f9b7154323926722278b1d46"
+  },
+  "environment": {
+    "PATHOverrideRejectedBeforeExecution": true,
+    "rejectedSetupWasBuildFailure": false,
+    "actualBuildUsedInheritedPATH": true,
+    "adapterUsedAbsolutePython314": true,
+    "hostPython": "Python 3.9.6",
+    "node": "v24.11.1",
+    "cargo": "cargo 1.98.0 (797e8a9bc 2026-08-05) (Homebrew)",
+    "swift": "Apple Swift version 6.4.2 (swiftlang-6.4.2.1.9 clang-2100.4.1.1)\nTarget: arm64-apple-macosx27.2.0",
+    "bundledContestPython": "3.12.4",
+    "bundledContestRuntimeManifestSHA256": "d19246d849e98716ce964aea401c7a113eeceaf0f48cceddaf16a241ae3416cf",
+    "receiptSHA256": "7643bfb9c90db9f2a0965db2c2ea11dba0f061c037443f7274b113e1b6147720"
+  },
+  "privateReceiptSHA256": {
+    "buildResult": "e8e63d64c82b0b4c62b18522ff99b8450313f3082464fffacab20e1aeada0b86",
+    "invocationInputs": "9e8cda26fe65dcbdbdbf008542bedd93c6815b19320ac7d5c81c59f2a17d5172",
+    "startIntent": "42d95472c4dc17fa6863d289de41a4b35c2fb3714badd5b165a2997a9abcb737",
+    "ownedChild": "d249c36429fb2e4798f3204dd2f86cd8bf72f18b659cb4953d97bb0e401a085a"
+  },
+  "limits": [
+    "Build and extraction do not establish a desktop memory/CPU interval.",
+    "Source CI and Windows/Linux qualification remain separately attributed.",
+    "Developer ID signing is not notarization or public release.",
+    "No daily application replacement, public publication or VM operation is performed by this report generator."
+  ]
+}
