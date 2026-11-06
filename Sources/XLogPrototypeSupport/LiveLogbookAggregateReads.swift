@@ -86,6 +86,17 @@ actor LiveLogbookAggregateReads {
         let generation: String
         let authority: LogbookAggregateAuthority
         let request: LogbookAggregateRequest
+
+        func sharesContactQuery(with other: Key) -> Bool {
+            guard request.kind == .contacts, other.request.kind == .contacts else { return false }
+            var page = request
+            page.offset = other.request.offset
+            page.limit = other.request.limit
+            // Only pagination may differ. Keep every authority and predicate
+            // field, including the frozen clock, in the compatibility check.
+            return Key(epoch: epoch, database: database, generation: generation,
+                       authority: authority, request: page) == other
+        }
     }
 
     private struct Cached {
@@ -114,6 +125,8 @@ actor LiveLogbookAggregateReads {
     private let localAwardsQueue = DispatchQueue(label: "xlog.logbook-local-awards", qos: .utility)
     private let evaluate: LiveLogbookAggregateEvaluator
     private let beforeExportPreparation: (@Sendable () -> Void)?
+    // Deterministic fixture seam; shipping callers do not install an observer.
+    private let onWaitForTesting: (@Sendable (LogbookAggregateRequest) -> Void)?
     private var epoch = UUID()
     private var suspended = 0
     private var terminal = false
@@ -126,9 +139,11 @@ actor LiveLogbookAggregateReads {
 
     init(service: LiveLogbookMethods,
          evaluate: @escaping LiveLogbookAggregateEvaluator = { try $0.evaluate(cancellation: $1) },
-         beforeExportPreparation: (@Sendable () -> Void)? = nil) {
+         beforeExportPreparation: (@Sendable () -> Void)? = nil,
+         onWaitForTesting: (@Sendable (LogbookAggregateRequest) -> Void)? = nil) {
         self.service = service; self.evaluate = evaluate
         self.beforeExportPreparation = beforeExportPreparation
+        self.onWaitForTesting = onWaitForTesting
     }
 
     func handle(method: String, params: [String: Any]) async throws -> LiveLogbookAggregateReply {
@@ -153,7 +168,12 @@ actor LiveLogbookAggregateReads {
                 let flight: Flight
                 if let running = active[query.kind] {
                     flight = running
-                    if running.key != key { running.cancellation.cancel() }
+                    // Distinct pages of one contact query drain in turn. They
+                    // never share results or cancel another valid page.
+                    if running.key != key && !running.key.sharesContactQuery(with: key) {
+                        running.cancellation.cancel()
+                    }
+                    onWaitForTesting?(request)
                 } else {
                     let cancellation = LogbookAggregateCancellation()
                     let queue: DispatchQueue

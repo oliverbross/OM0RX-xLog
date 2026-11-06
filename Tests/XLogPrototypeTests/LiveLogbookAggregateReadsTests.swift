@@ -50,6 +50,14 @@ final class LiveLogbookAggregateReadsTests: XCTestCase {
         }
     }
 
+    private final class WaitingRequests: @unchecked Sendable {
+        private let lock = NSLock()
+        private var requests: Set<LogbookAggregateRequest> = []
+        func observe(_ request: LogbookAggregateRequest) { lock.withLock { _ = requests.insert(request) } }
+        var offsets: Set<Int> { lock.withLock { Set(requests.map(\.offset)) } }
+        var count: Int { lock.withLock { requests.count } }
+    }
+
     private final class Reply: @unchecked Sendable {
         private let lock = NSLock()
         private var received = false
@@ -89,6 +97,20 @@ final class LiveLogbookAggregateReadsTests: XCTestCase {
             beforeAggregateExportPreparation: { exportGate?.hold() })
         addTeardownBlock { gate.release(); _ = await worker.shutdown() }
         return Fixture(service: service, worker: worker, root: root, generation: generation)
+    }
+
+    private func contactReads(_ f: Fixture, gate: Gate, waiting: WaitingRequests) -> LiveLogbookAggregateReads {
+        let reads = LiveLogbookAggregateReads(service: f.service,
+            evaluate: { try gate.evaluate($0, $1) }, onWaitForTesting: { waiting.observe($0) })
+        addTeardownBlock { await reads.terminate() }
+        return reads
+    }
+
+    private func assertContactPage(_ reply: LiveLogbookAggregateReply, params: [String: Any],
+                                   service: LiveLogbookMethods, file: StaticString = #filePath, line: UInt = #line) throws {
+        let expected = try service.handle(method: "logbook_list", params: params)
+        XCTAssertEqual(try JSONSerialization.data(withJSONObject: reply.payload, options: [.sortedKeys]),
+                       try JSONSerialization.data(withJSONObject: expected, options: [.sortedKeys]), file: file, line: line)
     }
 
     private func call(_ worker: LiveWorker, _ method: String, _ params: [String: Any] = [:]) throws -> Call {
@@ -398,6 +420,201 @@ final class LiveLogbookAggregateReadsTests: XCTestCase {
         XCTAssertEqual(rejected["ok"] as? Bool,false)
         XCTAssertEqual((rejected["error"] as? [String:Any])?["code"] as? String,"worker_stopping")
         XCTAssertNil(rejected["result"])
+    }
+
+    func testConcurrentContactPageFramesDrainWithoutCancellingTheirSharedQuery() async throws {
+        let gate = Gate([.contacts]), waiting = WaitingRequests(), f = try fixture(Gate([]))
+        defer { gate.release() }
+        for index in 1..<100 {
+            try f.service.openedDatabase().save(QSO(call: "K1PAGE\(index)",
+                start: Date(timeIntervalSince1970: 1_700_000_000 + Double(index)), band: "20m", mode: "CW"))
+        }
+        let reads = LiveLogbookAggregateReads(service: f.service, evaluate: { snapshot, cancellation in
+            // Match the Desk's completed first frame followed by four concurrent
+            // remaining frames. Only that first remaining evaluation is held.
+            if snapshot.request.offset == 0 { return try snapshot.evaluate(cancellation: cancellation) }
+            return try gate.evaluate(snapshot, cancellation)
+        }, onWaitForTesting: { waiting.observe($0) })
+        addTeardownBlock { await reads.terminate() }
+        let first = try await reads.handle(method: "logbook_list", params: ["offset": 0, "limit": 20])
+        XCTAssertEqual(first.payload["total"] as? Int, 100)
+        let parameters: [[String: Any]] = [20, 40, 60, 80].map { ["offset": $0, "limit": 20] }
+        let held = Task { try await reads.handle(method: "logbook_list", params: parameters[0]) }
+        let entered = try await waitUntil { gate.count(.contacts) == 1 }
+        XCTAssertTrue(entered)
+        let rest = parameters.dropFirst().map { params in
+            Task { try await reads.handle(method: "logbook_list", params: params) }
+        }
+        let allWaiting = try await waitUntil { waiting.offsets.isSuperset(of: [40, 60, 80]) }
+        XCTAssertTrue(allWaiting, "Every remaining frame must reach the held flight before release.")
+        XCTAssertFalse(gate.cancelled(.contacts), "Pagination within one query must not cancel a valid page.")
+        gate.release()
+        for (index, task) in ([held] + rest).enumerated() {
+            do {
+                let actual = try await task.value
+                let expected = try f.service.handle(method: "logbook_list", params: parameters[index])
+                XCTAssertEqual(try JSONSerialization.data(withJSONObject: actual.payload, options: [.sortedKeys]),
+                               try JSONSerialization.data(withJSONObject: expected, options: [.sortedKeys]))
+            } catch { XCTFail("Contact frame \(parameters[index]) failed: \(error)") }
+        }
+        XCTAssertEqual(gate.count(.contacts), 4, "Each remaining page must be evaluated exactly once.")
+    }
+
+    func testCompatibleContactLimitsStayDistinctWhileIdenticalPagesShareWork() async throws {
+        let gate = Gate([.contacts]), waiting = WaitingRequests(), f = try fixture(Gate([]))
+        defer { gate.release() }
+        for index in 1..<35 {
+            try f.service.openedDatabase().save(QSO(call: "K1LIMIT\(index)",
+                start: Date(timeIntervalSince1970: 1_700_000_000 + Double(index)), band: "20m", mode: "CW"))
+        }
+        let reads = contactReads(f, gate: gate, waiting: waiting)
+        let query: [String: Any] = ["version": 1, "join": "all",
+            "clauses": [["field": "date", "op": "relative", "values": ["today"]]]]
+        let parameters: [[String: Any]] = [(0, 20), (0, 20), (0, 5), (20, 15)].map { offset, limit in
+            ["offset": offset, "limit": limit, "query": query, "reference_time": "2023-11-14T12:00:00Z"]
+        }
+        let held = Task { try await reads.handle(method: "logbook_list", params: parameters[0]) }
+        let entered = try await waitUntil { gate.count(.contacts) == 1 }
+        XCTAssertTrue(entered)
+        let rest = parameters.dropFirst().map { params in
+            Task { try await reads.handle(method: "logbook_list", params: params) }
+        }
+        let allWaiting = try await waitUntil { waiting.count == 3 }
+        XCTAssertTrue(allWaiting)
+        XCTAssertFalse(gate.cancelled(.contacts))
+        gate.release()
+        for (index, task) in ([held] + rest).enumerated() {
+            try assertContactPage(try await task.value, params: parameters[index], service: f.service)
+        }
+        XCTAssertEqual(gate.count(.contacts), 3, "Only the exact duplicate may share a result; other limits remain separate pages.")
+    }
+
+    func testDifferentContactPredicatesAndFrozenTimesStillCancelTheHeldRead() async throws {
+        func query(_ field: String, _ op: String, _ value: String) -> [String: Any] {
+            ["version": 1, "join": "all", "clauses": [["field": field, "op": op, "values": [value]]]]
+        }
+        let relative = query("date", "relative", "today")
+        let scenarios: [(String, [String: Any], [String: Any])] = [
+            ("search", ["search": "JA"], ["search": "K1"]),
+            ("query", ["query": query("band", "eq", "20m")], ["query": query("band", "eq", "40m")]),
+            ("frozen clock", ["query": relative, "reference_time": "2023-11-14T12:00:00Z"],
+                             ["query": relative, "reference_time": "2023-11-15T12:00:00Z"])
+        ]
+        for (label, firstQuery, secondQuery) in scenarios {
+            let gate = Gate([.contacts]), waiting = WaitingRequests(), f = try fixture(Gate([]))
+            defer { gate.release() }
+            let reads = contactReads(f, gate: gate, waiting: waiting)
+            var firstParams = firstQuery, secondParams = secondQuery
+            firstParams["offset"] = 0; firstParams["limit"] = 1
+            secondParams["offset"] = 1; secondParams["limit"] = 2
+            let first = Task { try await reads.handle(method: "logbook_list", params: firstParams) }
+            let entered = try await waitUntil { gate.count(.contacts) == 1 }
+            XCTAssertTrue(entered, label)
+            let second = Task { try await reads.handle(method: "logbook_list", params: secondParams) }
+            let joined = try await waitUntil { waiting.count == 1 }
+            XCTAssertTrue(joined, label)
+            XCTAssertTrue(gate.cancelled(.contacts), "Changed \(label) must retain cancellation semantics.")
+            gate.release()
+            var successes = 0
+            for (task, params) in [(first, firstParams), (second, secondParams)] {
+                do {
+                    try assertContactPage(try await task.value, params: params, service: f.service)
+                    successes += 1
+                } catch {
+                    XCTAssertEqual((error as? WorkerFailure)?.code, "logbook_refresh_superseded", label)
+                }
+            }
+            XCTAssertGreaterThan(successes, 0, "The bounded replacement must settle after \(label) contention ends.")
+        }
+    }
+
+    func testContactRevisionChangeCancelsCompatibleWaitersAndOnlyPublishesTheNewRevision() async throws {
+        let gate = Gate([.contacts]), waiting = WaitingRequests(), f = try fixture(Gate([]))
+        defer { gate.release() }
+        let reads = contactReads(f, gate: gate, waiting: waiting)
+        let parameters: [[String: Any]] = [0, 1, 2].map {
+            ["offset": $0, "limit": 1, "expected_generation": f.generation]
+        }
+        let first = Task { try await reads.handle(method: "logbook_list", params: parameters[0]) }
+        let entered = try await waitUntil { gate.count(.contacts) == 1 }
+        XCTAssertTrue(entered)
+        let second = Task { try await reads.handle(method: "logbook_list", params: parameters[1]) }
+        let joined = try await waitUntil { waiting.offsets.contains(1) }
+        XCTAssertTrue(joined)
+        XCTAssertFalse(gate.cancelled(.contacts))
+        try f.service.openedDatabase().save(QSO(call: "K1REVISION", band: "40m", mode: "SSB"))
+        let revision = try f.service.openedDatabase().currentRevision()
+        let third = Task { try await reads.handle(method: "logbook_list", params: parameters[2]) }
+        let changed = try await waitUntil { waiting.offsets.contains(2) }
+        XCTAssertTrue(changed)
+        XCTAssertTrue(gate.cancelled(.contacts), "A new database revision must not join the old page family.")
+        gate.release()
+        for (index, task) in [first, second, third].enumerated() {
+            let reply = try await task.value
+            XCTAssertEqual(reply.payload["logbook_revision"] as? Int64, revision)
+            XCTAssertEqual(reply.payload["total"] as? Int, 2)
+            try assertContactPage(reply, params: parameters[index], service: f.service)
+        }
+        XCTAssertEqual(gate.count(.contacts), 4, "The old flight drains once; each requested page then reads the new revision once.")
+    }
+
+    func testContactWorkspaceRetirementRejectsHeldAndWaitingOldGenerationPages() async throws {
+        let gate = Gate([.contacts], cancellationAware: true), waiting = WaitingRequests(), f = try fixture(Gate([]))
+        defer { gate.release() }
+        let backup = try f.service.handle(method: "backup_create", params: ["name": "contact-generation"])
+        let name = try XCTUnwrap(backup["name"] as? String)
+        let revision = try f.service.openedDatabase().currentRevision()
+        let reads = contactReads(f, gate: gate, waiting: waiting)
+        let first = Task { try await reads.handle(method: "logbook_list",
+            params: ["offset": 0, "limit": 1, "expected_generation": f.generation]) }
+        let entered = try await waitUntil { gate.count(.contacts) == 1 }
+        XCTAssertTrue(entered)
+        let second = Task { try await reads.handle(method: "logbook_list",
+            params: ["offset": 1, "limit": 1, "expected_generation": f.generation]) }
+        let joined = try await waitUntil { waiting.offsets.contains(1) }
+        XCTAssertTrue(joined)
+        XCTAssertFalse(gate.cancelled(.contacts))
+        await reads.suspendForWorkspaceChange()
+        _ = try f.service.handle(method: "backup_restore", params: restoreParameters(name))
+        let generation = try XCTUnwrap(f.service.handle(method: "workspace_status", params: [:])["generation"] as? String)
+        await reads.finishWorkspaceChange()
+        XCTAssertNotEqual(generation, f.generation)
+        XCTAssertEqual(try f.service.openedDatabase().currentRevision(), revision)
+        for task in [first, second] {
+            do { _ = try await task.value; XCTFail("An old-generation contact page was published.") }
+            catch { XCTAssertEqual((error as? WorkerFailure)?.code, "logbook_refresh_retired") }
+        }
+        let freshParams: [String: Any] = ["offset": 0, "limit": 1, "expected_generation": generation]
+        let fresh = try await reads.handle(method: "logbook_list", params: freshParams)
+        XCTAssertEqual(fresh.payload["workspace_generation"] as? String, generation)
+        try assertContactPage(fresh, params: freshParams, service: f.service)
+        XCTAssertEqual(gate.count(.contacts), 2, "Waiting old-generation pages must not start another read.")
+    }
+
+    func testContactTerminationRejectsHeldWaitingAndFuturePages() async throws {
+        let gate = Gate([.contacts], cancellationAware: true), waiting = WaitingRequests(), f = try fixture(Gate([]))
+        defer { gate.release() }
+        let reads = contactReads(f, gate: gate, waiting: waiting)
+        let first = Task { try await reads.handle(method: "logbook_list", params: ["offset": 0, "limit": 1]) }
+        let entered = try await waitUntil { gate.count(.contacts) == 1 }
+        XCTAssertTrue(entered)
+        let second = Task { try await reads.handle(method: "logbook_list", params: ["offset": 1, "limit": 1]) }
+        let joined = try await waitUntil { waiting.offsets.contains(1) }
+        XCTAssertTrue(joined)
+        XCTAssertFalse(gate.cancelled(.contacts))
+        await reads.terminate()
+        for (index, task) in [first, second].enumerated() {
+            do { _ = try await task.value; XCTFail("A terminal contact page was published.") }
+            catch {
+                // The existing owner reports terminal completion to its active
+                // read and epoch retirement to a distinct waiting request.
+                XCTAssertEqual((error as? WorkerFailure)?.code,
+                               index == 0 ? "worker_stopping" : "logbook_refresh_retired")
+            }
+        }
+        do { _ = try await reads.handle(method: "logbook_list", params: [:]); XCTFail("A read reopened after termination.") }
+        catch { XCTAssertEqual((error as? WorkerFailure)?.code, "worker_stopping") }
+        XCTAssertEqual(gate.count(.contacts), 1)
     }
 
     func testIdenticalCatalogueWorkIsSharedButPagesKeepTheirOwnFilters() async throws {
