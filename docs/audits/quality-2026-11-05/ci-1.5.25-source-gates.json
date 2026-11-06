@@ -1,0 +1,406 @@
+{
+  "schema": 1,
+  "sourceCommit": "ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee",
+  "verifiedUTC": "2026-11-06T20:58:15.769767+00:00",
+  "allRequiredSourceGatesPassed": true,
+  "gates": [
+    {
+      "gate": "CI",
+      "runID": 42286155086,
+      "headSHA": "ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee",
+      "event": "push",
+      "attempt": 1,
+      "conclusion": "success",
+      "jobs": [
+        {
+          "id": 128127554186,
+          "name": "test-and-build",
+          "conclusion": "success"
+        }
+      ],
+      "skippedJobs": [],
+      "skippedSteps": []
+    },
+    {
+      "gate": "Contest portability",
+      "runID": 42286155182,
+      "headSHA": "ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee",
+      "event": "push",
+      "attempt": 1,
+      "conclusion": "success",
+      "jobs": [
+        {
+          "id": 128127390319,
+          "name": "Contest definition generator",
+          "conclusion": "success"
+        },
+        {
+          "id": 128127390587,
+          "name": "Contest tests (macos-15)",
+          "conclusion": "success"
+        },
+        {
+          "id": 128127390600,
+          "name": "Contest native tests (windows-2022)",
+          "conclusion": "success"
+        },
+        {
+          "id": 128127390610,
+          "name": "Contest tests (windows-2022)",
+          "conclusion": "success"
+        },
+        {
+          "id": 128127390613,
+          "name": "Contest native tests (macos-15)",
+          "conclusion": "success"
+        },
+        {
+          "id": 128127390630,
+          "name": "Contest tests (ubuntu-24.04)",
+          "conclusion": "success"
+        },
+        {
+          "id": 128127390856,
+          "name": "Contest native tests (ubuntu-24.04)",
+          "conclusion": "success"
+        }
+      ],
+      "skippedJobs": [],
+      "skippedSteps": [
+        {
+          "jobID": 128127390587,
+          "job": "Contest tests (macos-15)",
+          "step": "Enable Windows checkout long paths"
+        },
+        {
+          "jobID": 128127390587,
+          "job": "Contest tests (macos-15)",
+          "step": "Linux SQLite dependency"
+        },
+        {
+          "jobID": 128127390587,
+          "job": "Contest tests (macos-15)",
+          "step": "Swift toolchain (Linux)"
+        },
+        {
+          "jobID": 128127390587,
+          "job": "Contest tests (macos-15)",
+          "step": "Swift toolchain (Windows)"
+        },
+        {
+          "jobID": 128127390587,
+          "job": "Contest tests (macos-15)",
+          "step": "Windows SQLite dependency"
+        },
+        {
+          "jobID": 128127390587,
+          "job": "Contest tests (macos-15)",
+          "step": "Verify contest test discovery (Windows)"
+        },
+        {
+          "jobID": 128127390587,
+          "job": "Contest tests (macos-15)",
+          "step": "Test portable CW primitives and cluster admission (Windows)"
+        },
+        {
+          "jobID": 128127390587,
+          "job": "Contest tests (macos-15)",
+          "step": "Test contest core, store, and export support (Windows)"
+        },
+        {
+          "jobID": 128127390587,
+          "job": "Contest tests (macos-15)",
+          "step": "Test Windows ConnectionDoctor boolean fallback"
+        },
+        {
+          "jobID": 128127390587,
+          "job": "Contest tests (macos-15)",
+          "step": "Test Windows remote backup revision validation"
+        },
+        {
+          "jobID": 128127390600,
+          "job": "Contest native tests (windows-2022)",
+          "step": "Linux Tauri compile dependencies"
+        },
+        {
+          "jobID": 128127390600,
+          "job": "Contest native tests (windows-2022)",
+          "step": "Discover and run bounded native contest tests"
+        },
+        {
+          "jobID": 128127390610,
+          "job": "Contest tests (windows-2022)",
+          "step": "Select macOS Swift toolchain"
+        },
+        {
+          "jobID": 128127390610,
+          "job": "Contest tests (windows-2022)",
+          "step": "Linux SQLite dependency"
+        },
+        {
+          "jobID": 128127390610,
+          "job": "Contest tests (windows-2022)",
+          "step": "Swift toolchain (Linux)"
+        },
+        {
+          "jobID": 128127390610,
+          "job": "Contest tests (windows-2022)",
+          "step": "Verify non-macOS pure IQ source slice on macOS"
+        },
+        {
+          "jobID": 128127390610,
+          "job": "Contest tests (windows-2022)",
+          "step": "Verify contest test discovery (macOS and Linux)"
+        },
+        {
+          "jobID": 128127390610,
+          "job": "Contest tests (windows-2022)",
+          "step": "Test portable CW primitives and cluster admission (macOS and Linux)"
+        },
+        {
+          "jobID": 128127390610,
+          "job": "Contest tests (windows-2022)",
+          "step": "Test contest core, store, and export support (macOS and Linux)"
+        },
+        {
+          "jobID": 128127390613,
+          "job": "Contest native tests (macos-15)",
+          "step": "Enable Windows checkout long paths"
+        },
+        {
+          "jobID": 128127390613,
+          "job": "Contest native tests (macos-15)",
+          "step": "Linux Tauri compile dependencies"
+        },
+        {
+          "jobID": 128127390613,
+          "job": "Contest native tests (macos-15)",
+          "step": "Discover and run bounded native contest tests (Windows)"
+        },
+        {
+          "jobID": 128127390630,
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Enable Windows checkout long paths"
+        },
+        {
+          "jobID": 128127390630,
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Select macOS Swift toolchain"
+        },
+        {
+          "jobID": 128127390630,
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Swift toolchain (Windows)"
+        },
+        {
+          "jobID": 128127390630,
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Windows SQLite dependency"
+        },
+        {
+          "jobID": 128127390630,
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Verify non-macOS pure IQ source slice on macOS"
+        },
+        {
+          "jobID": 128127390630,
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Verify contest test discovery (Windows)"
+        },
+        {
+          "jobID": 128127390630,
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test portable CW primitives and cluster admission (Windows)"
+        },
+        {
+          "jobID": 128127390630,
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test contest core, store, and export support (Windows)"
+        },
+        {
+          "jobID": 128127390630,
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test Windows ConnectionDoctor boolean fallback"
+        },
+        {
+          "jobID": 128127390630,
+          "job": "Contest tests (ubuntu-24.04)",
+          "step": "Test Windows remote backup revision validation"
+        },
+        {
+          "jobID": 128127390856,
+          "job": "Contest native tests (ubuntu-24.04)",
+          "step": "Enable Windows checkout long paths"
+        },
+        {
+          "jobID": 128127390856,
+          "job": "Contest native tests (ubuntu-24.04)",
+          "step": "Discover and run bounded native contest tests (Windows)"
+        }
+      ]
+    },
+    {
+      "gate": "Mac source/build beta",
+      "runID": 42286155016,
+      "headSHA": "ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee",
+      "event": "push",
+      "attempt": 1,
+      "conclusion": "success",
+      "jobs": [
+        {
+          "id": 128128555080,
+          "name": "prototype (macos-15)",
+          "conclusion": "success"
+        },
+        {
+          "id": 128149143927,
+          "name": "Linux runtime-only container acceptance",
+          "conclusion": "skipped"
+        },
+        {
+          "id": 128149144303,
+          "name": "Windows fresh-runner runtime acceptance (${{ matrix.installer_scope }})",
+          "conclusion": "skipped"
+        }
+      ],
+      "skippedJobs": [
+        {
+          "id": 128149143927,
+          "name": "Linux runtime-only container acceptance"
+        },
+        {
+          "id": 128149144303,
+          "name": "Windows fresh-runner runtime acceptance (${{ matrix.installer_scope }})"
+        }
+      ],
+      "skippedSteps": [
+        {
+          "jobID": 128128555080,
+          "job": "prototype (macos-15)",
+          "step": "Enable Windows checkout long paths"
+        },
+        {
+          "jobID": 128128555080,
+          "job": "prototype (macos-15)",
+          "step": "Linux build dependencies"
+        },
+        {
+          "jobID": 128128555080,
+          "job": "prototype (macos-15)",
+          "step": "Swift toolchain (Linux)"
+        },
+        {
+          "jobID": 128128555080,
+          "job": "prototype (macos-15)",
+          "step": "Swift toolchain (Windows)"
+        },
+        {
+          "jobID": 128128555080,
+          "job": "prototype (macos-15)",
+          "step": "Windows SQLite"
+        },
+        {
+          "jobID": 128128555080,
+          "job": "prototype (macos-15)",
+          "step": "Actual Linux QA process lifecycle regressions"
+        },
+        {
+          "jobID": 128128555080,
+          "job": "prototype (macos-15)",
+          "step": "Parse Windows installer scripts and validate scope policy"
+        },
+        {
+          "jobID": 128128555080,
+          "job": "prototype (macos-15)",
+          "step": "Linux C vault in a private Secret Service session"
+        },
+        {
+          "jobID": 128128555080,
+          "job": "prototype (macos-15)",
+          "step": "Compile portable native test fixtures early (Windows)"
+        },
+        {
+          "jobID": 128128555080,
+          "job": "prototype (macos-15)",
+          "step": "Test portable Swift core (Windows)"
+        },
+        {
+          "jobID": 128128555080,
+          "job": "prototype (macos-15)",
+          "step": "Linux credential vault in a private Secret Service session"
+        },
+        {
+          "jobID": 128128555080,
+          "job": "prototype (macos-15)",
+          "step": "Build Swift worker (Windows)"
+        },
+        {
+          "jobID": 128128555080,
+          "job": "prototype (macos-15)",
+          "step": "Build pinned Hamlib radio and rotor helpers (Linux integration)"
+        },
+        {
+          "jobID": 128128555080,
+          "job": "prototype (macos-15)",
+          "step": "Stage pinned Hamlib radio and rotor helpers (Windows integration)"
+        },
+        {
+          "jobID": 128128555080,
+          "job": "prototype (macos-15)",
+          "step": "Test worker process framing (Windows)"
+        },
+        {
+          "jobID": 128128555080,
+          "job": "prototype (macos-15)",
+          "step": "Bundled Hamlib dummy protocol and lifecycle tests (Windows)"
+        },
+        {
+          "jobID": 128128555080,
+          "job": "prototype (macos-15)",
+          "step": "Package macOS application"
+        },
+        {
+          "jobID": 128128555080,
+          "job": "prototype (macos-15)",
+          "step": "Upload macOS package"
+        },
+        {
+          "jobID": 128128555080,
+          "job": "prototype (macos-15)",
+          "step": "Package Linux runtime and Debian application"
+        },
+        {
+          "jobID": 128128555080,
+          "job": "prototype (macos-15)",
+          "step": "Package Windows portable runtime"
+        },
+        {
+          "jobID": 128128555080,
+          "job": "prototype (macos-15)",
+          "step": "Package current-user and all-users EXE installers from one audited runtime"
+        },
+        {
+          "jobID": 128128555080,
+          "job": "prototype (macos-15)",
+          "step": "Upload Linux runtime packages"
+        },
+        {
+          "jobID": 128128555080,
+          "job": "prototype (macos-15)",
+          "step": "Upload Windows runtime package"
+        },
+        {
+          "jobID": 128128555080,
+          "job": "prototype (macos-15)",
+          "step": "Upload portable Swift pin verification receipts"
+        }
+      ]
+    }
+  ],
+  "scope": "Automatic source/build gates only. Manual Windows run 42286159030 and all ordinary desktop/equipment acceptance are excluded.",
+  "retainedReceipt": {
+    "file": "final-summary.json",
+    "bytes": 14841,
+    "sha256": "0ba6d90df979b948a0f63f915b7e6f5a8ab4e10b110bc7a447e08a8f372d826c"
+  }
+}

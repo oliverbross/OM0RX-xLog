@@ -4,11 +4,34 @@ Owner: Oliver / OM0RX. Execution starts from clean canonical `main`
 `da6fefb394944b28be9533ab861be9026306fa8d`; fetch/fast-forward verified.
 The supplied handoff ZIP SHA-256 is
 `ab9beab930aff7e8c3646aa9795052e93bfd272594a17631e8bcda0a3586b143`.
-The daily logger and public release remain unchanged during this phase.
+The installed daily logger bytes and public release remain unchanged during this phase.
 
 This is the single phase tracker. Focused reports are supporting evidence,
 not separate release decisions. Source, component, packaged, ordinary-account
 and physical evidence remain separate.
+
+## Current checkpoint — 7 November 2026, Darwin
+
+| ID | Current scope / status | Evidence and next step |
+|---|---|---|
+| Q00 | Canonical integration advanced; installed bytes unchanged; historical data backup absent | Paging `f53ab0ed` and exact reviewed ADIF `e7fce13b` are committed/pushed. Installed Mac 1.5.15 host/worker hashes still match; the user reopened it and the exact installed pair is process-verified. UTM is started. The 1.5.9 application rollback ZIP was rehashed, but the original pre-1.5.15 data-backup directory is absent; these are distinct preservation results. Public release and protected worktrees remain unchanged. S25 package source is separately frozen at `ff8a8e38`. |
+| Q01 | Current daily ownership established; desktop budget and original incident OPEN | [Five-owner daily 1.5.15 sample](memory-current-instance-2026-11-06.md): shared-accounted footprint **3467.149 MiB / 3.386 GiB**, worker **2920.441 MiB / 2.852 GiB** at 18:11:46 UTC on 6 November. This old installed version predates retention repairs. Same-pair growth **1513.610 MiB** is uncontrolled; no rate/cause inferred. Original ~7 GB htop report remains unattributed. Next: corrected signed candidate, positive complete ownership and one valid foreground interval. |
+| Q02 | AU24 editor/fallback and AU25 Settings restart PASS within bounds; broader desktop OPEN | [AU24](../../releases/v1.5.24-windows-quality-candidate.md) qualifies readable full-editor create/edit/restart at 1024×768 and readable map fallback; WebGL2 stayed unavailable. [AU25](windows-ordinary-1.5.25.md) adds acknowledged Settings save/restart/restoration with 16/16 data/settings checks. Fresh onboarding, native-x64/true Standard desktop and equipment remain open. Earlier AU21/AU22 blank-Desk failures remain recorded. |
+| Q03 | S25 hosted scopes and ordinary nonempty all-users upgrade PASS within bounds | [S25 package audit](ci-1.5.25-windows-packaged-qualification.md): both hosted scopes pass, 3,271 actual files checked, zero privacy findings. [Ordinary AU24→AU25](windows-ordinary-1.5.25.md): default Program Files/HKLM64, unelevated medium launches, two QSOs/all 12 columns preserved, two bounded normal closes and verified 454-file profile archive. ARM64/x64 emulation, filtered administrator; not full restore/media or ordinary native-x64/Standard qualification. |
+| Q04 | Redundant notifications repaired; measured idle CPU improvement OPEN | [Development comparison](idle-work-native-correlation.md): React commits 809→646, host CPU 1.439770137→1.501382175% of one core. Fewer renders did not demonstrate CPU saving. Preserve Stop/lease/reconnect guarantees and measure the corrected signed desktop before selecting more work. |
+| Q05 | Paging correctness integrated; ADIF boundary correction integrated; package qualification OPEN | [Paging](logbook-page-cancellation-2026-11-06.md): 9/9 nonempty signed-baseline trials fail, corrected development 12/12 framed trials and 8 controls pass, 100k/all-12-column hash retained; f53 CI/native selection passes. Original full f53 Mac gate FAIL is retained. [ADIF](adif-fractional-second-2026-11-07.md): exact reviewed patch at `e7fce13b`; retained targeted 21/21 pass, fresh corrected-source gates recorded separately. Existing lifetime/expiry and signed tiny-transfer evidence below remains bounded; SQL count-cache optimization, full native draining and visible-save latency remain open. |
+| Q06 | S25 Windows source/package/ordinary scopes PASS; older Linux evidence unchanged | [S25 source gates](ci-1.5.25-source-gates.json): CI, full Mac source/build and seven portability jobs pass on ff8; [Windows run 42286159030](ci-1.5.25-windows-packaged-qualification.md) passes both hosted scopes. Eight error-1412 stderr lines remain; no universal orphan cleanup inferred. S25 Windows-only dispatch skipped Linux runtime. Original S24 hosted failures and original S22 Linux failure remain failures; later [same-byte S22 Linux pass](linux-runtime-1.5.22-audit.md) keeps its exact package. |
+| Q07 | Candidates HELD; quality phase OPEN | S25 excludes later paging/ADIF corrections. A newly versioned signed Mac candidate and complete attributed desktop interval remain the immediate next gate, conditional on required corrected-source/build checks. Original incident, full desktop memory, demonstrated CPU saving, native-x64/Standard/fresh onboarding, media/full restore, real Linux desktop, physical equipment and notarization remain open. No daily-app replacement or public publication follows from these bounded passes. |
+
+### Current preservation check
+
+The 7 November continuation initially observed no xLog processes. The user then explicitly reopened the daily application; process-only inspection verified the exact installed host and worker. Installed **1.5.15** executable hashes still match the historical baseline below. This establishes the currently running pair, not continuity with the earlier memory sample or fresh WebKit attribution. UTM remains started; this task did not stop, reboot or sign out of the VM.
+
+The original pre-1.5.15 backup directory is **absent** at its recorded location. Its historical verification remains valid as a historical record; current availability and recovery of that data backup are not established. No cause is inferred, and this continuation did not delete it. The retained **1.5.9 application rollback ZIP** was independently rehashed as `d089b249f738f3791c56de1aee27abfdf4434dbab77b26216f1b9a8f13fc680b`. That archive supplies application rollback bytes; it does not recover or replace the missing data backup. Private locations and process identifiers remain outside this summary.
+
+### Prior checkpoint ledger
+
+The following ledger is retained as history. Its then-open or pending entries are superseded only by the explicitly scoped results above; earlier failures remain failures.
 
 | ID | Scope / status | Evidence and next step |
 |---|---|---|
@@ -21,7 +44,7 @@ and physical evidence remain separate.
 | Q06 | S22/S23 packages verified; separate Linux runtime PASS, original gate FAIL retained | Frozen S22 `fc7909d6`: [signed Mac pins/build](../../releases/v1.5.22-quality-candidate.md), 9/9 signed-worker tests and [tiny native journey](native-1.5.22.md) retain their bounds. [Original all-platform run 42139380197](ci-1.5.22-original.md): all three builds, actual 12 Linux lifecycle regressions and both hosted Windows scopes PASS, but Linux runtime assertion and secondary report upload FAIL; original journey/operand/cause remain UNKNOWN. [Separate Linux run 42150401167](linux-runtime-1.5.22-audit.md), QA executor `b66c433c`, consumes unchanged original S22 artifact 13469437610: three X11 and nested Wayland 36/36 checks each, owned host/wrapper exits 0, no app signals, observed workers absent; direct GUI-worker wait/EOF UNKNOWN. Recovery 52 / errors 0 preserved private reports. All four `layoutConflictRecovered` values are false, so recovery branch not runtime-exercised. No app rebuild, deadline or assertion relaxation; ordinary desktop/equipment remains OPEN. **S23 Windows-only checkpoint:** [run 42239571377 and both hosted scopes](../../releases/v1.5.23-windows-quality-candidate.md) passed on frozen `9c37130e`, with full payload/provenance/privacy checks. Eight hosted GUI exits retain Chrome_WidgetWin_0 error 1412; their success does not prove orphan-WebView absence. No S23 Mac/Linux package is inferred. |
 | Q07 | Candidates 1.5.21–1.5.24 HELD; quality phase OPEN | [S23 Windows candidate](../../releases/v1.5.23-windows-quality-candidate.md) passes hosted scopes and the bounded ordinary Desk/contact/restart recovery; new full-editor/map presentation findings require a newer package. S23 source gates, the original Mac CW-fixture failure and the later QA-only passing correction retain their exact sources. [S22 original package failure and separate same-byte Linux pass](ci-1.5.22-packaged-qualification.md) are unchanged; [1.5.21](../../releases/v1.5.21-quality-candidate.md) remains held. Original htop attribution/full desktop budget, demonstrated idle CPU improvement, fresh/Standard/native-x64 desktop, nonempty upgrade/media/full restore, real Linux desktop, physical equipment and notarization remain open. Daily Mac 1.5.15 and public release unchanged. |
 
-## Latest ordinary Windows checkpoint — 6 November 2026
+## Earlier ordinary Windows checkpoint — 6 November 2026
 
 [Candidate 1.5.23](../../releases/v1.5.23-windows-quality-candidate.md) recovers the
 reproduced blank Desk on the preserved fresh AU22 profile. Two ordinary launches,
@@ -35,7 +58,7 @@ This is filtered-admin ARM64/x64-emulation evidence, with no physical station IO
 ### Bounded daily-Mac footprint sample
 
 A separate read-only observation at 15:08 UTC on 6 November measured the existing
-1.5.15 host PID 5352 and worker PID 4894. Their physical footprints were
+1.5.15 host and worker. Their physical footprints were
 59,114,744 and 1,557,923,928 bytes; the tool's shared-accounted summary was
 1,616,923,984 bytes (**1542.019 MiB**). The separately reported swapped summary
 was 1,365,917,696 bytes and must not be added again. Worker peak footprint was
@@ -47,10 +70,11 @@ Earlier RSS readings are a different metric/time. Private evidence is
 (SHA-256 `f87ea93b915d6eec2dd67a7f14da529b92aba051a1ac95ad8d9430817e6cb7c0`).
 Production data, workloads and installed bundle were not changed for this sample.
 
-[Candidate 1.5.24 preparation](../../releases/v1.5.24-windows-quality-candidate.md)
-contains both reviewed presentation corrections. Its package and ordinary
-AU23→AU24 upgrade gates are pending. The verified 438-file AU23 profile archive
-provides a nonempty one-contact baseline for that separate journey.
+At this earlier checkpoint, [candidate 1.5.24](../../releases/v1.5.24-windows-quality-candidate.md)
+contained both presentation corrections with qualification pending. Its later
+ordinary AU23→AU24 journey passed within the recorded scope; both hosted installed
+scopes failed and remain failed. The verified 438-file AU23 archive supplied its
+nonempty one-contact baseline. Later AU25 results are linked in the current ledger.
 
 ## Render failure containment — earlier source checkpoint
 
@@ -119,7 +143,7 @@ This source/build checkpoint produced no package or installation. The harness-lo
 correction is included in frozen S23; later Windows qualification is recorded in
 the [1.5.23 candidate record](../../releases/v1.5.23-windows-quality-candidate.md).
 
-## Preservation baseline
+## Historical preservation baseline
 
 Installed version 1.5.15 was observed in place before any test launch, quit,
 rebuild or production interaction. Its actual host/worker hashes are:
@@ -168,17 +192,17 @@ follow-up remain distinct; the cells below name each measured build/profile.
 
 | Journey | macOS arm64 | Windows x64 | Linux x64 |
 |---|---|---|---|
-| Current installed process memory | PASS: numeric native capture; incomplete WebKit ownership | NOT RUN | NOT RUN |
+| Current installed process memory | [Daily 1.5.15 five-owner attribution](memory-current-instance-2026-11-06.md) verified; full desktop budget and original htop incident OPEN | NOT RUN | NOT RUN |
 | Released-worker repeated health / EOF | PASS on private empty fixture; growth reproduced | NOT RUN | NOT RUN |
 | New packaged worker memory / EOF | PASS: [signed 1.5.19 empty/100k/representative](memory-signed-1.5.19.md); full desktop budget open | NOT RUN | NOT RUN |
-| Native packaged skip setup → logging → restart | PASS within [1.5.21 first-save/guard journey](native-1.5.21.md); separate [signed22 tiny transfers/restart](native-1.5.22.md) retains its bounds | [S23](../../releases/v1.5.23-windows-quality-candidate.md) hosted scopes PASS; separate ordinary filtered-admin ARM-emulated same-profile upgrade, compact create/edit and restart PASS. Full-editor/map presentation OPEN; earlier blank-Desk failures retained | [S22 Linux recheck](linux-runtime-1.5.22-audit.md): three X11 and nested Wayland 36/36 each PASS in non-root container; original S22 failure retained, real desktop NOT RUN |
+| Native packaged skip setup → logging → restart | PASS within [1.5.21 first-save/guard journey](native-1.5.21.md); separate [signed22 tiny transfers/restart](native-1.5.22.md) retains its bounds | [AU24](../../releases/v1.5.24-windows-quality-candidate.md) full-editor create/edit/restart and map fallback PASS; [AU25](windows-ordinary-1.5.25.md) Settings save/restart/restoration PASS. Filtered-admin ARM-emulated retained profile, not fresh onboarding; full graphics OPEN and earlier blank-Desk failures retained | [S22 Linux recheck](linux-runtime-1.5.22-audit.md): three X11 and nested Wayland 36/36 each PASS in non-root container; original S22 failure retained, real desktop NOT RUN |
 | Native radio / rotor Browse → Save → restart | NOT RUN | PARTIAL: AU22 radio first Browse failure/Retry313 and rotor57 saved Dummy1/dummy/9600; AU23 displays retained radio/station values and SQLite rotor/settings match the preserved baseline after restart. New fresh onboarding, connected station and cold-catalogue cause remain open | NOT RUN |
-| Hosted silent defaults / registry / shortcuts / installed payload | N/A | PASS within separate S22 and [S23 hosted reports](../../releases/v1.5.23-windows-quality-candidate.md): both scopes, actual defaults, registry/shortcuts, full payload, installed GUI and owned-marker uninstall retention; elevated runner only | N/A |
+| Hosted silent defaults / registry / shortcuts / installed payload | N/A | [S25 PASS](ci-1.5.25-windows-packaged-qualification.md): both scopes, actual defaults, registry/shortcuts, full payload, installed GUI and owned-marker uninstall retention; elevated runner only. Original S24 installed failures retained | N/A |
 | Just me default path / no-admin / UAC cancellation | N/A | PARTIAL: strict ordinary Standard token, actual 1.5.20 CU default install and 1.5.20 → 1.5.21 retained-data uninstall/reinstall observed. Separate AU UAC No cancellation has three machine locations absent; original Finish token remains unverified | N/A |
-| All users Program Files / ordinary first launch | N/A | S23 retained-path upgrade, full installed payload/registration, strict ordinary launch and Desk/reopen PASS in filtered-admin ARM/x64 emulation. Fresh ordinary onboarding/native-x64/true Standard and full UI acceptance remain OPEN; AU21/AU22 blank failures retained | N/A |
-| Same-scope upgrade / cross-scope transition / uninstall retention | NOT RUN | PARTIAL: historical CU20→21 empty-profile retention retained; ordinary AU22→AU23 wizard-managed replacement preserves SQLite settings/rotor and saved radio UI. One new QSO survives restart with exact 12-column equality. Nonempty pre-upgrade contacts/media, full restore and direct overwrite remain unqualified | NOT RUN |
-| Native keyboard setup / clipboard / menu and Close guards | PASS within [1.5.21 recorded journey](native-1.5.21.md) | S23 two ordinary title-bar closes and independent process/profile/helper cleanup PASS within timestamps; keyboard setup, clipboard and remaining menu/Close-guard journeys NOT RUN | NOT RUN on real desktop |
-| Scaling / multiple displays / native device permissions | NOT RUN | OPEN: ordinary1024×768 exposes full-editor overlap and obscured map error in S23; larger/multiple-display/device-permission qualification NOT RUN | NOT RUN |
+| All users Program Files / ordinary first launch | N/A | [AU25](windows-ordinary-1.5.25.md) default-path upgrade, full payload/registration, strict ordinary launch and Desk/reopen PASS in filtered-admin ARM/x64 emulation. Fresh onboarding/native-x64/true Standard and full UI acceptance OPEN; AU21/AU22 failures retained | N/A |
+| Same-scope upgrade / cross-scope transition / uninstall retention | NOT RUN | PARTIAL: historical CU20→21/AU22→23 results retained; [AU25](windows-ordinary-1.5.25.md) nonempty two-QSO AU24→25 upgrade preserves all 12 columns, settings, rotor and native radio JSON. Media, full restore, cross-scope and direct-overwrite qualification remain open | NOT RUN |
+| Native keyboard setup / clipboard / menu and Close guards | PASS within [1.5.21 recorded journey](native-1.5.21.md) | AU25 two ordinary title-bar closes and independent process/profile/helper absence PASS within timestamps; universal drain, keyboard setup, clipboard and remaining menu/Close-guard journeys NOT RUN | NOT RUN on real desktop |
+| Scaling / multiple displays / native device permissions | NOT RUN | [AU24](../../releases/v1.5.24-windows-quality-candidate.md) readable full editor/map fallback at 1024×768 / 100% PASS; WebGL2 unavailable, full graphics OPEN. S23 failures retained; larger/multiple-display/device-permission qualification NOT RUN | NOT RUN |
 | Physical radio / rotor / audio / RF | NOT RUN | NOT RUN | NOT RUN |
 
 Current supported package targets follow the canonical recipes: macOS arm64
@@ -188,3 +212,11 @@ UI test does not add a missing native provider to another OS.
 
 [Platform requirements, scope decisions and ordered acceptance handoff](platform-readiness.md)
 record the remaining ordinary-account, real-session, provider and display cells.
+
+## Prioritized remaining work
+
+1. Finish exact corrected-source gates, then freeze/build one new signed Mac candidate containing paging and ADIF corrections. Preserve version/source provenance and all existing build guards; no daily installation or public release.
+2. Complete the candidate-bound fixture/LaunchServices adapter and verify private-root coordinates, complete host/worker/WebKit ownership, runtime Accessibility trust and foreground supervision before one 100k generated desktop interval. Missing ownership/trust or a failed launch is a retained blocker, not a budget pass. The provisional ~70k budget remains distinct from this workload.
+3. Use that interval's attributed footprint and final-ten-minute native CPU to choose the next lifetime/background-work correction. Do not repeat the already passing health-request ladder or infer CPU saving from render counts. Count caching remains deferred until query measurements justify it.
+4. Complete unqualified ordinary native-x64/true Standard/fresh-onboarding Windows, media/full-restore, real Linux desktop and display/permission cells. Existing Linux X11/nested Wayland results apply only to their older package.
+5. Retain physical TCI/WinKeyer/audio/PTT/FLEX-8400, real SunSDR advertised TRX count, buffered Flex speed and notarization as separate open/deferred equipment and release gates.

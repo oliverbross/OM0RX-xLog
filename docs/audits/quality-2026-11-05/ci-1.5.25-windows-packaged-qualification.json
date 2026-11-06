@@ -1,0 +1,1237 @@
+{
+  "schema": 1,
+  "report": "ci-1.5.25-windows-packaged-qualification",
+  "createdUTC": "2026-11-06T21:34:18.775016+00:00",
+  "status": {
+    "staticPackageAudit": "PASS",
+    "hostedWindowsAcceptance": "PASS",
+    "ordinaryAU25Acceptance": "IN PROGRESS; separate root-owned journey",
+    "release": "HELD",
+    "qualityPhase": "OPEN"
+  },
+  "candidate": {
+    "version": "1.5.25",
+    "sourceCommit": "ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee",
+    "tree": "e7cf46381b4cbbc5f43d7f0d64660b28a9bebe25",
+    "excludedLaterSourceCommit": "f53ab0ed27444d9280485489b70c1656713ee625",
+    "canvasCorrectionCommit": "5eb2111735c1e4abf828980a1d397f26b662874a",
+    "settingsCorrectionCommit": "c98a386a6612b9d6bdce8f4835163dd96345c5dc"
+  },
+  "workflow": {
+    "repository": "oliverbross/OM0RX-xLog",
+    "file": ".github/workflows/prototype.yml",
+    "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42286159030",
+    "runId": 42286159030,
+    "attempt": 1,
+    "event": "workflow_dispatch",
+    "createdUTC": "2026-11-06T20:11:08Z",
+    "updatedUTC": "2026-11-06T21:20:04Z",
+    "observedCompleteUTC": "2026-11-06T21:21:55.514038+00:00",
+    "status": "completed",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "prototype (windows-2022)",
+        "status": "completed",
+        "conclusion": "success",
+        "jobId": 128127407098,
+        "startedUTC": "2026-11-06T20:11:11Z",
+        "completedUTC": "2026-11-06T21:16:22Z",
+        "retainedLog": {
+          "file": "job-128127407098.log",
+          "bytes": 2242082,
+          "sha256": "3b1f7025ba98857b00d61462b83aff3e5c20a845596cec2e71c00a3c67ab195b"
+        }
+      },
+      {
+        "name": "Windows fresh-runner runtime acceptance (perMachine)",
+        "status": "completed",
+        "conclusion": "success",
+        "jobId": 128158982682,
+        "startedUTC": "2026-11-06T21:16:24Z",
+        "completedUTC": "2026-11-06T21:20:03Z",
+        "retainedLog": {
+          "file": "job-128158982682.log",
+          "bytes": 37395,
+          "sha256": "6661b6df2a72e23f54e8b6c6df4bac295e58660f45884fd51486f9e28a915f9b"
+        }
+      },
+      {
+        "name": "Windows fresh-runner runtime acceptance (currentUser)",
+        "status": "completed",
+        "conclusion": "success",
+        "jobId": 128158983080,
+        "startedUTC": "2026-11-06T21:16:24Z",
+        "completedUTC": "2026-11-06T21:19:33Z",
+        "retainedLog": {
+          "file": "job-128158983080.log",
+          "bytes": 36596,
+          "sha256": "c733bca6961ee4b380afc09c55f84ed3c1a9fcf4a19ea1c823dbd686b155b8ad"
+        }
+      },
+      {
+        "name": "Linux runtime-only container acceptance",
+        "status": "completed",
+        "conclusion": "skipped",
+        "jobId": 128158984964,
+        "startedUTC": "2026-11-06T21:16:22Z",
+        "completedUTC": "2026-11-06T21:16:22Z"
+      }
+    ]
+  },
+  "artifacts": {
+    "runtime": {
+      "artifactId": 13542265669,
+      "artifactName": "xlog-runtime-windows-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee",
+      "sha256": "b6ab7a284ce2ad3da715afb1010892589cdf7b9fe0b6d34b4050248a82eb3b8f",
+      "bytes": 198697034,
+      "metadataSHA256": "6b9fe10897c828b647675922439704f9fabf3335ba93fb44c770784c3692c5ac",
+      "downloadReceiptSHA256": "b57897d90a01b949fc60015e6bfe6dc6ebdaeccb02208693c10c5e540776a79e",
+      "extractedFiles": 11
+    },
+    "development": {
+      "artifactId": 13540789143,
+      "artifactName": "xlog-prototype-windows-2022-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee",
+      "sha256": "9dca2d9433b9e909fc6b7725d3f5a1841d319620a3d14002eb1120fb694aae7b",
+      "bytes": 35596567,
+      "metadataSHA256": "96fcee514901d6426c398f6860252075386465363943cdf2d5fa82c2ec10c61e",
+      "downloadReceiptSHA256": "008a0ffb1c550f9ecce12f3200d7326bc032e2673c9c6baafc5e6aeac5c1129f",
+      "extractedFiles": 5
+    },
+    "acceptance-currentUser": {
+      "artifactId": 13542261503,
+      "artifactName": "xlog-acceptance-windows-currentUser-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee",
+      "sha256": "c12b41cbc924e8ee0c7f5494830915c3d1e76f3ad3238d062dcda874906d4d15",
+      "bytes": 646684,
+      "metadataSHA256": "d98cdc35346432a17e85aad08025c103e2f1f0c96aecabcc865255c12acd28fa",
+      "downloadReceiptSHA256": "ee67618e3b42e269df6ead690b4042c67de305c60a70e1e55a7befd6c7cee1b5",
+      "extractedFiles": 337
+    },
+    "acceptance-perMachine": {
+      "artifactId": 13541891690,
+      "artifactName": "xlog-acceptance-windows-perMachine-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee",
+      "sha256": "a76a485a277df50f12d5ab56b46f50f515c5583a192810d5434900d52a9455c6",
+      "bytes": 647966,
+      "metadataSHA256": "9c121992d728639caa3a949f92439325f6be0472b4aecb978c1952777fe06b53",
+      "downloadReceiptSHA256": "c55c8a2ed768ad5688e48161d33a7652d8a958d88188086c949ebf45e34f43bb",
+      "extractedFiles": 337
+    }
+  },
+  "staticPackage": {
+    "peArchitecture": "x86_64",
+    "outerDigestSizeRunSourceVerified": true,
+    "safeExtractionAndExactInventoryVerified": true,
+    "portableZIP": {
+      "bytes": 83176181,
+      "sha256": "802f556fbb67fd7b8b96ffdd1adb78277fe0cef370ae89e162dc004b32d1fefc"
+    },
+    "portableProvenance": {
+      "zipEntry": "OM0RX-xLog-Prototype-windows-x86_64/provenance.json",
+      "bytes": 25190,
+      "sha256": "eced51c54be08cb4792c0cb6f90676bf96657e86589a3c66ac45c61774e7a053",
+      "commit": "ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee",
+      "version": "1.5.25",
+      "platform": "windows-x86_64"
+    },
+    "binaries": {
+      "xlog-prototype.exe": {
+        "bytes": 39549952,
+        "sha256": "afced6f28d645c880d00ef8addde29bc82beec0450d9a9f45c352e452f1e6a0b"
+      },
+      "xlog-prototype-worker.exe": {
+        "bytes": 55719424,
+        "sha256": "bba772ea342c1e61ffddfaeedb36e33a3566dcbe3628b64f0972d583d95622b1"
+      }
+    },
+    "payloadManifest": {
+      "bytes": 591829,
+      "sha256": "204955e48f0efdf322b62fc83f1b931f91a537cf1a90b7be849e7237aef85d3e",
+      "entryCount": 3270,
+      "payloadTotalBytesExcludingManifest": 236540997,
+      "sourceVersionFields": {},
+      "sourceVersionAssociation": "Exact source/version association is verified by portable and installer provenance, external static audit, and artifact metadata"
+    },
+    "actualPayloadFilesIncludingManifest": 3271,
+    "everyPayloadEntryByteHashAndExactInventoryVerified": true,
+    "installers": {
+      "perMachine": {
+        "filename": "OM0RX-xLog-1.5.25-windows-x86_64-all-users-setup.exe",
+        "bytes": 58426254,
+        "sha256": "9be4b36b224d1481f5f2c38a2e9c82668bd5a2259c2f78c9602a55c5cf25d280",
+        "sourceCommit": "ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee",
+        "version": "1.5.25",
+        "schema": 2,
+        "configurationSHA256": "44a1762a5addf97bcef73a14ee704c6126cf04209c18e4fe79e5cc6edbcb58ec",
+        "provenanceSHA256": "022e656aa7b6d096629ff80b35b9cdac13c8605be4b50a186c7792c94d828ab2",
+        "mainExecutableSHA256": "afced6f28d645c880d00ef8addde29bc82beec0450d9a9f45c352e452f1e6a0b",
+        "payloadManifestSHA256": "204955e48f0efdf322b62fc83f1b931f91a537cf1a90b7be849e7237aef85d3e",
+        "resourceCount": 3270,
+        "installation": {
+          "mode": "perMachine",
+          "defaultDirectory": "%ProgramFiles%\\OM0RX-xLog",
+          "requiresAdministrator": true,
+          "startMenu": "CommonPrograms",
+          "executionLevel": "admin",
+          "registryHive": "HKLM",
+          "artifactLabel": "all-users"
+        }
+      },
+      "currentUser": {
+        "filename": "OM0RX-xLog-1.5.25-windows-x86_64-current-user-setup.exe",
+        "bytes": 58410068,
+        "sha256": "4763e6b847534c62d4094aeb2797b2230e0fadc29f7674062ff732a1b11828e8",
+        "sourceCommit": "ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee",
+        "version": "1.5.25",
+        "schema": 2,
+        "configurationSHA256": "edb54495cd83bf536c33ace76ae82d39dd3303eaa750ea89a362e0165e830a7c",
+        "provenanceSHA256": "f7ee61274a1a4e1aa243b1197b444f3d6ff2c324ed2a8108ae7461528a10caf8",
+        "mainExecutableSHA256": "afced6f28d645c880d00ef8addde29bc82beec0450d9a9f45c352e452f1e6a0b",
+        "payloadManifestSHA256": "204955e48f0efdf322b62fc83f1b931f91a537cf1a90b7be849e7237aef85d3e",
+        "resourceCount": 3270,
+        "installation": {
+          "mode": "currentUser",
+          "defaultDirectory": "%LOCALAPPDATA%\\OM0RX-xLog",
+          "requiresAdministrator": false,
+          "startMenu": "Programs",
+          "executionLevel": "user",
+          "registryHive": "HKCU",
+          "artifactLabel": "current-user"
+        }
+      }
+    },
+    "scopeConfigurationsEqualExceptMode": true,
+    "developmentExecutablesAndSQLiteSameAsPortable": true,
+    "developmentLocks": {
+      "src-tauri/Cargo.lock": {
+        "bytes": 148637,
+        "sha256": "e6ac992d9ef853f654df3bf8796a1cfbd42833682df1fd700841fd9205dc6ab3",
+        "normalizedBytes": 142738,
+        "normalizedSHA256": "96a2a7d6187178644eeeb64b163a0ea1001dffddb3e974a9913d2a373cdcd297",
+        "frozenSourcePath": "prototype/src-tauri/Cargo.lock",
+        "frozenSourceSHA256": "96a2a7d6187178644eeeb64b163a0ea1001dffddb3e974a9913d2a373cdcd297",
+        "equalAfterCRLFNormalization": true
+      },
+      "package-lock.json": {
+        "bytes": 120467,
+        "sha256": "038a13d643759457edd2fcbaaa06442473d9bb9a8bc69ae0e078941c78f410b5",
+        "normalizedBytes": 117113,
+        "normalizedSHA256": "db7b0ce59e4f5ffec6af57ce2548bf348bd884620efeee2162aa1f9877a34869",
+        "frozenSourcePath": "prototype/package-lock.json",
+        "frozenSourceSHA256": "db7b0ce59e4f5ffec6af57ce2548bf348bd884620efeee2162aa1f9877a34869",
+        "equalAfterCRLFNormalization": true
+      }
+    },
+    "portableSourceLockFilesPresent": [],
+    "portableSourceLockCoverage": "None; the empty portable list is not a lock verification pass. The actual development lockfiles above were compared separately to frozen source.",
+    "privacy": {
+      "filesChecked": 3271,
+      "findings": 0,
+      "allActualPayloadBytesMatchScan": true,
+      "reportSHA256": "91dba1f58aa4542dce2ebd1e0bffdbd50f6cc786c1ad179c78caf41207696bd3"
+    },
+    "packagedFilesExecutedByAuditingAgent": 0
+  },
+  "hosted": {
+    "counts": {
+      "runtimeReports": 4,
+      "topLevelCheckEvaluations": 58,
+      "failedTopLevelChecks": 0,
+      "guiLaunches": 8,
+      "guiCheckEvaluations": 288,
+      "failedGuiChecks": 0,
+      "retainedStderrErrorLines": 8,
+      "installerScopeReports": 2,
+      "uniqueGuiContractKeys": 36,
+      "canvasConflictRecoveryBranchExecutions": 3
+    },
+    "contract": {
+      "schema": 1,
+      "sourceCommit": "ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee",
+      "derivedAtUTC": "2026-11-06T20:18:21.781149+00:00",
+      "sourceSHA256": {
+        "prototype/src-tauri/src/acceptance.rs": "247a48bd65b2d5b8e69c648e56ae9d446fb5f6fc4ff24ab07e6526f6f5da9d5e",
+        "prototype/src/integratedAcceptance.ts": "fedde29a830f7ca004b641af2bfefdc276233cf0bd2d420b25a1c7332951f9b5"
+      },
+      "nativeLocalChecks": [
+        "isolated_worker",
+        "empty_workspace",
+        "workspace_created",
+        "workspace_layout_roundtrip",
+        "workspace_canvas_controls",
+        "workspace_settings_presets",
+        "workspace_native_windows",
+        "spot_history_archive",
+        "worker_self_test",
+        "worker_integration_self_test",
+        "worker_parse_adif",
+        "keyboard_log",
+        "logbook_readback",
+        "keyboard_editor",
+        "keyboard_focus",
+        "keyboard_clear",
+        "desk_map_logbook",
+        "settings_save_readback",
+        "awards_loaded",
+        "detached_projection",
+        "map_loaded",
+        "final_desk",
+        "native_menu_routes",
+        "contact_edit",
+        "contact_delete_undo",
+        "detached_logbook",
+        "detached_awards",
+        "detached_logbook_lifecycle",
+        "detached_awards_lifecycle",
+        "detached_spot_history",
+        "spot_history_main_absent",
+        "spot_history_dock_recovery"
+      ],
+      "ordinaryFrontendAdditionalChecks": [
+        "adif_transfer_roundtrip",
+        "onboarding_setup",
+        "settings_sections",
+        "workspace_feedback_overlay"
+      ],
+      "expectedWindowsGuiChecks": [
+        "adif_transfer_roundtrip",
+        "awards_loaded",
+        "contact_delete_undo",
+        "contact_edit",
+        "desk_map_logbook",
+        "detached_awards",
+        "detached_awards_lifecycle",
+        "detached_logbook",
+        "detached_logbook_lifecycle",
+        "detached_projection",
+        "detached_spot_history",
+        "empty_workspace",
+        "final_desk",
+        "isolated_worker",
+        "keyboard_clear",
+        "keyboard_editor",
+        "keyboard_focus",
+        "keyboard_log",
+        "logbook_readback",
+        "map_loaded",
+        "native_menu_routes",
+        "onboarding_setup",
+        "settings_save_readback",
+        "settings_sections",
+        "spot_history_archive",
+        "spot_history_dock_recovery",
+        "spot_history_main_absent",
+        "worker_integration_self_test",
+        "worker_parse_adif",
+        "worker_self_test",
+        "workspace_canvas_controls",
+        "workspace_created",
+        "workspace_feedback_overlay",
+        "workspace_layout_roundtrip",
+        "workspace_native_windows",
+        "workspace_settings_presets"
+      ],
+      "largeLogRequested": false,
+      "largeLogOnlyLiteralChecksExcluded": [
+        "large_awards_ready",
+        "large_final_desk",
+        "large_history_ready",
+        "large_log_records",
+        "large_logbook_ready",
+        "large_navigation_ready"
+      ],
+      "nativeMapPredicateUnchangedFromS24": true,
+      "scope": "Derived from pinned frozen source; not a runtime result"
+    },
+    "scopes": {
+      "currentUser": {
+        "jobId": 128158983080,
+        "result": "PASS",
+        "qa": {
+          "schema": 1,
+          "qaExecutorSource": "ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee",
+          "packageSource": "ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee",
+          "packageRunId": "42286159030",
+          "installerScope": "currentUser",
+          "applicationRebuiltInThisJob": false
+        },
+        "qaReport": {
+          "file": "xlog-acceptance-windows-currentUser-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-installer-evidence/qa-executor.json",
+          "bytes": 263,
+          "sha256": "c40a2e13766749765f1d965e5ddc0e6652f80b92a411f8b813206b92e3ada482"
+        },
+        "installerReport": {
+          "file": "xlog-acceptance-windows-currentUser-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-installer-evidence/currentUser/installer-acceptance.json",
+          "bytes": 1300,
+          "sha256": "883b0f1cec07513dbf72ed67293858ba7af7836bd3c930d0602b64cda8fea579"
+        },
+        "defaultDirectory": "%LOCALAPPDATA%\\OM0RX-xLog",
+        "registryHive": "HKCU",
+        "harnessElevated": true,
+        "scopePathRegistryShortcutPayloadPassed": true,
+        "uninstallPassed": true,
+        "markerPreserved": true,
+        "preservationScope": "Harness-owned marker only; existing logbooks and account settings were not read",
+        "runtime": {
+          "portable": {
+            "result": "PASS",
+            "topLevelCheckEvaluations": 14,
+            "checks": [
+              {
+                "name": "payload-hashes",
+                "passed": true
+              },
+              {
+                "name": "native-isolation",
+                "passed": true
+              },
+              {
+                "name": "webview-prerequisite",
+                "passed": true
+              },
+              {
+                "name": "worker-valid-module-origins",
+                "passed": true
+              },
+              {
+                "name": "ndjson-open-stdin-fragment-correlation",
+                "passed": true
+              },
+              {
+                "name": "bundled-python-standard-library",
+                "passed": true
+              },
+              {
+                "name": "worker-contest-runtime-round-trip",
+                "passed": true
+              },
+              {
+                "name": "ndjson-malformed-oversized-recovery",
+                "passed": true
+              },
+              {
+                "name": "worker-local-logbook-round-trip",
+                "passed": true
+              },
+              {
+                "name": "worker-cli-self-test",
+                "passed": true
+              },
+              {
+                "name": "gui-run-1-module-origins",
+                "passed": true
+              },
+              {
+                "name": "gui-run-1",
+                "passed": true
+              },
+              {
+                "name": "gui-run-2-module-origins",
+                "passed": true
+              },
+              {
+                "name": "gui-run-2",
+                "passed": true
+              }
+            ],
+            "report": {
+              "file": "xlog-acceptance-windows-currentUser-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-evidence/acceptance.json",
+              "bytes": 40828,
+              "sha256": "6b7a528231f268268e2646c2e7cb0975012b3e4910d7d90688769d33bdb861a2"
+            },
+            "guiLaunches": 2,
+            "payloadEntriesHashed": 3270
+          },
+          "installed": {
+            "result": "PASS",
+            "topLevelCheckEvaluations": 15,
+            "checks": [
+              {
+                "name": "installer-owned-uninstaller",
+                "passed": true
+              },
+              {
+                "name": "payload-hashes",
+                "passed": true
+              },
+              {
+                "name": "native-isolation",
+                "passed": true
+              },
+              {
+                "name": "webview-prerequisite",
+                "passed": true
+              },
+              {
+                "name": "worker-valid-module-origins",
+                "passed": true
+              },
+              {
+                "name": "ndjson-open-stdin-fragment-correlation",
+                "passed": true
+              },
+              {
+                "name": "bundled-python-standard-library",
+                "passed": true
+              },
+              {
+                "name": "worker-contest-runtime-round-trip",
+                "passed": true
+              },
+              {
+                "name": "ndjson-malformed-oversized-recovery",
+                "passed": true
+              },
+              {
+                "name": "worker-local-logbook-round-trip",
+                "passed": true
+              },
+              {
+                "name": "worker-cli-self-test",
+                "passed": true
+              },
+              {
+                "name": "gui-run-1-module-origins",
+                "passed": true
+              },
+              {
+                "name": "gui-run-1",
+                "passed": true
+              },
+              {
+                "name": "gui-run-2-module-origins",
+                "passed": true
+              },
+              {
+                "name": "gui-run-2",
+                "passed": true
+              }
+            ],
+            "report": {
+              "file": "xlog-acceptance-windows-currentUser-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-installer-evidence/currentUser/native-runtime/acceptance.json",
+              "bytes": 41059,
+              "sha256": "0d395d8a357ae311a608ecfaa149a4865446ea06288e185a570fa60c4f0f49c4"
+            },
+            "guiLaunches": 2,
+            "payloadEntriesHashed": 3270
+          }
+        }
+      },
+      "perMachine": {
+        "jobId": 128158982682,
+        "result": "PASS",
+        "qa": {
+          "schema": 1,
+          "qaExecutorSource": "ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee",
+          "packageSource": "ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee",
+          "packageRunId": "42286159030",
+          "installerScope": "perMachine",
+          "applicationRebuiltInThisJob": false
+        },
+        "qaReport": {
+          "file": "xlog-acceptance-windows-perMachine-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-installer-evidence/qa-executor.json",
+          "bytes": 262,
+          "sha256": "2c27ad24dae8ba001d0c1b6a3aff997f0340aa5297ce38ab4aedd7ae76a30599"
+        },
+        "installerReport": {
+          "file": "xlog-acceptance-windows-perMachine-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-installer-evidence/perMachine/installer-acceptance.json",
+          "bytes": 1233,
+          "sha256": "b12cebecdc09066decde8b4b788e1bf412291593081422c6ccc894355e50bd3e"
+        },
+        "defaultDirectory": "%ProgramFiles%\\OM0RX-xLog",
+        "registryHive": "HKLM",
+        "harnessElevated": true,
+        "scopePathRegistryShortcutPayloadPassed": true,
+        "uninstallPassed": true,
+        "markerPreserved": true,
+        "preservationScope": "Harness-owned marker only; existing logbooks and account settings were not read",
+        "runtime": {
+          "portable": {
+            "result": "PASS",
+            "topLevelCheckEvaluations": 14,
+            "checks": [
+              {
+                "name": "payload-hashes",
+                "passed": true
+              },
+              {
+                "name": "native-isolation",
+                "passed": true
+              },
+              {
+                "name": "webview-prerequisite",
+                "passed": true
+              },
+              {
+                "name": "worker-valid-module-origins",
+                "passed": true
+              },
+              {
+                "name": "ndjson-open-stdin-fragment-correlation",
+                "passed": true
+              },
+              {
+                "name": "bundled-python-standard-library",
+                "passed": true
+              },
+              {
+                "name": "worker-contest-runtime-round-trip",
+                "passed": true
+              },
+              {
+                "name": "ndjson-malformed-oversized-recovery",
+                "passed": true
+              },
+              {
+                "name": "worker-local-logbook-round-trip",
+                "passed": true
+              },
+              {
+                "name": "worker-cli-self-test",
+                "passed": true
+              },
+              {
+                "name": "gui-run-1-module-origins",
+                "passed": true
+              },
+              {
+                "name": "gui-run-1",
+                "passed": true
+              },
+              {
+                "name": "gui-run-2-module-origins",
+                "passed": true
+              },
+              {
+                "name": "gui-run-2",
+                "passed": true
+              }
+            ],
+            "report": {
+              "file": "xlog-acceptance-windows-perMachine-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-evidence/acceptance.json",
+              "bytes": 40825,
+              "sha256": "0fc3feef76bb59cc29755241664f6d38998c3fe89b9616bf324c802b6f3bc99e"
+            },
+            "guiLaunches": 2,
+            "payloadEntriesHashed": 3270
+          },
+          "installed": {
+            "result": "PASS",
+            "topLevelCheckEvaluations": 15,
+            "checks": [
+              {
+                "name": "installer-owned-uninstaller",
+                "passed": true
+              },
+              {
+                "name": "payload-hashes",
+                "passed": true
+              },
+              {
+                "name": "native-isolation",
+                "passed": true
+              },
+              {
+                "name": "webview-prerequisite",
+                "passed": true
+              },
+              {
+                "name": "worker-valid-module-origins",
+                "passed": true
+              },
+              {
+                "name": "ndjson-open-stdin-fragment-correlation",
+                "passed": true
+              },
+              {
+                "name": "bundled-python-standard-library",
+                "passed": true
+              },
+              {
+                "name": "worker-contest-runtime-round-trip",
+                "passed": true
+              },
+              {
+                "name": "ndjson-malformed-oversized-recovery",
+                "passed": true
+              },
+              {
+                "name": "worker-local-logbook-round-trip",
+                "passed": true
+              },
+              {
+                "name": "worker-cli-self-test",
+                "passed": true
+              },
+              {
+                "name": "gui-run-1-module-origins",
+                "passed": true
+              },
+              {
+                "name": "gui-run-1",
+                "passed": true
+              },
+              {
+                "name": "gui-run-2-module-origins",
+                "passed": true
+              },
+              {
+                "name": "gui-run-2",
+                "passed": true
+              }
+            ],
+            "report": {
+              "file": "xlog-acceptance-windows-perMachine-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-installer-evidence/perMachine/native-runtime/acceptance.json",
+              "bytes": 41014,
+              "sha256": "f1d486cbb3ee06e5d789a7506e8aec854da9d487e376d821ce2129c4e4dfbe97"
+            },
+            "guiLaunches": 2,
+            "payloadEntriesHashed": 3270
+          }
+        }
+      }
+    },
+    "guiLaunches": [
+      {
+        "scope": "currentUser",
+        "runtime": "portable",
+        "launch": 1,
+        "result": "PASS",
+        "guiChecksPassed": 36,
+        "report": {
+          "file": "xlog-acceptance-windows-currentUser-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-evidence/gui-run-1.json",
+          "bytes": 14384,
+          "sha256": "b7be989c4506d5da40f28537168434f3294952a129943cdf4dc893c02a8e5d0c"
+        },
+        "settings": {
+          "freshAttempt": 1,
+          "completionStatus": "applied",
+          "previousRevision": 2,
+          "readbackRevision": 3,
+          "sameGeneration": true,
+          "expectedValueMatched": true,
+          "previousValueDifferent": true,
+          "rawValuesPublished": false
+        },
+        "canvas": {
+          "controlsPassed": true,
+          "layoutConflictRecovered": false,
+          "locked": true,
+          "mapHidePersisted": true,
+          "sameDraft": true
+        },
+        "map": {
+          "predicatePassed": true,
+          "loaded": true,
+          "tilesLoaded": true,
+          "visible": true,
+          "webgl": true,
+          "landPixelProbes": 192,
+          "matchedLandPixels": 192,
+          "mismatchCount": 0,
+          "errorEmpty": true,
+          "positiveCaptureTimestamp": true
+        },
+        "stderr": {
+          "file": "xlog-acceptance-windows-currentUser-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-evidence/gui-run-1-stderr.txt",
+          "bytes": 525,
+          "sha256": "cbf5362366010a0e93085ab44a16953472af8afef8e916399f004bc8fcc300b7"
+        },
+        "widgetClassUnregisterError1412Lines": 1,
+        "screenshot": {
+          "file": "xlog-acceptance-windows-currentUser-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-evidence/gui-run-1-desktop.png",
+          "bytes": 78692,
+          "sha256": "78a5d720b5824651492ea5d5ff1bd58ce9c3d29d85c9a13ce8f967b5afde91ae"
+        },
+        "screenshotVisuallyReviewed": false
+      },
+      {
+        "scope": "currentUser",
+        "runtime": "portable",
+        "launch": 2,
+        "result": "PASS",
+        "guiChecksPassed": 36,
+        "report": {
+          "file": "xlog-acceptance-windows-currentUser-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-evidence/gui-run-2.json",
+          "bytes": 14383,
+          "sha256": "80da355afe0561257ef22cd5d005fa1079ae378253f15f446fdfda2342277fd5"
+        },
+        "settings": {
+          "freshAttempt": 1,
+          "completionStatus": "applied",
+          "previousRevision": 2,
+          "readbackRevision": 3,
+          "sameGeneration": true,
+          "expectedValueMatched": true,
+          "previousValueDifferent": true,
+          "rawValuesPublished": false
+        },
+        "canvas": {
+          "controlsPassed": true,
+          "layoutConflictRecovered": false,
+          "locked": true,
+          "mapHidePersisted": true,
+          "sameDraft": true
+        },
+        "map": {
+          "predicatePassed": true,
+          "loaded": true,
+          "tilesLoaded": true,
+          "visible": true,
+          "webgl": true,
+          "landPixelProbes": 192,
+          "matchedLandPixels": 192,
+          "mismatchCount": 0,
+          "errorEmpty": true,
+          "positiveCaptureTimestamp": true
+        },
+        "stderr": {
+          "file": "xlog-acceptance-windows-currentUser-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-evidence/gui-run-2-stderr.txt",
+          "bytes": 525,
+          "sha256": "cc002853ca89381b694d79f3007614de16845ef8420e54212403fe6d57fa657a"
+        },
+        "widgetClassUnregisterError1412Lines": 1,
+        "screenshot": {
+          "file": "xlog-acceptance-windows-currentUser-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-evidence/gui-run-2-desktop.png",
+          "bytes": 78692,
+          "sha256": "78a5d720b5824651492ea5d5ff1bd58ce9c3d29d85c9a13ce8f967b5afde91ae"
+        },
+        "screenshotVisuallyReviewed": false
+      },
+      {
+        "scope": "currentUser",
+        "runtime": "installed",
+        "launch": 1,
+        "result": "PASS",
+        "guiChecksPassed": 36,
+        "report": {
+          "file": "xlog-acceptance-windows-currentUser-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-installer-evidence/currentUser/native-runtime/gui-run-1.json",
+          "bytes": 14383,
+          "sha256": "3d790473af8efc21bc4e0776dd506ced112329151bee5e5ff8d866bb336e0513"
+        },
+        "settings": {
+          "freshAttempt": 1,
+          "completionStatus": "applied",
+          "previousRevision": 2,
+          "readbackRevision": 3,
+          "sameGeneration": true,
+          "expectedValueMatched": true,
+          "previousValueDifferent": true,
+          "rawValuesPublished": false
+        },
+        "canvas": {
+          "controlsPassed": true,
+          "layoutConflictRecovered": false,
+          "locked": true,
+          "mapHidePersisted": true,
+          "sameDraft": true
+        },
+        "map": {
+          "predicatePassed": true,
+          "loaded": true,
+          "tilesLoaded": true,
+          "visible": true,
+          "webgl": true,
+          "landPixelProbes": 192,
+          "matchedLandPixels": 192,
+          "mismatchCount": 0,
+          "errorEmpty": true,
+          "positiveCaptureTimestamp": true
+        },
+        "stderr": {
+          "file": "xlog-acceptance-windows-currentUser-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-installer-evidence/currentUser/native-runtime/gui-run-1-stderr.txt",
+          "bytes": 525,
+          "sha256": "af86332c844db9a65368e659db9193734587fe9cb8e22fd6063e0b911ef4f0a1"
+        },
+        "widgetClassUnregisterError1412Lines": 1,
+        "screenshot": {
+          "file": "xlog-acceptance-windows-currentUser-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-installer-evidence/currentUser/native-runtime/gui-run-1-desktop.png",
+          "bytes": 78729,
+          "sha256": "49a8aa48fcd82aff05fad77ab9a5a91ff98ed045dd56512ff52ddbe6b03a70c4"
+        },
+        "screenshotVisuallyReviewed": false
+      },
+      {
+        "scope": "currentUser",
+        "runtime": "installed",
+        "launch": 2,
+        "result": "PASS",
+        "guiChecksPassed": 36,
+        "report": {
+          "file": "xlog-acceptance-windows-currentUser-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-installer-evidence/currentUser/native-runtime/gui-run-2.json",
+          "bytes": 14383,
+          "sha256": "43ead87b24fc6f3d5da6ae9b785a8031fc4b3c50033521efecb423e8938c88a4"
+        },
+        "settings": {
+          "freshAttempt": 1,
+          "completionStatus": "applied",
+          "previousRevision": 2,
+          "readbackRevision": 3,
+          "sameGeneration": true,
+          "expectedValueMatched": true,
+          "previousValueDifferent": true,
+          "rawValuesPublished": false
+        },
+        "canvas": {
+          "controlsPassed": true,
+          "layoutConflictRecovered": false,
+          "locked": true,
+          "mapHidePersisted": true,
+          "sameDraft": true
+        },
+        "map": {
+          "predicatePassed": true,
+          "loaded": true,
+          "tilesLoaded": true,
+          "visible": true,
+          "webgl": true,
+          "landPixelProbes": 32,
+          "matchedLandPixels": 32,
+          "mismatchCount": 0,
+          "errorEmpty": true,
+          "positiveCaptureTimestamp": true
+        },
+        "stderr": {
+          "file": "xlog-acceptance-windows-currentUser-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-installer-evidence/currentUser/native-runtime/gui-run-2-stderr.txt",
+          "bytes": 525,
+          "sha256": "f5354a0db3e4c6656f7919a5b384e7eff2ed8cf78ef175dd0e629a969eb917bf"
+        },
+        "widgetClassUnregisterError1412Lines": 1,
+        "screenshot": {
+          "file": "xlog-acceptance-windows-currentUser-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-installer-evidence/currentUser/native-runtime/gui-run-2-desktop.png",
+          "bytes": 78678,
+          "sha256": "1e4c529986ce0c60b56aae1fab59530e1dc7dadb256586730dd096dca9b37460"
+        },
+        "screenshotVisuallyReviewed": false
+      },
+      {
+        "scope": "perMachine",
+        "runtime": "portable",
+        "launch": 1,
+        "result": "PASS",
+        "guiChecksPassed": 36,
+        "report": {
+          "file": "xlog-acceptance-windows-perMachine-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-evidence/gui-run-1.json",
+          "bytes": 14382,
+          "sha256": "b74d756c7e3567d65b1ad629147f28dec04d0b46da93674b35dd8f27f6c1265c"
+        },
+        "settings": {
+          "freshAttempt": 1,
+          "completionStatus": "applied",
+          "previousRevision": 2,
+          "readbackRevision": 3,
+          "sameGeneration": true,
+          "expectedValueMatched": true,
+          "previousValueDifferent": true,
+          "rawValuesPublished": false
+        },
+        "canvas": {
+          "controlsPassed": true,
+          "layoutConflictRecovered": true,
+          "locked": true,
+          "mapHidePersisted": true,
+          "sameDraft": true
+        },
+        "map": {
+          "predicatePassed": true,
+          "loaded": true,
+          "tilesLoaded": true,
+          "visible": true,
+          "webgl": true,
+          "landPixelProbes": 32,
+          "matchedLandPixels": 32,
+          "mismatchCount": 0,
+          "errorEmpty": true,
+          "positiveCaptureTimestamp": true
+        },
+        "stderr": {
+          "file": "xlog-acceptance-windows-perMachine-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-evidence/gui-run-1-stderr.txt",
+          "bytes": 525,
+          "sha256": "87a4923ab71f5d55892edfd8b9689931faf770a5a2dfc64b837d8409cfdebdd8"
+        },
+        "widgetClassUnregisterError1412Lines": 1,
+        "screenshot": {
+          "file": "xlog-acceptance-windows-perMachine-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-evidence/gui-run-1-desktop.png",
+          "bytes": 78614,
+          "sha256": "c50c1d7d731d37345d2fd3e6ef807715b502726c8d5b92952ac1f00a0636d998"
+        },
+        "screenshotVisuallyReviewed": false
+      },
+      {
+        "scope": "perMachine",
+        "runtime": "portable",
+        "launch": 2,
+        "result": "PASS",
+        "guiChecksPassed": 36,
+        "report": {
+          "file": "xlog-acceptance-windows-perMachine-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-evidence/gui-run-2.json",
+          "bytes": 14382,
+          "sha256": "909608cf2534ba05961fdf131f10a682a24f0ca77ac3c25f48087a4933849158"
+        },
+        "settings": {
+          "freshAttempt": 1,
+          "completionStatus": "applied",
+          "previousRevision": 2,
+          "readbackRevision": 3,
+          "sameGeneration": true,
+          "expectedValueMatched": true,
+          "previousValueDifferent": true,
+          "rawValuesPublished": false
+        },
+        "canvas": {
+          "controlsPassed": true,
+          "layoutConflictRecovered": true,
+          "locked": true,
+          "mapHidePersisted": true,
+          "sameDraft": true
+        },
+        "map": {
+          "predicatePassed": true,
+          "loaded": true,
+          "tilesLoaded": true,
+          "visible": true,
+          "webgl": true,
+          "landPixelProbes": 192,
+          "matchedLandPixels": 192,
+          "mismatchCount": 0,
+          "errorEmpty": true,
+          "positiveCaptureTimestamp": true
+        },
+        "stderr": {
+          "file": "xlog-acceptance-windows-perMachine-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-evidence/gui-run-2-stderr.txt",
+          "bytes": 525,
+          "sha256": "cabf6e7831b1e7dc3bd62df63e1662da65eab89a58f080cc0ba589cc57de333f"
+        },
+        "widgetClassUnregisterError1412Lines": 1,
+        "screenshot": {
+          "file": "xlog-acceptance-windows-perMachine-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-evidence/gui-run-2-desktop.png",
+          "bytes": 78690,
+          "sha256": "76d22d8d58dfd1b89f15eba82d976622e4955479a50b5af042eb9e6b3e6b71b6"
+        },
+        "screenshotVisuallyReviewed": false
+      },
+      {
+        "scope": "perMachine",
+        "runtime": "installed",
+        "launch": 1,
+        "result": "PASS",
+        "guiChecksPassed": 36,
+        "report": {
+          "file": "xlog-acceptance-windows-perMachine-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-installer-evidence/perMachine/native-runtime/gui-run-1.json",
+          "bytes": 14382,
+          "sha256": "64d0d30583a6406f454b72781c2632996b4b31ed4062e13cfed92670d1d60176"
+        },
+        "settings": {
+          "freshAttempt": 1,
+          "completionStatus": "applied",
+          "previousRevision": 2,
+          "readbackRevision": 3,
+          "sameGeneration": true,
+          "expectedValueMatched": true,
+          "previousValueDifferent": true,
+          "rawValuesPublished": false
+        },
+        "canvas": {
+          "controlsPassed": true,
+          "layoutConflictRecovered": true,
+          "locked": true,
+          "mapHidePersisted": true,
+          "sameDraft": true
+        },
+        "map": {
+          "predicatePassed": true,
+          "loaded": true,
+          "tilesLoaded": true,
+          "visible": true,
+          "webgl": true,
+          "landPixelProbes": 192,
+          "matchedLandPixels": 192,
+          "mismatchCount": 0,
+          "errorEmpty": true,
+          "positiveCaptureTimestamp": true
+        },
+        "stderr": {
+          "file": "xlog-acceptance-windows-perMachine-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-installer-evidence/perMachine/native-runtime/gui-run-1-stderr.txt",
+          "bytes": 525,
+          "sha256": "5d66bc18ff274d15840c3abae0c23c818c97b3c6cdfdd5ab2cd50f19a882a044"
+        },
+        "widgetClassUnregisterError1412Lines": 1,
+        "screenshot": {
+          "file": "xlog-acceptance-windows-perMachine-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-installer-evidence/perMachine/native-runtime/gui-run-1-desktop.png",
+          "bytes": 78615,
+          "sha256": "2f29f4223b098c43067614d796f785534710f394277bd1e8f32a48903f492c6f"
+        },
+        "screenshotVisuallyReviewed": false
+      },
+      {
+        "scope": "perMachine",
+        "runtime": "installed",
+        "launch": 2,
+        "result": "PASS",
+        "guiChecksPassed": 36,
+        "report": {
+          "file": "xlog-acceptance-windows-perMachine-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-installer-evidence/perMachine/native-runtime/gui-run-2.json",
+          "bytes": 14383,
+          "sha256": "d6d985aff1ce841f74ae089ffce6da53a3f0800aa9a621e1bd40ca43cbc8df86"
+        },
+        "settings": {
+          "freshAttempt": 1,
+          "completionStatus": "applied",
+          "previousRevision": 2,
+          "readbackRevision": 3,
+          "sameGeneration": true,
+          "expectedValueMatched": true,
+          "previousValueDifferent": true,
+          "rawValuesPublished": false
+        },
+        "canvas": {
+          "controlsPassed": true,
+          "layoutConflictRecovered": false,
+          "locked": true,
+          "mapHidePersisted": true,
+          "sameDraft": true
+        },
+        "map": {
+          "predicatePassed": true,
+          "loaded": true,
+          "tilesLoaded": true,
+          "visible": true,
+          "webgl": true,
+          "landPixelProbes": 32,
+          "matchedLandPixels": 32,
+          "mismatchCount": 0,
+          "errorEmpty": true,
+          "positiveCaptureTimestamp": true
+        },
+        "stderr": {
+          "file": "xlog-acceptance-windows-perMachine-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-installer-evidence/perMachine/native-runtime/gui-run-2-stderr.txt",
+          "bytes": 525,
+          "sha256": "b50150fc9512b53fd9ac3e041e5ad15c4a17fb47dea2d58a62e9aa7406d8c07e"
+        },
+        "widgetClassUnregisterError1412Lines": 1,
+        "screenshot": {
+          "file": "xlog-acceptance-windows-perMachine-ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee/xlog-windows-installer-evidence/perMachine/native-runtime/gui-run-2-desktop.png",
+          "bytes": 78610,
+          "sha256": "afe61ba66aca7f7e9f17c0bfdd529eaf61f5a8ce5aecca7185300b18ea30a3b2"
+        },
+        "screenshotVisuallyReviewed": false
+      }
+    ],
+    "environment": {
+      "operatingSystem": "Windows Server 2022",
+      "osVersion": "10.0.20348",
+      "architecture": "X64",
+      "runnerImage": "win22",
+      "runnerImageVersion": "20261101.353.1",
+      "powershell": "7.6.9",
+      "webview2Version": "131.0.2903.86",
+      "webview2Mode": "Existing Evergreen prerequisite; harness did not install it",
+      "swiftAbsentFromProbes": true,
+      "swiftAbsenceLimit": "Command lookup, conventional installation paths and uninstall registry; not an exhaustive disk scan"
+    },
+    "retainedStderr": {
+      "lineCount": 8,
+      "message": "Failed to unregister class Chrome_WidgetWin_0. Error = 1412",
+      "orphanAbsenceProved": false
+    },
+    "settingsRawValuesPublished": false
+  },
+  "retainedS24Failures": {
+    "version": "1.5.24",
+    "sourceCommit": "b294b606a579a25929a9a90a82ec76e55c961b22",
+    "runId": 42266613054,
+    "attempt": 1,
+    "portableResults": {
+      "currentUser": "PASS",
+      "perMachine": "PASS"
+    },
+    "installedResults": {
+      "currentUser": "FAIL: Unavailable canvas recovery control: Use saved layout",
+      "perMachine": "FAIL: Acceptance failed: settings_save_readback"
+    },
+    "notReached": "Second installed GUI launch, uninstall and marker retention",
+    "failureAnalysis": {
+      "file": "hosted-windows-failure-analysis-20261106T192619284378Z.json",
+      "sha256": "281e50cae4ac1129db8bc249fcaa822a1a2e2ebc7a717d818f856e5d571adfa3"
+    },
+    "limits": "New S25 passes do not rewrite S24 results or retrospectively prove the exact at-failure DOM/readback timing."
+  },
+  "limitations": [
+    "This is bounded static and hosted Windows qualification of frozen 1.5.25. Release remains HELD and the quality phase OPEN.",
+    "The later source-only contact/paging correction f53ab0ed27444d9280485489b70c1656713ee625 is excluded from this package. Its independent development/source evidence is not packaged qualification.",
+    "Ordinary AU25 upgrade/restart/Settings acceptance is IN PROGRESS in the separately owned ordinary journey at this report checkpoint; no result is inferred here.",
+    "Both installer harnesses ran elevated on Windows Server 2022 X64. They do not qualify an ordinary desktop, a Standard account, interactive UAC/default path/Finish token, upgrade, rollback, external media or physical equipment.",
+    "Uninstall retention covers a harness-owned marker only. Existing logbooks and account settings were not read by either hosted harness.",
+    "GUI namespaces are isolated and synthetic, with large_log_requested=false and station_io=false. Onboarding radio and rotator setup were skipped.",
+    "Eight launches repeat the same 36-key GUI contract: 288 evaluations are not 288 unique tests. Native menu routes and rendered submit do not establish physical accelerator operation.",
+    "All final native-map predicates passed. Screenshot hashes were verified, but no screenshot visual review is claimed by this audit.",
+    "Eight retained Chrome_WidgetWin_0 unregister error 1412 stderr lines remain recorded. Worker EOF exits, GUI exit codes and uninstall receipts are not an independent complete orphan-WebView census.",
+    "This run selected Windows only. Linux package/desktop acceptance and Mac package/notarization are not assessed by this run. Historical outcomes remain in their original reports.",
+    "Unsigned internal Windows candidate digests establish integrity, not publisher authenticity.",
+    "Original approximately 7 GB attribution, full attributed memory budget and native idle CPU improvement remain outside this run. No performance improvement or bug-free claim follows from these passes."
+  ],
+  "retainedEvidence": [
+    {
+      "file": "windows-package-1.5.25-audit.json",
+      "bytes": 7198,
+      "sha256": "81326ff82ba8d8f9e73269aaff5a13336e69bc2d2dff3ef52afeb965e2644cc3"
+    },
+    {
+      "file": "au25-native-package-pins.json",
+      "bytes": 4133,
+      "sha256": "f5e163700058ea6fb15ce90fb3c599db50717cbddc41e02780e9add580d86a17"
+    },
+    {
+      "file": "hosted-windows-acceptance-audit-20261106T212256098311Z.json",
+      "bytes": 105520,
+      "sha256": "b4cf8213b14aa9e1e4486cc3027459a15992868efc57f952b14d85f9537e46aa"
+    },
+    {
+      "file": "hosted-s25-detailed-readback-inspection.json",
+      "bytes": 24746,
+      "sha256": "a1cb06a77ede4e0453150d51d48fb34e009075f277e74578ed1b0af291610c42"
+    },
+    {
+      "file": "status-hosted-03-20261106T212154288775Z.json",
+      "bytes": 51106,
+      "sha256": "55fa8456a8cf26a1c1f0f0c891e5bee5a9922b63c1d4510e5517516993096202"
+    },
+    {
+      "file": "s25-gui-contract.json",
+      "bytes": 2767,
+      "sha256": "ce1410fce797a40a2677837eebdaa38c2387b594022099e43f75cae6732ce4e8"
+    },
+    {
+      "file": "helper-preparation.json",
+      "bytes": 2126,
+      "sha256": "2b68dacab42c1a925103fe1067c3cd330caec1d2e34fc87866e7eb43c513141a"
+    },
+    {
+      "file": "helper-independent-review.json",
+      "bytes": 1480,
+      "sha256": "9c5dc925250d628fe59004194bd03f42b576b546a5caab584ec7b91f28d32736"
+    },
+    {
+      "file": "job-128127407098.log-receipt.json",
+      "bytes": 947,
+      "sha256": "2695fc3a490d4f34d2d180c00b1ca3ed4f9a31f955f1da0814da71c4cb4af1fc"
+    },
+    {
+      "file": "job-128158982682.log-receipt.json",
+      "bytes": 973,
+      "sha256": "35814c949bf0427ae9da80070da887e739b6e29fa1e5c296707e54668933bf7f"
+    },
+    {
+      "file": "job-128158983080.log-receipt.json",
+      "bytes": 974,
+      "sha256": "89b31e0c9e2372b8defe62559ed3bb7b8d5387ee91fb22644d10025049e1800c"
+    }
+  ],
+  "sanitization": {
+    "machineUserPathsPublished": false,
+    "processIdsPublished": false,
+    "rawSettingsPublished": false,
+    "testRecordContentPublished": false,
+    "jobAndRunIdsAreGitHubIdentifiers": true,
+    "sourceEvidenceRetainedPrivately": true
+  }
+}

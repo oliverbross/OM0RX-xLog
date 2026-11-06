@@ -1,0 +1,128 @@
+{
+  "schema": 1,
+  "verifiedUTC": "2026-11-06T22:24:05.179707+00:00",
+  "sourceCommit": "e7fce13b093ccaa8b9c0a6e343aea3d162987f04",
+  "sourceTree": "641394a8ad7d08825e754740f6049148e2c499c0",
+  "parent": "f53ab0ed27444d9280485489b70c1656713ee625",
+  "remoteMainMatched": true,
+  "patchSHA256": "45258b29d4b3c1eea9994f241dd419ad8f55582d417e87304c4926b7496544ef",
+  "sourceFiles": [
+    {
+      "path": "Sources/XLogCore/LogbookDatabase.swift",
+      "sha256": "d13f07509936a5d94d6c6c57607cf8969f3c7389346e0113e171d1755c93342c"
+    },
+    {
+      "path": "Tests/XLogPrototypeTests/ADIFTransferTests.swift",
+      "sha256": "197d0d12eb78561205a7f14f4841bef2bd8d061ba5578cb0fc7ec3eee77095d7"
+    }
+  ],
+  "originalTestsBytePreserved": true,
+  "retainedTargetedTests": {
+    "exitCode": 0,
+    "testCount": 21,
+    "suiteCount": 2,
+    "durationSeconds": 5.664,
+    "selection": "ADIFTransferTests",
+    "reviewedSuiteTests": 17,
+    "retainedLegacySuiteTests": 4
+  },
+  "verifiedRetainedEvidence": [
+    {
+      "path": "diagnostic-ADIFTransferTests.swift",
+      "bytes": 36823,
+      "sha256": "d099b31a719e755ccc03c30daa299ecf04c87abd98cf708db0ecfb797af99505"
+    },
+    {
+      "path": "diagnostic-only.patch",
+      "bytes": 10377,
+      "sha256": "6275c76e4f68babc1d0b14f88499063394ac8feeca35097bf359266595c9c66c"
+    },
+    {
+      "path": "diagnostic-red-start.json",
+      "bytes": 838,
+      "sha256": "ee91669e55dc9788735f919930250f9dd71585241eadbc3d880b262481f5ded5"
+    },
+    {
+      "path": "diagnostic-red-run.json",
+      "bytes": 3465,
+      "sha256": "a3c60b9cd8d6bd78b9dde2d23e63a57a180eeb78cba3dd94fa830d0c1be69b08"
+    },
+    {
+      "path": "diagnostic-red.log",
+      "bytes": 62985,
+      "sha256": "ef82ac23ddf52a0e5f7f00967f32790229eaca3de2795eba8f1efe421d4167d4"
+    },
+    {
+      "path": "diagnostic-cases.json",
+      "bytes": 47473,
+      "sha256": "8960051e1247d2e3262a3c5443e5e1fa55f516e26327cd4f209f372d8b74d026"
+    },
+    {
+      "path": "permanent-red.patch",
+      "bytes": 9690,
+      "sha256": "667fd08a45cd83fc40752903b52b7cba93f989ab2a4062d9b6adcdcbfe584a5d"
+    },
+    {
+      "path": "permanent-red-run.json",
+      "bytes": 1139,
+      "sha256": "057516a7f855e61b5298ed051428e8e7692834c5e569cb8317717a8743075379"
+    },
+    {
+      "path": "permanent-red.log",
+      "bytes": 6000,
+      "sha256": "e2be0dbde78e25806f0fb66880a9729b22c554231ab112f4aa9577cf2a8f86a2"
+    },
+    {
+      "path": "reviewed-adif-green.patch",
+      "bytes": 11294,
+      "sha256": "45258b29d4b3c1eea9994f241dd419ad8f55582d417e87304c4926b7496544ef"
+    },
+    {
+      "path": "reviewed-adif-green-run.json",
+      "bytes": 1127,
+      "sha256": "0f1e5e1d35968fe08f8a801e7b476b59461ea2a5e30cb389298f095611b43dd5"
+    },
+    {
+      "path": "reviewed-adif-green.log",
+      "bytes": 8781,
+      "sha256": "117cfa426d919df096257e9e9ec1b2bae6234c0106ace598c80740663e038f99"
+    },
+    {
+      "path": "run-focused.py",
+      "bytes": 2241,
+      "sha256": "59fe4ccdb09316ba61b5f6c8edac62d8fa378cef6d371b1b5e92299e3eedf18b"
+    }
+  ],
+  "qualificationBoundary": "Exact reviewed bytes integrated; fresh hosted source gates separate and pending.",
+  "freshSourceGates": [
+    {
+      "run": 42304273180,
+      "sourceCommit": "e7fce13b093ccaa8b9c0a6e343aea3d162987f04",
+      "status": "completed",
+      "conclusion": "success",
+      "logSHA256": "d6fb32dc8ccf19db4cb19597fec92b76cb96fdb2a150bd4a7025a32cb0025668",
+      "jobs": [
+        {
+          "id": 128189540711,
+          "name": "test-and-build",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "run": 42304273362,
+      "sourceCommit": "e7fce13b093ccaa8b9c0a6e343aea3d162987f04",
+      "status": "pending"
+    },
+    {
+      "run": 42304281429,
+      "sourceCommit": "e7fce13b093ccaa8b9c0a6e343aea3d162987f04",
+      "status": "pending"
+    }
+  ],
+  "originalFailedGate": {
+    "run": 42293138087,
+    "sourceCommit": "f53ab0ed27444d9280485489b70c1656713ee625",
+    "conclusion": "failure"
+  }
+}

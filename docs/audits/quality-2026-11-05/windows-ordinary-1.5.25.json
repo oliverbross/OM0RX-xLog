@@ -1,0 +1,223 @@
+{
+  "schema": 1,
+  "report": "Ordinary all-users AU24 to AU25 upgrade, Settings save/restart/restoration",
+  "publishedDateDarwin": "2026-11-07",
+  "completedUTC": "2026-11-06T21:58:02.898505+00:00",
+  "status": {
+    "ordinaryScopedJourney": "PASS",
+    "candidate": "HELD",
+    "qualityPhase": "OPEN"
+  },
+  "candidateVersion": "1.5.25",
+  "sourceCommit": "ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee",
+  "packageRunID": 42286159030,
+  "environment": {
+    "os": "Windows 11 Pro ARM64",
+    "build": "26200.6584",
+    "applicationArchitecture": "x64 emulation",
+    "memoryGiB": 8,
+    "vCPU": 4,
+    "account": "filtered-admin, medium integrity, unelevated; not true Standard user"
+  },
+  "installer": {
+    "scope": "perMachine",
+    "defaultLocation": "Program Files/OM0RX-xLog",
+    "registry": "HKLM64",
+    "bytes": 58426254,
+    "sha256": "9be4b36b224d1481f5f2c38a2e9c82668bd5a2259c2f78c9602a55c5cf25d280",
+    "UACAcceptedOnce": true,
+    "deleteApplicationDataChecked": false,
+    "finishRunChecked": false,
+    "payloadEntriesMatched": 3270,
+    "payloadManifestSeparatelyPinned": true,
+    "registrationVerified": true,
+    "unsignedInternalCandidate": true
+  },
+  "ordinaryLaunches": {
+    "count": 2,
+    "distinctNativeHostWorkerInstances": true,
+    "commonShortcut": true,
+    "emptyShortcutArguments": true,
+    "testFlagsAbsent": true,
+    "unelevatedMediumToken": true,
+    "normalOperatorDeskObservedBoth": true
+  },
+  "settingsJourney": {
+    "changedSyntheticStationCallOnce": true,
+    "firstSaveSuccessToastObserved": true,
+    "changedValueVisuallyConfirmedAfterRestartBeforeAnalysis": true,
+    "baselineStationCallRestoredOnce": true,
+    "secondSaveSuccessToastObserved": true,
+    "revisionSequence": [
+      2,
+      3,
+      4
+    ],
+    "syncTargetRevision": 0,
+    "allOriginalSettingsRestored": true,
+    "fullRotorSnapshotUnchanged": true
+  },
+  "preservation": {
+    "physicalAndLiveQSOs": 2,
+    "storedColumnsPerQSO": 12,
+    "baselineAndBothClosedSnapshotsSHA256": "957bdb0ab4b4e8b2b251c52272b270ebacd2e712baf5b95e6174329725003f69",
+    "checks": {
+      "quickChecksOK": true,
+      "queryOnlyBoth": true,
+      "exactlyTwoStoredAndLiveQSOs": true,
+      "exactTwelveColumnSchemaRetained": true,
+      "allQSOColumnsRetainedAcrossUpgradeSavesAndRestart": true,
+      "allQSOHashesRetained": true,
+      "onlyOriginalTwoCallsigns": true,
+      "allIndexedJSONAndLocalStateChecksPass": true,
+      "oneSettingsAndRotorRowInBoth": true,
+      "firstSaveOnlyChangesExpectedStationCall": true,
+      "secondSaveRestoresAllBaselineSettings": true,
+      "oneAcknowledgedRevisionPerSave": true,
+      "syncTargetRevisionRetained": true,
+      "rotorSnapshotRetained": true,
+      "rawEvidenceUnchanged": true,
+      "expectedObservationUnchanged": true
+    },
+    "snapshots": [
+      {
+        "queryOnly": 1,
+        "quickCheck": [
+          "ok"
+        ],
+        "qsoCount": 2,
+        "liveQSOCount": 2,
+        "allStoredColumnsSHA256": "957bdb0ab4b4e8b2b251c52272b270ebacd2e712baf5b95e6174329725003f69",
+        "rawEvidenceUnchanged": true
+      },
+      {
+        "queryOnly": 1,
+        "quickCheck": [
+          "ok"
+        ],
+        "qsoCount": 2,
+        "liveQSOCount": 2,
+        "allStoredColumnsSHA256": "957bdb0ab4b4e8b2b251c52272b270ebacd2e712baf5b95e6174329725003f69",
+        "rawEvidenceUnchanged": true
+      }
+    ],
+    "analysisMode": "Retained read-only WAL-aware analysis copies; raw evidence triplets were not SQLite-opened by publication",
+    "nativeRadioJSONFilesUnchanged": 2
+  },
+  "ordinaryCloses": {
+    "count": 2,
+    "normalTitlebarClose": true,
+    "boundedProcessOnlyAbsence": true,
+    "scopedAppCandidates": 0,
+    "attributedOrUnresolvedProfileWebViews": 0,
+    "port9222Listeners": 0,
+    "packagedHamlibHelpers": 0,
+    "directWorkerWaitOrEOFProven": false
+  },
+  "profilePreservation": {
+    "roots": 5,
+    "archiveBytes": 47886766,
+    "archiveSHA256": "a5e35fbeaa48d1e4e611c40c208ae216db43eb82de75351bea80920ce572ca9b",
+    "manifestFileCount": 454,
+    "sourceBytes": 68891658,
+    "allManifestFilesMatch": true,
+    "SQLiteMatchesAcceptedSecondSnapshot": {
+      "OM0RX-xLog.sqlite": true,
+      "OM0RX-xLog.sqlite-wal": true,
+      "OM0RX-xLog.sqlite-shm": true
+    },
+    "previousAU24ArchiveBytes": 47784859,
+    "previousAU24ArchiveSHA256": "7d3768bb7c7052fae6d11f3de2fbced2c4ca8e25740485400392979dc2835b46",
+    "previousArchiveRetainedAndRehashed": true,
+    "fullVMRestoreProven": false,
+    "originalGuestOnlyVHDXRecovered": false
+  },
+  "retainedObservationIssues": [
+    "First ordinary-launch text entered Windows Search and was never submitted; root selected the visible PowerShell tab and verified the correct shortcut command before its sole first launch.",
+    "Initial root first-launch wrapper rejected nonempty stderr, while the native observer exited0 with all identity checks true. Exact3 completed PowerShell module-preparation progress XML records were classified; raw receipt and wrapper failure retained, no app relaunch or observer rerun.",
+    "Save-burst draftv1 was rejected before execution because repeated Shift could trigger Sticky Keys. Reviewedv2 uses one refresh pair and8 capture-only frames."
+  ],
+  "limits": [
+    "Two-QSO nonempty same-scope upgrade and Settings journey only; no AU25 QSO edit, large-log, memory or responsiveness claim.",
+    "ARM64 guest with x64 emulation and filtered-admin medium token does not qualify native-x64 ordinary desktop, true Standard user or fresh onboarding.",
+    "Bounded independent absence inventories do not establish universal native draining, direct GUI-worker wait/EOF or complete graphics acceptance.",
+    "Media, full profile restore, physical radio/rotator/audio/PTT and other platform desktop journeys remain open.",
+    "Frozen S25 excludes later paging f53ab0ed and ADIF e7fce13b corrections. Original f53 full Mac gate remains failed; subsequent source gates are separate.",
+    "Daily Mac 1.5.15 and public release unchanged; candidates HELD and quality OPEN."
+  ],
+  "finalRetainedState": {
+    "UTMStatus": "started",
+    "testAppClosedWithPositiveProcessOnlyAbsence": true
+  },
+  "rootCheckpoint": {
+    "file": "au25-ordinary-root-checkpoint.json",
+    "bytes": 3896,
+    "sha256": "2f3e471b4f9477ca5b4fd31624ddc10acc74acda7bb034d54e4eba0f7fde6f1b"
+  },
+  "evidence": {
+    "au25-ordinary-journey-intent.json": {
+      "bytes": 3236,
+      "sha256": "1972936309ade04b3eeb8c8bd96a2b73bbd3efd1bf11afb91b5bc314e1a734cd"
+    },
+    "au25-installed-payload.json": {
+      "bytes": 2429,
+      "sha256": "8487af5f714dc0dbb97ba8500175705baee0a42007d9d3c08d2d19bf9eb9bdd9"
+    },
+    "au25-first-launch-native-running.json": {
+      "bytes": 43657,
+      "sha256": "be1ec2a005f69238f4d4f19ab9c5f53602cd6a91c62b03392d9053152952c98a"
+    },
+    "au25-first-launch-native-root-review.json": {
+      "bytes": 1598,
+      "sha256": "6802042a3594503da6187cc59a1553f661c0e633a7ea0b7809b621c730b16c4b"
+    },
+    "au25-second-launch-native-running.json": {
+      "bytes": 43654,
+      "sha256": "443f0a0f2b6d9fb28e2a9f6f42d1e828742d1372b48133d7ed6d805a686738cd"
+    },
+    "au25-second-launch-native-root-review.json": {
+      "bytes": 1150,
+      "sha256": "e0fe1aa75423940974ed6dd86e1c29fdad016a447f13cd725836bfb8192d5993"
+    },
+    "au25-first-close-and-capture-root.json": {
+      "bytes": 2028,
+      "sha256": "cd4be22827fc0400eb051145f5b28e6dffd7f825f59d4da5cc76b48737b39389"
+    },
+    "au25-second-close-analysis-and-preservation-root.json": {
+      "bytes": 3697,
+      "sha256": "109974c25c93944438625f9913982e71a2a1ab53f6473bace28b68163d1bb39c"
+    },
+    "au25-settings-ui-observation.json": {
+      "bytes": 2473,
+      "sha256": "79b58b4a6e74912b71ca663d1a1cb7cd8a22c1a73001ed71692b515c9436add6"
+    },
+    "au25-settings-restart-analysis.json": {
+      "bytes": 25112,
+      "sha256": "caa36e60094687c6f17728e7cf345a392e851a3f7909956695ae66006716fa2f"
+    },
+    "au25-after-qualification-profile-host-copy.json": {
+      "bytes": 2906,
+      "sha256": "fc0a7a67e4e4e5a7ede2c17d0883e83f1ba9ecf3e43b2b59f357bf444d528578"
+    },
+    "au25-native-radio-json-preservation.json": {
+      "bytes": 865,
+      "sha256": "4e60cd76d41ec7f4a6152592df2a17e1d80c9d91611e94aa2eeb556c2d263e53"
+    },
+    "au25-ui-actions.jsonl": {
+      "bytes": 32542,
+      "sha256": "2d593ddb44d697903bbee857a0a24520b155747b3efcdb7f3d3e58ceea78ee1d"
+    },
+    "au25-final-closed-desktop.png": {
+      "bytes": 223610,
+      "sha256": "2d353f67730ce873e2b989b6906ba4a60da4e77c63cff2f89634dc54852efe15"
+    }
+  },
+  "publicationVerification": {
+    "all14ReferenceSizesAndHashesReverified": true,
+    "liveVMOrDatabaseAccess": false,
+    "SQLiteOpened": false,
+    "ordinaryJourneyRerun": false,
+    "frozenUIActionLogModified": false,
+    "privatePathsProcessIdentifiersAndRawProfileContentsPublished": false
+  }
+}

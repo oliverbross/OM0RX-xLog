@@ -1,0 +1,560 @@
+{
+  "schema": 1,
+  "status": "DRAFT FOR ROOT REVIEW; SOURCE COMMIT RECEIPT VERIFIED",
+  "createdUTC": "2026-11-06T21:02:50.449029+00:00",
+  "sourceFixCommit": "f53ab0ed27444d9280485489b70c1656713ee625",
+  "sourceFixCommitStatus": "ROOT_INTEGRATION_RECEIPT_AND_COMMITTED_FILE_HASHES_VERIFIED",
+  "sourceBase": "ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee",
+  "scope": "Contact-page cancellation correctness on generated data: signed S22 baseline and reviewed portable-only development correction; no packaged desktop qualification or speedup claim.",
+  "sourceChange": {
+    "file": "Sources/XLogPrototypeSupport/LiveLogbookAggregateReads.swift",
+    "sha256": "806e5bc98e84392a872dc4b277f386b7950f00a0abecd9d9a88c046353e61400",
+    "additions": 22,
+    "deletions": 2,
+    "changedLines": 24,
+    "testFile": "Tests/XLogPrototypeTests/LiveLogbookAggregateReadsTests.swift",
+    "testSHA256": "5cf81e2b57534a43e8beead0135463226963953732b51d1addfcbba6561c3e39",
+    "patchSHA256": "85d7efa2a8c6802943d2cfe49e56b103eddbc2a998a66c4e201a0671738883f5",
+    "behavior": "Contact requests differing only in offset/limit can wait for the existing same-query flight without cancelling it. Each distinct page retains its full request/result identity.",
+    "preservedBoundaries": [
+      "Contacts kind required on both keys",
+      "Full epoch/database object/workspace generation/file identity/revision equality",
+      "Every query predicate/search/semantic field and frozen reference time retained",
+      "Full cache/result keys and post-await owner validation",
+      "One existing active operation per kind",
+      "Existing bounded revision-change retry budget",
+      "Cancellation for changed predicates/authority and retirement/termination fences"
+    ],
+    "testSeam": "Nil-default internal onWaitForTesting observer, unused by shipping callers",
+    "unchangedAreas": [
+      "SQL statements",
+      "Count caching",
+      "Frontend frame pattern",
+      "Public protocol",
+      "New page queue",
+      "Runtime profile guards"
+    ]
+  },
+  "runtimeComparison": {
+    "pattern": "Read first20 rows, then issue four remaining20-row pages together for up to100 rows; three repeats per case.",
+    "signed": {
+      "version": "1.5.22",
+      "source": "fc7909d63aa0f4d9fd9abf278c2b08bfd557cdd5",
+      "workerSHA256": "80b4b6da225d4c2a2e1f82d513ed35e02905a9acec1865eab3c03e5579157390",
+      "state": "reproduced-workload-mismatch",
+      "nonemptyFramedTrials": 9,
+      "nonemptyFramedFailed": 9,
+      "nonemptyFramedPassed": 0,
+      "failedPageReplies": 27,
+      "errorCode": "logbook_refresh_superseded",
+      "identicalControlsPassed": 8,
+      "sequentialPageControls": 16
+    },
+    "development": {
+      "kind": "Portable-only development worker, not packaged/signing qualification",
+      "sourceBase": "ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee",
+      "workerSHA256": "0440773920174c3a81934dd6790b79a3dbb175e7db494246b0a311dd8d45d5d2",
+      "state": "passed",
+      "nonemptyFramedTrials": 9,
+      "nonemptyFramedPassed": 9,
+      "nonemptyFramedFailed": 0,
+      "allFramedTrials": 12,
+      "allFramedPassed": 12,
+      "identicalControlsPassed": 8,
+      "sequentialCasesMatchingSigned": 4,
+      "sequentialPagesMatchingSigned": 16,
+      "requests": 76,
+      "responses": 76,
+      "allResponsesOK": true,
+      "isolationHealthReplies": 2,
+      "allFourIsolationHealthFieldsFalse": true
+    },
+    "cases": [
+      {
+        "case": "unfiltered",
+        "matchingPopulation": 100000,
+        "sequentialPages": 5,
+        "signedFramed": {
+          "trials": 3,
+          "passed": 0,
+          "failed": 3
+        },
+        "developmentFramed": {
+          "trials": 3,
+          "passed": 3,
+          "failed": 0
+        },
+        "signedIdenticalControlsPassed": 2,
+        "developmentIdenticalControlsPassed": 2,
+        "developmentSequentialMatchesSigned": true
+      },
+      {
+        "case": "literal-quarter",
+        "matchingPopulation": 25000,
+        "sequentialPages": 5,
+        "signedFramed": {
+          "trials": 3,
+          "passed": 0,
+          "failed": 3
+        },
+        "developmentFramed": {
+          "trials": 3,
+          "passed": 3,
+          "failed": 0
+        },
+        "signedIdenticalControlsPassed": 2,
+        "developmentIdenticalControlsPassed": 2,
+        "developmentSequentialMatchesSigned": true
+      },
+      {
+        "case": "sparse-text",
+        "matchingPopulation": 2754,
+        "sequentialPages": 5,
+        "signedFramed": {
+          "trials": 3,
+          "passed": 0,
+          "failed": 3
+        },
+        "developmentFramed": {
+          "trials": 3,
+          "passed": 3,
+          "failed": 0
+        },
+        "signedIdenticalControlsPassed": 2,
+        "developmentIdenticalControlsPassed": 2,
+        "developmentSequentialMatchesSigned": true
+      },
+      {
+        "case": "no-match",
+        "matchingPopulation": 0,
+        "sequentialPages": 1,
+        "signedFramed": {
+          "trials": 3,
+          "passed": 3,
+          "failed": 0
+        },
+        "developmentFramed": {
+          "trials": 3,
+          "passed": 3,
+          "failed": 0
+        },
+        "signedIdenticalControlsPassed": 2,
+        "developmentIdenticalControlsPassed": 2,
+        "developmentSequentialMatchesSigned": true
+      }
+    ],
+    "noMatchLimit": "The no-match case has one empty first page and no four-page concurrency; its3 passes are not counted among the9 nonempty cancellation trials.",
+    "baselineAttribution": "Recorded Sources, LogbookPanel.tsx and deferredPanelReads.ts are unchanged between signed S22 source and the development base. The recorded intervening worker.rs change is Windows-only console creation; direct frames bypass that host."
+  },
+  "preservation": {
+    "fixture": "Generated100k only",
+    "logicalEvidence": {
+      "rows": 100000,
+      "liveQSOs": 100000,
+      "generatedComments": 100000,
+      "orderedStoredQSOHash": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+      "columns": [
+        "local_id",
+        "wavelog_id",
+        "call",
+        "qso_start",
+        "band",
+        "mode",
+        "frequency_hz",
+        "is_dirty",
+        "deleted_at",
+        "updated_at",
+        "record_json",
+        "baseline_json"
+      ]
+    },
+    "signedFixtureCopyBeforeAfterEqual": true,
+    "developmentFixtureCopyBeforeAfterEqual": true,
+    "bothRunsSameLogicalFixture": true,
+    "originalMainBeforeAfterEqualBothRuns": true,
+    "originalWALBeforeAfterEqualBothRuns": true,
+    "originalMain": {
+      "bytes": 171393024,
+      "sha256": "e47729e0066468f25adfd6fa714d1b37403f441fe859ba7c0e0df21ec72b7ea2"
+    },
+    "originalWAL": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "copyMethod": "WAL-aware SQLite backup from read-only source; integrity and generated-population guards; ordered type-tagged hash of all12 stored QSO columns.",
+    "shutdown": {
+      "signedEOFExitCodes": [
+        0,
+        0
+      ],
+      "developmentEOFExitCodes": [
+        0,
+        0
+      ],
+      "signedSurvivorsObserved": 0,
+      "developmentSurvivorsObserved": 0,
+      "method": "EOF only; no termination signal fallback"
+    },
+    "productionDataAccessedByDiagnostic": false
+  },
+  "validationHistory": [
+    {
+      "stage": "Red targeted regression",
+      "tests": 1,
+      "failedTests": 1,
+      "assertionFailures": 5,
+      "supersededPageOffsets": [
+        40,
+        60,
+        80
+      ],
+      "originalCancellationLogicRetained": true
+    },
+    {
+      "stage": "First green attempt, retained",
+      "tests": 33,
+      "passedTests": 32,
+      "failedTests": 1,
+      "actorTests": 21,
+      "actorFailedTests": 1,
+      "lowLevelReaderTests": 12,
+      "lowLevelReaderFailedTests": 0,
+      "reason": "A newly authored terminal-waiter expectation required worker_stopping; unchanged owner logic returns logbook_refresh_retired to the distinct waiting request after epoch rotation. The expectation alone was corrected."
+    },
+    {
+      "stage": "Final actor suite",
+      "tests": 21,
+      "passedTests": 21,
+      "failedTests": 0,
+      "seconds": 8.91
+    },
+    {
+      "stage": "Development worker build",
+      "exitCode": 0,
+      "jobs": 4,
+      "environment": {
+        "XLOG_PORTABLE_ONLY": "1"
+      }
+    }
+  ],
+  "fixtureCorrectionHistory": {
+    "rawDebugAttempt": "Retained failure before workspace creation: Runtime profile validation failed.; EOF before reply; no survivor in final receipt.",
+    "cause": "The raw Debug executable lacked adjacent metadata required by the existing offline-profile binding.",
+    "supportedLayout": "New private worker-only Contents/MacOS layout with unchanged byte-identical worker, minimal integration identifier Info.plist and both actual built resource bundles.",
+    "layoutSHA256": "18d045136cd8ce1ede7a7d83f47fec4a964b6618d1625bb8c77d4d6870d810bc",
+    "infoSHA256": "d6a79d7ee75ade440850ea04a4a0d890ecee7fcade72f222298401581c85f35c",
+    "resourceFileCounts": [
+      15,
+      17
+    ],
+    "totalLayoutFileCount": 35,
+    "bindingEvidence": [
+      "Sources/XLogPrototypeSupport/AppRuntimeProfile.swift",
+      "Tests/XLogPrototypeTests/AppRuntimeProfileTests.swift:bundledExecutable",
+      "prototype/scripts/accept-contesting-worker-process.mjs"
+    ],
+    "runtimeGuardsChanged": false,
+    "newGUICandidateOrInstallerCreated": false,
+    "rawFailureRetained": true
+  },
+  "limits": [
+    "Small generated-data diagnostic on macOS with XLOG_PORTABLE_ONLY; no Windows/Linux execution in this result.",
+    "Direct worker protocol bypasses Tauri/WebView and ordinary GUI loading. Concurrent frames are deliberately flushed together; the frontend uses independent invocations.",
+    "Signed baseline and development correction have different build/package configurations; no wall-time speedup or memory/CPU improvement is asserted.",
+    "Sequential controls and hashing warm caches; recorded timings include harness overhead.",
+    "Matching output does not establish zero internal retries/cancellations/rework; no SQL execution/count instrumentation was added.",
+    "Full desktop memory/focus/idle-budget interval and paging-corrected signed packaged acceptance remain pending.",
+    "Count-cache optimisation remains pending; this correction changes cancellation compatibility only.",
+    "Historical approximately7GB incident, physical equipment qualification and broader release gates are outside this result."
+  ],
+  "evidenceLocations": {
+    "resume": ".build/quality-windows-resume-20261106T131149Z",
+    "contact-lane-worktree": "OM0RX-xLog-contact-lane-20261106"
+  },
+  "evidence": {
+    "signedResult": {
+      "scope": "resume",
+      "relativePath": "logbook-frame-benchmark-20261106T203009Z-b8d9582b/result.json",
+      "bytes": 137182,
+      "sha256": "e2856caa5adcc4d74265fbe1a4f4813422e98d920734d73057d0f4514432b302"
+    },
+    "signedTraffic": {
+      "scope": "resume",
+      "relativePath": "logbook-frame-benchmark-20261106T203009Z-b8d9582b/traffic.jsonl",
+      "bytes": 809363,
+      "sha256": "902c9ed76909082dbe7e640fc66e3f5c8993ab614b74c62eeb3532389a26c8c0"
+    },
+    "developmentResult": {
+      "scope": "resume",
+      "relativePath": "logbook-frame-development-20261106T205726Z-b01640ea/result.json",
+      "bytes": 187284,
+      "sha256": "c6d7388fbd849a9dabec7aa5bb18e2b9a2d0700e464e2b95ae6bb387f9f84c0a"
+    },
+    "developmentTraffic": {
+      "scope": "resume",
+      "relativePath": "logbook-frame-development-20261106T205726Z-b01640ea/traffic.jsonl",
+      "bytes": 1339542,
+      "sha256": "52f87ecc17a0ede7ea22c531b015fccc89143a8a3b539be14abeeb01dd930414"
+    },
+    "signedAdapter": {
+      "scope": "resume",
+      "relativePath": "benchmark-s22-logbook-frames-20261106.py",
+      "bytes": 17086,
+      "sha256": "8747b67bc595c25a796c0772a094cd352dcc82be3b52f7368f717002c0fbfc8b"
+    },
+    "developmentAdapterV2": {
+      "scope": "resume",
+      "relativePath": "benchmark-development-logbook-frames-v2-20261106.py",
+      "bytes": 21958,
+      "sha256": "74da81539c68ad885728b69c082cf45121cede3f7f28213904dfa2affb51480e"
+    },
+    "developmentAdapterV2Diff": {
+      "scope": "resume",
+      "relativePath": "benchmark-development-logbook-frames-v2-adapter.diff",
+      "bytes": 8176,
+      "sha256": "18bd757ce4b90bd45fafada0de44837dff75f337d7ca9c4eaa193ed1d19c3b5f"
+    },
+    "rawProfileFailure": {
+      "scope": "resume",
+      "relativePath": "logbook-frame-development-20261106T205007Z-dc785a63/result.json",
+      "bytes": 5176,
+      "sha256": "4828e2502440e4e4404ed1e4a3e36335f7f4838b59a8ac38e8b4b5cc413a6472"
+    },
+    "rawProfileFailureStderr": {
+      "scope": "resume",
+      "relativePath": "logbook-frame-development-20261106T205007Z-dc785a63/create-stderr.txt",
+      "bytes": 35,
+      "sha256": "b78034aaf969779ac4bd22ed68a07f265c77177540b74dcf37b37320fec4ded5"
+    },
+    "workerTestLayout": {
+      "scope": "resume",
+      "relativePath": "contact-lane-worker-test-layout-20261106T205500Z/layout.json",
+      "bytes": 9926,
+      "sha256": "18d045136cd8ce1ede7a7d83f47fec4a964b6618d1625bb8c77d4d6870d810bc"
+    },
+    "red-regression.json": {
+      "scope": "contact-lane-worktree",
+      "relativePath": ".build/contact-lane-evidence/red-regression.json",
+      "bytes": 947,
+      "sha256": "39774f053c553824feb02b1aa677895290774a1bc9417cfda23b53fca838733a"
+    },
+    "red-regression.log": {
+      "scope": "contact-lane-worktree",
+      "relativePath": ".build/contact-lane-evidence/red-regression.log",
+      "bytes": 25879,
+      "sha256": "7bfda28369f3695b5bfd6e2319999067cff4c5648c38698a80617ea98f5e4152"
+    },
+    "red-regression.patch": {
+      "scope": "contact-lane-worktree",
+      "relativePath": ".build/contact-lane-evidence/red-regression.patch",
+      "bytes": 5779,
+      "sha256": "07ead9efaf31e2fc591454f93207fb2670884ca24e26a71e1436390bf3d4d62e"
+    },
+    "green-regressions-1.json": {
+      "scope": "contact-lane-worktree",
+      "relativePath": ".build/contact-lane-evidence/green-regressions-1.json",
+      "bytes": 915,
+      "sha256": "fabf800fb288ee090aa796b7ad289d0737102b2e0ef214bccb04a42f918b6a70"
+    },
+    "green-regressions-1.log": {
+      "scope": "contact-lane-worktree",
+      "relativePath": ".build/contact-lane-evidence/green-regressions-1.log",
+      "bytes": 15070,
+      "sha256": "d1021aa4b6b747da794767c2e9b81310e69294db84ac7e27d6a1aae106898e67"
+    },
+    "green-regressions-2.json": {
+      "scope": "contact-lane-worktree",
+      "relativePath": ".build/contact-lane-evidence/green-regressions-2.json",
+      "bytes": 1060,
+      "sha256": "288853f3e4199042d925c2f63b5f4cd25b2a350f87f493c24f6112916270f782"
+    },
+    "green-regressions-2.log": {
+      "scope": "contact-lane-worktree",
+      "relativePath": ".build/contact-lane-evidence/green-regressions-2.log",
+      "bytes": 9737,
+      "sha256": "c18294d365e6ece5cd62fc512fbd40d2f607add0cffa1908cc288cfe2eb61446"
+    },
+    "development-worker-build.json": {
+      "scope": "contact-lane-worktree",
+      "relativePath": ".build/contact-lane-evidence/development-worker-build.json",
+      "bytes": 1058,
+      "sha256": "a4819ec3ff706ba4767ca978b000a14de49e439d44bce67916bb6de34992cb23"
+    },
+    "development-worker-build.log": {
+      "scope": "contact-lane-worktree",
+      "relativePath": ".build/contact-lane-evidence/development-worker-build.log",
+      "bytes": 160,
+      "sha256": "3e4176f6e99f74d21e2f720d01fb4ca9ce0668ca05f5e3c6cc666fb630cc7ea2"
+    },
+    "development-worker-pin.json": {
+      "scope": "contact-lane-worktree",
+      "relativePath": ".build/contact-lane-evidence/development-worker-pin.json",
+      "bytes": 936,
+      "sha256": "3f07043eb7d5d6c5cf182d180801d41e6aac6083656b6362b3ef175f184c6fa0"
+    },
+    "final-correction.patch": {
+      "scope": "contact-lane-worktree",
+      "relativePath": ".build/contact-lane-evidence/final-correction.patch",
+      "bytes": 18425,
+      "sha256": "85d7efa2a8c6802943d2cfe49e56b103eddbc2a998a66c4e201a0671738883f5"
+    },
+    "implementation-handoff.json": {
+      "scope": "contact-lane-worktree",
+      "relativePath": ".build/contact-lane-evidence/implementation-handoff.json",
+      "bytes": 3823,
+      "sha256": "e2d2c69c65720f21121f4e9798db223fb14acaaafafa82af28ffa3b6f6328fb5"
+    },
+    "sourceIntegration": {
+      "scope": "resume",
+      "relativePath": "contact-page-root-integration.json",
+      "bytes": 43657,
+      "sha256": "266112edcc159e111113bd807d9d9f20fb2d776e90ea90f301830a2bec31dd13"
+    }
+  },
+  "sanitization": "No absolute user/home/tmp paths, PIDs, UID, QSO row contents/IDs, station settings, credentials or raw traffic copied into this publication draft. Raw local evidence remains separately retained.",
+  "preparationActions": {
+    "retainedEvidenceReadAndHashed": true,
+    "derivedCountsAndComparisons": true,
+    "testOrBenchmarkRerun": false,
+    "appOrVMOperation": false,
+    "SQLiteOpened": false,
+    "trackedSourceEdited": false
+  },
+  "sourceIntegration": {
+    "state": "committed-and-pushed-clean",
+    "commit": "f53ab0ed27444d9280485489b70c1656713ee625",
+    "remoteMainAtReceipt": "f53ab0ed27444d9280485489b70c1656713ee625",
+    "cleanAtReceipt": true,
+    "receiptFinishedUTC": "2026-11-06T21:00:46.541046+00:00",
+    "receiptSHA256": "266112edcc159e111113bd807d9d9f20fb2d776e90ea90f301830a2bec31dd13"
+  },
+  "frozenPackage": {
+    "version": "1.5.25",
+    "source": "ff8a8e388658fe7e822f3ecb3a5b7e13f5db9cee",
+    "containsContactPageFix": false,
+    "newCandidateForFixMinted": false
+  },
+  "updatedUTC": "2026-11-06T21:04:09.955859+00:00",
+  "earlierPendingSourceGates": [
+    {
+      "gate": "CI",
+      "runID": "42293138403",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42293138403",
+      "status": "PENDING; NO PASS CLAIM",
+      "statusSource": "Root handoff after source integration; no workflow retrieval by this publication task"
+    },
+    {
+      "gate": "macOS beta",
+      "runID": "42293138087",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42293138087",
+      "status": "PENDING; NO PASS CLAIM",
+      "statusSource": "Root handoff after source integration; no workflow retrieval by this publication task"
+    },
+    {
+      "gate": "Filtered three-platform native",
+      "runID": "42293280745",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42293280745",
+      "status": "PENDING; NO PASS CLAIM",
+      "statusSource": "Root handoff after source integration; no workflow retrieval by this publication task"
+    }
+  ],
+  "sourceGates": [
+    {
+      "gate": "CI",
+      "runID": 42293138403,
+      "headSHA": "f53ab0ed27444d9280485489b70c1656713ee625",
+      "attempt": 1,
+      "event": "push",
+      "status": "completed",
+      "conclusion": "success",
+      "htmlURL": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42293138403"
+    },
+    {
+      "gate": "Mac source/build beta",
+      "runID": 42293138087,
+      "headSHA": "f53ab0ed27444d9280485489b70c1656713ee625",
+      "attempt": 1,
+      "event": "push",
+      "status": "completed",
+      "conclusion": "failure",
+      "htmlURL": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42293138087"
+    },
+    {
+      "gate": "Filtered native core",
+      "runID": 42293280745,
+      "headSHA": "f53ab0ed27444d9280485489b70c1656713ee625",
+      "attempt": 1,
+      "event": "workflow_dispatch",
+      "status": "completed",
+      "conclusion": "success",
+      "htmlURL": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42293280745"
+    }
+  ],
+  "nativeSelection": {
+    "runID": 42293280745,
+    "filter": "LiveLogbookAggregateReadsTests|LogbookAggregateReadTests",
+    "platforms": [
+      {
+        "platform": "macOS",
+        "qualified": true,
+        "actualCompletedTests": 33,
+        "expectedTests": 33,
+        "windowsCompileTimeExclusions": []
+      },
+      {
+        "platform": "Linux",
+        "qualified": true,
+        "actualCompletedTests": 33,
+        "expectedTests": 33,
+        "windowsCompileTimeExclusions": []
+      },
+      {
+        "platform": "Windows",
+        "qualified": true,
+        "actualCompletedTests": 31,
+        "expectedTests": 31,
+        "windowsCompileTimeExclusions": [
+          "testArbitraryAncestorSymlinksAreNotPromotedToSystemAliases",
+          "testStillOpenPrimaryNeverCombinesItsRevisionWithAReplacementFileIdentity"
+        ]
+      }
+    ]
+  },
+  "originalFullMacFailure": {
+    "runID": 42293138087,
+    "jobID": 128151448660,
+    "step": "Test complete portable Swift core (Unix)",
+    "swiftTestingCount": 628,
+    "issues": 1,
+    "test": "Selected DXCC rejects noncanonical, overflowing and out-of-range values atomically",
+    "argument": "+291",
+    "errorDescription": "invalid",
+    "concreteThrowTypeAndStatementCaptured": false,
+    "historicalInputTimestampCaptured": false,
+    "causedByPagingChangeEstablished": false,
+    "log": {
+      "file": "failed-run42293138087-job128151448660.log",
+      "bytes": 2178800,
+      "sha256": "0a869ee7c22d7645258fee7074185febf5863c27aed2b5fe193332ccb0583521"
+    }
+  },
+  "laterCorrection": {
+    "commit": "e7fce13b093ccaa8b9c0a6e343aea3d162987f04",
+    "record": "adif-fractional-second-2026-11-07.md",
+    "originalFailureRetained": true,
+    "correctedSourceGatesSeparate": true
+  },
+  "publicationEvidence": [
+    {
+      "file": "final.json",
+      "bytes": 64611,
+      "sha256": "cef170d29a5a57cbe1db837c54547f2b29a869a25f39ae9499efa7df9403091b"
+    },
+    {
+      "file": "native-selection-verification.json",
+      "bytes": 13569,
+      "sha256": "2b44f6aab539e081fac6eddcb10b9cc371371107658261f3eb7a87f4bf328a85"
+    }
+  ],
+  "publicationDateDarwin": "2026-11-07"
+}

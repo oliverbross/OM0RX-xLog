@@ -1,0 +1,276 @@
+{
+  "schemaVersion": 1,
+  "reportStatus": "Current-instance attribution; historical incident unresolved; no candidate budget pass",
+  "installedArtifact": {
+    "version": "1.5.15",
+    "source": "1873dc1d1c4d1aa95b44d07f7af0482417680f5f",
+    "hostSHA256": "388114efe485ea83fc56256af0774d6ee6b4f4bd9561798ba215fdd025399ef2",
+    "workerSHA256": "0b4121e278d42546f793a7947af3ce3cf0b99b0cfc423f66ef1b3fb664202d6c",
+    "association": "Retained installed-file hashes match the daily artifact; version/source mapping retained in existing signed desktop evidence"
+  },
+  "fiveProcessSample": {
+    "startedUTC": "2026-11-06T18:11:46.475413+00:00",
+    "finishedUTC": "2026-11-06T18:11:46.639177+00:00",
+    "tool": "macOS footprint, explicit PID list, no categories, bytes, swapped/compressed column",
+    "deduplicatedTotalBytes": 3635569088,
+    "deduplicatedTotalMiB": 3467.1488647460938,
+    "deduplicatedTotalGiB": 3.385887563228607,
+    "aggregateSwappedCompressedBytes": 3458973696,
+    "aggregateSwappedCompressedIsSubset": true,
+    "perProcess": [
+      {
+        "role": "UI host",
+        "imageName": "xlog-prototype",
+        "reportedFootprintBytes": 59049184,
+        "ledgerPhysicalFootprintBytes": 59049184,
+        "ledgerLifetimePeakBytes": 76170464,
+        "rssBeforeKiB": 34640,
+        "rssAfterKiB": 34592
+      },
+      {
+        "role": "Swift worker",
+        "imageName": "xlog-prototype-worker",
+        "reportedFootprintBytes": 3062303984,
+        "ledgerPhysicalFootprintBytes": 3062303984,
+        "ledgerLifetimePeakBytes": 3643854256,
+        "rssBeforeKiB": 34928,
+        "rssAfterKiB": 34832
+      },
+      {
+        "role": "WebKit GPU",
+        "imageName": "com.apple.WebKit.GPU",
+        "reportedFootprintBytes": 33948824,
+        "ledgerPhysicalFootprintBytes": 33948824,
+        "ledgerLifetimePeakBytes": 94176408,
+        "rssBeforeKiB": 13584,
+        "rssAfterKiB": 13520
+      },
+      {
+        "role": "WebKit WebContent",
+        "imageName": "com.apple.WebKit.WebContent",
+        "reportedFootprintBytes": 471075216,
+        "ledgerPhysicalFootprintBytes": 471075216,
+        "ledgerLifetimePeakBytes": 735020904,
+        "rssBeforeKiB": 127344,
+        "rssAfterKiB": 127056
+      },
+      {
+        "role": "WebKit Networking",
+        "imageName": "com.apple.WebKit.Networking",
+        "reportedFootprintBytes": 9519560,
+        "ledgerPhysicalFootprintBytes": 9519560,
+        "ledgerLifetimePeakBytes": 12976608,
+        "rssBeforeKiB": 3168,
+        "rssAfterKiB": 3088
+      }
+    ],
+    "rssUnit": "KiB",
+    "rssBefore": {
+      "startedUTC": "2026-11-06T18:11:46.449879+00:00",
+      "finishedUTC": "2026-11-06T18:11:46.474858+00:00",
+      "unit": "KiB"
+    },
+    "rssAfter": {
+      "startedUTC": "2026-11-06T18:11:46.639231+00:00",
+      "finishedUTC": "2026-11-06T18:11:46.658720+00:00",
+      "unit": "KiB"
+    }
+  },
+  "ownershipEvidence": {
+    "exactNativeBeforeAfterIdentity": true,
+    "nativeIdentityFields": [
+      "PID",
+      "path",
+      "parent",
+      "UID",
+      "birth seconds",
+      "birth microseconds"
+    ],
+    "hostOriginatorCreatorAndLiveWebKitInstances": true,
+    "resourceAndJetsamCoalitionsMatchBeforeAfter": true,
+    "WebKitParentAloneSufficient": false,
+    "nativeAndLogicalAliasesVerifiedSameFile": true,
+    "initialGuardFailureRetained": true,
+    "exhaustiveSystemKernelDeviceAccounting": false
+  },
+  "sameScopePairComparison": {
+    "scope": "UI host and Swift worker only",
+    "earlierStartedUTC": "2026-11-06T15:08:09.035032+00:00",
+    "earlierFinishedUTC": "2026-11-06T15:08:09.154544+00:00",
+    "earlierTotalBytes": 1616923984,
+    "laterStartedUTC": "2026-11-06T18:06:41.128459+00:00",
+    "laterFinishedUTC": "2026-11-06T18:06:41.207035+00:00",
+    "laterTotalBytes": 3204059624,
+    "deltaBytes": 1587135640,
+    "deltaMiB": 1513.610496520996,
+    "identityComparisonPrecision": "Earlier retained identity has whole-second birth precision; later pair and five-process receipts have native microsecond birth precision",
+    "controlledWorkload": false,
+    "causalLeakOrCandidateComparison": false
+  },
+  "limitations": [
+    "Historical approximately 7 GB htop MEM incident remains unverified",
+    "Intervening workload and system activity were not controlled",
+    "No live-allocation or retaining-path diagnosis follows from these counters",
+    "No new signed-candidate comparison or whole-desktop budget pass",
+    "RSS, footprint, compressed/swapped subset and lifetime peaks are distinct",
+    "No new live database, QSO, voice-file or settings recount",
+    "No full system/kernel/device footprint claim"
+  ],
+  "existingEvidence": {
+    "workerRetention": "Signed 1.5.18 and 1.5.19 isolated completed-request evidence remains valid in its published scope",
+    "idleCPU": "Development host CPU 1.439770137 to 1.501382175 percent of one core; no demonstrated CPU benefit",
+    "reactCommits": "809 to 646 in that bounded development observation"
+  },
+  "evidence": [
+    {
+      "file": "attributed-five-process-receipt.json",
+      "bytes": 22874,
+      "sha256": "57d431c875f0d227a8641de05f1df65c8b77ca53b64bdb78623c691b4087c038",
+      "visibility": "private raw receipt"
+    },
+    {
+      "file": "attributed-five-process-footprint.json",
+      "bytes": 1475,
+      "sha256": "9b1e259d62c407f988101813d4de76f7e1da0606e9002b7700933309e65d3667",
+      "visibility": "private raw receipt"
+    },
+    {
+      "file": "attributed-five-process-summary.json",
+      "bytes": 2502,
+      "sha256": "4e08781c5fc47cff42647fe52fd828b7c78107c655bc100566299259b19603ce",
+      "visibility": "private raw receipt"
+    },
+    {
+      "file": "current-host-worker-footprint-receipt.json",
+      "bytes": 3274,
+      "sha256": "30ad6311de8dd4c0a6d584c4cfccc6fc7c8b39792631c07bdc98c546d52f4ce4",
+      "visibility": "private raw receipt"
+    },
+    {
+      "file": "current-host-worker-footprint.json",
+      "bytes": 946,
+      "sha256": "2687438fed70cd9e5c4541ca8e9e0ccb54452325e7d9f1eeac5e751f4d01b1d1",
+      "visibility": "private raw receipt"
+    },
+    {
+      "file": "native-path-alias-review.json",
+      "bytes": 1952,
+      "sha256": "87ced207f48d2f4b72e46ddc8f7b2a9310d8f22dd052d02eee5bc845dc17600d",
+      "visibility": "private raw receipt"
+    },
+    {
+      "file": "five-process-attempt1-failure.json",
+      "bytes": 247,
+      "sha256": "1f450074851f98187936481d6674aa57eb6b1a7bac1cce4f4889606464b549d1",
+      "visibility": "private raw receipt"
+    },
+    {
+      "file": "footprint-man-excerpt.json",
+      "bytes": 13640,
+      "sha256": "8b30761eaeec02294dd115679b630bbfe94b7ad3f1898a32109140d67f9fb827",
+      "visibility": "private raw receipt"
+    },
+    {
+      "file": "footprint-help.json",
+      "bytes": 2044,
+      "sha256": "706dc9f85c208cc59a9f8e50fde3b769a77b4f3a7f5b4e27e0d4081992cb6697",
+      "visibility": "private raw receipt"
+    },
+    {
+      "file": "ps-keywords.json",
+      "bytes": 597,
+      "sha256": "ff0169618fa933b1d7c2bb7aac65655ceb9aa0df44260e4be830a7cd43b7f3d2",
+      "visibility": "private raw receipt"
+    },
+    {
+      "file": "launchctl-man-excerpt.json",
+      "bytes": 2722,
+      "sha256": "43127dc98751e5788d443ecee23f20fcd13d40f74a554972fb0255e1f14f48a0",
+      "visibility": "private raw receipt"
+    },
+    {
+      "file": "mac-running-host-worker-footprint-receipt.json",
+      "bytes": 2075,
+      "sha256": "6fcaa35e24047ed356953ca50cde64efbdb7b55a28e05e12d5f9a6e003944448",
+      "visibility": "private raw receipt"
+    },
+    {
+      "file": "mac-running-host-worker-footprint.json",
+      "bytes": 945,
+      "sha256": "f87ea93b915d6eec2dd67a7f14da529b92aba051a1ac95ad8d9430817e6cb7c0",
+      "visibility": "private raw receipt"
+    },
+    {
+      "file": "memory.md",
+      "bytes": 8565,
+      "sha256": "b9de8ad0aaa158b61786bcd324455439ef6a7c32cd19e1ae758d7d31aba79e21",
+      "visibility": "tracked reference"
+    },
+    {
+      "file": "memory-signed-1.5.18.md",
+      "bytes": 2511,
+      "sha256": "70d82979d8fbc7fdf5b5208dbfa6ee88612c71629fd226d87e5556124f98d121",
+      "visibility": "tracked reference"
+    },
+    {
+      "file": "memory-signed-1.5.18.json",
+      "bytes": 35389,
+      "sha256": "6f3b14912f8a8d32454a958cccf3f52eef927db533f4f9ec8a8ee045041cfcfd",
+      "visibility": "tracked reference"
+    },
+    {
+      "file": "memory-signed-1.5.19.md",
+      "bytes": 2908,
+      "sha256": "d1d30dd11e4c21d875bfc0073299d1ab0d41709f974cd9adccaea0f00961a815",
+      "visibility": "tracked reference"
+    },
+    {
+      "file": "memory-signed-1.5.19.json",
+      "bytes": 37917,
+      "sha256": "fa372506eb4f748904fd4dd9239fe072f3eabc92a9ecc360b1762ac06e6a0f9f",
+      "visibility": "tracked reference"
+    },
+    {
+      "file": "desktop-idle-1.5.18.md",
+      "bytes": 5401,
+      "sha256": "dc43e66f0f2cdae692aee335838cf5570f04618b17c16be92324eb2ca23e5e49",
+      "visibility": "tracked reference"
+    },
+    {
+      "file": "desktop-idle-1.5.18.json",
+      "bytes": 17703,
+      "sha256": "49b41a50b3907adc059c41ec45303fc12cbd829ae74751477960b2544ab53d8e",
+      "visibility": "tracked reference"
+    },
+    {
+      "file": "desktop-idle-counters-1.5.18.md",
+      "bytes": 3318,
+      "sha256": "0963877935b1b1fd9f34bf8ef3e94c463ce007a88f3a299768b8c8c0bd91edb2",
+      "visibility": "tracked reference"
+    },
+    {
+      "file": "desktop-idle-counters-1.5.18.json",
+      "bytes": 46013,
+      "sha256": "6588d4ee846d90f4b434fe634af90ee8d5062e606a3feaea70a0287ea235e2c7",
+      "visibility": "tracked reference"
+    },
+    {
+      "file": "idle-work-native-correlation.md",
+      "bytes": 7844,
+      "sha256": "b0e6cec447fcc9d2a6408e9bead43a126f3bf39086a640903a7bed43b431685b",
+      "visibility": "tracked reference"
+    },
+    {
+      "file": "idle-work-native-correlation.json",
+      "bytes": 45997,
+      "sha256": "6ac25df89c0aed10b3214de5b8db1e44000e3407402d7ff83d66fd9a33cfc3f8",
+      "visibility": "tracked reference"
+    },
+    {
+      "file": "QUALITY_PHASE_2026-11-05.md",
+      "bytes": 32470,
+      "sha256": "38634a876e045c329e84324783bbbed4fbb309bd2eb67d43d5892fd7da87c7c7",
+      "visibility": "tracked reference"
+    }
+  ]
+}
