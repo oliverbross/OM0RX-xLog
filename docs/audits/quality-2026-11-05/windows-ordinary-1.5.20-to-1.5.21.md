@@ -422,3 +422,129 @@ completed **SUCCESS**. Source beta run **42204377529** also remains successful
 within its already recorded bounds; skipped packaged-runtime jobs do not supply
 new acceptance. Both candidates stay **HELD** and the quality phase stays **OPEN**.
 Installed daily Mac 1.5.15 and public release remain untouched.
+
+## Official guest tools and fresh AU22 ordinary launch — 6 November 2026
+
+**Current disposition: the frozen AU22 ordinary wizard renders, but Finish and a verified ordinary reopen both reproduce a navy blank Desk. Q02 and ordinary GUI acceptance remain FAILED/OPEN; both candidates remain HELD.** This later observation supersedes the preceding Windows sign-in handoff as the current checkpoint. The earlier handoff and the discarded original disposable-session history remain valid records of their respective times.
+
+Unless stated otherwise, times below are UTC. Private receipts and screenshots are retained under `.build/quality-windows-resume-20261106T131149Z/`; they are not staged into Git. The original frozen package, the ordinary user journey, the separate diagnostic relaunch, source regressions and hosted gates retain separate evidence scopes.
+
+### Guest tools and display
+
+The existing guest session was resumed, and the official `utm-guest-tools-0.1.271.exe` was installed through normal UAC. The guest-side SHA-256 matched the previously verified installer: `839cdf4c00e5ff564f8337aba16ad7bbe8f02edd2b5c908b5daca31d88a6cdd1`. `Get-AuthenticodeSignature` reported `NotSigned`; the source/hash verification and that signature result are both retained, without treating one as the other. The setup completion page said the tools were installed and offered Finish; it did not request a reboot. No full post-driver reboot was completed in this observation.
+
+The completed `video-driver-verified.json` receipt at 13:42 UTC reports `Red Hat VirtIO GPU DOD controller`, driver `22.7.38.43`, status `OK`, and 1024×768. The saved Display settings screenshot shows 100% scaling. Attempts to select the larger 1680 resolution did not complete within their confirmation windows and reverted/timed out; the recorded observation was made at 1024×768/100%. This improves the earlier 800×600 constraint but does not establish a fully rebooted driver baseline or identify a graphics cause for the application failure.
+
+Evidence: `guest-tools-signature-paced.png`, `guest-tools-uac.png`, `guest-tools-completion-check.png`, `guest-tools-finished.png`, `display-resolution-confirm.png`, `display-resolution-confirm-02.png`, `display-final.png` and `video-driver-verified.json`. The earlier incomplete `video-driver-query.json` is not the successful driver-query receipt.
+
+### Frozen AU22 identity and ordinary launch
+
+The installed application remained the already audited **1.5.22 AU22** payload. No replacement app package was built or installed for this journey.
+
+| Identity | Recorded value |
+| --- | --- |
+| Frozen source | `fc7909d63aa0f4d9fd9abf278c2b08bfd557cdd5` |
+| AU22 installer SHA-256 | `fafeb2f3ff579c05d26e8c65ba8e7987aed0f5e46a68053b52bd922adf013d7d` |
+| Installed host SHA-256 | `24f965be24ab90689b9f049290ceda956b7aa539d473f11fa5c412471b452967` |
+| Installed worker SHA-256 | `deb7c02b793cb7c21764d52368afa901320a562e35c1276752e6eef5f323c488` |
+| Install and launch | Default `C:\Program Files\OM0RX-xLog`; common Programs shortcut, empty shortcut arguments, no test/self-test arguments |
+| Account and platform | Fresh `codex` filtered-admin account, ordinary unelevated medium integrity (RID 8192), Windows 11 ARM64 running the x64 package |
+| First live pair | Host PID **8476**, worker PID **2888**, worker parent **8476** |
+| WebView runtime | `140.0.3485.66`; six WebViews attributed by the running receipts |
+
+`au22-baseline.json` completed at 13:43:32 with no app candidates, matching installed payload hashes and `BaselineOK=true`. The ordinary launch action was recorded at 13:44:08. The process-identity and running receipts confirm the live host/worker pair, expected paths/hashes, ordinary arguments, no test flags, and unelevated medium-integrity tokens. This is filtered-admin evidence; it does not replace the still-open fresh AU22 Standard-user or native x64 acceptance cells.
+
+### Actual wizard, Finish, ordinary reopen and close
+
+The actual first-run wizard rendered. The synthetic local-only inputs were operator **K1TEST**, station **K1TEST/P**, locator **FN31**, **100 W**, and logbook **AU22 synthetic**. No physical radio or rotator acceptance, cloud sync, upload or nonempty QSO acceptance is inferred from these inputs.
+
+| Step | Actual result and boundary |
+| --- | --- |
+| Radio Browse | The first Browse showed a bundled-catalogue failure after a transient console window. One ordinary Retry loaded **313** models. The user journey selected Hamlib **Dummy 1**, device **dummy**, **9600 baud**. A three-second cold-helper timeout is a possibility, not an established cause. |
+| Rotator Browse | The first Browse loaded **57** models. Hamlib **Dummy 1**, device **dummy**, **9600 baud** was selected. |
+| Finish, 13:56:03 | The wizard completed into a navy blank application body with native menus. Saved screenshots show the blank Desk after settling. At 13:58:28–13:58:43, host **8476**, worker **2888** and their six attributed WebViews remained alive with the pinned installed hashes. |
+| Bounded event query | The filtered Application event query completed and returned no relevant matching events. This is a bounded negative query result; it does not exclude a renderer exception. |
+| First ordinary quit, 14:02:14 | Native **File > Exit** was used from the preserved blank Desk. The observation completed at 14:02:54 with zero observed host/worker processes, `noAppCandidates=true`, the expected phase met, and no errors. Its empty owned-WebView array uses live app ancestry and cannot exclude orphan WebViews. |
+| Reopen control attempts, 14:12–14:13 | The first control attempts failed with UTM AppleScript **-600, Application isn't running** during the host file transfer. They did not establish an app launch. Only the later successful `-v2` reopen receipts count below. |
+| Verified ordinary reopen, 14:18:37 | After the 14:16:39 empty-process baseline, the ordinary shortcut started host **10236** and worker **8768** (parent **10236**), with matching payload, ordinary arguments, medium unelevated tokens and six attributed WebViews. The app again showed native menus and a navy blank Desk. |
+| Second ordinary quit, 14:21:46 | Native title-bar **Close** was used on the verified blank reopened app. The 14:22:17 completed observation again had zero observed host/worker processes, expected phase met, and no errors. Its ancestry-based owned-WebView array does not establish orphan-WebView absence. |
+
+Both ordinary launches showed an existing console window; the catalogue interaction also produced a transient console. These observations support the separate Windows background-process presentation review. They do not establish which particular helper caused every visible console, and no source change below is counted as a Windows visual fix in this unchanged package.
+
+The ordinary quit observations establish zero observed host/worker processes after native close, without a force-stop or app-worker EOF-mechanism claim. The observer derives `ownedWebViews` from live app ancestry; after host exit, an empty list does not prove that no orphan WebViews remain. The separate pre-archive guard below checked the profile attribution independently. These bounded results do not turn the failed Desk rendering into GUI acceptance.
+
+### Verified preservation of this fresh failed profile
+
+After the first ordinary quit, the fresh profile was preserved with the app absent. The first preservation attempt (`au22-failure-preservation.json`) failed before archive creation because `IO.Compression.ZipArchive` was unavailable before loading its assembly; the successful receipt is **`au22-failure-preservation-v2.json`**. That completed at 14:08:32 with exit 0 and no errors. Its separate pre-archive guard observed zero xLog host/worker candidates and zero WebView2 processes attributed to the codex xLog profile. The WebView check matched the profile path in process command lines independently of live host ancestry; it does not assert that every WebView on Windows was absent.
+
+| Preservation result | Verified value |
+| --- | --- |
+| Host archive | `AU22-failure-profile-20261106-verified.zip` |
+| ZIP bytes | **46,244,133** |
+| ZIP SHA-256 | `30b4313354e5e05207debdb30f2ff7d531e0ad7b85516c2c5eb9bb9f03d30e39` |
+| Manifest | **402 unique files**, **64,930,060 source bytes**, valid SHA-256 entries |
+| Host transfer | Completed 14:14:41; `guestMatch=true`, `verifiedFileCount=402`, `allManifestFilesMatch=true` |
+
+The preservation procedure refused an existing destination, used `CreateNew`, guarded against active app and profile-attributed WebView processes, and compared each source file's hash before and after archiving. The retained archive is a non-overwriting, hash-verified failure snapshot; filesystem-enforced immutability was not established. The host copy's manifest and all 402 files matched the guest preservation record.
+
+**This is a backup of the fresh codex application profile after ordinary exit. It is not a full VM clone, a full restore test, or recovery of the original discarded disposable VHDX.** The previously lost guest-only evidence remains lost; this new backup does not restore continuity with that session.
+
+The saved native analysis (`au22-failure-profile-native-analysis.json`, 14:22:07) used a separate SQLite/WAL/SHM copy with URI `mode=ro` and `PRAGMA query_only=ON`, preserving visibility of the nonempty WAL. Its three SQLite-file hashes and six recorded native JSON hashes match the preservation manifest; the three copied SQLite files were recorded unchanged.
+
+- SQLite `quick_check` returned **ok**, with **0 QSOs**.
+- Settings revision 2 has `onboardingCompleted=true`, **K1TEST / K1TEST/P / FN31**, **AU22 synthetic**, **100 W**, a local logbook and `automaticSync=false`.
+- The saved radio receipt is managed Hamlib model **1**, device **dummy**, **9600 baud**, status **saved**. Rotor revision 1 likewise records managed model **1**, **dummy**, **9600 baud**.
+- There is one empty-call 20 m SSB operator draft using the station defaults. Both workspace-layout tables have zero rows, consistent with the source's default fallback.
+- The radio selection remains `direct_agent`, consistent with passive onboarding configuration. A stored configuration is not evidence of a connected radio.
+
+This analysis did not identify a corrupt SQLite database or a specific saved setting as the cause. Coherent saved components and empty-data integrity do not establish successful visible Desk/settings behavior, nonempty data retention, physical integrations or a restore.
+
+### Host-control interruption and local validation boundary
+
+The -600 control failure occurred while the archive transfer was still active. The 14:14:02 host observation retained UTM PID **81684** and QEMU PID **28874** alive, found no UTM diagnostic report in the checked location, and measured **40,075,264 of 46,244,133** archive bytes copied. Control recovered after transfer. The supported observation is temporary scripting/control unavailability; a UTM crash or disappearance was not established.
+
+The Mac was already heavily swapped: at 13:19 UTC, swap use was **19,775.12 MiB**, and the later control check recorded **20,589.38 MiB**. These are current host conditions and possible confounding load, not attribution of the earlier unverified 7 GB incident or an xLog idle-resource result. A separate name-only Mac process sample at 14:58:56 recorded the installed-path host PID 5352 at **35,632 KiB RSS** and its worker PID 4894 at **350,368 KiB RSS**. That sample omits WebKit/GPU ownership and physical footprint, and does not reproduce or attribute the original htop workload; its receipt is `mac-xlog-name-only-memory-sample.json`.
+
+The one owned, single-job offline Cargo validation was gracefully interrupted to remove contention. It exited **130** while compiling dependencies, before tests; no Rust test or changed-source compilation pass is claimed. Its partial log is retained at `.build/hamlib-cargo-interrupted-20261106T141624Z.log`. Only the owned Cargo job was signalled; the application, UTM and QEMU were not stopped by that action. Parser/diff checks and review are static evidence only. After the transfer and guest investigation were idle, a separate cached single-job validation resumed at 14:51:58 and completed at 14:58:19. It used the workflow nonpackaging Tauri configuration, locked/offline dependencies and Homebrew Rust/Cargo 1.98.0 on aarch64-apple-darwin. All **25 Hamlib** and **90 worker** tests passed, with zero failures or ignored tests. All three new catalogue regressions ran. Source hashes before/after matched, and the owned Cargo/compiler processes were absent at the final observation. This later pass does not relabel the earlier interrupted attempt or qualify Windows-only creation flags. Exact commands, hashes and exits are in `rust-focused-20261106T145158Z.json`; the verified result receipt SHA-256 is `b6f8d50ab652aa9eab0ddf59f1807faa4e12f26017b2d752e896275974687b22`.
+
+Reviewed Rust changes were committed and pushed separately: `077b1c81e04eaa6d09b96b0efc14d44add027e83` adds Windows `CREATE_NO_WINDOW` at the existing worker launch; `04c686a5a2c3816117de8e742c6fb7d585c5721e` applies it at the existing Hamlib background launch sites, requires a successful catalogue helper exit, and adds bounded metadata diagnostics. They retain the existing three-second catalogue wait, stdout bound, reader ownership, wizard redaction and null helper stderr. Bounded stderr/drain cleanup redesign is a follow-up proposal, not part of this small change. The failed initial Browse cause and packaged console presentation remain unverified after these source edits.
+
+### Separate CDP diagnosis and source correction — source checks passed
+
+After the two ordinary attempts, a separate diagnostic launch enabled a loopback CDP endpoint. It is not counted as an ordinary launch acceptance cell. `au22-cdp-initial.json` preserves the raw capture, and `au22-cdp-initial-decoded.json` preserves its separately decoded JSON: the raw `OUT` includes four leading `VoidTaskResult` lines, so the decoded artifact does not replace or silently rewrite that raw evidence.
+
+The initial capture completed from 14:28:55 to 14:29:18 with `reloadRequested=false` and `captureComplete=true`. It pinned WebView browser PID **5724** to host PID **9664**, verified the listener at **127.0.0.1:9222**, and selected the `http://tauri.localhost/` page. One retained `Runtime.exceptionThrown` event records:
+
+```text
+TypeError: Cannot read properties of undefined (reading 'getContainer')
+at Object._ [as current] (http://tauri.localhost/assets/Map-itOXLj56.js:814:223092)
+```
+
+The matching emitted script is ID **144**, SHA-256 `1f87949c2154db3c59266924053569c7f071f2cfd61c95742805cdcaba08139c`, without a source map. The collector dropped **67** events, predominantly debugger metadata. The retained positive exception is valid evidence, while the capture is not exhaustive. The underlying MapLibre initialization failure message was not captured; a virtual-GPU cause is not established.
+
+The captured `getContainer` exception and matching source regression establish the renderer-failure mechanism: `Map.tsx` publishes a redraw closure before the Map constructor has succeeded; its failure catch sets the map error, but a later selection effect invokes that closure with no map instance. A new regression run against unmodified `Map.tsx` reproduced the same `getContainer` failure at source line 400 from the selection effect near line 917; a second regression showed that failure later in initialization leaves the allocated map unremoved.
+
+The pre-fix receipt `au22-map-regression-before.json` records exit **1** from `node node_modules/vitest/vitest.mjs run src/Map.test.tsx --maxWorkers=1 -t 'map initialization failure'`, with the unchanged Map source SHA-256 `da32ef2f112003b7529b4dc36de367090768881cb8119c59663debe544c69879`; the full failure output is in `au22-map-regression-before.log`.
+
+**Source-only correction and checks:** the narrow Map initialization-failure correction is complete and independent source review passed. The saved post-change run (`au22-map-regression-after.json` / `.log`) exited **0** and passed **59/59** tests across all four targeted files with `--maxWorkers=1`: `Map.test.tsx` **33**, `MapErrors.test.ts` **4**, `live/DeskMapLogbook.test.tsx` **16**, and `live/DetachedMapSurfaces.test.tsx` **6**. The corrected Map source SHA-256 is `591fdf60fa319ffc2dfc523616c597405ab8a2a8526fb8d51baa03d537075bc0`; the regression-test source hash remains `da2f6e313be39b422b98781fe3198c11afd1246a68b2b2fca35faae138314ceb`. `au22-map-typescript.json` / `.log` records `tsc --noEmit` exit **0** and scoped `git diff --check` exit **0**.
+
+The map correction was committed and pushed at `3bd4ca8746eb64703beebf9a28d31227e72f6799`. Its ordinary CI run `42236820291` passed. The later Rust fixes above still require cross-platform hosted validation, and the complete source needs a newly versioned package. These source checks do not establish a corrected Windows package or successful ordinary post-fix Desk. New-candidate acceptance remains pending, and the reason for the initial MapLibre initialization failure remains unidentified.
+
+The diagnostic app was ordinarily closed at 14:35. The first completed cleanup receipt, `au22-diagnostic-cleanup.json`, retains **six profile-attributed WebViews** after host/worker exit and reports `CleanupObserved=false`, exit **2**. Its subsequent port query returned no port 9222 listeners. The process enumeration preceded the port query, so their results do not describe a simultaneous state.
+
+The completed follow-up `au22-diagnostic-cleanup-followup.json` at **14:38:43 UTC** reports zero xLog host/worker candidates, zero profile-attributed WebViews and zero port **9222** listeners, `EnumerationCompleted=true`, `CleanupObserved=true`, exit **0**. This later clean observation is retained alongside the earlier nonzero result, without a universal immediate-cleanup or app-worker EOF claim.
+
+### Evidence index and remaining acceptance
+
+| Evidence scope | Saved files |
+| --- | --- |
+| First ordinary launch and identity | `au22-baseline.json`, `au22-launch-action.json`, `au22-first-process-identity.json`, `au22-first-running.json` |
+| Wizard and first blank Desk | `au22-station-filled.png`, `au22-radio-catalogue.png`, `au22-radio-catalogue-retry.png`, `au22-radio-selected.png`, `au22-rotator-catalogue-settled.png`, `au22-rotator-selected.png`, `au22-finish-action.json`, `au22-after-finish-settled.png`, `au22-blank-after-finish-running.json`, `au22-blank-events.json` |
+| First quit and preserved profile | `au22-first-quit-action.json`, `au22-after-first-quit.json`, `au22-failure-preservation-v2.json`, `au22-failure-host-copy.json`, `failure-profile-host-copy/preservation-manifest.json`, `au22-failure-profile-native-analysis.json` |
+| Control recovery and actual reopen | `utm-unavailable-observation.json`, `au22-control-recovery-process-check.json`, `au22-reopen-action-v2.json`, `au22-ordinary-reopen-running-v2.json`, `au22-ordinary-reopen-blank.png`, `au22-second-quit-action.json`, `au22-after-second-quit.json` |
+| Separate renderer diagnosis | `au22-diagnostic-launch-action.json`, `au22-diagnostic-running.json`, `au22-cdp-initial.json`, `au22-cdp-initial-decoded.json`, `au22-map-regression-before.json`, `au22-map-regression-before.log` |
+| Source correction checks | `au22-map-regression-after.json`, `au22-map-regression-after.log`, `au22-map-typescript.json`, `au22-map-typescript.log` |
+| Later focused native checks | `rust-focused-20261106T145158Z.json`, `rust-focused-20261106T145158Z-verified.json`, `rust-focused-20261106T145158Z-hamlib.log`, `rust-focused-20261106T145158Z-worker.log` |
+| Diagnostic close and bounded follow-up | `au22-diagnostic-close-action.json`, `au22-diagnostic-cleanup.json`, `au22-diagnostic-cleanup-followup.json` |
+
+Both candidates remain **HELD** and the quality phase remains **OPEN**. The Mac daily installation stays **1.5.15**, and the public release is unchanged. The ordinary frozen AU22 blank Desk is reproduced; source diagnosis and correction do not retroactively change that result. New-candidate acceptance remains pending. Successful ordinary post-fix GUI/restart, fresh Standard-user AU22, native x64, nonempty QSO/media retention, full restore and physical radio/rotator acceptance remain open. The original reported 7 GB remains unattributed, and idle CPU improvement remains unproven.
