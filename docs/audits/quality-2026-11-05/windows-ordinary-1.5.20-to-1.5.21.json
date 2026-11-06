@@ -702,5 +702,410 @@
       "completeWebViewFamilyAbsence": "UNPROVEN"
     },
     "limit": "Both ordinary Quit name queries returned Count0 without query errors; these do not establish actual exit codes/EOF or every WebView/helper-family absence. Restart tokens were not independently measured."
+  },
+  "preservationBeforeAllUsers22": {
+    "status": "Guest image source-hashed/small files preserved; one host transfer approved and media built but unmounted; no listener/upload, durable host disk preservation, clone or AU22 qualification",
+    "candidates": {
+      "1.5.21": "HELD",
+      "1.5.22": "HELD"
+    },
+    "failingVM": {
+      "disposableMode": true,
+      "activeDiskOverlays": "open but unlinked; stopping would discard current writes",
+      "knownSavedFailingStateCopy": false,
+      "baseBundleCopyIsCheckpoint": false,
+      "recoveryOrBootableCloneVerified": false,
+      "historicalAfterPreflightState": "paused; confirmed by UTM UI and utmctl",
+      "latestObservedState": "Resumed/live after post-capture NetKVM install and adapter/IP query; no Stop/restart/reboot/discard",
+      "cliStatusBeforeLatestPause": "started; before fresh UI pause action"
+    },
+    "backupOnlyPreflight": {
+      "executionCount": 1,
+      "exitCode": 0,
+      "readyForRootReview": true,
+      "architecture": "ARM64",
+      "helperElevated": true,
+      "possibleXLogProcessCount": 0,
+      "disk2vhdSignature": "Valid Microsoft signer",
+      "disk2vhdSHA256": "416d300b4445b7715cf5aeebea128e80a46097443e3122745ad17c3d611c3b6a",
+      "disk2vhdARM64": true,
+      "CBitLocker": {
+        "conversionReturn": 0,
+        "conversionStatus": 0,
+        "encryptionPercentage": 0,
+        "protectionReturn": 0,
+        "protectionStatus": 0
+      },
+      "vssQueryExitCodes": {
+        "writers": 0,
+        "providers": 0,
+        "volumes": 0
+      },
+      "individualWriterHealthReviewed": false,
+      "capturedStdoutSHA256": "ff7d019d1da644b8293d5de3648c1278498b650949994a4b561e8d35449e9d60",
+      "rawCapture": "private guest temporary file; hash read through GUI; no independent host copy yet",
+      "scriptSHA256": "7cb207e57ea147f16c1c3e4a817cb5314bf2a8e096731a719bc55d3fc5a05cd8",
+      "backupOnlyISOSHA256": "46de631819f28aa584b7685274561898e53da15f1a89470b7f7fec13fc30a7a4",
+      "scriptFilesystemWrites": 0,
+      "outerCommandCaptureWrites": "one new private temporary stdout file"
+    },
+    "capacity": {
+      "guestUsedFixedFilesystemBytes": 25444341760,
+      "perImagePlanningOverheadBytes": 1073741824,
+      "perImagePlanningBytes": 26518083584,
+      "guestCFreeBytes": 111673548800,
+      "hostAvailableKiB": 57438528,
+      "hostAvailableBytes": 58817052672,
+      "twoImagesPlusMinimum10GiBReserveBytes": 63773585408,
+      "hostCapacityPass": false,
+      "limit": "Planning estimate before additional VSS/COW/guest activity; guest virtual free capacity is not host allocation capacity",
+      "requestedUnblock": "Writable target with at least 80 GB free, or at least 25 GB additional Mac free space; remeasure before execution",
+      "measurementPhase": "Initial pre-cleanup two-image/export capacity checkpoint; retained historically",
+      "freshCapacityBeforeCreateRequired": true,
+      "freshCapacityReviewCompletedScope": "Capture stage02 only; initial two-image failure remains historical",
+      "laterCapacityPass": "Initial capture-stage-only scope retained; separate one-host-transfer capacity approved later; conversion/another full host copy/clone NOT APPROVED"
+    },
+    "actionsNotExecuted": [
+      "VHDX content/structure/restorability verification",
+      "Host image export/transfer, conversion or clone",
+      "VM shutdown/restart/discard",
+      "checkpoint or clone creation",
+      "AU22 installation or launch",
+      "fresh-profile comparison"
+    ],
+    "startupDiagnostics": {
+      "status": "PREPARED ONLY; no guest collector or endpoint execution",
+      "activeWebView2Version": "UNOBSERVED",
+      "documentAssetsJSReactWorkerPaintStages": "UNOBSERVED on AU22",
+      "collectorSHA256": "4b026b8d425c505bc3a180d91114551eca6f971d5a742626bb0b877f79c03d2d",
+      "hostOnlyValidation": "36 pure guard/AST checks; syntax checks; Windows C# compilation remains unverified",
+      "transportValidation": "16 synthetic no-socket handler/file fixtures PASS; PowerShell syntax PASS; root reviewed bounded code; no actual listener/socket/upload/guest transport-helper execution",
+      "transportValidationHistory": "Initial8 synthetic fixtures retained; superseded by current16 fixture result"
+    },
+    "nativeX64Windows11": "No suitable connected desktop identified; ARM emulation remains distinct",
+    "productSourceOrPackageChanged": false,
+    "boundary": "One host transfer approved against fresh actual-image capacity and transfer media built, but unmounted/no listener/upload. Original remains live; pre-driver guest baseline image source-hashed and small files preserved. No durable host disk copy, VHDX validity, restore, conversion/clone, RAM snapshot, blank-Desk fix or AU22 claim; both candidates HELD.",
+    "projectBuildCleanup": {
+      "authorization": "User explicitly authorized old project temporary/build cleanup to avoid an external drive",
+      "deletedCargoDependencyDirectories": 9,
+      "deletedGeneratedMachOBuildScriptBinaries": 294,
+      "cargoDeletionReceiptSHA256": "6088c2aadeae4b671f5983b220778338204f1808bea99d079f378c03fb196361",
+      "buildScriptDeletionReceiptSHA256": "aadd13a2bf567734bcf6b7b28c3cfd31ad903621e33e12d3714d4690bf2e3948",
+      "measuredHostAvailableIncreasesBytes": [
+        22167552,
+        27910144
+      ],
+      "sumOfTwoMeasuredIntervalDeltasBytes": 50077696,
+      "deletionAttributablePhysicalRecovery": "UNPROVEN amid incidental host activity",
+      "retained": "Current quality evidence, exact21/22 artifacts, source and installed/public applications",
+      "furtherSwiftCacheAudit": "Execution and independent read-only ledger/path validation PASS",
+      "backupCapacityNowQualified": false,
+      "swiftCleanup": {
+        "jobExitCode": 0,
+        "directoriesReportedDeleted": 183,
+        "filesReportedDeleted": 21700,
+        "beforeAvailableBytes": 57666433024,
+        "afterAvailableBytes": 57837654016,
+        "availableIncreaseBytes": 171220992,
+        "ledgerBasename": "swift-delete-20261106T051108Z-b2d2ddb1.jsonl",
+        "ledgerSHA256": "a68e1ea872043eb898ac874919261ba21d5f08d48a1faf53c95f030f0da30331",
+        "independentAgentValidation": "PASS",
+        "physicalRecoveryAttribution": "UNPROVEN",
+        "independentValidation": {
+          "all183DirectoriesAbsent": true,
+          "all21700FilesAbsent": true,
+          "beforeAfterPathsAndCountersMatchApprovedManifest": true,
+          "ledgerRecords": 43769,
+          "preflightRecords": 1,
+          "completionRecords": 1,
+          "stoppedRecords": 0,
+          "retained21And22ZipRehashesUnchanged": true,
+          "productInputDiffAgainstS22Empty": true,
+          "currentHostWorkerAndEvidencePresent": true,
+          "limit": "Cleanup validation only; physical-reclamation cause and completed VM backup not inferred"
+        }
+      },
+      "reportedFileAllocationGiBRemovedApproximate": 25.58,
+      "reportedAllocationVsAvailableDisparityCause": "UNKNOWN; no shared-block/snapshot cause established",
+      "allocationMeasurementLimit": "Allocation/du inventory measure; 25.58 GiB is not measured logical file length or proven host physical recovery"
+    },
+    "disk2vhdGUI": {
+      "execution": "Actual root-observed native ARM64 GUI after original VM resume",
+      "version": "2.02",
+      "binarySHA256": "416d300b4445b7715cf5aeebea128e80a46097443e3122745ad17c3d611c3b6a",
+      "actualEulaDisplayed": true,
+      "eulaAcceptedPersonallyByUser": true,
+      "allThreeVolumesSelected": true,
+      "displayedVolumeSizes": [
+        "196 MB",
+        "702 MB",
+        "C 127.10 GB"
+      ],
+      "useVHDXChecked": true,
+      "useVolumeShadowCopyChecked": true,
+      "inputDelivery": "Earlier unreliable mouse/Tab history retained; later user checked VSS and root observed/reverified checked state",
+      "runtimeVSSControlEnabled": "Checkbox was checked through actual user interaction; no separate Win32 enabled-state query",
+      "createInvoked": true,
+      "backupCreated": true,
+      "x64FallbackIntroduced": false,
+      "historicalVSSUncheckedAfterUnreliableInput": true,
+      "userCheckedVSS": true,
+      "rootReverifiedVHDXAndVSSChecked": true,
+      "prepareForUseInVirtualPCChecked": false,
+      "selectedVolumes": "All three EFI, Recovery and C volumes",
+      "target": "C:\\xlog-preservation-20261106.vhdx",
+      "createInvocationCount": 1,
+      "captureStatus": "COMPLETED BY UTILITY; guest source SHA256 COMPLETE",
+      "completedBackupVerified": false,
+      "backupCreatedMeaning": "Expected guest image utility-completed and source-hashed with writers excluded; VHDX content validity, durable host preservation and restorability not yet verified",
+      "utilityCompletionMessage": "Disk export to VHD completed successfully.",
+      "utilityNormalCloseObserved": true,
+      "guestImageReadback": {
+        "nameMatchedExpectedTarget": true,
+        "lengthBytes": 21359493632,
+        "lastWriteTimeUtcRaw": "11/6/2026 11:35:51 AM",
+        "observer": "Root GUI/readback; not independently queried by reporting agent"
+      },
+      "writerExclusion": {
+        "openSuccessful": true,
+        "fileMode": "Open",
+        "fileAccess": "Read",
+        "fileShare": "Read",
+        "heldHandleLengthBytes": 21359493632,
+        "handleRemainsHeld": true,
+        "writersExcludedWhileHeld": true,
+        "heldThroughoutSourceHash": true,
+        "lastConfirmedHeldStage": "Held through hashing and observed paused stage before later resume",
+        "latestRecheckAfterResume": "NOT REPORTED",
+        "heldAtReportedPausedStageBeforeSmallCopies": true
+      },
+      "sourceImageSHA256": {
+        "status": "COMPLETE",
+        "sha256": "dc780d5f95f894ec254e7eca4e39675fb3df9f99f5f4f1e962bf84a504b09d4e",
+        "hashResultAvailable": true,
+        "guestSourceLengthBytes": 21359493632,
+        "writerExcludingHandleHeldThroughout": true,
+        "independentHostImageCopy": false,
+        "observer": "Root actual guest readback; no independent host image hash yet"
+      },
+      "completedBackupVerifiedLimit": "Utility completion, source hash and held writer exclusion observed; VHDX structure/content, durable host copy, restore and full preservation not verified"
+    },
+    "vssStaticInspection": {
+      "binarySHA256": "416d300b4445b7715cf5aeebea128e80a46097443e3122745ad17c3d611c3b6a",
+      "receiptSHA256": "da6dbae230cb9484fa645cbc31891513fef0e1a0dde8a82bcae5be091b391436",
+      "nativeVSSImportAndSnapshotClientMetadataPresent": true,
+      "checkboxControlId": 1013,
+      "resourceStyleHex": "50010003",
+      "resourceDisabled": false,
+      "resourceTabStop": true,
+      "resourceAutoCheckbox": true,
+      "windowsImageExecutedByStaticInspector": false,
+      "limit": "Construction/resource and import evidence only; runtime enabled state, input delivery, selected-volume snapshot support and writer health unproven"
+    },
+    "refreshedPreflight02": {
+      "exitCode": 0,
+      "readyForRootReview": true,
+      "architecture": "ARM64",
+      "possibleXLogProcessCount": 0,
+      "CBitLocker": {
+        "conversionReturn": 0,
+        "conversionStatus": 0,
+        "encryptionPercentage": 0,
+        "protectionReturn": 0,
+        "protectionStatus": 0
+      },
+      "vssWriterCount": 10,
+      "stableWriterCount": 10,
+      "noErrorWriterCount": 10,
+      "targetAbsent": true,
+      "guestUsedFixedFilesystemBytes": 25448417280,
+      "planningOverheadBytes": 1073741824,
+      "imagePlanningBytes": 26522159104,
+      "guestCFreeBytes": 111669473280,
+      "capturedStdoutSHA256": "a373efa22e0637d852ee09552203c28c883c5e321362a32d03c626fa78778bc1",
+      "independentHostCopy": false,
+      "rawCapture": "Private guest capture02; hash observed by root; not a completed backup"
+    },
+    "captureStage02Capacity": {
+      "planSHA256": "01303c5454f3a0382d6bc3c3763a1231fa2d661172a0fe35a01dda5ccb71ce8f",
+      "scope": "ONE guest VSS image capture ONLY",
+      "hostAvailableBytes": 53408817152,
+      "imagePlanningBytes": 26522159104,
+      "hostMinimumReserveBytes": 12884901888,
+      "vssAndCopyOnWriteHeadroomBytes": 6442450944,
+      "otherActivityHeadroomBytes": 2147483648,
+      "planningMarginBytes": 5411821568,
+      "rootApprovedForCaptureStageOnly": true,
+      "monitoringIntervalMaximumSeconds": 30,
+      "contingency": "Observed running-job Cancel if reserve approached; never Stop/restart/discard original VM",
+      "exportTransferConversionCloneApproved": false,
+      "nextCapacityBoundary": "Closed image actual size and fresh host capacity required",
+      "limit": "Planning estimate is not a hard upper bound or completed-image size; active RAM/EFI overlay not captured",
+      "historicalApprovalScope": true,
+      "laterOneHostTransferApprovalRecordedSeparately": true
+    },
+    "guestReadOnlyTransportObservations": {
+      "GetNetIPAddressIPv4": [
+        "127.0.0.1"
+      ],
+      "GetNetAdapterRows": 0,
+      "WebClientState": "Stopped",
+      "matchingSpiceServiceRows": 0,
+      "pnpEthernetControllerStatus": "Error",
+      "ethernetHardwareID": "Initially UNKNOWN; later PCI fields and exact INF match recorded separately",
+      "ethernetProblemCode": "Later symbolic CM_PROB_FAILED_INSTALL; numeric code NOT QUERIED",
+      "listenQuery": {
+        "command": "Get-NetTCPConnection",
+        "state": "Listen",
+        "port": 9843,
+        "errorAction": "Stop",
+        "count": 0,
+        "promptReturned": true,
+        "queryErrorsObserved": false
+      },
+      "guestDriverNetworkServiceSettingsMutation": false,
+      "limit": "Observed query results only; no blanket transport impossibility or blank-Desk cause claim",
+      "laterEthernetIdentification": {
+        "vendorHex": "1AF4",
+        "deviceHex": "1000",
+        "subsystemHex": "00011AF4",
+        "revisionHex": "00",
+        "actualHardwareIDsIncludeExactFirstINFID": true,
+        "configManagerErrorCodeRendered": "CM_PROB_FAILED_INSTALL",
+        "numericProblemCode": "NOT QUERIED",
+        "machineSpecificInstanceSuffix": "PRIVATE; omitted",
+        "queryHistory": [
+          {
+            "query": "Initial CIM Name filter",
+            "result": "InvalidQuery",
+            "inputIssue": "Equals typed as plus; failed query retained"
+          },
+          {
+            "query": "Get-CimInstance then Where-Object Name -eq",
+            "result": "Returned hardware IDs/problem flag and prompt"
+          }
+        ]
+      },
+      "observationPhase": "Historical pre-driver read-only observations; later post-capture driver mutation recorded separately"
+    },
+    "postCaptureNetKVMMedia": {
+      "hostPreparedOnly": false,
+      "source": "Official Microsoft four-file NetKVM media",
+      "purpose": "Post-capture transport enablement; not baseline-image injection or blank-Desk diagnosis",
+      "guestInstalledOrExecuted": true,
+      "blankDeskCorrectionDemonstrated": false,
+      "hostPrepared": true,
+      "driverFileCount": 4,
+      "manifestIncluded": true,
+      "volumeLabel": "XLOGNET",
+      "isoSHA256": "dcccc6f48382a2696c7e4a7015d6891a8333d36940724bff7687ec977cd1475b",
+      "mountedUsing": "Actual UTM Change menu on existing read-only CD",
+      "mountedOnExistingReadOnlyCD": true,
+      "guestDriverInstalledOrExecuted": true,
+      "limit": "Actual live-guest driver installation after the hashed baseline capture; no image transfer, clone, AU22 result or demonstrated blank-Desk correction",
+      "actualGuestVolume": "D: XLOGNET / CDROM",
+      "allFourDriverFileHashesMatched": true,
+      "manifestSHA256": "c048f2fa823a79ec5ee06c8e6592cdf0c0e78344b9e6ffda563ac35c0a2c047c",
+      "manifestHashMatched": true,
+      "catalogueAuthenticode": {
+        "status": "Valid",
+        "statusMessage": "Signature verified",
+        "expectedPublisherObserved": "Microsoft Windows Hardware Compatibility Publisher",
+        "timestampObserved": "Microsoft Time-Stamp Service",
+        "scope": "Exact driver catalogue only; not an xLog installer signature"
+      }
+    },
+    "smallHostFilePreservation": {
+      "status": "SMALL_FILES_PRESERVED",
+      "receiptSHA256": "cb42d6ebe9ad1b123a66e962a8dcba714e9de039a27de6b850fc0014a30db408",
+      "observedPausedAtCopy": true,
+      "sourceAndCopiesStableBeforeAfterRootObserved": true,
+      "files": {
+        "config.plist": {
+          "bytes": 3176,
+          "sha256": "44b23db4f5f2c94a534d24a1311f4dbe4005c5d7d6c0a302091f3f792339bb0a"
+        },
+        "Data/efi_vars.fd": {
+          "bytes": 655360,
+          "sha256": "54a6852fd2bccf456b3308bb5ccf1b9139a1876e160128ab551aa8ed3f30ffa6"
+        },
+        "Data/tpmdata": {
+          "bytes": 8384,
+          "sha256": "8043ec14d3b08541f7afc269abffcca949a9507b5b6ab8439f19d2aa0b533ebf"
+        }
+      },
+      "originalUnmodifiedByScript": true,
+      "diskCopied": false,
+      "activeEFIOverlayCaptured": false,
+      "volatileTPMOrRAMCaptured": false,
+      "VSSCaptureTimeEquivalence": false,
+      "limit": "Config, base EFI and persistent TPM only; complete disk image remains guest-only; no full-state checkpoint/clone or restorability claim"
+    },
+    "postCaptureDriverInstallation": {
+      "phase": "AFTER baseline VSS image capture and source hash",
+      "executedBy": "Root through actual guest UI",
+      "soleCommand": "pnputil /add-driver D:\\NetKVM\\netkvm.inf /install",
+      "lastExitCode": 0,
+      "driverPackageAdded": true,
+      "publishedName": "oem1.inf",
+      "installedOnExactPreviouslyIdentifiedPCIDevice": true,
+      "totalPackages": 1,
+      "addedPackages": 1,
+      "restartMessageObserved": false,
+      "rebootPerformed": false,
+      "liveGuestDriverMutation": true,
+      "baselineImageInjection": false,
+      "blankDeskCauseOrCorrectionDemonstrated": false
+    },
+    "postInstallAdapterReadback": {
+      "queryCompletedWithPrompt": true,
+      "queryErrorsObserved": false,
+      "GetNetAdapterRows": 1,
+      "adapterName": "Ethernet",
+      "adapterStatus": "Up",
+      "adapterDescription": "Red Hat VirtIO Ethernet Adapter",
+      "IPv4": [
+        {
+          "interface": "Ethernet",
+          "address": "192.168.64.3"
+        },
+        {
+          "interface": "Loopback",
+          "address": "127.0.0.1"
+        }
+      ],
+      "rebootPerformed": false,
+      "transferExecuted": false,
+      "limit": "Observed adapter/IP state only; no host connectivity, image transfer, blank-Desk correction or AU22 pass inferred"
+    },
+    "oneHostTransferCapacityPreparation": {
+      "rootReviewedAndExecutedApproval": true,
+      "hostAvailableBytes": 39691436032,
+      "closedSourceImageBytes": 21359493632,
+      "minimumReserveBytes": 12884901888,
+      "otherActivityHeadroomBytes": 2147483648,
+      "planningMarginBytes": 3299556864,
+      "scope": "ONE host transfer ONLY",
+      "conversionAnotherFullHostCopyOrCloneApproved": false,
+      "capacityReceiptSHA256": "c3242d2b2563c4cf3dea0874dd0ab68b7bae5113ff3222a73793b61669e2115b",
+      "opaquePrivateProofSHA256": "dd2c824cc0f632e3123c8331c5e0e2fa2fc495d27600879ebb9df6173150bc8b",
+      "privateProofContentsReadOrPublishedByReportingAgent": false,
+      "actualListenerStarted": false,
+      "actualUploadExecuted": false,
+      "limit": "Capacity approval only; no completed transfer/host image or clone inferred"
+    },
+    "transferMediaPreparation": {
+      "isoActuallyBuilt": true,
+      "isoBytes": 921600,
+      "isoSHA256": "eec554a4a9038f08b224d83f5e5027834463f94faae202af857ea0ba117f519a",
+      "mediaManifestSHA256": "58c78ae2a078b3127b7ec99a518d3cfabf4fc2cd5da94e9735e018de5961e1b3",
+      "mounted": false,
+      "listenerStarted": false,
+      "uploadStarted": false,
+      "uiBoundary": "UTM media-menu keyboard focus lost; root requested user bring UTM forward once",
+      "originalVMAlive": true,
+      "rebootPerformed": false,
+      "sourceImage": "Pre-driver source-hashed AU21 image remains guest-only"
+    }
   }
 }
