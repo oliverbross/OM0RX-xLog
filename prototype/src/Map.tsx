@@ -363,6 +363,8 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
     const element = container.current;
     let constructionWidth = 0, constructionHeight = 0;
     let map: maplibregl.Map;
+    let resize: ResizeObserver | null = null;
+    let resizeFrame: number | null = null;
     let disposed = false;
     let landFeatures = 0;
     let captureRequested = acceptanceActive;
@@ -374,6 +376,7 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
     };
     const hideDetails = () => { popup?.remove(); popup = null; inspectedCall = null; };
     const showDetails = (call: string, refresh = false) => {
+      if (disposed) return;
       const spot = spotsRef.current.find(value => value.call === call);
       if (!spot || overlayRef.current === "DXCC") { hideDetails(); return; }
       if (inspectedCall === call && popup && !refresh) return;
@@ -522,7 +525,6 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
         if (visibleSpots.has(inspectedCall)) showDetails(inspectedCall, true); else hideDetails();
       }
     };
-    redrawRef.current = redrawLabels;
     const redrawGrid = () => {
       if (disposed) return;
       const source = map.getSource("maidenhead-grid") as maplibregl.GeoJSONSource | undefined;
@@ -552,7 +554,6 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
         if (!visible.has(key)) { marker.remove(); gridMarkersRef.current.delete(key); }
       }
     };
-    redrawGridRef.current = redrawGrid;
     const repaint = () => {
       if (disposed || !element.clientWidth || !element.clientHeight) return;
       map.resize();
@@ -621,6 +622,35 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
         duration: 0,
         maxZoom: 2,
       });
+    };
+    const visible = () => { if (document.visibilityState === "visible") repaint(); };
+    const disposeMap = () => {
+      if (disposed) return;
+      disposed = true;
+      // Retire all entry points before releasing a partially initialized map.
+      // In particular, later React effects must never call a constructor that
+      // failed through a previously published redraw closure.
+      redrawRef.current = () => {};
+      redrawGridRef.current = () => {};
+      if (mapRef.current === map) mapRef.current = null;
+      document.removeEventListener("xlog-native-acceptance", requestEvidence);
+      document.removeEventListener("xlog-native-map-evidence", requestEvidence);
+      document.removeEventListener("visibilitychange", visible);
+      window.removeEventListener("focus", repaint);
+      resize?.disconnect();
+      if (resizeFrame !== null) { window.cancelAnimationFrame(resizeFrame); resizeFrame = null; }
+      markersRef.current.forEach(marker => marker.remove());
+      markersRef.current.clear();
+      spotMarkersRef.current.forEach(marker => marker.remove());
+      spotMarkersRef.current.clear();
+      clearGridLabels();
+      hideDetails();
+      try { map?.remove(); }
+      catch (cause) {
+        // Keep the original initialization failure visible even if MapLibre
+        // cannot fully remove its partially initialized renderer.
+        element.dataset.mapCleanupError = cause instanceof Error ? cause.message : String(cause);
+      }
     };
     try {
       map = new maplibregl.Map({
@@ -711,10 +741,10 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
           ],
         },
       });
-      mapRef.current = map;
       constructionWidth = element.clientWidth;
       constructionHeight = element.clientHeight;
       map.on("load", () => {
+        if (disposed) return;
         redrawGrid();
         fetch(geometryUrl).then(response => {
           if (!response.ok) throw new Error(`DXCC geometry HTTP ${response.status}`);
@@ -753,6 +783,7 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
       // before the browser discards its non-preserved drawing buffer.
       map.on("render", evidence);
       const rememberCamera = () => {
+        if (disposed) return;
         const center = map.getCenter(), context = cameraContextRef.current;
         cameraRef.current = { center: [center.lng, center.lat], zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch(), ...context };
         persistState();
@@ -763,10 +794,10 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
       document.addEventListener("xlog-native-acceptance", requestEvidence);
       document.addEventListener("xlog-native-map-evidence", requestEvidence);
       window.addEventListener("focus", repaint);
-      const visible = () => { if (document.visibilityState === "visible") repaint(); };
       document.addEventListener("visibilitychange", visible);
       if (!initialCamera) fitFixture();
       map.on("movestart", (event) => {
+        if (disposed) return;
         if (event.originalEvent) {
           preserveCamera.current = true;
           automaticRouteFit.current = null;
@@ -807,6 +838,7 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
         if (!container.current?.contains(document.activeElement) || !document.activeElement?.classList.contains("map-spot-hit")) hideDetails();
       });
       map.on("error", (event) => {
+        if (disposed) return;
         // Raster failures must not hide the bundled DXCC geography.
         const diagnostic = describeMapError(event);
         if (diagnostic.imagery) {
@@ -821,7 +853,6 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
           setError(`${message} Logging and cluster selection remain available.`);
         }
       });
-      let resizeFrame: number | null = null;
       let initialViewportFinalized = false;
       const scheduleResize = () => {
         // A retained Desk map can be hidden or change split rows several times
@@ -829,7 +860,7 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
         // WebGL. Do not infer MapLibre's viewport from the CSS canvas size: on
         // route return those dimensions can agree while its transform is still
         // the hidden/fallback size.
-        if (resizeFrame !== null) return;
+        if (disposed || resizeFrame !== null) return;
         resizeFrame = window.requestAnimationFrame(() => {
           resizeFrame = null;
           if (disposed) return;
@@ -869,36 +900,26 @@ export default function WorldMap<T extends MapSpot = MapSpot>({
           redrawGrid();
         });
       };
-      const resize = new ResizeObserver(scheduleResize);
+      resize = new ResizeObserver(scheduleResize);
       resize.observe(element);
       // MapLibre can be constructed while an incoming route is still hidden.
       // Resize once after layout even when ResizeObserver coalesces that reveal.
       scheduleResize();
+      // Publish only after construction and setup succeed. A WebGL failure
+      // must leave the later selection/data effects as safe no-ops.
+      mapRef.current = map;
+      redrawRef.current = redrawLabels;
+      redrawGridRef.current = redrawGrid;
       return () => {
-        rememberCamera();
-        disposed = true;
-        document.removeEventListener("xlog-native-acceptance", requestEvidence);
-        document.removeEventListener("xlog-native-map-evidence", requestEvidence);
-        document.removeEventListener("visibilitychange", visible);
-        window.removeEventListener("focus", repaint);
-        resize.disconnect();
-        if (resizeFrame !== null) window.cancelAnimationFrame(resizeFrame);
-        markersRef.current.forEach(marker => marker.remove());
-        markersRef.current.clear();
-        spotMarkersRef.current.forEach(marker => marker.remove());
-        spotMarkersRef.current.clear();
-        clearGridLabels();
-        hideDetails();
-        redrawRef.current = () => {};
-        redrawGridRef.current = () => {};
-        map.remove();
-        mapRef.current = null;
+        try { rememberCamera(); } finally { disposeMap(); }
       };
     } catch (e) {
+      disposeMap();
       element.dataset.mapError = e instanceof Error ? e.message : String(e);
       setError(
         `Map unavailable: ${e instanceof Error ? e.message : String(e)}`,
       );
+      return disposeMap;
     }
   }, []);
   useEffect(() => {

@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import type { MapSpot } from "./MapSpots";
 import { DeskMapLogbook } from "./live/DeskMapLogbook";
 
-const harness = vi.hoisted(() => ({ maps: [] as any[], startReady: true, nativeResize: false,
+const harness = vi.hoisted(() => ({ maps: [] as any[], startReady: true, nativeResize: false, constructorFailure: false,
   initialSize: { width: 1000, height: 500 } }));
 vi.mock("maplibre-gl", () => {
   class FakeMap {
@@ -28,6 +28,7 @@ vi.mock("maplibre-gl", () => {
     easeCalls: any[] = [];
     missingSourceQueries = 0;
     constructor(options: any) {
+      if (harness.constructorFailure) throw new Error("WebGL is unavailable");
       this.options = options;
       this.element = options.container;
       this.layers = options.style.layers;
@@ -204,6 +205,7 @@ beforeEach(() => {
   harness.maps.length = 0;
   harness.startReady = true;
   harness.nativeResize = false;
+  harness.constructorFailure = false;
   harness.initialSize = { width: 1000, height: 500 };
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
   vi.stubGlobal("fetch", vi.fn());
@@ -211,13 +213,16 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-function resizeHarness() {
+function resizeHarness(failObserve = false) {
   const observers = new Map<Element, Set<() => void>>(), frames = new Map<number, FrameRequestCallback>();
   let nextFrame = 0;
   vi.stubGlobal("ResizeObserver", class {
     elements: Element[] = [];
     constructor(private callback: () => void) {}
-    observe(element: Element) { this.elements.push(element); const callbacks = observers.get(element) ?? new Set(); callbacks.add(this.callback); observers.set(element, callbacks); }
+    observe(element: Element) {
+      this.elements.push(element); const callbacks = observers.get(element) ?? new Set(); callbacks.add(this.callback); observers.set(element, callbacks);
+      if (failObserve) throw new Error("Map resize observer unavailable");
+    }
     disconnect() { this.elements.forEach(element => { const callbacks = observers.get(element); callbacks?.delete(this.callback); if (!callbacks?.size) observers.delete(element); }); }
   });
   vi.stubGlobal("requestAnimationFrame", vi.fn((callback: FrameRequestCallback) => { frames.set(++nextFrame, callback); return nextFrame; }));
@@ -228,6 +233,68 @@ function resizeHarness() {
     frames, observers,
   };
 }
+
+describe("map initialization failure", () => {
+  it("keeps the Desk usable after WebGL construction fails and later map inputs change", () => {
+    harness.constructorFailure = true;
+    const resize = resizeHarness();
+    const desk = (data: MapSpot[], selected: string | null) => <DeskMapLogbook
+      map={<WorldMap data={data} selected={selected} home={{ call: "K1TEST/P", lon: -72, lat: 41 }}
+        target={selected ? { call: "OM0RX", lon: 17, lat: 48 } : null} dxccStatuses={{ 291: "worked" }} />}
+      logbook={<input aria-label="Logbook callsign" defaultValue="" />} />;
+    const view = render(desk([], null));
+    const mapElement = screen.getByRole("region", { name: /Interactive world map/ });
+    expect(screen.getByRole("alert").textContent).toContain("Map unavailable: WebGL is unavailable");
+    expect(harness.maps).toHaveLength(0);
+    expect(resize.observers.has(mapElement)).toBe(false);
+
+    view.rerender(desk([spot()], "feed-1"));
+    fireEvent.change(screen.getByLabelText("Map appearance"), { target: { value: "Standard" } });
+    fireEvent.click(screen.getByRole("button", { name: "Grid" }));
+    fireEvent.change(screen.getByLabelText("Desk map and logbook view"), { target: { value: "logbook" } });
+    fireEvent.change(screen.getByLabelText("Logbook callsign"), { target: { value: "K1ABC" } });
+    fireEvent.change(screen.getByLabelText("Desk map and logbook view"), { target: { value: "logbook-below" } });
+    resize.notify(mapElement); resize.flush();
+    fireEvent.focus(window);
+    fireEvent(document, new Event("visibilitychange"));
+    expect(screen.getByLabelText("Logbook callsign")).toHaveProperty("value", "K1ABC");
+    expect(screen.getByRole("alert").textContent).toContain("Map unavailable: WebGL is unavailable");
+    expect(fetch).not.toHaveBeenCalled();
+    view.unmount();
+    expect(resize.observers.size).toBe(0);
+    expect(resize.frames.size).toBe(0);
+  });
+
+  it("retires partial setup and ignores late map callbacks after initialization fails", () => {
+    const resize = resizeHarness(true);
+    const view = render(<WorldMap data={[]} selected={null} />);
+    const map = harness.maps[0];
+    expect(screen.getByRole("alert").textContent).toContain("Map unavailable: Map resize observer unavailable");
+    expect(map.remove).toHaveBeenCalledTimes(1);
+    expect(resize.observers.size).toBe(0);
+    expect(resize.frames.size).toBe(0);
+    const getContainer = vi.spyOn(map, "getContainer"), getSource = vi.spyOn(map, "getSource"), getCenter = vi.spyOn(map, "getCenter");
+    map.resize.mockClear(); map.triggerRepaint.mockClear();
+    view.rerender(<WorldMap data={[spot()]} selected="feed-1" dxccStatuses={{ 291: "confirmed" }} />);
+    fireEvent.change(screen.getByLabelText("Map overlay"), { target: { value: "Spots" } });
+    fireEvent.click(screen.getByRole("button", { name: "Grid" }));
+    fireEvent.focus(window);
+    fireEvent(document, new Event("visibilitychange"));
+    act(() => {
+      map.fire("load", {});
+      map.fire("moveend", {});
+      map.fire("error", { sourceId: "land", error: { message: "late retired map error" } });
+    });
+    resize.notify(map.element); resize.flush();
+    expect(screen.getByRole("alert").textContent).toContain("Map unavailable: Map resize observer unavailable");
+    expect(fetch).not.toHaveBeenCalled();
+    expect(getContainer).not.toHaveBeenCalled(); expect(getSource).not.toHaveBeenCalled(); expect(getCenter).not.toHaveBeenCalled();
+    expect(map.resize).not.toHaveBeenCalled(); expect(map.triggerRepaint).not.toHaveBeenCalled();
+    view.unmount();
+    expect(map.remove).toHaveBeenCalledTimes(1);
+    expect(resize.observers.size).toBe(0); expect(resize.frames.size).toBe(0);
+  });
+});
 
 describe("map container resizing", () => {
   it("refits the returning Desk camera at its settled size and never renders wrapped worlds", () => {
