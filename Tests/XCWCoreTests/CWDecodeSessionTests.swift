@@ -463,9 +463,14 @@ final class CWDecodeSessionTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(view.decodeAgeMilliseconds),188,accuracy:0.001)
         XCTAssertEqual(try XCTUnwrap(view.carrierAgeMilliseconds),198,accuracy:0.001)
         let control=try XCTUnwrap(view.controlReference),selection=try XCTUnwrap(view.selection)
-        clock.advance(1_900_000_000)
-        _ = try await provider.emit(source.id,receipt:clock.now(),qualified:true)
-        try await wait{await compute.counts().sends==85}
+        // Keep IQ fresh while aging only the retained decode/carrier evidence.
+        // The source consumes blocks serially; a send can be observed before its
+        // receipt is committed, so 100 ms steps keep even that lag at 200 ms.
+        for count in 85...103 {
+            clock.advance(100_000_000)
+            _ = try await provider.emit(source.id,receipt:clock.now(),qualified:true)
+            try await wait{await compute.counts().sends==count}
+        }
         let metadata=CWNativeTrack(kind:"track",streamToken:capture.streamToken.uuidString.replacingOccurrences(of:"-",with:"").lowercased(),
             epoch:1,trackID:view.trackID,revision:0,state:"acquiring",firstSample:3200,endSample:22400,sourceFirstSample:0,
             filterDelaySeconds:0.02,offsetHz:999,ambiguous:false,replay:false)
