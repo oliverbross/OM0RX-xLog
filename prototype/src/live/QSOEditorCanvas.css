@@ -19,10 +19,11 @@
 .qso-canvas-edge-ne { top:-6px; right:-6px; cursor:nesw-resize; }.qso-canvas-edge-se { right:-6px; bottom:-6px; cursor:nwse-resize; }
 .qso-canvas-edge-sw { left:-6px; bottom:-6px; cursor:nesw-resize; }.qso-canvas-edge-nw { top:-6px; left:-6px; cursor:nwse-resize; }
 .qso-canvas-instructions { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+/* Compactness follows the canvas width, including space used by the sidebar. */
+.qso-canvas.is-compact { display:flex; flex-direction:column; gap:12px; aspect-ratio:auto!important; }
+.qso-canvas.is-compact .qso-canvas-panel { position:relative; inset:auto; width:auto; height:auto; }
+.qso-canvas.is-compact .qso-canvas-panel-content { height:auto; overflow:visible; }
+.qso-canvas.is-compact .qso-canvas-panel-content>.qso-active,.qso-canvas.is-compact .qso-canvas-panel-content>.qso-details,.qso-canvas.is-compact .qso-canvas-panel-content>.qso-matrices,.qso-canvas.is-compact .qso-canvas-panel-content>.qso-context-panel { height:auto; overflow:visible; }
 @media(max-width:940px) {
   .qso-canvas-toolbar>span { text-align:left; }
-  .qso-canvas.is-compact { display:flex; flex-direction:column; gap:12px; aspect-ratio:auto!important; }
-  .qso-canvas.is-compact .qso-canvas-panel { position:relative; inset:auto; width:auto; height:auto; }
-  .qso-canvas.is-compact .qso-canvas-panel-content { height:auto; overflow:visible; }
-  .qso-canvas.is-compact .qso-canvas-panel-content>.qso-active,.qso-canvas.is-compact .qso-canvas-panel-content>.qso-details,.qso-canvas.is-compact .qso-canvas-panel-content>.qso-matrices,.qso-canvas.is-compact .qso-canvas-panel-content>.qso-context-panel { height:auto; overflow:visible; }
 }
