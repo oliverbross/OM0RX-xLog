@@ -548,3 +548,75 @@ The completed follow-up `au22-diagnostic-cleanup-followup.json` at **14:38:43 UT
 | Diagnostic close and bounded follow-up | `au22-diagnostic-close-action.json`, `au22-diagnostic-cleanup.json`, `au22-diagnostic-cleanup-followup.json` |
 
 Both candidates remain **HELD** and the quality phase remains **OPEN**. The Mac daily installation stays **1.5.15**, and the public release is unchanged. The ordinary frozen AU22 blank Desk is reproduced; source diagnosis and correction do not retroactively change that result. New-candidate acceptance remains pending. Successful ordinary post-fix GUI/restart, fresh Standard-user AU22, native x64, nonempty QSO/media retention, full restore and physical radio/rotator acceptance remain open. The original reported 7 GB remains unattributed, and idle CPU improvement remains unproven.
+
+## Same-scope AU23 upgrade and ordinary Desk recovery — 6 November 2026
+
+This later result supersedes the pending-new-candidate status above without changing the recorded AU21/AU22 failures. Exact S23 source is **`9c37130ed9a9b5e558ca3b84247872d6d9796f7d`**, visible version **1.5.23**, Windows run **42239571377**. The [candidate record](../../releases/v1.5.23-windows-quality-candidate.md) contains package pins, completed hosted gates, the actual S23 Mac fixture failure and later QA-only correction. S23 remains **HELD** because ordinary testing exposed additional editor/map presentation defects.
+
+### Normal upgrade, with the failed profile retained
+
+The same persistent VM/account/profile described above was used. No fresh-install harness, profile removal, silent/custom-directory switch, VM restart or production Mac change was used. The original **402-file AU22 failing-profile ZIP** remains the before-state archive; it contains zero saved QSOs and one unsaved draft.
+
+The independently verified all-users installer was transferred at 16:42:55 UTC, with SHA-256 `c2ec056e85b76570c932f5160d29983c12f54de2b411e34a48947f206f5b96f4`. The single-file transfer server exited and its listener was independently absent afterward. The installer was started from ordinary `codex` PowerShell, with normal UAC accepted. It detected the old version and retained the recommended **Uninstall before installing** choice. The child uninstaller's **Delete application data** was visibly unchecked. The wizard retained `C:\Program Files\OM0RX-xLog`; Finish **Run OM0RX-xLog** was unchecked before Finish.
+
+This is an ordinary wizard-managed same-scope uninstall/reinstall replacement. It does not prove a direct overwrite upgrade or a fresh-install default-path journey. The installer process had the observed ordinary PowerShell parent; its old uninstaller was interactive, without `/S`.
+
+Post-install audit at 17:04–17:05 verified all **3,270 payload files / 236,540,998 bytes**, independently pinned manifest and host FileVersion **1.5.23**, with no host/worker before or after. The optional registration reader rejected the installer's quoted `InstallLocation`; the payload pass is separate from that reader failure. A focused read-only follow-up at 17:07 normalized one balanced outer quote pair and verified both HKLM64 locations and version. The 17:08 baseline verified exact host/worker hashes, common Start Menu target, empty shortcut arguments and no app candidates.
+
+### Two ordinary launches and a real contact journey
+
+Both launches came from `C:\ProgramData\Microsoft\Windows\Start Menu\Programs\OM0RX-xLog.lnk` in the ordinary interactive account. The SYSTEM observer only read process identity and did not launch the application.
+
+| Launch | Verified live identity | Actual UI result |
+| --- | --- | --- |
+| 17:14:12 UTC | Host **9192**, worker **5584**, parent **9192** | Usable Operator Desk, no first-run wizard; native navigation and compact logging work |
+| 17:32:37 UTC | Host **3704**, worker **5988**, parent **3704** | Usable Desk again; logbook/search finds the same edited contact |
+
+Each identity check required pinned Program Files host/worker hashes, host version 1.5.23, expected `codex` SID, live native handles and CIM/native birth agreement, correct worker ancestry, empty ordinary arguments, no diagnostic flags and unelevated type-3/integrity-8192 tokens. WebView2 remained **140.0.3485.66**. This account is a **filtered administrator**, not a true Standard account; the x64 app is emulated on Windows ARM64.
+
+The first launch's UI showed retained station values **K1TEST / K1TEST/P / FN31 / AU22 synthetic / 100 W**, integrated local mode, and saved Hamlib **Dummy / dummy / 9600**. The rotor was disconnected and its startup preference remained checked. No connect, rotor motion or transmission was requested.
+
+Through the actual compact Desk, one **K1ABC** QSO was created at **17:17:05 UTC**, **20 m / SSB / 14.200000 MHz / 59–59**, with Comment `AU23 synthetic create 20261106`. Logbook search found it. Selecting the row opened the overlapping full editor; returning to the compact Desk exposed **Update QSO** for that same record. Comment was replaced with `AU23 synthetic edited 20261106` and Update clicked once. The logbook showed exactly **one contact** afterward. On the second ordinary launch, both the unfiltered logbook and a fresh K1ABC search displayed that same edited contact and unchanged displayed fields.
+
+### Exact closed-database comparison
+
+After each ordinary Close, complete bounded absence checks passed. The first large stdout snapshot failed at UTM RPC readback; guest PID 9584 was subsequently confirmed absent. A first native file-pull attempt also failed because its host target did not exist. Those failures remain recorded. The corrected path uses new exclusive host destinations and UTM's read-only guest-file API, closing each handle; complete app-absence/stat/SHA-256 observations bracket each pull. No live SQLite connection, source write or execution-policy change was used.
+
+The successful raw captures are `au23-sqlite-copy-1v2-verified-pull.json` and `au23-sqlite-copy-2-verified-pull.json`. All main/WAL/SHM files matched before/host/after hashes. Separate analysis copies used SQLite URI `mode=ro` and `PRAGMA query_only=ON`, with nonempty WAL visibility preserved; raw evidence was rehashed unchanged afterward.
+
+`au23-two-snapshot-native-analysis.json` passed all **15 recorded predicates**:
+
+- Both quick checks returned **ok**, with exactly one total/live QSO.
+- UUID **`89837F3B-8A3C-4CC4-804E-6CAA01173C36`**, all **12 stored columns**, both JSON BLOB representations, timestamps and core values are identical between snapshots. The full-row digest in each is `644b486336e4ad71f9b65d5eda97bce80484afb03a7fc2fd7adf97f477a68a30`.
+- Expected contact, reports, edited Comment and station defaults match. Indexed/JSON IDs and Swift/Unix date representations agree. Update time is **17:20:36.103577 UTC**.
+- Both settings payloads and rotor configurations semantically match the preserved AU22 baseline; sync-target revision remains **0**.
+
+Independent review confirmed the actual exact schema names, dirty/deletion/remote-ID consistency and presence of all three raw files. These extra observations were review findings, not additional pre-existing automated predicates. It also identified a future-reuse guard improvement: the analysis reader should require equality of captured and metadata file-name sets. The current captures each contain the complete three-file set, so the result is unaffected.
+
+Analysis report SHA-256: **`6d1d571f8d88d8089d5c0faaeaadc780b431592cef7dfa8388a5a17b99800a23`**. The second verified pull receipt SHA-256 is `be168e9afc3ff381b5351cdce54710b14d9970f06b156515e22a1a49bde522c0`.
+
+The UUID was already assigned to the AU22 unsaved draft; AU22 contained **zero saved contacts**. This proves settings retention across the upgrade and a newly saved/edited contact's exact restart persistence. It does not prove nonempty contact/media retention across AU22→AU23. Current radio/session selection lives in separate Roaming JSON and is outside these SQLite captures; the radio UI readback is separate evidence.
+
+### Normal Close and independent cleanup
+
+| Close action | Host/worker query | Independent profile/port query | Hamlib query |
+| --- | --- | --- | --- |
+| Title-bar Close **17:23:40** | **17:23:44–46**, zero candidates | **17:24:14**, zero app/profile WebViews/unresolved rows and port 9222 listeners | **17:24:17**, zero helpers/unresolved rows |
+| Title-bar Close **17:34:39** | **17:34:42–43**, zero candidates | **17:34:45–46**, zero app/profile WebViews/unresolved rows and port 9222 listeners | **17:34:49**, zero helpers/unresolved rows |
+
+Queries completed successfully and used profile-path attribution independently of a live host. They were sequential bounded observations, not a simultaneous census, universal immediate-drain proof or ordinary worker-EOF-mechanism proof. No force-stop was used. Existing PowerShell stayed open; captured application views showed no additional persistent helper console, without an exhaustive fleeting-window census.
+
+### New ordinary UI findings and disposition
+
+The constrained full QSO editor overlays all five panels. A real-browser regression independently reproduced the **1008 px viewport / 768 px canvas** mismatch: React entered compact mode using canvas width, while CSS kept absolute positioning because viewport width exceeded 940 px. Source correction **`f2c73eb190758177f62d764d01086745e7ccf79a`** moves compact structural rules outside the viewport query. The same test fails before and passes after; wide, narrow and restored-wide cases pass and stored layout is unchanged. That correction is outside the installed S23 package.
+
+World Map displays a contained **WebGL2-unavailable** error, with the rest of the application usable. Its absolute toolbar covers the error paragraph, making the message difficult to read. This is a separate presentation defect, not evidence establishing the underlying renderer/driver cause or full graphics qualification. Source correction **`8dee6f6344ff48d9596a81eca516e05f9a6a0bf4`** gives error-state controls and diagnostics separate flowing rows. The same four real-browser geometry scenarios fail before and pass afterward, including wrapped controls, text hit testing/contrast, Heard-me use and compact scrolling; all existing **59/59** focused map tests pass. The healthy-map styling and lifecycle are unchanged, and S23 still contains the old presentation.
+
+**Blank-Desk recovery, compact create/find/edit/reopen, captured settings retention and bounded cleanup pass on this ordinary VM. Overall GUI and release acceptance remain OPEN; S23 remains HELD.** A newer package must qualify both presentation corrections against this now nonempty one-contact profile. Fresh ordinary onboarding, true Standard/native-x64 desktop, full restore/media, physical station IO, original ~7 GB attribution, measured idle-CPU improvement and other remaining quality gates are unchanged. UTM remains running; the daily Mac 1.5.15 and public release are unchanged.
+
+
+### Verified nonempty profile baseline for the next candidate
+
+After the second ordinary close, a new full profile archive completed at 17:47 UTC and its host copy verified at 17:49 UTC. `AU23-before-AU24-profile-20261106T174603Z-edf0d3bf.zip` is **47,393,711 bytes**, SHA-256 **`2ef2edd740534e25e0f17d7f2deb53a958222a00f1726c77164ee53b898712c6`**. Every one of **438 manifest files / 67,692,424 source bytes** matched. Its SQLite/WAL/SHM hashes equal the accepted second closed snapshot, preserving the one-contact baseline before the next upgrade. This is an application-profile backup, not a full VM image or restore test.
+
+This later archive also captures the native radio files excluded from the SQLite analysis. `station-session-radio1.json` and `radio-selection-radio1.json` match the original AU22 bytes and decoded JSON exactly: saved managed Hamlib Dummy/model 1, dummy/9600 and enabled profile; the passive `direct_agent` selection remains unchanged. This is separate retention evidence, not a connection test. The host-copy receipt is `au23-before-au24-profile-host-copy.json` (SHA-256 `603db3dfd6dfd62befbb600448a27c823b46428513425f1ecd4ca0dd73e788b7`); `au23-radio-json-retention.json` records the two comparisons. The original AU22 failing-profile archive remains retained separately.
