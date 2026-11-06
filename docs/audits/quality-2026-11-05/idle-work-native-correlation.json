@@ -1,0 +1,1638 @@
+{
+  "schema": 1,
+  "status": "bounded-development-comparison-complete-no-native-cpu-benefit-demonstrated",
+  "applicationSource": "16c1b6f8a6959c6eea5940605a754e1122dbd997",
+  "checkoutSource": "795f77c2a48302fda632b6e7434f9e511423fb55",
+  "hostSHA256": "3ec30e14710c02e434c1d9767b80a5ddf32bd3c7bf690db9daf111628fb3cddb",
+  "workerSHA256": "d8aa0ac2b007e93d7342c3bd35a9a7fb7b2b5ba017428b42787622996d92632f",
+  "kind": "proper-development-app-fixture-with-vite-observer-not-release",
+  "followContextClarification": "Operator-draft Follow was disabled; the distinct band-map Follow radio checkbox remained checked.",
+  "separateHookDiagnostic": {
+    "scope": "real-React-hook-only; not native CPU",
+    "intervalMs": 30000,
+    "initialMountCommitsExcluded": true,
+    "before": {
+      "dispatches": {
+        "cw_session_request": 41,
+        "operator_draft_follow_snapshot": 21,
+        "auto_rotor_snapshot": 21,
+        "spot_activation_snapshot": 42
+      },
+      "completions": 125,
+      "subsequentCommits": {
+        "cw": 40,
+        "follow": 20,
+        "rotor": 20,
+        "activate_spot": 20,
+        "activate_opportunity": 20
+      }
+    },
+    "after": {
+      "dispatches": {
+        "cw_session_request": 41,
+        "operator_draft_follow_snapshot": 21,
+        "auto_rotor_snapshot": 21,
+        "spot_activation_snapshot": 42
+      },
+      "completions": 125,
+      "subsequentCommits": {
+        "cw": 40,
+        "follow": 20,
+        "rotor": 20,
+        "activate_spot": 0,
+        "activate_opportunity": 0
+      }
+    },
+    "both": {
+      "liveTimers": 5,
+      "nativeSubscriptions": 5,
+      "nativeWakes": 0,
+      "afterUnmountTimers": 0,
+      "afterUnmountCalls": 0
+    },
+    "correctness": [
+      "idle-error notification and clearing",
+      "native wake",
+      "unresolved operation status plus reconciliation",
+      "late completion after unmount",
+      "CW holder/hidden-holder cadence",
+      "activation and correlated Stop regressions"
+    ],
+    "receiptSHA256": "87c01d7cdc1b34ebd0ee5fb144c4cf7d3cf74d1adf426b70a3847746bfdbcdf3",
+    "validation": {
+      "red": {
+        "tests": 3,
+        "failed": 2,
+        "passed": 1
+      },
+      "green": {
+        "files": 5,
+        "tests": 27,
+        "failed": 0
+      },
+      "typecheck": "PASS"
+    }
+  },
+  "arms": {
+    "before": {
+      "receiptsSHA256": {
+        "initial": "0a78e6b4811f79e6293ed7101735692aa8e1b7b1025cb5e4742a1f741c790afd",
+        "final": "a91d1dd450d73e5c06619f2eac17e9e9a07b6a6d5649cd7a4cbf192f43189d2d",
+        "instrumentation": "6f29d6d4de2abfc306d0f43bd09f65105d1eca6fc3cd7d4226b819570607af7c",
+        "correlation": "16a99e88b80dfbf0546a250f59d333cb7e4f33b2977e2adf2ccd1b0d76ec7b11",
+        "stopped": "fc51c35c72f147d86da64926eb83886240715c00fc765ccf5bc46461532ca68e"
+      },
+      "sourceEvidence": {
+        "checkoutHead": "795f77c2a48302fda632b6e7434f9e511423fb55",
+        "applicationSource": "16c1b6f8a6959c6eea5940605a754e1122dbd997",
+        "reviewedSourceDiffSHA256": "6c1001a533864c9a070be5a10b6dae879e19e005d834a3cfa41a98454d6753a4",
+        "sourceEquivalenceSHA256": "073e745a41f589c0355edb81127166af0c234b1f6877d9530f4da164c7cee8ff",
+        "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "archivedBeforeSource": "230a65047c298881a5e0ae601518af617bce6b8a",
+        "beforeSHA256": "761b6410920a1ce95be90c9e7013ca226b210a7da0c16ea93fee76f45621a818",
+        "afterSHA256": "69df75beb5db3e47a3aae1f839e6ff9dbecf88207867dbf64e54e3635ebada3a",
+        "selectedSHA256": "761b6410920a1ce95be90c9e7013ca226b210a7da0c16ea93fee76f45621a818",
+        "packaged": false,
+        "nativeProfileUnchanged": true
+      },
+      "counterElapsedMs": 120002,
+      "commands": {
+        "unknown": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "plugin:event|listen": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "plugin:event|unlisten": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "operating_module_status": {
+          "dispatch": 199,
+          "completed": 199,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 343,
+          "maxDurationMs": 5
+        },
+        "worker_request": {
+          "dispatch": 199,
+          "completed": 80,
+          "failed": 119,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 444,
+          "maxDurationMs": 89
+        },
+        "cw_session_request": {
+          "dispatch": 158,
+          "completed": 158,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 392,
+          "maxDurationMs": 21
+        },
+        "spot_activation_snapshot": {
+          "dispatch": 240,
+          "completed": 240,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 1336,
+          "maxDurationMs": 13
+        },
+        "spot_activation_status": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "spot_activation_reconcile": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "activate_spot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "activate_opportunity": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "supersede_spot_rotor": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "operator_draft_follow_snapshot": {
+          "dispatch": 80,
+          "completed": 80,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 154,
+          "maxDurationMs": 4
+        },
+        "operator_draft_follow_set": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "auto_rotor_snapshot": {
+          "dispatch": 80,
+          "completed": 0,
+          "failed": 80,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "auto_rotor_set": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "cluster_session_request": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "cluster_session_selection": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "map_context_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "monitor_context_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "station_telemetry_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "station_selection_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "station_status_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "rotor_telemetry_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "workspace_navigation_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "workspace_windows_status": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "normal_command_preferences": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "normal_shortcut_capture": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "station_identity_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "antenna_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "nearby_callsign_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "dx_alerts_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "alerts_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "propagation_session_request": {
+          "dispatch": 2,
+          "completed": 0,
+          "failed": 2,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "contest_recorder_request": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "hm_control_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "hm_control_feed": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        }
+      },
+      "timers": {
+        "unknown": {
+          "created": 1,
+          "fired": 672,
+          "cleared": 0,
+          "active": 13,
+          "untracked": 0
+        },
+        "diagnostic": {
+          "created": 0,
+          "fired": 0,
+          "cleared": 0,
+          "active": 0,
+          "untracked": 0
+        },
+        "LiveApp": {
+          "created": 0,
+          "fired": 238,
+          "cleared": 0,
+          "active": 2,
+          "untracked": 0
+        },
+        "useSharedCW": {
+          "created": 158,
+          "fired": 158,
+          "cleared": 0,
+          "active": 1,
+          "untracked": 0
+        },
+        "useSpotActivation": {
+          "created": 0,
+          "fired": 160,
+          "cleared": 0,
+          "active": 2,
+          "untracked": 0
+        },
+        "useAutoRotor": {
+          "created": 0,
+          "fired": 80,
+          "cleared": 0,
+          "active": 1,
+          "untracked": 0
+        },
+        "useFollowRadio": {
+          "created": 0,
+          "fired": 80,
+          "cleared": 0,
+          "active": 1,
+          "untracked": 0
+        },
+        "mapContext": {
+          "created": 0,
+          "fired": 0,
+          "cleared": 0,
+          "active": 0,
+          "untracked": 0
+        },
+        "monitorContext": {
+          "created": 0,
+          "fired": 0,
+          "cleared": 0,
+          "active": 0,
+          "untracked": 0
+        },
+        "useMapContext": {
+          "created": 0,
+          "fired": 0,
+          "cleared": 0,
+          "active": 0,
+          "untracked": 0
+        },
+        "useCurrentUTC": {
+          "created": 0,
+          "fired": 120,
+          "cleared": 0,
+          "active": 1,
+          "untracked": 0
+        },
+        "useOwnRbn": {
+          "created": 0,
+          "fired": 0,
+          "cleared": 0,
+          "active": 0,
+          "untracked": 0
+        },
+        "useCallsignLookup": {
+          "created": 0,
+          "fired": 0,
+          "cleared": 0,
+          "active": 0,
+          "untracked": 0
+        },
+        "useCWDecode": {
+          "created": 0,
+          "fired": 0,
+          "cleared": 0,
+          "active": 0,
+          "untracked": 0
+        },
+        "useDeferredPanelReads": {
+          "created": 0,
+          "fired": 0,
+          "cleared": 0,
+          "active": 0,
+          "untracked": 0
+        },
+        "useContestReferences": {
+          "created": 0,
+          "fired": 0,
+          "cleared": 0,
+          "active": 0,
+          "untracked": 0
+        },
+        "workspaceLayoutSession": {
+          "created": 0,
+          "fired": 0,
+          "cleared": 0,
+          "active": 0,
+          "untracked": 0
+        },
+        "operatorDraft": {
+          "created": 0,
+          "fired": 0,
+          "cleared": 0,
+          "active": 0,
+          "untracked": 0
+        },
+        "useWorkspaceLayout": {
+          "created": 0,
+          "fired": 0,
+          "cleared": 0,
+          "active": 0,
+          "untracked": 0
+        }
+      },
+      "tauriEventListeners": {
+        "unknown": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 17,
+          "failed": 0
+        },
+        "xlog:spot-activation": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 3,
+          "failed": 0
+        },
+        "xlog:operator-draft-follow": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 1,
+          "failed": 0
+        },
+        "xlog:auto-rotor": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 1,
+          "failed": 0
+        },
+        "xlog:rotor-telemetry": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 2,
+          "failed": 0
+        },
+        "xlog:station-telemetry": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 2,
+          "failed": 0
+        },
+        "xlog:cluster-projection": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 0,
+          "failed": 0
+        },
+        "xlog:map-context": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 2,
+          "failed": 0
+        },
+        "xlog:monitor-context": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 0,
+          "failed": 0
+        },
+        "xlog:logbook-changed": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 1,
+          "failed": 0
+        },
+        "xlog:operator-draft": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 0,
+          "failed": 0
+        },
+        "xlog:workspace-navigation": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 1,
+          "failed": 0
+        },
+        "xlog:workspace-windows": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 0,
+          "failed": 0
+        },
+        "tauri://focus": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 0,
+          "failed": 0
+        },
+        "tauri://blur": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 0,
+          "failed": 0
+        }
+      },
+      "react": {
+        "commits": 809,
+        "actualDurationMs": 1725,
+        "maxActualDurationMs": 15
+      },
+      "observer": {
+        "calls": 5667,
+        "selfDurationMs": 26,
+        "timerOverflow": 0,
+        "unclassifiedTimers": 1,
+        "visibilityChanges": 0,
+        "focusChanges": 0
+      },
+      "contextBefore": {
+        "visible": true,
+        "focused": true,
+        "operatorDesk": true,
+        "callsignBlank": true,
+        "openDialog": false,
+        "cwArmed": false,
+        "followEnabled": false,
+        "rotorArmed": null,
+        "activationIdle": true
+      },
+      "contextAfter": {
+        "visible": true,
+        "focused": true,
+        "operatorDesk": true,
+        "callsignBlank": true,
+        "openDialog": false,
+        "cwArmed": false,
+        "followEnabled": false,
+        "rotorArmed": null,
+        "activationIdle": true
+      },
+      "contextChanges": {
+        "visibilityChanges": 0,
+        "focusChanges": 0
+      },
+      "processMetrics": [
+        {
+          "role": "host",
+          "intervalNanoseconds": 120085662000,
+          "userNanosecondsDelta": 1384395333,
+          "systemNanosecondsDelta": 344562166,
+          "percentOfOneCore": 1.4397701367545443,
+          "residentBytesBefore": 96911360,
+          "residentBytesAfter": 79347712,
+          "physicalFootprintBytesBefore": 55887072,
+          "physicalFootprintBytesAfter": 55772384,
+          "packageIdleWakeupsDelta": 174,
+          "interruptWakeupsDelta": 8561,
+          "pageinsDelta": 0
+        },
+        {
+          "role": "worker",
+          "intervalNanoseconds": 120085662666,
+          "userNanosecondsDelta": 90327833,
+          "systemNanosecondsDelta": 43664250,
+          "percentOfOneCore": 0.11158041714377516,
+          "residentBytesBefore": 58720256,
+          "residentBytesAfter": 22921216,
+          "physicalFootprintBytesBefore": 83657424,
+          "physicalFootprintBytesAfter": 79905488,
+          "packageIdleWakeupsDelta": 0,
+          "interruptWakeupsDelta": 0,
+          "pageinsDelta": 0
+        }
+      ],
+      "samples": [
+        {
+          "at": "2026-11-05T23:25:26.160071+00:00",
+          "offsetSeconds": 0,
+          "lateBySeconds": 0.0023779869079589844,
+          "roles": {
+            "host": {
+              "available": true,
+              "errno": 0,
+              "stable": true,
+              "userMachTicks": 22574929,
+              "systemMachTicks": 17683427,
+              "residentBytes": 96911360,
+              "physicalFootprintBytes": 55887072,
+              "packageIdleWakeups": 16,
+              "interruptWakeups": 2491,
+              "pageins": 7841
+            },
+            "worker": {
+              "available": true,
+              "errno": 0,
+              "stable": true,
+              "userMachTicks": 75286213,
+              "systemMachTicks": 15867776,
+              "residentBytes": 58720256,
+              "physicalFootprintBytes": 83657424,
+              "packageIdleWakeups": 0,
+              "interruptWakeups": 3,
+              "pageins": 91
+            }
+          }
+        },
+        {
+          "at": "2026-11-05T23:27:26.316254+00:00",
+          "offsetSeconds": 120,
+          "lateBySeconds": 0.00015997886657714844,
+          "roles": {
+            "host": {
+              "available": true,
+              "errno": 0,
+              "stable": true,
+              "userMachTicks": 55800417,
+              "systemMachTicks": 25952919,
+              "residentBytes": 79347712,
+              "physicalFootprintBytes": 55772384,
+              "packageIdleWakeups": 190,
+              "interruptWakeups": 11052,
+              "pageins": 7841
+            },
+            "worker": {
+              "available": true,
+              "errno": 0,
+              "stable": true,
+              "userMachTicks": 77454081,
+              "systemMachTicks": 16915718,
+              "residentBytes": 22921216,
+              "physicalFootprintBytes": 79905488,
+              "packageIdleWakeups": 0,
+              "interruptWakeups": 3,
+              "pageins": 91
+            }
+          }
+        }
+      ],
+      "machTimebase": {
+        "numerator": 125,
+        "denominator": 3
+      },
+      "nativeCPUStartCaptureSkewBoundsSeconds": [
+        0.26070713996887207,
+        0.2636220455169678
+      ],
+      "nativeCPUEndCaptureSkewBoundsSeconds": [
+        0.3447387218475342,
+        0.348207950592041
+      ],
+      "closedFixture": {
+        "integrity": "ok",
+        "physicalRows": 100000,
+        "liveQsoCount": 100000,
+        "orderedStoredQsoSHA256": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+        "sourceMainAndWALUnchanged": true,
+        "finalHeader": [
+          1,
+          1
+        ],
+        "finalNoWALOrSHM": true,
+        "SQLiteRuntimeVersion": "3.53.4",
+        "processesAbsent": true,
+        "ordinaryQuitObservedByRoot": true,
+        "directWorkerExitCode": null,
+        "helperSignals": false
+      }
+    },
+    "after": {
+      "receiptsSHA256": {
+        "initial": "f87936fe0ffe0159a2759725bf1ed0c3bf243f4726b1dcaecf87dce29bb8622c",
+        "final": "8816abcaf112903b8de54dbd1ce0fe2983d53badf9cce59189e571b5e723fb74",
+        "instrumentation": "af1e21fc241fb90c28d052cf542b29e8319830723f124edca6004c0799de7b5f",
+        "correlation": "d7afadf2e39c3d70f7e095d2177087774e7fa738b1b630c724017d8a5bc814d6",
+        "stopped": "3181137e3dc456654b215c78a9213d81f8915b495410f09d11abb1bd59578709"
+      },
+      "sourceEvidence": {
+        "checkoutHead": "795f77c2a48302fda632b6e7434f9e511423fb55",
+        "applicationSource": "16c1b6f8a6959c6eea5940605a754e1122dbd997",
+        "reviewedSourceDiffSHA256": "6c1001a533864c9a070be5a10b6dae879e19e005d834a3cfa41a98454d6753a4",
+        "sourceEquivalenceSHA256": "073e745a41f589c0355edb81127166af0c234b1f6877d9530f4da164c7cee8ff",
+        "trackedDiffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "archivedBeforeSource": "230a65047c298881a5e0ae601518af617bce6b8a",
+        "beforeSHA256": "761b6410920a1ce95be90c9e7013ca226b210a7da0c16ea93fee76f45621a818",
+        "afterSHA256": "69df75beb5db3e47a3aae1f839e6ff9dbecf88207867dbf64e54e3635ebada3a",
+        "selectedSHA256": "69df75beb5db3e47a3aae1f839e6ff9dbecf88207867dbf64e54e3635ebada3a",
+        "packaged": false,
+        "nativeProfileUnchanged": true
+      },
+      "counterElapsedMs": 120001,
+      "commands": {
+        "unknown": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "plugin:event|listen": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "plugin:event|unlisten": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "operating_module_status": {
+          "dispatch": 200,
+          "completed": 200,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 347,
+          "maxDurationMs": 7
+        },
+        "worker_request": {
+          "dispatch": 200,
+          "completed": 80,
+          "failed": 120,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 383,
+          "maxDurationMs": 42
+        },
+        "cw_session_request": {
+          "dispatch": 158,
+          "completed": 158,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 490,
+          "maxDurationMs": 47
+        },
+        "spot_activation_snapshot": {
+          "dispatch": 240,
+          "completed": 240,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 1833,
+          "maxDurationMs": 18
+        },
+        "spot_activation_status": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "spot_activation_reconcile": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "activate_spot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "activate_opportunity": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "supersede_spot_rotor": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "operator_draft_follow_snapshot": {
+          "dispatch": 80,
+          "completed": 80,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 147,
+          "maxDurationMs": 5
+        },
+        "operator_draft_follow_set": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "auto_rotor_snapshot": {
+          "dispatch": 80,
+          "completed": 0,
+          "failed": 80,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "auto_rotor_set": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "cluster_session_request": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "cluster_session_selection": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "map_context_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "monitor_context_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "station_telemetry_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "station_selection_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "station_status_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "rotor_telemetry_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "workspace_navigation_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "workspace_windows_status": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "normal_command_preferences": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "normal_shortcut_capture": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "station_identity_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "antenna_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "nearby_callsign_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "dx_alerts_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "alerts_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "propagation_session_request": {
+          "dispatch": 2,
+          "completed": 0,
+          "failed": 2,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "contest_recorder_request": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "hm_control_snapshot": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        },
+        "hm_control_feed": {
+          "dispatch": 0,
+          "completed": 0,
+          "failed": 0,
+          "inFlight": 0,
+          "boundaryCompletion": 0,
+          "durationMs": 0,
+          "maxDurationMs": 0
+        }
+      },
+      "timers": {
+        "unknown": {
+          "created": 1,
+          "fired": 671,
+          "cleared": 0,
+          "active": 13,
+          "untracked": 0
+        },
+        "diagnostic": {
+          "created": 0,
+          "fired": 0,
+          "cleared": 0,
+          "active": 0,
+          "untracked": 0
+        },
+        "LiveApp": {
+          "created": 0,
+          "fired": 240,
+          "cleared": 0,
+          "active": 2,
+          "untracked": 0
+        },
+        "useSharedCW": {
+          "created": 158,
+          "fired": 158,
+          "cleared": 0,
+          "active": 1,
+          "untracked": 0
+        },
+        "useSpotActivation": {
+          "created": 0,
+          "fired": 160,
+          "cleared": 0,
+          "active": 2,
+          "untracked": 0
+        },
+        "useAutoRotor": {
+          "created": 0,
+          "fired": 80,
+          "cleared": 0,
+          "active": 1,
+          "untracked": 0
+        },
+        "useFollowRadio": {
+          "created": 0,
+          "fired": 80,
+          "cleared": 0,
+          "active": 1,
+          "untracked": 0
+        },
+        "mapContext": {
+          "created": 0,
+          "fired": 0,
+          "cleared": 0,
+          "active": 0,
+          "untracked": 0
+        },
+        "monitorContext": {
+          "created": 0,
+          "fired": 0,
+          "cleared": 0,
+          "active": 0,
+          "untracked": 0
+        },
+        "useMapContext": {
+          "created": 0,
+          "fired": 0,
+          "cleared": 0,
+          "active": 0,
+          "untracked": 0
+        },
+        "useCurrentUTC": {
+          "created": 0,
+          "fired": 119,
+          "cleared": 0,
+          "active": 1,
+          "untracked": 0
+        },
+        "useOwnRbn": {
+          "created": 0,
+          "fired": 0,
+          "cleared": 0,
+          "active": 0,
+          "untracked": 0
+        },
+        "useCallsignLookup": {
+          "created": 0,
+          "fired": 0,
+          "cleared": 0,
+          "active": 0,
+          "untracked": 0
+        },
+        "useCWDecode": {
+          "created": 0,
+          "fired": 0,
+          "cleared": 0,
+          "active": 0,
+          "untracked": 0
+        },
+        "useDeferredPanelReads": {
+          "created": 0,
+          "fired": 0,
+          "cleared": 0,
+          "active": 0,
+          "untracked": 0
+        },
+        "useContestReferences": {
+          "created": 0,
+          "fired": 0,
+          "cleared": 0,
+          "active": 0,
+          "untracked": 0
+        },
+        "workspaceLayoutSession": {
+          "created": 0,
+          "fired": 0,
+          "cleared": 0,
+          "active": 0,
+          "untracked": 0
+        },
+        "operatorDraft": {
+          "created": 0,
+          "fired": 0,
+          "cleared": 0,
+          "active": 0,
+          "untracked": 0
+        },
+        "useWorkspaceLayout": {
+          "created": 0,
+          "fired": 0,
+          "cleared": 0,
+          "active": 0,
+          "untracked": 0
+        }
+      },
+      "tauriEventListeners": {
+        "unknown": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 17,
+          "failed": 0
+        },
+        "xlog:spot-activation": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 3,
+          "failed": 0
+        },
+        "xlog:operator-draft-follow": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 1,
+          "failed": 0
+        },
+        "xlog:auto-rotor": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 1,
+          "failed": 0
+        },
+        "xlog:rotor-telemetry": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 2,
+          "failed": 0
+        },
+        "xlog:station-telemetry": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 2,
+          "failed": 0
+        },
+        "xlog:cluster-projection": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 0,
+          "failed": 0
+        },
+        "xlog:map-context": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 2,
+          "failed": 0
+        },
+        "xlog:monitor-context": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 0,
+          "failed": 0
+        },
+        "xlog:logbook-changed": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 1,
+          "failed": 0
+        },
+        "xlog:operator-draft": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 0,
+          "failed": 0
+        },
+        "xlog:workspace-navigation": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 1,
+          "failed": 0
+        },
+        "xlog:workspace-windows": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 0,
+          "failed": 0
+        },
+        "tauri://focus": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 0,
+          "failed": 0
+        },
+        "tauri://blur": {
+          "installed": 0,
+          "wakes": 0,
+          "disposed": 0,
+          "active": 0,
+          "failed": 0
+        }
+      },
+      "react": {
+        "commits": 646,
+        "actualDurationMs": 1489,
+        "maxActualDurationMs": 12
+      },
+      "observer": {
+        "calls": 5510,
+        "selfDurationMs": 27,
+        "timerOverflow": 0,
+        "unclassifiedTimers": 1,
+        "visibilityChanges": 0,
+        "focusChanges": 0
+      },
+      "contextBefore": {
+        "visible": true,
+        "focused": true,
+        "operatorDesk": true,
+        "callsignBlank": true,
+        "openDialog": false,
+        "cwArmed": false,
+        "followEnabled": false,
+        "rotorArmed": null,
+        "activationIdle": true
+      },
+      "contextAfter": {
+        "visible": true,
+        "focused": true,
+        "operatorDesk": true,
+        "callsignBlank": true,
+        "openDialog": false,
+        "cwArmed": false,
+        "followEnabled": false,
+        "rotorArmed": null,
+        "activationIdle": true
+      },
+      "contextChanges": {
+        "visibilityChanges": 0,
+        "focusChanges": 0
+      },
+      "processMetrics": [
+        {
+          "role": "host",
+          "intervalNanoseconds": 119936270833,
+          "userNanosecondsDelta": 1443497208,
+          "systemNanosecondsDelta": 357204583,
+          "percentOfOneCore": 1.5013821750127367,
+          "residentBytesBefore": 115376128,
+          "residentBytesAfter": 79347712,
+          "physicalFootprintBytesBefore": 55592208,
+          "physicalFootprintBytesAfter": 55657744,
+          "packageIdleWakeupsDelta": 175,
+          "interruptWakeupsDelta": 8383,
+          "pageinsDelta": 0
+        },
+        {
+          "role": "worker",
+          "intervalNanoseconds": 119936270041,
+          "userNanosecondsDelta": 97381958,
+          "systemNanosecondsDelta": 45672375,
+          "percentOfOneCore": 0.11927528952137273,
+          "residentBytesBefore": 23314432,
+          "residentBytesAfter": 22429696,
+          "physicalFootprintBytesBefore": 79921872,
+          "physicalFootprintBytesAfter": 79921872,
+          "packageIdleWakeupsDelta": 0,
+          "interruptWakeupsDelta": 0,
+          "pageinsDelta": 0
+        }
+      ],
+      "samples": [
+        {
+          "at": "2026-11-05T23:29:30.266195+00:00",
+          "offsetSeconds": 0,
+          "lateBySeconds": 0.003059864044189453,
+          "roles": {
+            "host": {
+              "available": true,
+              "errno": 0,
+              "stable": true,
+              "userMachTicks": 26893087,
+              "systemMachTicks": 18019709,
+              "residentBytes": 115376128,
+              "physicalFootprintBytes": 55592208,
+              "packageIdleWakeups": 32,
+              "interruptWakeups": 3590,
+              "pageins": 7807
+            },
+            "worker": {
+              "available": true,
+              "errno": 0,
+              "stable": true,
+              "userMachTicks": 76716563,
+              "systemMachTicks": 17927766,
+              "residentBytes": 23314432,
+              "physicalFootprintBytes": 79921872,
+              "packageIdleWakeups": 0,
+              "interruptWakeups": 4,
+              "pageins": 213
+            }
+          }
+        },
+        {
+          "at": "2026-11-05T23:31:29.741212+00:00",
+          "offsetSeconds": 120,
+          "lateBySeconds": 0.005134105682373047,
+          "roles": {
+            "host": {
+              "available": true,
+              "errno": 0,
+              "stable": true,
+              "userMachTicks": 61537020,
+              "systemMachTicks": 26592619,
+              "residentBytes": 79347712,
+              "physicalFootprintBytes": 55657744,
+              "packageIdleWakeups": 207,
+              "interruptWakeups": 11973,
+              "pageins": 7807
+            },
+            "worker": {
+              "available": true,
+              "errno": 0,
+              "stable": true,
+              "userMachTicks": 79053730,
+              "systemMachTicks": 19023903,
+              "residentBytes": 22429696,
+              "physicalFootprintBytes": 79921872,
+              "packageIdleWakeups": 0,
+              "interruptWakeups": 4,
+              "pageins": 213
+            }
+          }
+        }
+      ],
+      "machTimebase": {
+        "numerator": 125,
+        "denominator": 3
+      },
+      "nativeCPUStartCaptureSkewBoundsSeconds": [
+        0.3292107582092285,
+        0.3333890438079834
+      ],
+      "nativeCPUEndCaptureSkewBoundsSeconds": [
+        0.2651059627532959,
+        0.2692549228668213
+      ],
+      "closedFixture": {
+        "integrity": "ok",
+        "physicalRows": 100000,
+        "liveQsoCount": 100000,
+        "orderedStoredQsoSHA256": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+        "sourceMainAndWALUnchanged": true,
+        "finalHeader": [
+          1,
+          1
+        ],
+        "finalNoWALOrSHM": true,
+        "SQLiteRuntimeVersion": "3.53.4",
+        "processesAbsent": true,
+        "ordinaryQuitObservedByRoot": true,
+        "directWorkerExitCode": null,
+        "helperSignals": false
+      }
+    }
+  },
+  "conclusions": {
+    "spotSnapshotIPCDispatch": {
+      "before": 240,
+      "after": 240
+    },
+    "reactCommits": {
+      "before": 809,
+      "after": 646
+    },
+    "nativeCPUImprovementDemonstrated": false,
+    "wholeAppTotal": null,
+    "sharedHelpers": "unattributed-not-probed",
+    "sessionSubscriberNotifyCounts": "not-observed-by-this-native-observer; Tauri event listener counts are separate"
+  },
+  "preservedEarlierFailures": [
+    {
+      "case": "raw-development-fixture",
+      "result": "UI binding unavailable; root requested ordinary Quit before the interval ended and the user complied; final CPU sample missing; interval incomplete; separate stored-QSO verification passed"
+    },
+    {
+      "case": "proper-app-first-attempt",
+      "result": "controller background timeout set to one second; collector terminated before native sample pair; no CPU pass"
+    }
+  ],
+  "limits": [
+    "One sequential 120-second observation per arm; no replication or causal native CPU attribution.",
+    "Same development host/worker and generated 100k data; before renderer swaps only archived spotActivationClient module. This is not signed 1.5.21 or a whole-app budget.",
+    "Instrumented React/Vite/debug build; observer self-duration counters exclude unmeasured wrapper/transport and profiler overhead.",
+    "Frontend context was visible/focused at both boundaries with zero observed visibility/focus changes; this does not independently establish continuous OS foreground ownership.",
+    "Root reports VM paused during both intervals; no independent continuous system-load measurement.",
+    "Worker-request errors and all automatic-rotor snapshot errors belong to the offline acceptance context; no connected station qualification.",
+    "Command durations are asynchronous wall time, not process CPU; native and frontend windows have retained nonzero capture skew.",
+    "RSS and physical footprint remain separate; shared WebKit helpers were not attributed or summed.",
+    "Ordinary Quit and process absence verified; no held child handle remains to measure actual worker exit status.",
+    "No network, station output, production data, profiler, or broad stress campaign was used by this comparison."
+  ]
+}

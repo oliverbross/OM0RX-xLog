@@ -1,0 +1,506 @@
+{
+  "schema": 1,
+  "status": "two-bounded-development-native-controls-observed; observer-campaigns-partial",
+  "applicationSource": "16c1b6f8a6959c6eea5940605a754e1122dbd997",
+  "checkoutSource": "795f77c2a48302fda632b6e7434f9e511423fb55",
+  "kind": "proper-development-app-fixture-with-vite-transfer-observer-not-release",
+  "hostSHA256": "3ec30e14710c02e434c1d9767b80a5ddf32bd3c7bf690db9daf111628fb3cddb",
+  "workerSHA256": "d8aa0ac2b007e93d7342c3bd35a9a7fb7b2b5ba017428b42787622996d92632f",
+  "importInput": {
+    "bytes": 76,
+    "sha256": "57e8b846f637770da8b20f5e3a7cff8cdff58f19a3c73d3b37d32187a6107f2a"
+  },
+  "cases": {
+    "importCancel": {
+      "status": "individual-native-control-and-matching-retirement-observed",
+      "inspectedAtUTC": "2026-11-05T23:52:20.820339+00:00",
+      "observerCapture": {
+        "batch": 5,
+        "sequence": 5,
+        "ended": false
+      },
+      "trustedControlCount": 1,
+      "droppedEvents": 0,
+      "events": [
+        {
+          "sequence": 1,
+          "call": 1,
+          "elapsedMs": 265623,
+          "kind": "dispatch",
+          "method": "import",
+          "action": "preview",
+          "owner": null,
+          "matchesObservedBegin": null,
+          "workerOK": null,
+          "retired": null,
+          "ownerRPCsInFlight": null,
+          "unattributedMethodRPCsInFlight": 1,
+          "precedingControlSequence": null,
+          "control": null,
+          "trusted": null
+        },
+        {
+          "sequence": 2,
+          "call": 1,
+          "elapsedMs": 274364,
+          "kind": "reply",
+          "method": "import",
+          "action": "preview",
+          "owner": "import-1",
+          "matchesObservedBegin": null,
+          "workerOK": true,
+          "retired": null,
+          "ownerRPCsInFlight": 0,
+          "unattributedMethodRPCsInFlight": 0,
+          "precedingControlSequence": null,
+          "control": null,
+          "trusted": null
+        },
+        {
+          "sequence": 3,
+          "call": null,
+          "elapsedMs": 335425,
+          "kind": "control",
+          "method": "import",
+          "action": null,
+          "owner": null,
+          "matchesObservedBegin": null,
+          "workerOK": null,
+          "retired": null,
+          "ownerRPCsInFlight": null,
+          "unattributedMethodRPCsInFlight": null,
+          "precedingControlSequence": null,
+          "control": "cancel-import",
+          "trusted": true
+        },
+        {
+          "sequence": 4,
+          "call": 2,
+          "elapsedMs": 335433,
+          "kind": "dispatch",
+          "method": "import",
+          "action": "retire",
+          "owner": "import-1",
+          "matchesObservedBegin": true,
+          "workerOK": null,
+          "retired": null,
+          "ownerRPCsInFlight": 0,
+          "unattributedMethodRPCsInFlight": 0,
+          "precedingControlSequence": 3,
+          "control": null,
+          "trusted": null
+        },
+        {
+          "sequence": 5,
+          "call": 2,
+          "elapsedMs": 336017,
+          "kind": "reply",
+          "method": "import",
+          "action": "retire",
+          "owner": "import-1",
+          "matchesObservedBegin": true,
+          "workerOK": true,
+          "retired": true,
+          "ownerRPCsInFlight": 0,
+          "unattributedMethodRPCsInFlight": 0,
+          "precedingControlSequence": 3,
+          "control": null,
+          "trusted": null
+        }
+      ],
+      "matchingRetirementReplies": [
+        {
+          "sequence": 5,
+          "owner": "import-1",
+          "matchesObservedBegin": true,
+          "workerOK": true,
+          "retired": true,
+          "ownerRPCsInFlight": 0,
+          "unattributedMethodRPCsInFlight": 0,
+          "precedingControlSequence": 3
+        }
+      ],
+      "frontendAllUsersDrained": "UNKNOWN",
+      "temporalLinkIsCausalProof": false,
+      "rootNativeObservation": "Selected the76-byte synthetic ADIF; review showed1validated contact and0duplicates. Actual Cancel import removed the review controls;100000contacts remained. Confirm was never used.",
+      "rootOrdinaryQuitAfterInspect": true,
+      "exactHostWorkerPrivateRootProofRecordedBeforeUI": true,
+      "componentSourceEvidence": {
+        "source": "795f77c2a48302fda632b6e7434f9e511423fb55",
+        "applicationSource": "16c1b6f8a6959c6eea5940605a754e1122dbd997",
+        "reviewedSourceDiffSHA256": "6c1001a533864c9a070be5a10b6dae879e19e005d834a3cfa41a98454d6753a4",
+        "preparationSHA256": "62beb49b30926805d4de69c0d00c078de0ced4791385c9dec261678c76916c25",
+        "mode": "transfer-ui-only-not-cpu",
+        "packaged": false,
+        "productSourceTransform": false,
+        "maxEvents": 256,
+        "maxOwners": 16,
+        "maxDurationMs": 600000
+      },
+      "storedData": {
+        "liveQsoCount": 100000,
+        "physicalQsoRows": 100000,
+        "integrity": "ok",
+        "allStoredQsoColumns": [
+          "local_id",
+          "wavelog_id",
+          "call",
+          "qso_start",
+          "band",
+          "mode",
+          "frequency_hz",
+          "is_dirty",
+          "deleted_at",
+          "updated_at",
+          "record_json",
+          "baseline_json"
+        ],
+        "beforeOrderedStoredQsoSHA256": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+        "afterOrderedStoredQsoSHA256": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+        "finalClosedBackupSHA256": "e2b43ea20d7d9edede5a65425dfaf3c567bb4d2b91b25797fd370d5664796989",
+        "finalClosedBackupBytes": 196788224,
+        "sourceMainAndWALUnchangedDuringRead": true,
+        "finalHeader": [
+          1,
+          1
+        ],
+        "finalNoWALOrSHM": true,
+        "SQLiteRuntimeVersion": "3.53.4",
+        "physicalEqualityAcrossAppLifetimeClaimed": false
+      },
+      "shutdown": {
+        "processesAbsent": true,
+        "rootOrdinaryQuit": true,
+        "measuredAppOwnedWorkerExitCode": null,
+        "appOrWorkerSignals": false,
+        "observerOwnedPopenTERMExitCode": 143,
+        "observerLoopbackListenerAbsent": true
+      },
+      "privateReceiptsSHA256": {
+        "manifest": "57c29d391f1d723c054dcc985f18979e1ef5fdb0472e4ef3b4f1ecbd634a0b41",
+        "inspection": "3f45f2a4c00e37209b08d8d70f4d9c0393d9cb4cc292c2311c789929c1c7ba27",
+        "stopped": "ae026d7c577890a88aa94aa901a122379add5eea03466d25f5e0e8b9576d0707",
+        "launch": "8a271317d31f97b2422df18c06b0720390bd4ba2bf3c3a13fdff24285cd374a3",
+        "instrumentation": "889a119106744b4273c7c4d8bf321bc98b67974a1a2e7fffe03b732c78427c80",
+        "serverStopped": "5dcf7a99675fb2e514e6934d4c9c4f8c035124a2d09ddee49a46fbb7f2ed9eea"
+      },
+      "batchHashes": [
+        {
+          "batch": 1,
+          "sha256": "22434f856804108d4539873b5b2b6e170215ade9e5eace7d1eea998a91626e66"
+        },
+        {
+          "batch": 2,
+          "sha256": "164ef9d0b1a3e604b529477ce6956cf55f90792fe9f4b34ae824605dbbc1081d"
+        },
+        {
+          "batch": 3,
+          "sha256": "6049a3370f4ac7163a5ccad233c7137bf2a6032c95d3b7ec01d39f7b126e955f"
+        },
+        {
+          "batch": 4,
+          "sha256": "7e6f42cc5e519b7a408c427faab4c779e9e5aedadd3d01599114bec8680baebb"
+        },
+        {
+          "batch": 5,
+          "sha256": "e200c6f1f15b8c9f0adeef58bfc9dea4bed256a876d6ccc2d5c000bc7553faf4"
+        }
+      ]
+    },
+    "potaClose": {
+      "status": "individual-native-control-and-matching-retirement-observed",
+      "inspectedAtUTC": "2026-11-05T23:59:42.350759+00:00",
+      "observerCapture": {
+        "batch": 8,
+        "sequence": 9,
+        "ended": false
+      },
+      "trustedControlCount": 1,
+      "droppedEvents": 0,
+      "events": [
+        {
+          "sequence": 1,
+          "call": 1,
+          "elapsedMs": 184277,
+          "kind": "dispatch",
+          "method": "export",
+          "action": "begin",
+          "owner": null,
+          "matchesObservedBegin": null,
+          "workerOK": null,
+          "retired": null,
+          "ownerRPCsInFlight": null,
+          "unattributedMethodRPCsInFlight": 1,
+          "precedingControlSequence": null,
+          "control": null,
+          "trusted": null
+        },
+        {
+          "sequence": 2,
+          "call": 1,
+          "elapsedMs": 184411,
+          "kind": "reply",
+          "method": "export",
+          "action": "begin",
+          "owner": "export-1",
+          "matchesObservedBegin": null,
+          "workerOK": true,
+          "retired": null,
+          "ownerRPCsInFlight": 0,
+          "unattributedMethodRPCsInFlight": 0,
+          "precedingControlSequence": null,
+          "control": null,
+          "trusted": null
+        },
+        {
+          "sequence": 3,
+          "call": 2,
+          "elapsedMs": 184416,
+          "kind": "dispatch",
+          "method": "export",
+          "action": "pota_preview",
+          "owner": "export-1",
+          "matchesObservedBegin": null,
+          "workerOK": null,
+          "retired": null,
+          "ownerRPCsInFlight": 1,
+          "unattributedMethodRPCsInFlight": 0,
+          "precedingControlSequence": null,
+          "control": null,
+          "trusted": null
+        },
+        {
+          "sequence": 4,
+          "call": 2,
+          "elapsedMs": 184437,
+          "kind": "reply",
+          "method": "export",
+          "action": "pota_preview",
+          "owner": "export-1",
+          "matchesObservedBegin": null,
+          "workerOK": true,
+          "retired": null,
+          "ownerRPCsInFlight": 0,
+          "unattributedMethodRPCsInFlight": 0,
+          "precedingControlSequence": null,
+          "control": null,
+          "trusted": null
+        },
+        {
+          "sequence": 5,
+          "call": 3,
+          "elapsedMs": 184440,
+          "kind": "dispatch",
+          "method": "export",
+          "action": "pota_files",
+          "owner": "export-1",
+          "matchesObservedBegin": null,
+          "workerOK": null,
+          "retired": null,
+          "ownerRPCsInFlight": 1,
+          "unattributedMethodRPCsInFlight": 0,
+          "precedingControlSequence": null,
+          "control": null,
+          "trusted": null
+        },
+        {
+          "sequence": 6,
+          "call": 3,
+          "elapsedMs": 184446,
+          "kind": "reply",
+          "method": "export",
+          "action": "pota_files",
+          "owner": "export-1",
+          "matchesObservedBegin": null,
+          "workerOK": true,
+          "retired": null,
+          "ownerRPCsInFlight": 0,
+          "unattributedMethodRPCsInFlight": 0,
+          "precedingControlSequence": null,
+          "control": null,
+          "trusted": null
+        },
+        {
+          "sequence": 7,
+          "call": null,
+          "elapsedMs": 236019,
+          "kind": "control",
+          "method": "export",
+          "action": null,
+          "owner": null,
+          "matchesObservedBegin": null,
+          "workerOK": null,
+          "retired": null,
+          "ownerRPCsInFlight": null,
+          "unattributedMethodRPCsInFlight": null,
+          "precedingControlSequence": null,
+          "control": "close-pota",
+          "trusted": true
+        },
+        {
+          "sequence": 8,
+          "call": 4,
+          "elapsedMs": 236029,
+          "kind": "dispatch",
+          "method": "export",
+          "action": "retire",
+          "owner": "export-1",
+          "matchesObservedBegin": true,
+          "workerOK": null,
+          "retired": null,
+          "ownerRPCsInFlight": 0,
+          "unattributedMethodRPCsInFlight": 0,
+          "precedingControlSequence": 7,
+          "control": null,
+          "trusted": null
+        },
+        {
+          "sequence": 9,
+          "call": 4,
+          "elapsedMs": 236056,
+          "kind": "reply",
+          "method": "export",
+          "action": "retire",
+          "owner": "export-1",
+          "matchesObservedBegin": true,
+          "workerOK": true,
+          "retired": true,
+          "ownerRPCsInFlight": 0,
+          "unattributedMethodRPCsInFlight": 0,
+          "precedingControlSequence": 7,
+          "control": null,
+          "trusted": null
+        }
+      ],
+      "matchingRetirementReplies": [
+        {
+          "sequence": 9,
+          "owner": "export-1",
+          "matchesObservedBegin": true,
+          "workerOK": true,
+          "retired": true,
+          "ownerRPCsInFlight": 0,
+          "unattributedMethodRPCsInFlight": 0,
+          "precedingControlSequence": 7
+        }
+      ],
+      "frontendAllUsersDrained": "UNKNOWN",
+      "temporalLinkIsCausalProof": false,
+      "rootNativeObservation": "Frozen POTA preview showed2physical contacts,2included contacts,12derived records and2files. Actual enabled Close POTA export removed the dialog. Save, a native chooser and export-file publication were not used.",
+      "rootOrdinaryQuitAfterInspect": true,
+      "exactHostWorkerPrivateRootProofRecordedBeforeUI": true,
+      "componentSourceEvidence": {
+        "source": "795f77c2a48302fda632b6e7434f9e511423fb55",
+        "applicationSource": "16c1b6f8a6959c6eea5940605a754e1122dbd997",
+        "reviewedSourceDiffSHA256": "6c1001a533864c9a070be5a10b6dae879e19e005d834a3cfa41a98454d6753a4",
+        "preparationSHA256": "62beb49b30926805d4de69c0d00c078de0ced4791385c9dec261678c76916c25",
+        "mode": "transfer-ui-only-not-cpu",
+        "packaged": false,
+        "productSourceTransform": false,
+        "maxEvents": 256,
+        "maxOwners": 16,
+        "maxDurationMs": 600000
+      },
+      "storedData": {
+        "liveQsoCount": 2,
+        "physicalQsoRows": 2,
+        "integrity": "ok",
+        "allStoredQsoColumns": [
+          "local_id",
+          "wavelog_id",
+          "call",
+          "qso_start",
+          "band",
+          "mode",
+          "frequency_hz",
+          "is_dirty",
+          "deleted_at",
+          "updated_at",
+          "record_json",
+          "baseline_json"
+        ],
+        "beforeOrderedStoredQsoSHA256": "4b73f9a52f96186b5bbac6080596d96b70ac11a0288de589e49de89574a1f072",
+        "afterOrderedStoredQsoSHA256": "4b73f9a52f96186b5bbac6080596d96b70ac11a0288de589e49de89574a1f072",
+        "finalClosedBackupSHA256": "9f5b6c834a10a60913326d4ed0cc22c768f1c370b6ff67eb59c78be5ed3e15dc",
+        "finalClosedBackupBytes": 659456,
+        "sourceMainAndWALUnchangedDuringRead": true,
+        "finalHeader": [
+          1,
+          1
+        ],
+        "finalNoWALOrSHM": true,
+        "SQLiteRuntimeVersion": "3.53.4",
+        "physicalEqualityAcrossAppLifetimeClaimed": false
+      },
+      "shutdown": {
+        "processesAbsent": true,
+        "rootOrdinaryQuit": true,
+        "measuredAppOwnedWorkerExitCode": null,
+        "appOrWorkerSignals": false,
+        "observerOwnedPopenTERMExitCode": 143,
+        "observerLoopbackListenerAbsent": true
+      },
+      "privateReceiptsSHA256": {
+        "manifest": "39d517a81c3102d2ac662da75f82d8048c84b3e6ab01a1d79da2680e1ea41977",
+        "inspection": "33026787ecaa7eb608f93634e32cf6510faef41ebe590bf593c8c1b2608c2581",
+        "stopped": "f9f26cf68f3f52f2db3447015c8fbb23e8330da59afc85391df0784ad6717946",
+        "launch": "ae00094a884aba41d2723feaa46329f706dddf18d04d3751a3e68ad6778c88e9",
+        "instrumentation": "889a119106744b4273c7c4d8bf321bc98b67974a1a2e7fffe03b732c78427c80",
+        "serverStopped": "e371402a4fcb506e4e8b94590a1dadbc9ffa253b2a1cab37af1710a9663f4431"
+      },
+      "batchHashes": [
+        {
+          "batch": 1,
+          "sha256": "36d19142072c0197a612267620e302743a549852e79d329649d371657a28009b"
+        },
+        {
+          "batch": 2,
+          "sha256": "007c72d91b7411bd2a8bc249db169a6d853f1ffeae37ad25d213252faf79ef5d"
+        },
+        {
+          "batch": 3,
+          "sha256": "63e550be439da15e93dd48a9245c749e1fc2afda1cd5bca12e040b789936d10f"
+        },
+        {
+          "batch": 4,
+          "sha256": "cdbfdfa7217eb34b9e5571082456844729496b998fc27e7cfd9a9cfcd6e2fab0"
+        },
+        {
+          "batch": 5,
+          "sha256": "dda4ad45948e66cc2afa936b0ad6fa29db47ad0149e764735b3377469acbbbd5"
+        },
+        {
+          "batch": 6,
+          "sha256": "8d3318697a8f7b92632861f8bae28d3b29c48ebf1373ecfab9bd58821c6bc1a6"
+        },
+        {
+          "batch": 7,
+          "sha256": "13a30bd1415ef750f519c79eef9003e626717387f752d9ecbff4b09d9fa0f1da"
+        },
+        {
+          "batch": 8,
+          "sha256": "d57437208e8caff390248d046f707960731aae03c4fdc021e33dc932f6357cdf"
+        }
+      ]
+    }
+  },
+  "helperSHA256": {
+    "importController": "424dc5bfa6e648331684b6e776b97476e149a2afff41d207a7dab60afa0459a0",
+    "potaController": "5787638d80f4c18519421e4dddae01da61b7d901dbe827393eb6c54388b94b97",
+    "potaCase": "3bdd8efaa7c7d4215acc8d3c52b262651b5e1d515aba9037fea628f1766ee069",
+    "observer": "a3af0e7a2b5642a2738254c1849ba9500235417be772541c523cdd838c530fdb",
+    "runtime": "17617c3094903446588c947478828619995ab59aac90773b152d3f99c8e93f04",
+    "properAppHelper": "3543a1091aae5f28cbac0c3d9a699ca832d3b420c12727931feb3e2663dc3e06",
+    "snapshotAndSetupClient": "d3a1d0ec1549f66c87a407db488e3b411063ce7b28323e521ddf1df338d8a7e9"
+  },
+  "limits": [
+    "Two individual native controls were captured before ordinary Quit; neither600000ms observer campaign reached its ended marker. No complete campaign pass is claimed.",
+    "A trusted control preceded an observed matching-token/generation successful retirement reply within the observer temporal window; this is not causal proof or proof that every frontend async user had drained.",
+    "Zero observed owner/unattributed RPC-use counters cover this wrapper only. Raw tokens and generation coordinates were compared in memory, never published.",
+    "Retirement acceptance is not an allocation measurement. Actual live-allocation release/automatic expiry and replacement are measured separately by the focused worker lifetime correction report.",
+    "This is source16 development host/worker with source795 equivalent application inputs and a transfer-only Vite observer. No packaged candidate or production app qualification is claimed.",
+    "No memory, CPU, connected station, network upload, equipment, native Save/chooser or published export-file qualification is supplied by these checks.",
+    "No direct child wait handle remained for the app-owned worker. Ordinary Quit plus process absence does not supply its actual exit code.",
+    "Read-only WAL-aware backup is normalized only in a diagnostic destination, then copied as a closed MAIN-only file for normal read-only integrity/hash. No immutable reads or source checkpoint/PRAGMA tuning."
+  ]
+}

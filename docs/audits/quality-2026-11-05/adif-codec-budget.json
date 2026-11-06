@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "status": "SOURCE-VALIDATED-NOT-PACKAGED",
+  "sourceCommit": "d2f22973b86b6530acc7455aef694994478a603f",
+  "parentSource": "795f77c2a48302fda632b6e7434f9e511423fb55",
+  "scope": [
+    "prototype/src/live/LogbookPanel.codec-load.test.tsx",
+    "prototype/src/live/LogbookPanel.tsx"
+  ],
+  "originalCI": {
+    "runID": 42126127531,
+    "jobID": 127590690222,
+    "source": "795f77c2a48302fda632b6e7434f9e511423fb55",
+    "fullVitest": {
+      "files": 383,
+      "testsPassed": 5256,
+      "testsFailed": 0
+    },
+    "result": "FAIL",
+    "failure": "Logbook startup JavaScript budget",
+    "observedBytes": 407119,
+    "budgetBytes": 405200,
+    "logSHA256": "33967c8d9c535e47b2e0cca24185e37c468a561e09035a8f524c20ce2708c981",
+    "nodeVersion": "22.23.4"
+  },
+  "correction": {
+    "behavior": "Runtime codec import occurs only inside admitted import/export handlers; matching owner remains eager. Closed owner rechecked after codec wait before further work.",
+    "guards": "Exact native session matching, held-user drain, frozen snapshots, duplicate consent, QSO preservation and graph budget checks retained.",
+    "focusedVitest": {
+      "files": 10,
+      "testsPassed": 1456,
+      "testsFailed": 0,
+      "newControlledComponentTests": 2,
+      "durationSeconds": 55.87,
+      "logSHA256": "34ba342ec3b3b30a72748f1ea97027736c34643ad0328bb5eca6c07dd0a45771"
+    },
+    "standaloneTypeScript": "PASS",
+    "canonicalFrontendBuild": "PASS (HM generator, final TypeScript, Vite, entire existing graph gate)",
+    "buildLogSHA256": "129e20fdded97d4994a965dbf5bda98a727e820fba7d0bd561cc23d9ddfb82e0",
+    "reportedWindowGraphs": 25,
+    "localNodeVersion": "24.11.1",
+    "Logbook": {
+      "startupBytes": 381779,
+      "gzipBytes": 125495,
+      "budgetBytes": 405200,
+      "headroomBytes": 23421,
+      "codecAbsentFromStaticGraph": true,
+      "matchingOwnerChunkRetained": true
+    }
+  },
+  "measurementBoundary": "Observed original-CI/local-build graph difference is25340bytes across Node22/24; not claimed as same-toolchain benchmark or CPU/memory benefit.",
+  "initialDraftFailure": {
+    "retainedLog": "validation/focused-initial.log",
+    "logSHA256": "9b6a139b48f5cb86c8fc53b8b7924569dd67f376925e32ed374f25581e429e54",
+    "outcome": "Initial two-simultaneous-import mocked-factory draft failed no-import assertion before gate release; replaced by independently controlled cold import/export cases with delegated real-codec positive controls.",
+    "deadlineRelaxed": false
+  },
+  "boundaries": {
+    "postCorrectionFullFrontendSuite": "NOT RUN; affected cohort only",
+    "signedOrPackagedCandidate": "NOT BUILT",
+    "nativeAcceptanceOfThisCorrection": "NOT RUN",
+    "WindowsBlankAfterFinish": "UNRESOLVED separate observation; this codec change does not claim to fix it",
+    "publicRelease": false,
+    "dailyInstallChanged": false,
+    "versionBumped": false
+  },
+  "sourceFileSHA256": {
+    "prototype/src/live/LogbookPanel.tsx": "e0f9c1eee38a7207cde7a80815b12886a5a8da39eef1acc883d31f30362ceee7",
+    "prototype/src/live/LogbookPanel.codec-load.test.tsx": "ff46325e9821167ec6b4693395182a37ea2bf4633db96f3254bc5b3902dacfb8"
+  }
+}
