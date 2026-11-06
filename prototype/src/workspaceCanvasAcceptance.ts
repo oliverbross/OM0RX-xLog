@@ -20,6 +20,21 @@ function reviewedRecovery() {
   throw new Error("Unexpected canvas recovery state; acceptance cannot retry it.");
 }
 
+function recoveryFailure(name: string, cause: unknown) {
+  const current = document.querySelector<HTMLSelectElement>(selector);
+  const alert = document.querySelector(recoverySelector);
+  const state = {
+    capturedAt: Date.now(),
+    layout: current ? { value: current.value, disabled: current.disabled } : null,
+    message: alert?.querySelector("span")?.textContent?.trim() ?? null,
+    status: document.querySelector('.canvas-toolbar [role="status"]')?.textContent?.trim() ?? null,
+    buttons: [...(alert?.querySelectorAll<HTMLButtonElement>("button") ?? [])].map(button => ({
+      name: button.textContent?.trim(), disabled: button.disabled, visible: button.getClientRects().length > 0,
+    })),
+  };
+  return new Error(`Unavailable canvas recovery control: ${name}. ${cause instanceof Error ? cause.message : String(cause)}; canvas=${JSON.stringify(state)}`);
+}
+
 /** Packaged acceptance only; drive the real controls and explicit recovery. */
 export async function selectCustomCanvas({ fill, click }: Controls) {
   await fill(selector, "custom");
@@ -29,9 +44,17 @@ export async function selectCustomCanvas({ fill, click }: Controls) {
   });
   const recovery = reviewedRecovery();
   if (recovery) {
-    const button = [...document.querySelectorAll<HTMLButtonElement>(`${recoverySelector} button`)]
-      .find(item => item.textContent?.trim() === recovery);
-    if (!button || button.disabled) throw new Error(`Unavailable canvas recovery control: ${recovery}`);
+    // A conflict can render before the outer layout operation clears working.
+    // Wait for this reviewed action without replaying the pending mutation.
+    try {
+      await waitForAcceptance(`enabled canvas recovery control: ${recovery}`, () => {
+        if (reviewedRecovery() !== recovery) throw new Error("Canvas recovery state changed before its action was ready.");
+        const button = [...document.querySelectorAll<HTMLButtonElement>(`${recoverySelector} button`)]
+          .find(item => item.textContent?.trim() === recovery);
+        if (!button) throw new Error("Recovery control is missing.");
+        return !button.disabled;
+      });
+    } catch (cause) { throw recoveryFailure(recovery, cause); }
     await click(recovery, `${recoverySelector} button`);
     await waitForAcceptance("fresh saved layout adopted", () => {
       const current = control();

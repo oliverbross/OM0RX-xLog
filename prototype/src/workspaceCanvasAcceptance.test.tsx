@@ -21,10 +21,10 @@ beforeEach(() => {
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ x: 0, y: 0, left: 0, top: 0,
     right: 1280, bottom: 800, width: 1280, height: 800, toJSON() {} });
 });
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
 type Scenario = "none" | "pre" | "post" | "unknown" | "pre-twice";
-async function setup(scenario: Scenario = "pre", recoveryControl: "present" | "missing" | "disabled" = "present") {
+async function setup(scenario: Scenario = "pre", recoveryControl: "present" | "missing" | "disabled" | "settling" = "present") {
   let snapshot = initial(), firstApply = true, release: ((ticket: number) => void) | undefined;
   const begin = vi.spyOn(transport, "beginWorkspacePresentation").mockImplementation(() => {
     if (scenario === "pre-twice" || scenario === "pre" && fills.length === 1)
@@ -43,6 +43,16 @@ async function setup(scenario: Scenario = "pre", recoveryControl: "present" | "m
     return { status: "applied", layout: structuredClone(snapshot) };
   });
   const session = new WorkspaceLayoutSession(request); await session.refresh();
+  let finishChange = () => {};
+  if (recoveryControl === "settling") {
+    // Keep the real post-journal conflict rendered while the outer operation
+    // has not completed. OperatorCanvas itself controls the disabled state.
+    const applied = session.applyAtBase.bind(session);
+    const completion = new Promise<void>(resolve => { finishChange = resolve; });
+    vi.spyOn(session, "applyAtBase").mockImplementationOnce(async (...args) => {
+      await applied(...args); await completion;
+    });
+  }
   function Harness() {
     const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
     return <OperatorCanvas state={state} session={session} canChangeLayout={() => scenario !== "unknown"}
@@ -68,7 +78,7 @@ async function setup(scenario: Scenario = "pre", recoveryControl: "present" | "m
         expect(request.mock.calls.filter(([method]) => method === "workspace_layout_apply")).toHaveLength(0);
         expect((screen.getByLabelText("Retained draft") as HTMLInputElement).value).toBe("W1AW");
       }
-      if (fills.length === 1 && recoveryControl !== "present") {
+      if (fills.length === 1 && (recoveryControl === "missing" || recoveryControl === "disabled")) {
         const name = scenario === "post" ? "Use saved layout" : "Reload layout";
         const button = screen.getByRole("button", { name }) as HTMLButtonElement;
         if (recoveryControl === "missing") button.remove(); else button.disabled = true;
@@ -81,7 +91,18 @@ async function setup(scenario: Scenario = "pre", recoveryControl: "present" | "m
       await act(async () => { fireEvent.click(button); });
     },
   };
-  return { controls, fills, clicks, session, request, begin, current: () => snapshot };
+  return { controls, fills, clicks, session, request, begin, finishChange, current: () => snapshot };
+}
+
+function startSelection(controls: Parameters<typeof selectCustomCanvas>[0]) {
+  let firstFill: () => void = () => {};
+  const filled = new Promise<void>(resolve => { firstFill = resolve; });
+  let completed = false;
+  const attempt = selectCustomCanvas({
+    ...controls,
+    fill: async (...args) => { await controls.fill(...args); firstFill(); },
+  }).then(value => { completed = true; return { value }; }, error => { completed = true; return { error }; });
+  return { filled, attempt, completed: () => completed };
 }
 
 it("recovers the actual pre-journal stale-render rejection through Reload layout before one fresh selection", async () => {
@@ -102,6 +123,36 @@ it("preserves post-journal conflict review through Use saved layout before one f
   expect(context.session.getSnapshot().pending).toBeNull();
   expect(context.request.mock.calls.filter(([method]) => method === "workspace_layout_apply")
     .map(([, params]) => params.action)).toEqual(["savePreset", "savePreset", "activatePreset"]);
+});
+
+it("waits for the actual post-journal recovery control while the outer operation is still settling", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+  const context = await setup("post", "settling");
+  const selection = startSelection(context.controls);
+  try {
+    await selection.filled;
+    await vi.advanceTimersByTimeAsync(100);
+    expect((screen.getByRole("button", { name: "Use saved layout" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole("status").textContent).toBe("Saving layout…");
+    expect(context.session.getSnapshot().saving).toBe(false);
+    expect(context.session.getSnapshot().pending).not.toBeNull();
+    expect(context.fills).toEqual(["custom"]); expect(context.clicks).toEqual([]);
+    expect((screen.getByLabelText("Retained draft") as HTMLInputElement).value).toBe("W1AW");
+    expect(selection.completed() ? await selection.attempt : { pending: true }).toEqual({ pending: true });
+
+    await act(async () => { context.finishChange(); });
+    await vi.advanceTimersByTimeAsync(50);
+    expect(await selection.attempt).toEqual({ value: { layoutConflictRecovered: true } });
+    expect(context.clicks).toEqual(["Use saved layout"]);
+    expect(context.fills).toEqual(["custom", "custom"]);
+    expect(context.current().document.activePresetID).toBe("custom");
+    expect(context.session.getSnapshot().pending).toBeNull();
+    expect((screen.getByLabelText("Retained draft") as HTMLInputElement).value).toBe("W1AW");
+    expect(context.request.mock.calls.filter(([method]) => method === "workspace_layout_apply")
+      .map(([, params]) => params.action)).toEqual(["savePreset", "savePreset", "activatePreset"]);
+  } finally {
+    await act(async () => { context.finishChange(); });
+  }
 });
 
 it("acknowledges an ordinary selection without any recovery or second selection", async () => {
@@ -125,10 +176,49 @@ it.each(["pre", "post"] as const)("rejects missing %s recovery controls without 
   expect(context.fills).toEqual(["custom"]); expect(context.clicks).toEqual([]);
 });
 
-it.each(["pre", "post"] as const)("rejects disabled %s recovery controls without another mutation", async scenario => {
+it.each(["pre", "post"] as const)("rejects disabled %s recovery controls at the unchanged deadline without another mutation", async scenario => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
   const context = await setup(scenario, "disabled");
-  await expect(selectCustomCanvas(context.controls)).rejects.toThrow("Unavailable canvas recovery control");
+  const selection = startSelection(context.controls);
+  await selection.filled;
+  await vi.advanceTimersByTimeAsync(19_950);
+  expect(selection.completed()).toBe(false);
   expect(context.fills).toEqual(["custom"]); expect(context.clicks).toEqual([]);
+  await vi.advanceTimersByTimeAsync(50);
+  const result = await selection.attempt;
+  expect(result).toHaveProperty("error");
+  if (!("error" in result)) throw new Error("Expected bounded recovery failure.");
+  expect(result.error.message).toContain("Unavailable canvas recovery control");
+  expect(result.error.message).toContain("Timed out: enabled canvas recovery control");
+  expect(result.error.message).toContain('"disabled":true');
+  expect(result.error.message).toContain('"layout":{"value":"traditional"');
+  expect(context.fills).toEqual(["custom"]); expect(context.clicks).toEqual([]);
+});
+
+it.each(["unknown", "changed", "missing"] as const)("fails closed if the %s recovery changes while its action is settling", async change => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+  const context = await setup("post", "settling");
+  const selection = startSelection(context.controls);
+  try {
+    await selection.filled;
+    await vi.advanceTimersByTimeAsync(50);
+    expect(selection.completed()).toBe(false);
+    if (change === "missing") screen.getByRole("button", { name: "Use saved layout" }).remove();
+    else screen.getByRole("alert").querySelector("span")!.textContent = change === "unknown" ? "Unreviewed layout error."
+      : "The workspace changed after editing began. Reload and review it before saving.";
+    await vi.advanceTimersByTimeAsync(50);
+    const result = await selection.attempt;
+    expect(result).toHaveProperty("error");
+    if (!("error" in result)) throw new Error("Expected changed recovery failure.");
+    expect(result.error.message).toContain(change === "missing" ? "Recovery control is missing."
+      : change === "unknown" ? "Unexpected canvas recovery state" : "Canvas recovery state changed");
+    expect(result.error.message).toContain('"status":"Saving layout…"');
+    expect(context.fills).toEqual(["custom"]); expect(context.clicks).toEqual([]);
+    expect((screen.getByLabelText("Retained draft") as HTMLInputElement).value).toBe("W1AW");
+    expect(context.request.mock.calls.filter(([method]) => method === "workspace_layout_apply")).toHaveLength(1);
+  } finally {
+    await act(async () => { context.finishChange(); });
+  }
 });
 
 it("stops after a second real stale-render rejection instead of retrying the selection again", async () => {
