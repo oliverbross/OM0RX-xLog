@@ -1,0 +1,234 @@
+{
+  "schema": 1,
+  "recordedAtUTC": "2026-11-07T09:16:37.931102+00:00",
+  "version": "1.5.31",
+  "source": "84d38f7e9cf6b63a5c9d07b610f9fcf0dab42639",
+  "parent": "e9e2501be563adf6cd21aae91b78e5b24389ceea",
+  "tree": "455931a80030eebb654899e65f9a463a7e4f7b6b",
+  "baseProductSource": "13fb7d52834b75b1fcbde76fee47c476b83d9ed9",
+  "userSupersededS30ObservationBeforeSampling": true,
+  "publicRelease": false,
+  "signedArtifactSHA256": {
+    "host": "df6e236d4fe4985542c3156b6cba3c607bb2082dbf8d000dd01cbfc7dbefc72e",
+    "worker": "17e78fc0a54c08e3c126dfb75ec86c123bbf57f60949fb08090c11f807d5b7a8",
+    "manifest": "e77a4bc52814b0b639f788365e702ae77affe14b989a4bd6f8c218dbcf95bf67",
+    "zip": "3c09148c6f0bc5d2fa38649246ee43d7933b079b0767a9e3609c662a2b1eb3a9",
+    "source": "84d38f7e9cf6b63a5c9d07b610f9fcf0dab42639",
+    "version": "1.5.31"
+  },
+  "build": {
+    "recipe": "docs/releases/build-1.5.31-macos-arm64.sh",
+    "recipeSHA256": "3610cd859b25a23f6f03e86cffff3667a0e44f18263c8c17c38a8ccf33b2d88c",
+    "exitCode": 0,
+    "rawLog": ".build/releases/1.5.31/build.log",
+    "sourcePushedBeforePackaging": true,
+    "installedBundleAllBytesMatchVerifiedExtraction": true,
+    "strictDeveloperIDArm64SignaturePassed": true
+  },
+  "checks": {
+    "focusedFrontendPassed": 60,
+    "nodePassed": 6,
+    "TypeScriptProductionAndWindowBudgetsPassed": true,
+    "packagingPassed": 14,
+    "stagingPassed": 7,
+    "signedWorkerPassed": 9,
+    "payloadPrivacyFiles": 3534,
+    "payloadPrivacyFindings": 0
+  },
+  "automaticSourcePushCI": [
+    {
+      "conclusion": "",
+      "databaseId": 42357599081,
+      "headSha": "84d38f7e9cf6b63a5c9d07b610f9fcf0dab42639",
+      "status": "in_progress",
+      "workflowName": "Cross-platform beta qualification"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 42357599070,
+      "headSha": "84d38f7e9cf6b63a5c9d07b610f9fcf0dab42639",
+      "status": "completed",
+      "workflowName": "CI"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 42357599079,
+      "headSha": "84d38f7e9cf6b63a5c9d07b610f9fcf0dab42639",
+      "status": "completed",
+      "workflowName": "Contest portability"
+    }
+  ],
+  "extraCIManuallyDispatched": false,
+  "isolatedSmoke": {
+    "manifest": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/quit-fix-20261107/runs/1.5.31-0a5d4c0e6d/manifest.json",
+    "workerPreparedFreshGenerated100k": true,
+    "foregroundLaunchServicesWithoutBackgroundFlag": true,
+    "completeOwnershipBeforeAX": true,
+    "TraditionalStandardWebGLBlankDeskPassed": true,
+    "ordinaryQuitAllFamilyAbsent": true,
+    "integrityAll100k12ColumnsAndSettingsPreserved": true
+  },
+  "installation": {
+    "path": "/Applications/OM0RX-xLog.app",
+    "version": "1.5.31",
+    "backup": "/Users/oliver/Documents/Backups/OM0RX-xLog/before-1.5.31-20261107T182642+0930",
+    "backupVerified": true,
+    "priorVersion": "1.5.29",
+    "startupPassed": true,
+    "searchExistingMatches": 8,
+    "pagingRanges": [
+      "1\u201340 of 69,743",
+      "41\u201380 of 69,743",
+      "1\u201340 of 69,743"
+    ],
+    "ordinaryQuitCyclesPassed": 2,
+    "normalRestartPassed": true,
+    "reopenedForUser": true,
+    "latestHostPID": 45797,
+    "latestWorkerPID": 45811,
+    "finalOwnerIdentities": [
+      {
+        "nativePath": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+        "birthMicroseconds": 499670,
+        "ppid": 1,
+        "uid": 501,
+        "pid": 45797,
+        "birthSeconds": 1794042853
+      },
+      {
+        "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU",
+        "birthMicroseconds": 322883,
+        "ppid": 1,
+        "uid": 501,
+        "pid": 45807,
+        "birthSeconds": 1794042854
+      },
+      {
+        "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent",
+        "birthMicroseconds": 382463,
+        "ppid": 1,
+        "uid": 501,
+        "pid": 45809,
+        "birthSeconds": 1794042854
+      },
+      {
+        "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking",
+        "birthMicroseconds": 468530,
+        "ppid": 1,
+        "uid": 501,
+        "pid": 45810,
+        "birthSeconds": 1794042854
+      },
+      {
+        "nativePath": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+        "birthMicroseconds": 490399,
+        "ppid": 45797,
+        "uid": 501,
+        "pid": 45811,
+        "birthSeconds": 1794042854
+      }
+    ],
+    "allOldVersionsAbsentFromApplications": true,
+    "oldVersionsArchivedOutsideApplications": [
+      "1.5.15",
+      "1.5.28",
+      "1.5.29"
+    ],
+    "liveQSOs": 69743,
+    "settingsPreserved": true,
+    "managedAudioFilesPreserved": 662,
+    "testContactsCreated": 0,
+    "preinstallQSOByteIdentity": false,
+    "reviewedWavelogDownload": {
+      "reviewedAt": "2026-11-07T09:11:34.206967+00:00",
+      "disposition": "Completed preauthorized automatic Wavelog download; three existing contacts refreshed. Not a byte-identical preinstall QSO result. Original complete backup retained.",
+      "sourceEvidence": [
+        "Sources/XLogPrototypeSupport/LiveLogbookMethods.swift:323-332",
+        "Sources/XLogPrototypeSupport/LiveServiceMethods.swift:67-75"
+      ],
+      "beforeHash": "35c6100816c8517a412413946b26544596fff99ff37fa5d8cc80f2ea9a965999",
+      "afterHash": "0ecb94c504fc1186607fe071be53f454187e31d0520aac1a0a8be0de1225425b",
+      "sameAllContactIDs": true,
+      "changedExistingContacts": 3,
+      "newOrDeletedContacts": 0,
+      "uploadAttempts": 0,
+      "settingsPreserved": true,
+      "syncRunID": "177102F7-AC67-4490-9202-554BD8790A33",
+      "postSyncExpectedDataSHA256": "bb0a66cb92ef1a47dbcde96ba941d051681af595a1d3e08c18f54e5160bdf4f4"
+    },
+    "restartAll12ColumnsPreservedAgainstReviewedPostSyncState": true,
+    "nativeConfigurationAccounting": {
+      "station-session-radio1.json": {
+        "changedKeys": [
+          "receipts",
+          "revision"
+        ],
+        "startupLifecycleReceipts": 2
+      },
+      "station-session.json": {
+        "changedKeys": [],
+        "startupLifecycleReceipts": 0
+      },
+      "radio-selection-radio1.json": {
+        "changedKeys": []
+      },
+      "radio-selection.json": {
+        "changedKeys": []
+      },
+      "rotor-session.json": {
+        "changedKeys": [
+          "operation_id"
+        ]
+      },
+      "operating-module.json": {
+        "changedKeys": []
+      }
+    },
+    "preferences": {
+      "appKeysIdentical": true,
+      "shortcutBindingsSemanticallyIdentical": true,
+      "activeDeskBandMapViewBefore": [
+        "20m"
+      ],
+      "activeDeskBandMapViewAfter": [
+        "10m"
+      ],
+      "workspacePreferencesRevisionBefore": 697,
+      "workspacePreferencesRevisionAfter": 698
+    }
+  },
+  "boundaries": {
+    "memorySamples": [],
+    "finalTenMinuteCPU": null,
+    "S31ThirtyMinuteStability": "NOT_RUN",
+    "idleCPUPercentOneCoreGoal": 1,
+    "idleCPUGoalStrictlyLessThan": true,
+    "idleCPUGoalDemonstratedByS31": false,
+    "previousS30ShortResultGoalMet": false,
+    "noHistorical7GBOrLongTermLeakAttribution": true,
+    "noComputerUseOrCapture": true,
+    "noForceQuit": true,
+    "UTMOriginalPID": 81684,
+    "UTMBirthPreserved": true,
+    "DockAutoHideBefore": false,
+    "DockAutoHideAfter": false,
+    "SkimmerUntouched": true
+  },
+  "helperSHA256CollectedAfterVerification": {
+    ".build/quit-fix-20261107/fixture-s31.py": "405cd404b151c8bf283ab17a4cc252db15632ceaf1cfeb62e2498a37f01f37e9",
+    ".build/quit-fix-20261107/artifact31.py": "d400e0b1cbd06e0bb0acc49624bc6ea8eb8ad6c2ab8b626968cff5f6c1b217e7",
+    ".build/quit-fix-20261107/collect-s31-budget.py": "20f03e475c73ab605e2674219a4013463079a19a5ec9a90c815d86bf216c32c1",
+    ".build/quit-fix-20261107/visibility-observer.m": "96f9d812e75fa09a85ad13cad8b9cc1ecaeab39226f5ff7118ade141bc117ebd",
+    ".build/quit-fix-20261107/visibility-observer": "8e6b2fe9c0c99521ab40e3b481dfa38890cec7bafe5625356a7d74fb5e08ec01",
+    ".build/quit-fix-20261107/local.m": "69a31af3db5db95656d915002948cc055438b223545ab059530f86c11ab870d4",
+    ".build/quit-fix-20261107/local": "09a23e8cadfff4cca01598c163d4a052988e41bfe2fa2e4babdf41f4cab71cd1",
+    ".build/quit-fix-20261107/smoke.py": "b3089e56e914aec379ae3cd3e0ce054bb67fc69d116859c356ce9a5081e6b738",
+    ".build/quit-fix-20261107/installed.py": "994b541c4d73320e26faa6e8dfe7b80b929da53ed77f52a0579bad66ffe8b2e0",
+    ".build/quit-fix-20261107/installed-local.m": "40dcb2533985aab81f3c26cd6cdc53ccffc794851887a367040abdee7eb3294e",
+    ".build/quit-fix-20261107/installed-local": "aa749b501e2cc0ccd61160dc073fd3de7988bfe014a2847bfbc811631dabbaec",
+    ".build/quit-fix-20261107/install.py": "febe484a3c7974ac49c180185d7d65d45af9e3c3708b6297ec23b8ca65ae5656",
+    ".build/quit-fix-20261107/backup-before-s31.py": "7cec78e3e142438a079785984bbc3889a0202f2b1a79a42338f686d1ca4c1a74"
+  },
+  "rawEvidenceRoot": ".build/quit-fix-20261107",
+  "nextTask": "One valid 30-minute observation of this exact signed S31 using the retained foreground/local-AX and 1800/1815-second observer route."
+}

@@ -14,6 +14,40 @@ and physical evidence remain separate.
 
 ## Current checkpoint — 7 November 2026, Darwin
 
+### Installed S31 — authority-only Quit veto and antenna clutter corrected
+
+The user superseded the pending S30 observation before sampling, explicitly
+requesting **1.5.31 based on 1.5.30**, fixes for the reported Quit trap and antenna
+row, local installation and removal of old app copies. [S31 record](../../releases/v1.5.31-macos-quality-candidate.md)
+pins source `84d38f7e` and the signed installed bytes. The activation-status-only
+normal-editor veto is removed; the redundant sole-antenna row and revision/proposal
+copy are gone. No new guard, broader optimization or public release was added.
+
+Focused **60/60**, Node **6/6**, production frontend/window gates, packaging
+**14/14**, staging **7/7**, signed-worker **9/9**, strict signatures and privacy
+**3,534 / zero findings** PASS. A fresh supported S31-worker generated-100k fixture,
+foreground LaunchServices without `-g`, complete pre-AX ownership, Standard WebGL
+Desk, ordinary Quit/family absence and all 100k QSOs/settings preservation PASS.
+This was a smoke check; no timed stability observation ran.
+
+The fresh verified backup `before-1.5.31-20261107T182642+0930` holds the signed S29
+app, **69,743 QSOs**, settings/recovery state and **662 audio files**. Installed
+S31 passed normal startup, search (**8 matches**), paging (**1–40 → 41–80 → 1–40**),
+two ordinary Quit cycles and restart. An authorized automatic Wavelog download
+refreshed **3 existing contacts**, with zero inserts/deletions/uploads/failures;
+its reviewed row changes are explicitly separated from byte preservation. The
+restart preserved the reviewed all-12-column QSO state; settings and audio pass.
+Native configuration is preserved; the S31 record accounts for startup journals
+and the active band-map preference change rather than claiming all bytes identical.
+
+Only signed **1.5.31** remains in `/Applications`; the old 1.5.15/1.5.28/1.5.29
+copies are verified outside it in the backup directory. S31 is reopened for use.
+UTM, Dock state and separate Skimmer work are preserved. No force Quit or capture.
+No new memory/CPU result exists; the unchanged under-1% idle CPU goal remains
+undemonstrated. **Next:** one valid 30-minute observation of this signed S31.
+Wider qualification, long-term leak claims and the old ~7 GB incident remain open
+and separate. The following sections retain the earlier historical checkpoints.
+
 ### Signed S29 → S30 passive CW comparison — CPU lower; no memory benefit
 
 The [focused native profile and signed pair](idle-cw-2026-11-07.md) starts from
