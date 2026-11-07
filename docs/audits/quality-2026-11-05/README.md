@@ -14,6 +14,39 @@ and physical evidence remain separate.
 
 ## Current checkpoint — 7 November 2026, Darwin
 
+### Signed S29 local-only 30-minute interval — valid; idle CPU goal not met
+
+The [completed observation](idle-signed-1.5.29-valid-2026-11-07.md) uses the
+unchanged retained signed S29/source `78681662`, generated 100k offline profile
+and working Standard WebGL Desk. Local native activation/AX preparation replaced
+Computer Use/capture entirely. Cursor/sharing surfaces disappeared after the
+old helper's ordinary termination; verified normal Dock auto-hide and pointer
+parking removed the remaining Dock surface. Dock's original setting was restored.
+No observer exclusion, predicate, ownership, heartbeat or deadline was relaxed.
+
+After 60.005121 seconds warm-up, actual preflight and the full **1800.471345-second**
+observer PASS: 1,591 geometric states, zero registered AX/workspace events,
+maximum heartbeat gap 0.280585 seconds. Shared-accounted footprint at
+**0/5/15/20/30 minutes: 325.676 / 338.817 / 317.363 / 317.363 / 313.270 MiB**.
+Per-process RSS/footprint and separate aggregate compressed/swapped subsets are
+retained. Final-ten-minute CPU, percent of **one core**: WebContent **2.498135**,
+host **1.059537**, worker **0.170854**, GPU **0.274218**, Networking **0**;
+complete family **4.002745%** over actual 599.980806–599.980807 seconds.
+The provisional under-1% goal is not met at this 100k workload. There is no
+matched signed baseline, retained-JS/leak finding or historical ~7 GB attribution.
+
+Ordinary candidate Quit succeeded and all candidate owners exited. The original
+30-second full-user closure gate **failed**, retained separately: the old capture
+PID was an unreadable, already-exited zombie. An exact kernel SZOMB/birth/parent
+bracket and later full scan verified no live candidate owner/coalition before
+storage read; no general unreadable-process exclusion was added. All 100k QSOs /
+12 columns, integrity and settings/revision preservation pass. UTM stays running;
+daily app remains closed as found, signed 1.5.29 installed/available. No app build,
+package/install/version change, product optimization, CI repeat, public release
+or Skimmer change. Historical failed attempts stay retained.
+Next: profile the remaining signed WebContent idle timer/IPC work on this same
+Desk, the dominant CPU owner, before choosing another product change.
+
 ### S29 untouched-desktop retry — foreground passes, tooling overlays block
 
 The [authorized retry](idle-signed-1.5.29-retry-2026-11-07.md) retained the signed
@@ -179,13 +212,13 @@ unresolved hardware/platform work and notarization remain OPEN.**
 | ID | Current scope / status | Evidence and next step |
 |---|---|---|
 | Q00 | Signed 1.5.29 installed; NEW S28/full-profile backup verified | [S29 record](../../releases/v1.5.29-macos-quality-candidate.md): frozen clean `78681662`, signed-byte pins, startup/search/paging/Quit/restart and bounded preservation pass. Fresh backup retains signed S28, 69,741 live QSOs, settings/all 662 audio; earlier backup/rollback preserved. One normal automatic remote merge and follow-radio band transition explicitly dispositioned. Public release unchanged. |
-| Q01 | S29 foreground passes; tooling occlusion BLOCKED; interval/incident OPEN | [Untouched-desktop retry](idle-signed-1.5.29-retry-2026-11-07.md): verified native activation + 60s quiet warm-up reaches unchanged occlusion predicate; Software Cursor/Dock/sharing surfaces rejected. No interval/samples. Candidate Quit/100k/settings pass; UTM running, daily closed as found. Earlier foreground failures retained. Next: remove capture/cursor/sharing overlays through local preparation, then unchanged preflight. |
+| Q01 | Signed S29 30-minute interval VALID; original incident/longer retention OPEN | [Local-only observation](idle-signed-1.5.29-valid-2026-11-07.md): unchanged visibility protocol passes 1800.471s with all five owners/samples, family footprint 325.676→313.270 MiB (five-minute peak 338.817). No leak or ~7 GB attribution. Ordinary candidate exit/100k/settings pass after a specific kernel-zombie disposition; original 30s closure-gate failure retained. Prior foreground/occlusion failures remain history. |
 | Q02 | AU24 editor/fallback and AU25 Settings restart PASS within bounds; broader desktop OPEN | [AU24](../../releases/v1.5.24-windows-quality-candidate.md) qualifies readable full-editor create/edit/restart at 1024×768 and readable map fallback; WebGL2 stayed unavailable. [AU25](windows-ordinary-1.5.25.md) adds acknowledged Settings save/restart/restoration with 16/16 data/settings checks. Fresh onboarding, native-x64/true Standard desktop and equipment remain open. Earlier AU21/AU22 blank-Desk failures remain recorded. |
 | Q03 | S25 hosted scopes and ordinary nonempty all-users upgrade PASS within bounds | [S25 package audit](ci-1.5.25-windows-packaged-qualification.md): both hosted scopes pass, 3,271 actual files checked, zero privacy findings. [Ordinary AU24→AU25](windows-ordinary-1.5.25.md): default Program Files/HKLM64, unelevated medium launches, two QSOs/all 12 columns preserved, two bounded normal closes and verified 454-file profile archive. ARM64/x64 emulation, filtered administrator; not full restore/media or ordinary native-x64/Standard qualification. |
-| Q04 | Development saving retained; signed-app CPU UNMEASURED | [Development pair](idle-desk-2026-11-07.md) remains separate. [Latest signed retry](idle-signed-1.5.29-retry-2026-11-07.md) establishes foreground but fails tooling-overlay occlusion. No final-ten-minute CPU, 30-minute footprint series or signed before/after baseline. Remove capture/cursor/sharing surfaces before next unchanged preflight. |
+| Q04 | Signed idle CPU measured; provisional goal NOT MET | [Valid signed S29 interval](idle-signed-1.5.29-valid-2026-11-07.md): final ten minutes family **4.002745% of one core**, WebContent **2.498135%**, host **1.059537%**, worker **0.170854%**, GPU **0.274218%**, Networking 0. No signed A/B saving claim; earlier development pair separate. Next: profile remaining signed WebContent timer/IPC work on the same Desk. |
 | Q05 | Signed S29 search/paging/Quit/restart PASS within recorded bounds | 69,741 contacts, visible paging 1–40→41–80 and five-result search; initial aggregate-generation guard recovered through explicit Retry. Disposable migration/restart preserve all 12 columns/settings. Production one-row automatic remote pull and band-follow preference transition explicitly reviewed; other rows/settings/audio/configuration match. Earlier paging/ADIF failures and broader lifetime/latency gaps remain recorded. |
 | Q06 | S29 exact-source gates PASS; packaged platform evidence unchanged | [S29 exact runs](../../releases/v1.5.29-macos-quality-candidate.md): CI, all seven portability jobs and full Mac source/build pass on `78681662`. Linux/Windows packaged-runtime jobs SKIPPED. Local signed Mac checks separate; prior S25 Windows and S22 Linux acceptance/failures retain their original scope. |
-| Q07 | S29 installed for local evaluation; public quality phase OPEN | One signed package/install, fresh verified full backup, prior rollback and bounded installed acceptance complete. Measured development CPU saving does not qualify signed-app long performance. Original incident, native-x64/Standard/onboarding/full restore/real Linux desktop, physical equipment and notarization remain open. Historical rejected candidates/visibility failures retained; no public release. |
+| Q07 | S29 signed offline100k interval complete; public quality phase OPEN | Installed source/signing/backup and bounded acceptance remain; latest 30-minute signed observation is valid, but idle CPU goal unmet. Specific post-Quit zombie disposition and original closure-bound failure recorded. Original incident, representative longer/operation-cycle and connected scopes, native-x64/Standard/onboarding/full restore/real Linux desktop, physical equipment and notarization remain open. No new package or public release. |
 
 ### Final exact-source S26 gates
 

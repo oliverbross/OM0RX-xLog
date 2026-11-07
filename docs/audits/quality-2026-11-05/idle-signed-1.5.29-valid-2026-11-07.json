@@ -1,0 +1,479 @@
+{
+  "result": "VALID 30-minute signed isolated idle observation; provisional idle CPU goal not met at this generated100k workload",
+  "version": "1.5.29",
+  "source": "78681662f9104264d0903329996d15962c395711",
+  "repositoryStart": "d93f6daefd221f3d9cc834216e587e9bd6b9a9ea",
+  "noApplicationBuildPackageInstallVersionChange": true,
+  "noComputerUseToolsOrScreenCaptureUsed": true,
+  "buildMode": "Retained Developer ID signed arm64 release app and bundled worker; no Vite/StrictMode/dev instrumentation",
+  "preparation": {
+    "warmupActualSeconds": 60.005120542,
+    "warmupStartedUTC": "2026-11-07T05:53:36.417223+00:00",
+    "preflight": {
+      "exitCode": 0,
+      "stdout": "{\"success\":true,\"state\":{\"onscreen\":true,\"sampledOcclusion\":false,\"frontmostPID\":89525,\"minimized\":false,\"windowID\":7030,\"bounds\":{\"X\":1200,\"Height\":940,\"Y\":311,\"Width\":1440}},\"samePredicateAsWatcher\":true,\"type\":\"preflight\"}\n",
+      "stderr": "",
+      "samePredicateAsWatcher": true
+    },
+    "privateFixture": "Generated 100000 QSOs; full 12-column hash c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+    "externalIO": "Worker health station_io/credentials_accessed/live_cluster/network_contact false; local logging and automatic sync off",
+    "Desk": "Traditional, Map view, 58% map/tools, Standard bundled working WebGL, Detailed/Both, Sun/Greyline on, Heard me off, blank call, 20m Band maps",
+    "contentWindowBounds": {
+      "X": 1200,
+      "Height": 940,
+      "Y": 311,
+      "Width": 1440
+    },
+    "captureCleanup": "Prior helper received ordinary termination; its cursor/sharing surfaces disappeared, later verified exited SZOMB awaiting parent reaping. No force kill.",
+    "Dock": "Verified normal Cmd-Option-D mapping; autohide false to true for observation, restored false after interval; pointer parked at active display origin +12,+12 outside candidate",
+    "readinessFailureRetained": "First local map-selector helper returned before the menu appeared. Subsequent read verified the exposed Standard option; bounded menu settle fixed only the local preparation helper. No blind Escape/relaunch.",
+    "localReadinessReceipt": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/quality-mac-s29-observation-20261107/runs/1.5.29-a0f51269ee/local-standard-60dd4d51/result.json"
+  },
+  "units": {
+    "memory": "bytes; MiB=bytes/1048576",
+    "CPU": "percent of one CPU core from native user/system Mach deltas over actual per-owner interval",
+    "compression": "footprint --swapped aggregate compressed/swapped subset, not additional memory or disk swap alone; tool JSON does not split this by process"
+  },
+  "ownerIdentities": [
+    {
+      "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.29/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+      "birthMicroseconds": 772443,
+      "ppid": 1,
+      "uid": 501,
+      "pid": 89525,
+      "birthSeconds": 1794030617
+    },
+    {
+      "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU",
+      "birthMicroseconds": 403077,
+      "ppid": 1,
+      "uid": 501,
+      "pid": 89546,
+      "birthSeconds": 1794030618
+    },
+    {
+      "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent",
+      "birthMicroseconds": 471864,
+      "ppid": 1,
+      "uid": 501,
+      "pid": 89550,
+      "birthSeconds": 1794030618
+    },
+    {
+      "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking",
+      "birthMicroseconds": 557751,
+      "ppid": 1,
+      "uid": 501,
+      "pid": 89554,
+      "birthSeconds": 1794030618
+    },
+    {
+      "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.29/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+      "birthMicroseconds": 472191,
+      "ppid": 89525,
+      "uid": 501,
+      "pid": 89655,
+      "birthSeconds": 1794030621
+    }
+  ],
+  "ambientIdentities": [
+    {
+      "nativePath": "/Applications/UTM.app/Contents/MacOS/UTM",
+      "birthMicroseconds": 847450,
+      "ppid": 1,
+      "uid": 501,
+      "pid": 81684,
+      "birthSeconds": 1793912594
+    }
+  ],
+  "attribution": "Dedicated LaunchServices originator, native executable/birth/parent/full private host-worker argv, matching resource/jetsam coalitions and complete WebKit family at all sample boundaries; daily app closed throughout",
+  "samples": [
+    {
+      "targetElapsedSeconds": 0,
+      "startedUTC": "2026-11-07T05:54:38.614755+00:00",
+      "finishedUTC": "2026-11-07T05:54:38.835184+00:00",
+      "startedUnixSeconds": 1794030878.6147552,
+      "toolProvidedSharedAccountedFootprintBytes": 341495912,
+      "aggregateCompressedSwappedSubsetBytes": 200785920,
+      "RSSSummed": false,
+      "processes": [
+        {
+          "role": "com.apple.WebKit.WebContent",
+          "pid": 89550,
+          "footprintBytes": 169051312,
+          "residentBytes": 123879424
+        },
+        {
+          "role": "xlog-prototype-worker",
+          "pid": 89655,
+          "footprintBytes": 88277736,
+          "residentBytes": 19529728
+        },
+        {
+          "role": "xlog-prototype",
+          "pid": 89525,
+          "footprintBytes": 43320424,
+          "residentBytes": 70451200
+        },
+        {
+          "role": "com.apple.WebKit.GPU",
+          "pid": 89546,
+          "footprintBytes": 34259664,
+          "residentBytes": 16056320
+        },
+        {
+          "role": "com.apple.WebKit.Networking",
+          "pid": 89554,
+          "footprintBytes": 6963608,
+          "residentBytes": 2015232
+        }
+      ],
+      "rawSHA256": {
+        "sample.json": "e976bc965ac5544a01ef5a3b4eed72fdafd0273de4913f26f703f1a5d093f353",
+        "footprint.json": "2a5f2f9f16366ab6591add11d34aded85c59fc2ec3228b785b1b6288377fc918",
+        "before.json": "acb64b4d66a1d5247cf69b8198352e5e608fc1fe137c1592e2debebf79baaf84",
+        "after.json": "37a33a464583a8f74d08f7fe4a1e03426347fe05030dc9adc503f06101962842"
+      }
+    },
+    {
+      "targetElapsedSeconds": 300,
+      "startedUTC": "2026-11-07T05:59:38.611368+00:00",
+      "finishedUTC": "2026-11-07T05:59:38.685371+00:00",
+      "startedUnixSeconds": 1794031178.611368,
+      "toolProvidedSharedAccountedFootprintBytes": 355274856,
+      "aggregateCompressedSwappedSubsetBytes": 201179136,
+      "RSSSummed": false,
+      "processes": [
+        {
+          "role": "com.apple.WebKit.WebContent",
+          "pid": 89550,
+          "footprintBytes": 183649456,
+          "residentBytes": 119504896
+        },
+        {
+          "role": "xlog-prototype-worker",
+          "pid": 89655,
+          "footprintBytes": 88261352,
+          "residentBytes": 19628032
+        },
+        {
+          "role": "xlog-prototype",
+          "pid": 89525,
+          "footprintBytes": 43304040,
+          "residentBytes": 67272704
+        },
+        {
+          "role": "com.apple.WebKit.GPU",
+          "pid": 89546,
+          "footprintBytes": 33473232,
+          "residentBytes": 10403840
+        },
+        {
+          "role": "com.apple.WebKit.Networking",
+          "pid": 89554,
+          "footprintBytes": 6963608,
+          "residentBytes": 1982464
+        }
+      ],
+      "rawSHA256": {
+        "sample.json": "4739d5cb0c72ca464e131167e67db439ab239dfd8cbb51b11d60b7441d4ced2a",
+        "footprint.json": "3560a1ac20bd07e2665a3514702dc252a0bda66f958ee77a98d476c7479daed8",
+        "before.json": "7bced84956bc7e527b455f5acdc25db78674acb00ddce06a575f2ebea2ba7013",
+        "after.json": "6586c30d77578260e7da7bfda6d721b25fcf4867cc4973766e25ddb7a23fd6e9"
+      }
+    },
+    {
+      "targetElapsedSeconds": 900,
+      "startedUTC": "2026-11-07T06:09:38.615870+00:00",
+      "finishedUTC": "2026-11-07T06:09:38.708340+00:00",
+      "startedUnixSeconds": 1794031778.61587,
+      "toolProvidedSharedAccountedFootprintBytes": 332779648,
+      "aggregateCompressedSwappedSubsetBytes": 176013312,
+      "RSSSummed": false,
+      "processes": [
+        {
+          "role": "com.apple.WebKit.WebContent",
+          "pid": 89550,
+          "footprintBytes": 168019144,
+          "residentBytes": 115425280
+        },
+        {
+          "role": "xlog-prototype-worker",
+          "pid": 89655,
+          "footprintBytes": 88277736,
+          "residentBytes": 15220736
+        },
+        {
+          "role": "xlog-prototype",
+          "pid": 89525,
+          "footprintBytes": 43304040,
+          "residentBytes": 51347456
+        },
+        {
+          "role": "com.apple.WebKit.GPU",
+          "pid": 89546,
+          "footprintBytes": 26559184,
+          "residentBytes": 11829248
+        },
+        {
+          "role": "com.apple.WebKit.Networking",
+          "pid": 89554,
+          "footprintBytes": 6947224,
+          "residentBytes": 1982464
+        }
+      ],
+      "rawSHA256": {
+        "sample.json": "51b0bb10f9bfce0d9c3f6d915a3040e69b4d89562828a06bfc9ea35e7522acc1",
+        "footprint.json": "6d1904df9b919ae08cb3ed4df3fbc0e13115a76f08378ebf03145245e9f09ffe",
+        "before.json": "a6386c40fc20faee1326e9cc0ea33819fb80556f63f3fa47f57a2df83b063a6a",
+        "after.json": "4e748e52998bc0d25fcb8aa2d52e808d70d1101d0c439a37f3bbf95277f08a0b"
+      }
+    },
+    {
+      "targetElapsedSeconds": 1200,
+      "startedUTC": "2026-11-07T06:14:38.619334+00:00",
+      "finishedUTC": "2026-11-07T06:14:38.699625+00:00",
+      "startedUnixSeconds": 1794032078.619334,
+      "toolProvidedSharedAccountedFootprintBytes": 332779648,
+      "aggregateCompressedSwappedSubsetBytes": 191004672,
+      "RSSSummed": false,
+      "processes": [
+        {
+          "role": "com.apple.WebKit.WebContent",
+          "pid": 89550,
+          "footprintBytes": 168084680,
+          "residentBytes": 116719616
+        },
+        {
+          "role": "xlog-prototype-worker",
+          "pid": 89655,
+          "footprintBytes": 88277736,
+          "residentBytes": 15138816
+        },
+        {
+          "role": "xlog-prototype",
+          "pid": 89525,
+          "footprintBytes": 43304040,
+          "residentBytes": 50610176
+        },
+        {
+          "role": "com.apple.WebKit.GPU",
+          "pid": 89546,
+          "footprintBytes": 26477264,
+          "residentBytes": 11534336
+        },
+        {
+          "role": "com.apple.WebKit.Networking",
+          "pid": 89554,
+          "footprintBytes": 6947224,
+          "residentBytes": 1966080
+        }
+      ],
+      "rawSHA256": {
+        "sample.json": "7239b8f023d928f0d428ac83be538da2e628b3adc815650421c416ef44d7071c",
+        "footprint.json": "90885c7f551279e48f5f8d2305412886a5ca847bfeb8ebe935f96e3d0f2835cb",
+        "before.json": "a1c80c1cbeed0ab6d599794f6fe0db85425bd9db740415a7005453fb93f38f21",
+        "after.json": "e90a6dbb49d2bd880347e1a6a564a0e4f7ede593d18b8268499fbbbadcb6e5af"
+      }
+    },
+    {
+      "targetElapsedSeconds": 1800,
+      "startedUTC": "2026-11-07T06:24:38.605073+00:00",
+      "finishedUTC": "2026-11-07T06:24:38.680611+00:00",
+      "startedUnixSeconds": 1794032678.605073,
+      "toolProvidedSharedAccountedFootprintBytes": 328487040,
+      "aggregateCompressedSwappedSubsetBytes": 172900352,
+      "RSSSummed": false,
+      "processes": [
+        {
+          "role": "com.apple.WebKit.WebContent",
+          "pid": 89550,
+          "footprintBytes": 163841248,
+          "residentBytes": 117440512
+        },
+        {
+          "role": "xlog-prototype-worker",
+          "pid": 89655,
+          "footprintBytes": 88277736,
+          "residentBytes": 15286272
+        },
+        {
+          "role": "xlog-prototype",
+          "pid": 89525,
+          "footprintBytes": 43320424,
+          "residentBytes": 50397184
+        },
+        {
+          "role": "com.apple.WebKit.GPU",
+          "pid": 89546,
+          "footprintBytes": 26428088,
+          "residentBytes": 12140544
+        },
+        {
+          "role": "com.apple.WebKit.Networking",
+          "pid": 89554,
+          "footprintBytes": 6947224,
+          "residentBytes": 1949696
+        }
+      ],
+      "rawSHA256": {
+        "sample.json": "4981d4af1fae529d8550d0d15c6333bf785086569c67bd2b31f4e087a7842b46",
+        "footprint.json": "6ba73be1698d98c22b024df2a0fe810b8d35615916ce0849267385c093d84063",
+        "before.json": "04f537963099f2826fe8837576664d2f6fdb499983893b6ee63d575d0ad41ee6",
+        "after.json": "3d8c71b12622179561092a445263353267cba2ce72c55320ce19b400d82ded76"
+      }
+    }
+  ],
+  "finalTenMinuteCPU": {
+    "owners": [
+      {
+        "role": "xlog-prototype",
+        "pid": 89525,
+        "actualIntervalSeconds": 599.98080575,
+        "userSeconds": 4.44650625,
+        "systemSeconds": 1.9105151666666664,
+        "percentOfOneCore": 1.0595374644894073
+      },
+      {
+        "role": "com.apple.WebKit.GPU",
+        "pid": 89546,
+        "actualIntervalSeconds": 599.9808062499999,
+        "userSeconds": 0.7572905,
+        "systemSeconds": 0.8879666249999999,
+        "percentOfOneCore": 0.2742182929622676
+      },
+      {
+        "role": "com.apple.WebKit.WebContent",
+        "pid": 89550,
+        "actualIntervalSeconds": 599.9808069999999,
+        "userSeconds": 12.861257541666665,
+        "systemSeconds": 2.127073958333333,
+        "percentOfOneCore": 2.4981351611802474
+      },
+      {
+        "role": "com.apple.WebKit.Networking",
+        "pid": 89554,
+        "actualIntervalSeconds": 599.9808069583332,
+        "userSeconds": 0.0,
+        "systemSeconds": 0.0,
+        "percentOfOneCore": 0.0
+      },
+      {
+        "role": "xlog-prototype-worker",
+        "pid": 89655,
+        "actualIntervalSeconds": 599.9808069166666,
+        "userSeconds": 0.6535273749999999,
+        "systemSeconds": 0.37156266666666665,
+        "percentOfOneCore": 0.17085380562999322
+      }
+    ],
+    "familyPercentOfOneCore": 4.002744724261915
+  },
+  "visibility": {
+    "reason": "Completed requested observation",
+    "events": 0,
+    "maximumHeartbeatGapSeconds": 0.2805849166666667,
+    "elapsedSeconds": 1800.4713447916668,
+    "scope": "Continuous workspace/AX events plus one-second window-list checks; not continuous pixel occlusion proof",
+    "observerSystemSeconds": 0.934148,
+    "success": true,
+    "type": "finished",
+    "stateSamples": 1591,
+    "observerUserSeconds": 1.029868,
+    "maximumGeometricStateGapSeconds": 1.256312500000007,
+    "nominalGeometricCheckSeconds": 1,
+    "continuousWorkspaceAXNotifications": true,
+    "continuousPixels": false,
+    "predicateSourceUnchanged": true,
+    "observerAndFootprintOverheadNotSubtracted": true
+  },
+  "closure": {
+    "original30SecondAbsenceGatePassed": false,
+    "originalFailure": "All 81 scans had no candidate survivors; unreadable prior capture PID79847 caused bound failure; raw receipts retained",
+    "laterSpecificDisposition": {
+      "before": {
+        "pid": 79847,
+        "ppid": 79485,
+        "uid": 501,
+        "sysctlResult": 0,
+        "kernelBytes": 648,
+        "kernelStatus": 5,
+        "SZOMB": 5,
+        "pathBytes": 0,
+        "pathErrno": 3,
+        "birthSeconds": 1794001942,
+        "birthMicroseconds": 888405,
+        "zombieVerified": true
+      },
+      "after": {
+        "pid": 79847,
+        "ppid": 79485,
+        "uid": 501,
+        "sysctlResult": 0,
+        "kernelBytes": 648,
+        "kernelStatus": 5,
+        "SZOMB": 5,
+        "pathBytes": 0,
+        "pathErrno": 3,
+        "birthSeconds": 1794001942,
+        "birthMicroseconds": 888405,
+        "zombieVerified": true
+      },
+      "explanation": "Exact old capture-helper PID is kernel SZOMB, already exited and awaiting parent reaping; no live executable/task. Not a live candidate owner. No broad unreadable-process exclusion.",
+      "kernelGuardSource": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/quality-mac-s29-observation-20261107/exited-capture.c"
+    },
+    "liveCandidateOwnersAndCoalitionsAbsent": true,
+    "integrity": "ok",
+    "generatedQSOsPreserved": 100000,
+    "all12StoredColumnsPreserved": true,
+    "settingsAndRevisionPreserved": true,
+    "QSOHash": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+    "nativeOrdinaryQuitOnly": true,
+    "UTMSameOriginalIdentity": true,
+    "daily": "closed as found; signed 1.5.29 available",
+    "DockOriginalSettingRestored": true
+  },
+  "toolingPins": {
+    "schema": 1,
+    "source": "78681662f9104264d0903329996d15962c395711",
+    "version": "1.5.29",
+    "fixtureSHA256": "d4e7e28ab95cb5d7954f4d468ca713d88c34fa1f5a5a1193fbc8cf27e80824c9",
+    "collectorSHA256": "7721229a3af85040dd789f67fb21386b5f41e4f56dd2082494e1e09687ecb872",
+    "observerSourceSHA256": "96f9d812e75fa09a85ad13cad8b9cc1ecaeab39226f5ff7118ade141bc117ebd",
+    "observerSHA256": "a1d1503f0dc5e29d047f2bc37a3e45045eb9a0523158ff31a53c2f4fa9c82be0",
+    "CPUUnitProvenanceSHA256": "6132297b87a45403eb8ebcc54e527df2cf9ef41f0215e118fa011e45287b03a9",
+    "counterSHA256": "178f80e05b78d2555103ba46a5f2cf75d6ed374446a9d4794e53bb7793a46da8"
+  },
+  "localHelperSHA256": {
+    "local-desk.m": "5d7eda370c7a75ce148dc8d6b0c33c61529ca494faacc6c74693e6897e41aceb",
+    "local-desk": "3cc65f20f2cc7294b566f602488716f0233a6879fa54d48bde37cc4438ab78b8",
+    "local-action.py": "445be17ea4c687f1a4cb3bc597541ee398074f1eeb7c793004243cf1428c0a91",
+    "run-local-only.py": "476c5c24a3dea33e9e43c6e354b9d2895aae3e519abc6c166388a63c31257ee3",
+    "exited-capture.c": "c71d7594cd864fb843ff4ce0ef6eadeab59ed987722e0d7638cc084b02cc7a39",
+    "exited-capture": "ccf2fa5c058f285b8df892f383fddd908aa46b34e7c03cc38dd0f5121e7f00c1",
+    "late-closure.py": "951399d2907393dca73824900aaf8a90249e63e8f43608c04fb6607ca79822c8"
+  },
+  "rawEvidenceSHA256": {
+    "result.json": "c6e01be344ace043edc7a94adb152fead5c057d467fcdbf004d2982f4c46dcc0",
+    "pre-ui-proof.json": "7206ddf92b3ec7ffd72df1484b42698293275184367a5b7bc05f7ff1f7a5fd57",
+    "visibility.jsonl": "02c8f11ef9551ca072acafb3880598d05d6896a2e656037502b22bf2fd04b213"
+  },
+  "limits": [
+    "Single 30-minute generated100k offline reference-host run; representative70k/hardware/services qualification separate",
+    "No matched signed-app baseline; earlier development comparison remains separate",
+    "No retained JS heap/allocation leak attribution or explanation for historical7GB report",
+    "RSS reported separately per process, never summed as footprint; native tool compressed/swapped subset available only for complete family",
+    "No global cache/pressure control or two-hour/operation-cycle soak",
+    "Initial under1%-of-one-core goal remains unchanged and is exceeded at4.002744724% in this workload; 70k target calibration not replaced",
+    "Original closure deadline failure remains a failure; subsequent exact kernel-zombie disposition verified live absence before fixture read, without broad exclusions"
+  ],
+  "nextAction": "Profile the signed WebContent idle timer/IPC path on this same reproducible offline Desk to attribute its remaining 2.498% CPU before another product change.",
+  "referenceHost": {
+    "model": "MacBookPro17,1",
+    "logicalCPUs": 8,
+    "physicalRAMBytes": 17179869184,
+    "macOSVersion": "27.2",
+    "macOSBuild": "26B123",
+    "metadataReadAfterIntervalOnSameHost": true
+  }
+}
