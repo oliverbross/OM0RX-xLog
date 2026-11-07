@@ -14,6 +14,44 @@ and physical evidence remain separate.
 
 ## Current checkpoint — 7 November 2026, Darwin
 
+### Decision — macOS idle investigation concluded for now
+
+At the user's direction, the current macOS idle-performance investigation is
+**concluded for now; continue normal use** of installed signed **1.5.31**.
+Keep that installation and the existing verified backups/rollback copies,
+including `before-1.5.31-20261107T182642+0930`. Do not automatically extend the
+soak, rebuild, reinstall or repeat completed tests. This decision supersedes the
+longer-soak next action in the S31 supporting report and the earlier macOS
+investigation next actions retained below; it does not alter their evidence.
+
+The **under-1% CPU target remains unmet** (S31 background family: 2.272589% of
+one core). **WebContent growth remains a monitored follow-up; no leak conclusion**
+is established. The historical **~7 GB incident remains unattributed**.
+Foreground, platform, hardware and public-release qualification retain their
+existing status; none is promoted by this decision. The **wider quality phase
+remains OPEN**. Preserve UTM and the separate OM0RX-Skimmer project; this is a
+documentation-only checkpoint with no application, VM or Skimmer operation.
+
+### Next focused task — Windows first-run Radio Browse failure
+
+Prioritize the remaining user-facing first-run catalogue defect in Q02 /
+WIN-SETUP-01: [ordinary AU22 Radio Browse](windows-ordinary-1.5.20-to-1.5.21.md#actual-wizard-finish-ordinary-reopen-and-close)
+failed on the first click; one explicit Retry then loaded **313 models**.
+Rotator Browse loaded **57 models** on its first attempt. The cold-helper
+three-second timeout is only a hypothesis. Later retained-profile AU23–AU25
+passes do not establish that fresh first-run radio browsing is repaired.
+
+Reuse that retained failure, exact package/identity receipts and the
+[catalogue transport/first-run handoff](../../reviews/QUALITY_FIRST_RUN_2026-11-05.md#native-windows-handoff-win-setup-01)
+to trace the current radio catalogue path and attribute the initial failure
+before choosing a narrow correction. The focused outcome is a successful first
+Browse with the bundled catalogue, with explicit failure/Retry still usable;
+radio/rotor Save and restart/readback retain their existing separate boundaries.
+Reuse completed blank-Desk, 1024×768 editor/map-error and AU25 Settings evidence;
+do not repeat those passing journeys as the next task. A full graphics, fresh
+Standard/native-x64 or physical-equipment campaign remains separate. This
+checkpoint identifies the task; it does not start a VM run, build or install.
+
 ### Signed S31 background observation — memory plateau; idle CPU goal unmet
 
 The user chose normal computer use after two strict foreground preflights stopped
@@ -55,10 +93,11 @@ Installed S31 stayed running with unchanged host/worker identities and bundle pi
 no production UI binding/input or live database/settings/audio access occurred.
 UTM identity and original Dock state are preserved; Skimmer is untouched. No app
 source change, build/rebuild, test, profiler, install, CI repeat or public release.
-**Next:** a longer unchanged-signed-app background soak focused on whether
-WebContent eventually plateaus. Foreground idle CPU qualification, long-term leak
-claims, the old ~7 GB incident, representative/connected workloads and wider
-release qualification remain separate.
+The previously proposed longer unchanged-signed-app background soak is
+**superseded by the decision above**. WebContent growth remains a monitored
+follow-up without a leak conclusion. Foreground idle CPU qualification, the old
+~7 GB incident, representative/connected workloads and wider release
+qualification retain their existing status.
 
 ### Installed S31 — authority-only Quit veto and antenna clutter corrected
 
@@ -544,8 +583,7 @@ record the remaining ordinary-account, real-session, provider and display cells.
 
 ## Prioritized remaining work
 
-1. Finish exact corrected-source gates, then freeze/build one new signed Mac candidate containing paging and ADIF corrections. Preserve version/source provenance and all existing build guards; no daily installation or public release.
-2. Complete the candidate-bound fixture/LaunchServices adapter and verify private-root coordinates, complete host/worker/WebKit ownership, runtime Accessibility trust and foreground supervision before one 100k generated desktop interval. Missing ownership/trust or a failed launch is a retained blocker, not a budget pass. The provisional ~70k budget remains distinct from this workload.
-3. Use that interval's attributed footprint and final-ten-minute native CPU to choose the next lifetime/background-work correction. Do not repeat the already passing health-request ladder or infer CPU saving from render counts. Count caching remains deferred until query measurements justify it.
-4. Complete unqualified ordinary native-x64/true Standard/fresh-onboarding Windows, media/full-restore, real Linux desktop and display/permission cells. Existing Linux X11/nested Wayland results apply only to their older package.
-5. Retain physical TCI/WinKeyer/audio/PTT/FLEX-8400, real SunSDR advertised TRX count, buffered Flex speed and notarization as separate open/deferred equipment and release gates.
+1. Address the Q02 first-run Windows Radio Browse failure identified above, starting with retained AU22 evidence and the current shared catalogue/native helper path. Attribute the failure before selecting a correction; do not assume the timeout hypothesis is proven.
+2. Retain completed AU23 blank-Desk, AU24 editor/map-error and AU25 Settings/upgrade evidence within their recorded bounds. Ordinary native-x64/true Standard/fresh-onboarding Windows, media/full-restore, real Linux desktop and display/permission cells remain open; existing Linux X11/nested Wayland results apply only to their older package.
+3. Continue normal use of installed signed 1.5.31 with existing verified backups. The macOS idle investigation is concluded for now: CPU target unmet, WebContent growth monitored without a leak conclusion, historical ~7 GB incident unattributed. No automatic soak extension, rebuild, reinstall or completed-test repeat.
+4. Retain physical TCI/WinKeyer/audio/PTT/FLEX-8400, real SunSDR advertised TRX count, buffered Flex speed and notarization as separate open/deferred equipment and release gates. Foreground and public-release qualification are unchanged; the wider quality phase remains OPEN.
