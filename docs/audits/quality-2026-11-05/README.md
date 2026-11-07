@@ -14,6 +14,50 @@ and physical evidence remain separate.
 
 ## Current checkpoint — 7 November 2026, Darwin
 
+### Focused idle Desk optimization — installed 1.5.29
+
+Started from clean, fast-forward-verified canonical `a2c1bc66`, retaining the
+installed signed S28 until measured product benefit and acceptance gates passed.
+Four small renderer guards in `d1c4ce90` suppress repeated identical idle
+Follow/editor/CW notifications and stabilize the disabled own-RBN empty array.
+Timers, IPC reads, UTC, supervision/leases/Stop and SQL/schema are unchanged.
+The actual diagnostic map path was working Standard bundled WebGL; the earlier
+fallback-map sample is not the matched baseline. No decoder retirement repeat,
+whole-app audit or separate Skimmer change was performed.
+
+[Matched five-minute evidence](idle-desk-2026-11-07.md): uninstrumented native
+development WebContent **4.680 → 3.556% of one core (24.0% lower)**, complete
+five-owner family **6.571 → 5.547% (15.6% lower)**. Host/worker do not improve;
+final WebContent footprint **225.5 / 225.8 MiB** is effectively unchanged.
+Native allocation endpoints and exploratory React/IPC correlation are reported
+separately. A completed 900.731-second unpaired continuation records WebContent
+**224.2 → 233.3 MiB**, worker approximately **72.5 MiB** stable, without a leak
+or growth-rate claim. Development overhead, single sequential pair and
+unqualified continuous foreground/occlusion limit the result. Historical
+30-minute visibility failure and original ~7 GB incident remain OPEN.
+
+[Signed S29 acceptance](../../releases/v1.5.29-macos-quality-candidate.md):
+frozen source `78681662`, exact-source CI/seven portability/full Mac pass,
+strict Developer ID arm64, signed-worker 9/9 and privacy 3,534/zero pass.
+**One 1.5.29 package/install** completed after a NEW verified S28/full-profile
+backup `before-1.5.29-20261107T134436+0930` and disposable migration/search/
+three-page/restart checks. Earlier backup and rollbacks are preserved.
+Installed normal startup, 69,741-contact paging/search, ordinary Quit and restart
+pass. One generation-guarded search required its explicit Retry and recovered.
+
+Production all-column equality initially failed: exactly one existing contact
+was reconciled by a completed automatic Wavelog pull (one local update, zero
+upload attempts/inserts/deletes/conflicts). Remote time/grid normalization,
+profile, confirmations/enrichment and bookkeeping are positively correlated to
+the owning merge path and run receipt; all other rows match exactly. The exact
+reviewed post-merge snapshot matches after restart. All 662 audio files, stored
+settings and native configuration pass. The enabled follow-radio preference
+normally changed saved band 40m→80m/revision +1; other preference keys match.
+Original exact-hash failure and private delta are retained, not called byte-for-
+byte preservation. No manual/test QSO mutation or equipment command was issued.
+The app is left running on normal Desk; UTM remains running. Public release,
+signed-app long performance, physical/platform gaps and notarization stay OPEN.
+
 ### Focused retirement continuation — final candidate 1.5.28
 
 The user authorized retirement of the unfinished embedded CW decoder and local
@@ -90,14 +134,14 @@ unresolved hardware/platform work and notarization remain OPEN.**
 
 | ID | Current scope / status | Evidence and next step |
 |---|---|---|
-| Q00 | Signed 1.5.28 installed; NEW full backup verified | [S28 record](../../releases/v1.5.28-macos-quality-candidate.md): frozen clean `19a23751`, signed bytes/provenance, installed Desk/search/paging/Quit/restart and data preservation pass. NEW verified pre-S28 backup includes signed 1.5.15, consistent database, settings and all managed media; original historical backup remains absent. Old decoder worktree is retired normally after pushed archival branch; unrelated worktrees remain. Public release is unchanged. |
-| Q01 | S28 diagnostic measured; valid desktop interval and incident attribution OPEN | Complete five-owner generated-100k diagnostic: shared-accounted **321.145 → 344.379 MiB** over **60.55 s**; no long-term or paired improvement claim. Foreground passes; unchanged visibility guard rejects cursor/Dock/sharing surfaces, so no valid 30-minute interval. Ordinary Quit/100k preservation pass. [Older daily 1.5.15 sample](memory-current-instance-2026-11-06.md) remains historical evidence (3.386 GiB family, 2.852 GiB worker), not a controlled comparison. Original ~7 GB report remains unattributed. |
+| Q00 | Signed 1.5.29 installed; NEW S28/full-profile backup verified | [S29 record](../../releases/v1.5.29-macos-quality-candidate.md): frozen clean `78681662`, signed-byte pins, startup/search/paging/Quit/restart and bounded preservation pass. Fresh backup retains signed S28, 69,741 live QSOs, settings/all 662 audio; earlier backup/rollback preserved. One normal automatic remote merge and follow-radio band transition explicitly dispositioned. Public release unchanged. |
+| Q01 | S29 matched/longer diagnostics complete; strict interval and incident attribution OPEN | [Five-minute pair and 900.731-second follow-up](idle-desk-2026-11-07.md) distinguish CPU, footprint and native allocation endpoints. No retained-footprint saving/leak attribution. Historical cursor/Dock/sharing visibility rejection unchanged; no valid strict 30-minute interval. Disposable 100k all-column/Quit preservation passes. Original ~7 GB incident and older uncontrolled daily memory sample remain separate. |
 | Q02 | AU24 editor/fallback and AU25 Settings restart PASS within bounds; broader desktop OPEN | [AU24](../../releases/v1.5.24-windows-quality-candidate.md) qualifies readable full-editor create/edit/restart at 1024×768 and readable map fallback; WebGL2 stayed unavailable. [AU25](windows-ordinary-1.5.25.md) adds acknowledged Settings save/restart/restoration with 16/16 data/settings checks. Fresh onboarding, native-x64/true Standard desktop and equipment remain open. Earlier AU21/AU22 blank-Desk failures remain recorded. |
 | Q03 | S25 hosted scopes and ordinary nonempty all-users upgrade PASS within bounds | [S25 package audit](ci-1.5.25-windows-packaged-qualification.md): both hosted scopes pass, 3,271 actual files checked, zero privacy findings. [Ordinary AU24→AU25](windows-ordinary-1.5.25.md): default Program Files/HKLM64, unelevated medium launches, two QSOs/all 12 columns preserved, two bounded normal closes and verified 454-file profile archive. ARM64/x64 emulation, filtered administrator; not full restore/media or ordinary native-x64/Standard qualification. |
-| Q04 | S28 short idle diagnostic 4.069% of one core; improvement OPEN | All five attributed owners: WebContent 2.746%, host 1.000%, GPU 0.225%, worker 0.099%, Networking 0.000% over 60.55 s, diagnostic overhead not subtracted. No valid final-ten-minute result or before/after CPU saving. Profile WebContent idle allocations and Desk/map timers/rendering next; keep Stop/lease/reconnect bounds. [Earlier comparison](idle-work-native-correlation.md) remains unchanged. |
-| Q05 | Paging/ADIF corrections integrated; signed S28 search/paging/restart PASS within bounds | [Paging](logbook-page-cancellation-2026-11-06.md) and [ADIF](adif-fractional-second-2026-11-07.md) retain original failure and focused source evidence. Installed S28 adds successful visible paging/search and restart with 69,740 real contacts and all stored columns unchanged; disposable migration/restart each check three distinct pages. Broader ADIF UI/preview lifetime, full native draining and visible-save latency remain bounded/open; no SQL caching added. |
-| Q06 | S28 cross-platform source gates PASS; packaged platform evidence unchanged | [S28 record and exact runs](../../releases/v1.5.28-macos-quality-candidate.md): CI, all seven Mac/Linux/Windows portability jobs and full Mac source/build pass on `19a23751`. CI package steps and separate packaged-runtime jobs were skipped/not repeated; local signed Mac acceptance is separate. Earlier [S25 Windows scopes](ci-1.5.25-windows-packaged-qualification.md), eight retained error-1412 lines, original S24/S22 failures and later [same-byte S22 Linux pass](linux-runtime-1.5.22-audit.md) keep their original scope. |
-| Q07 | S28 installed for local evaluation; public-release quality phase OPEN | Source/signing/privacy and bounded installed startup/data/search/paging/restart pass; fresh full backup and application rollback verified. S27 rejected before use; S26 foreground failure and all earlier evidence retained. Valid long desktop performance, original incident attribution, demonstrated CPU improvement, outstanding native-x64/Standard/onboarding/full restore/real Linux desktop, physical equipment and notarization remain open. No public GitHub release. |
+| Q04 | Demonstrated native development CPU saving; signed-app budget OPEN | [Matched S29 product comparison](idle-desk-2026-11-07.md): WebContent **4.680→3.556%**, five-owner family **6.571→5.547%** of one core; host/worker no improvement. Same 100k fixture/layout/services/Standard map, 60s warm-up, ~300s each, no instrumentation/GUI during intervals. Final footprint unchanged; allocation stats do not prove JS retention. Next: one strict signed-app 30-minute interval. |
+| Q05 | Signed S29 search/paging/Quit/restart PASS within recorded bounds | 69,741 contacts, visible paging 1–40→41–80 and five-result search; initial aggregate-generation guard recovered through explicit Retry. Disposable migration/restart preserve all 12 columns/settings. Production one-row automatic remote pull and band-follow preference transition explicitly reviewed; other rows/settings/audio/configuration match. Earlier paging/ADIF failures and broader lifetime/latency gaps remain recorded. |
+| Q06 | S29 exact-source gates PASS; packaged platform evidence unchanged | [S29 exact runs](../../releases/v1.5.29-macos-quality-candidate.md): CI, all seven portability jobs and full Mac source/build pass on `78681662`. Linux/Windows packaged-runtime jobs SKIPPED. Local signed Mac checks separate; prior S25 Windows and S22 Linux acceptance/failures retain their original scope. |
+| Q07 | S29 installed for local evaluation; public quality phase OPEN | One signed package/install, fresh verified full backup, prior rollback and bounded installed acceptance complete. Measured development CPU saving does not qualify signed-app long performance. Original incident, native-x64/Standard/onboarding/full restore/real Linux desktop, physical equipment and notarization remain open. Historical rejected candidates/visibility failures retained; no public release. |
 
 ### Final exact-source S26 gates
 

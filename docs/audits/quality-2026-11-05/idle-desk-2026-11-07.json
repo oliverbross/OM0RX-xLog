@@ -12,7 +12,8 @@
     "No continuous geometric visibility receipt; historical 30min visibility failure remains open",
     "vmmap malloc statistics count native live allocations including allocator/JS capacity, not retained JS objects or allocation turnover",
     "Endpoint footprint or malloc changes do not establish a leak, growth rate, or explanation for historical7GB incident",
-    "After exploratory React counters overlapped validation load; native matched arms did not"
+    "After exploratory React counters overlapped validation load; native matched arms did not",
+    "The longer follow-up is unpaired; foreground/occlusion/App Nap were not continuously qualified, so its CPU is not a second matched saving."
   ],
   "arms": {
     "normal-before": {
@@ -300,6 +301,145 @@
       },
       "contextChanges": [],
       "rawSHA256": "acb0be6c5d4bd00ac804248a37534313bfe1ea2b63e3290abad7c096176af893"
+    }
+  },
+  "longerDiagnostic": {
+    "rows": [
+      {
+        "role": "xlog-prototype",
+        "intervalSeconds": 900.7313985833332,
+        "CPUPercentOfOneCore": 0.851299146492884,
+        "footprintBytes": [
+          48809112,
+          48645272
+        ],
+        "residentBytes": [
+          56770560,
+          54329344
+        ],
+        "diskReadBytesDelta": 6135808,
+        "diskWriteBytesDelta": 0
+      },
+      {
+        "role": "com.apple.WebKit.GPU",
+        "intervalSeconds": 900.7313870833333,
+        "CPUPercentOfOneCore": 0.39119814747545834,
+        "footprintBytes": [
+          22921936,
+          25232080
+        ],
+        "residentBytes": [
+          9961472,
+          9846784
+        ],
+        "diskReadBytesDelta": 10969088,
+        "diskWriteBytesDelta": 0
+      },
+      {
+        "role": "com.apple.WebKit.WebContent",
+        "intervalSeconds": 900.7313783333333,
+        "CPUPercentOfOneCore": 1.2339061225517758,
+        "footprintBytes": [
+          235095480,
+          244581840
+        ],
+        "residentBytes": [
+          65306624,
+          71172096
+        ],
+        "diskReadBytesDelta": 9449472,
+        "diskWriteBytesDelta": 0
+      },
+      {
+        "role": "com.apple.WebKit.Networking",
+        "intervalSeconds": 900.7313684583332,
+        "CPUPercentOfOneCore": 0.08195268969002052,
+        "footprintBytes": [
+          10273296,
+          10519056
+        ],
+        "residentBytes": [
+          5734400,
+          5619712
+        ],
+        "diskReadBytesDelta": 14520320,
+        "diskWriteBytesDelta": 0
+      },
+      {
+        "role": "xlog-prototype-worker",
+        "intervalSeconds": 900.7313588333333,
+        "CPUPercentOfOneCore": 0.14200923458356193,
+        "footprintBytes": [
+          76006024,
+          76022408
+        ],
+        "residentBytes": [
+          14663680,
+          14336000
+        ],
+        "diskReadBytesDelta": 630784,
+        "diskWriteBytesDelta": 0
+      }
+    ],
+    "familySharedAccountedFootprintBytes": [
+      392745400,
+      404656592
+    ],
+    "familyCPUPercentOfOneCore": 2.7003653407937005,
+    "webContentMallocZone": {
+      "start": {
+        "liveAllocations": 453359,
+        "allocatedSizeRounded": "143.3M"
+      },
+      "end": {
+        "liveAllocations": 473177,
+        "allocatedSizeRounded": "151.7M"
+      }
+    },
+    "rawResultSHA256": "05fa40198da0fa167cc1ab69b4ad248b2f7df08c5e01e70d00a8d7e2901e6229"
+  },
+  "nativeBinaryPins": {
+    "debugHostSHA256": "90c3a0c652b83d109bbed38c6ac20331fd1b7f1e45ae862978b21470a2203549",
+    "signedS28WorkerSHA256": "267c0c1a1c4e15de32d4fc2a23b6533daa9c8e86f9bd5cd650980079b79dde77",
+    "samplerSHA256": "178f80e05b78d2555103ba46a5f2cf75d6ed374446a9d4794e53bb7793a46da8",
+    "identityObserverSHA256": "2bb65d479f8db5d8e3df8a3cf0970522c75a00a8f9a9d742c9535696186904d0"
+  },
+  "servedModulePins": {
+    "served-before": {
+      "live/sharedCWSession.ts": {
+        "servedSHA256": "35e2df48b75e68ffa57e8a502f5c4577aa174f27193b3564412c811663b618e8",
+        "containsProductChange": false
+      },
+      "live/useFollowRadio.ts": {
+        "servedSHA256": "25f293e577dae51ace6f5ef31362b003b2e0ece3f445f0a4a9891382d116c20a",
+        "containsProductChange": false
+      },
+      "live/useSpotEditor.ts": {
+        "servedSHA256": "10e2695b54dadf99e174596607c2b8b19eac267853de03bf2bcc5a0b8c575462",
+        "containsProductChange": false
+      },
+      "live/useOwnRbn.ts": {
+        "servedSHA256": "270a7c1c92c7f7bead91da3898816805882ed9163a637626594c58c4be28006e",
+        "containsProductChange": false
+      }
+    },
+    "served-after": {
+      "live/sharedCWSession.ts": {
+        "servedSHA256": "176595bb9a2d327928fe35588e8e524bf798b11d40592516005500efb94df60a",
+        "containsProductChange": true
+      },
+      "live/useFollowRadio.ts": {
+        "servedSHA256": "01b71b9d9060fe0a95a85fb524ab0dbef7d718def3328c907f8823ecb8f634ee",
+        "containsProductChange": true
+      },
+      "live/useSpotEditor.ts": {
+        "servedSHA256": "2734ce4932d2d71659bdc04f652aaeb6a62b319e1fc6b7e1739d03de610c24b3",
+        "containsProductChange": true
+      },
+      "live/useOwnRbn.ts": {
+        "servedSHA256": "cc846fa53487a46772caa62d7cea8c2606a2a9c2eec986c370d4af5ce58b2a60",
+        "containsProductChange": true
+      }
     }
   }
 }
