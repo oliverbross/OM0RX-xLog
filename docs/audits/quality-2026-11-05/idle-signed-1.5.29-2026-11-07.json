@@ -1,0 +1,102 @@
+{
+  "version": "1.5.29",
+  "applicationSource": "78681662f9104264d0903329996d15962c395711",
+  "repositoryStart": "90ade752344d7094ff9507d95634f248092bf624",
+  "applicationBuildOrInstall": false,
+  "result": "BLOCKED at foreground readiness; no interval started",
+  "warmupActualSeconds": 60.011869542,
+  "preflightStartedUTC": "2026-11-07T04:42:42.383758+00:00",
+  "preflightCompletedUTC": "2026-11-07T04:42:44.893731+00:00",
+  "preflightObserverExitCode": 2,
+  "predicateResult": {
+    "targetPID": 81427,
+    "frontmostPID": 81591,
+    "reason": "Candidate is not the visible foreground application",
+    "type": "blocked",
+    "targetHidden": false,
+    "targetTerminated": false
+  },
+  "foregroundExecutable": "/Applications/AetherSDR.app/Contents/MacOS/AetherSDR",
+  "activationCause": "unknown; not investigated or changed",
+  "fullProcessAttributionProved": true,
+  "owners": [
+    {
+      "role": "xlog-prototype",
+      "pid": 81427,
+      "birthSeconds": 1794026396,
+      "birthMicroseconds": 674133
+    },
+    {
+      "role": "com.apple.WebKit.GPU",
+      "pid": 81450,
+      "birthSeconds": 1794026397,
+      "birthMicroseconds": 299616
+    },
+    {
+      "role": "com.apple.WebKit.WebContent",
+      "pid": 81451,
+      "birthSeconds": 1794026397,
+      "birthMicroseconds": 354462
+    },
+    {
+      "role": "com.apple.WebKit.Networking",
+      "pid": 81453,
+      "birthSeconds": 1794026397,
+      "birthMicroseconds": 439905
+    },
+    {
+      "role": "xlog-prototype-worker",
+      "pid": 81471,
+      "birthSeconds": 1794026398,
+      "birthMicroseconds": 59437
+    }
+  ],
+  "ambientPIDs": [
+    78499,
+    78513,
+    81684
+  ],
+  "settings": "Traditional Desk, Map view, 58% map/tools, blank call, Standard working bundled WebGL, Detailed/Both, Sun/Greyline on, Heard me off, 20m Band maps selected, no station/cluster/credentials I/O",
+  "samplesMinutes": [
+    0,
+    5,
+    15,
+    20,
+    30
+  ],
+  "samples": [],
+  "memoryUnits": "MiB = bytes / 1048576; no scheduled footprint/RSS/compressed/swapped sample collected",
+  "finalTenMinuteCPU": null,
+  "CPUUnits": "Percent of one CPU core; no final-ten-minute delta exists",
+  "continuousVisibilityVerified": false,
+  "occlusionPredicateReached": false,
+  "historicalVisibilityFailuresRetained": true,
+  "observerClassificationChange": false,
+  "protocolChange": "Version/source/helper/artifact pins rebound to S29; same observer source, geometry/foreground/ownership/heartbeat/deadline requirements unchanged",
+  "toolingPins": {
+    "schema": 1,
+    "source": "78681662f9104264d0903329996d15962c395711",
+    "version": "1.5.29",
+    "fixtureSHA256": "d4e7e28ab95cb5d7954f4d468ca713d88c34fa1f5a5a1193fbc8cf27e80824c9",
+    "collectorSHA256": "2877caa7445b59912e94e00e45f3f4ca9c9282e1a86ce81b41dac9b742ad38ce",
+    "observerSourceSHA256": "96f9d812e75fa09a85ad13cad8b9cc1ecaeab39226f5ff7118ade141bc117ebd",
+    "observerSHA256": "a1d1503f0dc5e29d047f2bc37a3e45045eb9a0523158ff31a53c2f4fa9c82be0",
+    "CPUUnitProvenanceSHA256": "6132297b87a45403eb8ebcc54e527df2cf9ef41f0215e118fa011e45287b03a9",
+    "counterSHA256": "178f80e05b78d2555103ba46a5f2cf75d6ed374446a9d4794e53bb7793a46da8"
+  },
+  "artifactSealSHA256": "62f6b89605f335e7a89598c6840838abd747f248a686b6415f7f84a666c7d7de",
+  "ordinaryQuit": {
+    "completeFamilyAbsent": true,
+    "settingsPreserved": true,
+    "generatedQSOsPreserved": 100000,
+    "orderedStoredQSOHash": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+    "integrity": "ok"
+  },
+  "nextAction": "Reserve an uninterrupted desktop for candidate foreground through warm-up and 30 minutes, then perform a fresh same-predicate preflight; historical cursor/Dock/sharing occlusion still needs to pass.",
+  "limits": [
+    "No signed-app performance result, target disposition or production before/after baseline",
+    "No attribution of historical 7 GB incident",
+    "Foreground application identified; no observer defect established",
+    "Initial preparation stopped before fixture/GUI launch on an incorrect retained build-result receipt path; corrected to the actual prior signed-build/result.json without modifying artifact bytes; original failure retained as lean-ctx archive 22e1a3b8bad4545a"
+  ]
+}
