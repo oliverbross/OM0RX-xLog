@@ -1,0 +1,1696 @@
+{
+  "schema": 1,
+  "cpuUnit": "percent of ONE CPU core",
+  "memoryUnit": "MiB (2^20 bytes)",
+  "scope": "Single sequential signed-release five-minute steady-state diagnostic pair; no retained-JS/allocation-rate or leak finding",
+  "arms": {
+    "before": {
+      "pins": {
+        "app": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.29/native-candidate/OM0RX-xLog.app",
+        "source": "78681662f9104264d0903329996d15962c395711",
+        "version": "1.5.29",
+        "host": "7f093294faf820b919edf45220301670895c808b7f2517298cdafbbc8c8041d8",
+        "worker": "19da48c6fbb14ad468bfea6df0a02c1370947ae758b25298ca4f706087a90cdd",
+        "build": "107cfefd3b6fdcb9e7fee65651c74a65ae17b003f070c77dccd9df6f08027c06"
+      },
+      "CPU": [
+        {
+          "role": "Host",
+          "pid": 2398,
+          "actualIntervalSeconds": 300.42013629166667,
+          "userSeconds": 2.228777375,
+          "systemSeconds": 0.9629552499999999,
+          "percentOfOneCore": 1.0624230001351396
+        },
+        {
+          "role": "GPU",
+          "pid": 2409,
+          "actualIntervalSeconds": 300.42013787499997,
+          "userSeconds": 0.52798925,
+          "systemSeconds": 0.6120665416666666,
+          "percentOfOneCore": 0.37948714081911034
+        },
+        {
+          "role": "WebContent",
+          "pid": 2411,
+          "actualIntervalSeconds": 300.42013849999995,
+          "userSeconds": 6.734765291666666,
+          "systemSeconds": 1.10130825,
+          "percentOfOneCore": 2.60837158946542
+        },
+        {
+          "role": "Networking",
+          "pid": 2413,
+          "actualIntervalSeconds": 300.4201386666666,
+          "userSeconds": 0.0010129999999999998,
+          "systemSeconds": 0.0026217916666666664,
+          "percentOfOneCore": 0.0012099027990595784
+        },
+        {
+          "role": "Worker",
+          "pid": 2422,
+          "actualIntervalSeconds": 300.4201390833333,
+          "userSeconds": 0.33182575,
+          "systemSeconds": 0.19099570833333332,
+          "percentOfOneCore": 0.17403009662688035
+        }
+      ],
+      "familyCPUPercentOfOneCore": 4.225521729845609,
+      "samples": [
+        {
+          "startedUTC": "2026-11-07T07:28:37.128257+00:00",
+          "finishedUTC": "2026-11-07T07:28:37.222515+00:00",
+          "familySharedAccountedFootprintMiB": 310.0508804321289,
+          "aggregateCompressedSwappedSubsetMiB": 140.953125,
+          "owners": [
+            {
+              "role": "Host",
+              "pid": 2398,
+              "footprintMiB": 41.626121520996094,
+              "RSSMiB": 106.1875
+            },
+            {
+              "role": "GPU",
+              "pid": 2409,
+              "footprintMiB": 31.938186645507812,
+              "RSSMiB": 23.90625
+            },
+            {
+              "role": "WebContent",
+              "pid": 2411,
+              "footprintMiB": 145.7979736328125,
+              "RSSMiB": 149.640625
+            },
+            {
+              "role": "Networking",
+              "pid": 2413,
+              "footprintMiB": 6.7035369873046875,
+              "RSSMiB": 3.90625
+            },
+            {
+              "role": "Worker",
+              "pid": 2422,
+              "footprintMiB": 84.34443664550781,
+              "RSSMiB": 19.359375
+            }
+          ]
+        },
+        {
+          "startedUTC": "2026-11-07T07:33:37.523588+00:00",
+          "finishedUTC": "2026-11-07T07:33:37.609683+00:00",
+          "familySharedAccountedFootprintMiB": 311.7227783203125,
+          "aggregateCompressedSwappedSubsetMiB": 165.984375,
+          "owners": [
+            {
+              "role": "Host",
+              "pid": 2398,
+              "footprintMiB": 41.797996520996094,
+              "RSSMiB": 79.890625
+            },
+            {
+              "role": "GPU",
+              "pid": 2409,
+              "footprintMiB": 24.703811645507812,
+              "RSSMiB": 24.125
+            },
+            {
+              "role": "WebContent",
+              "pid": 2411,
+              "footprintMiB": 154.4854965209961,
+              "RSSMiB": 115.734375
+            },
+            {
+              "role": "Networking",
+              "pid": 2413,
+              "footprintMiB": 6.7347869873046875,
+              "RSSMiB": 2.078125
+            },
+            {
+              "role": "Worker",
+              "pid": 2422,
+              "footprintMiB": 84.36006164550781,
+              "RSSMiB": 19.28125
+            }
+          ]
+        }
+      ],
+      "configuredWarmupSeconds": 60,
+      "hostAgeAtFirstFootprintSeconds": 126.5318560362091,
+      "visibility": {
+        "reason": "Completed requested observation",
+        "events": 0,
+        "maximumHeartbeatGapSeconds": 0.3010615833333333,
+        "elapsedSeconds": 300.882951375,
+        "scope": "Continuous workspace/AX events plus one-second window-list checks; not continuous pixel occlusion proof",
+        "observerSystemSeconds": 0.158636,
+        "success": true,
+        "type": "finished",
+        "stateSamples": 266,
+        "observerUserSeconds": 0.189534
+      },
+      "preflight": {
+        "success": true,
+        "state": {
+          "onscreen": true,
+          "sampledOcclusion": false,
+          "frontmostPID": 2398,
+          "minimized": false,
+          "windowID": 7077,
+          "bounds": {
+            "X": 1200,
+            "Height": 940,
+            "Y": 328,
+            "Width": 1440
+          }
+        },
+        "samePredicateAsWatcher": true,
+        "type": "preflight"
+      },
+      "processAttribution": {
+        "preUIIdentityProven": true,
+        "capturedUnixSeconds": 1794036516.6106508,
+        "source": "78681662f9104264d0903329996d15962c395711",
+        "hostPID": 2398,
+        "workerPID": 2422,
+        "marker": "0fafe846-0afc-4a13-ac0e-7343d3e6dd8b",
+        "root": "/private/tmp/xlog-wave1-quality-ui-idle-1.5.29-i0qng9vd",
+        "ownerIdentities": [
+          {
+            "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.29/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+            "birthMicroseconds": 596401,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 2398,
+            "birthSeconds": 1794036390
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU",
+            "birthMicroseconds": 289548,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 2409,
+            "birthSeconds": 1794036391
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent",
+            "birthMicroseconds": 353571,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 2411,
+            "birthSeconds": 1794036391
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking",
+            "birthMicroseconds": 435505,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 2413,
+            "birthSeconds": 1794036391
+          },
+          {
+            "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.29/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+            "birthMicroseconds": 97261,
+            "ppid": 2398,
+            "uid": 501,
+            "pid": 2422,
+            "birthSeconds": 1794036392
+          }
+        ],
+        "ambientIdentities": [
+          {
+            "nativePath": "/Applications/UTM.app/Contents/MacOS/UTM",
+            "birthMicroseconds": 847450,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 81684,
+            "birthSeconds": 1793912594
+          }
+        ],
+        "associations": {
+          "2398": {
+            "pid": 2398,
+            "handle": 2398,
+            "originator": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.29/native-candidate/OM0RX-xLog.app",
+            "creator": "xlog-prototype[2398]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 61091,
+                "name": "application.com.oliverbross.xlog.integration.623699300.623699320.DE61B775-5A58-4593-8708-243BE5AD2014",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 61092,
+                "name": "application.com.oliverbross.xlog.integration.623699300.623699320.DE61B775-5A58-4593-8708-243BE5AD2014",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [
+              {
+                "pid": 2409,
+                "label": "com.apple.WebKit.GPU.83CDAB41-53FC-4DA3-A671-0DFD46D66AB0"
+              },
+              {
+                "pid": 2411,
+                "label": "com.apple.WebKit.WebContent.FAC409AD-5B7F-47AF-B0E8-0B072FD5B795"
+              },
+              {
+                "pid": 2413,
+                "label": "com.apple.WebKit.Networking.DE6D0087-1DB3-4F5C-A0B8-1B39AEBD3A3C"
+              }
+            ],
+            "rawMetadataSHA256": "59b53152bc226b75eb6ec931319429bea48c596e18d03f6189ab6c7675f988fa"
+          },
+          "2409": {
+            "pid": 2409,
+            "handle": 2409,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc",
+            "creator": "com.apple.WebKi[2409]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 61091,
+                "name": "application.com.oliverbross.xlog.integration.623699300.623699320.DE61B775-5A58-4593-8708-243BE5AD2014",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 61092,
+                "name": "application.com.oliverbross.xlog.integration.623699300.623699320.DE61B775-5A58-4593-8708-243BE5AD2014",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "bdb502b4fbee0e5b831347e2908dca31c5ddb6a4758e70226e52267270272f91"
+          },
+          "2411": {
+            "pid": 2411,
+            "handle": 2411,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc",
+            "creator": "com.apple.WebKi[2411]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 61091,
+                "name": "application.com.oliverbross.xlog.integration.623699300.623699320.DE61B775-5A58-4593-8708-243BE5AD2014",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 61092,
+                "name": "application.com.oliverbross.xlog.integration.623699300.623699320.DE61B775-5A58-4593-8708-243BE5AD2014",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "dbc0b218a9aff570e8c300dd7d330ccc65126e9586375b3de819efcae54606d6"
+          },
+          "2413": {
+            "pid": 2413,
+            "handle": 2413,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc",
+            "creator": "com.apple.WebKi[2413]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 61091,
+                "name": "application.com.oliverbross.xlog.integration.623699300.623699320.DE61B775-5A58-4593-8708-243BE5AD2014",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 61092,
+                "name": "application.com.oliverbross.xlog.integration.623699300.623699320.DE61B775-5A58-4593-8708-243BE5AD2014",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "04bd6f60ddaef02055ce5f8ee1a3bacd19542ddbb3dd09a5a1526b532ff7ab61"
+          },
+          "2422": {
+            "pid": 2422,
+            "handle": 2422,
+            "originator": null,
+            "creator": "launchctl[2434]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 61091,
+                "name": "application.com.oliverbross.xlog.integration.623699300.623699320.DE61B775-5A58-4593-8708-243BE5AD2014",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 61092,
+                "name": "application.com.oliverbross.xlog.integration.623699300.623699320.DE61B775-5A58-4593-8708-243BE5AD2014",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "0cbff21efe71ea0bed47a5b11515568304e562abedfa1171fd549840cf1e8436"
+          }
+        },
+        "counters": {
+          "schema": 1,
+          "machTimebaseStatus": 0,
+          "machTimebaseNumer": 125,
+          "machTimebaseDenom": 3,
+          "rows": [
+            {
+              "pid": 2398,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 110313472,
+              "physicalFootprintBytes": 43615384,
+              "processStartAbsoluteTime": 8237149206105,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 2398,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 61091,
+              "jetsamCoalitionID": 61092,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 37688120,
+              "cpuSystemMachTicks": 23503050,
+              "packageIdleWakeups": 148,
+              "interruptWakeups": 4917,
+              "pageins": 7373,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 97153024,
+              "diskWrittenBytes": 20480,
+              "sampleMachAbsoluteTime": 8240172961942
+            },
+            {
+              "pid": 2409,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 25083904,
+              "physicalFootprintBytes": 33473232,
+              "processStartAbsoluteTime": 8237165841644,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 2398,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 61091,
+              "jetsamCoalitionID": 61092,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 12626467,
+              "cpuSystemMachTicks": 10270693,
+              "packageIdleWakeups": 44,
+              "interruptWakeups": 1324,
+              "pageins": 1214,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 13991936,
+              "diskWrittenBytes": 0,
+              "sampleMachAbsoluteTime": 8240172962167
+            },
+            {
+              "pid": 2411,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 157024256,
+              "physicalFootprintBytes": 152126592,
+              "processStartAbsoluteTime": 8237167378195,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 2398,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 61091,
+              "jetsamCoalitionID": 61092,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 102890840,
+              "cpuSystemMachTicks": 20513647,
+              "packageIdleWakeups": 86,
+              "interruptWakeups": 3030,
+              "pageins": 3022,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 29650944,
+              "diskWrittenBytes": 0,
+              "sampleMachAbsoluteTime": 8240172962406
+            },
+            {
+              "pid": 2413,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 4096000,
+              "physicalFootprintBytes": 7029168,
+              "processStartAbsoluteTime": 8237169344612,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 2398,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 61091,
+              "jetsamCoalitionID": 61092,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 697262,
+              "cpuSystemMachTicks": 1098691,
+              "packageIdleWakeups": 1,
+              "interruptWakeups": 86,
+              "pageins": 136,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 2568192,
+              "diskWrittenBytes": 53248,
+              "sampleMachAbsoluteTime": 8240172962579
+            },
+            {
+              "pid": 2422,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 20299776,
+              "physicalFootprintBytes": 88441552,
+              "processStartAbsoluteTime": 8237185226781,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 2398,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 61091,
+              "jetsamCoalitionID": 61092,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 60352578,
+              "cpuSystemMachTicks": 14562559,
+              "packageIdleWakeups": 0,
+              "interruptWakeups": 2,
+              "pageins": 95,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 197844992,
+              "diskWrittenBytes": 143360,
+              "sampleMachAbsoluteTime": 8240172962750
+            }
+          ]
+        }
+      },
+      "preservation": {
+        "qso": {
+          "physicalRows": 100000,
+          "liveQSOs": 100000,
+          "generatedCommentRows": 100000,
+          "hashRows": 100000,
+          "orderedStoredQSOHash": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+          "hashColumns": [
+            "local_id",
+            "wavelog_id",
+            "call",
+            "qso_start",
+            "band",
+            "mode",
+            "frequency_hz",
+            "is_dirty",
+            "deleted_at",
+            "updated_at",
+            "record_json",
+            "baseline_json"
+          ],
+          "readMode": "readonly-WAL-honored",
+          "databaseSHA256": "25ebf386ed8257a1d9987d247171ea0fbd7f4002649256b704cd6a5735393b42",
+          "databaseBytes": 196788224,
+          "walBytes": 0
+        },
+        "settingsPreserved": true
+      },
+      "closure": {
+        "allCandidateOwnersAbsent": true,
+        "specificExitedZombie": {
+          "pid": 79847,
+          "ppid": 79485,
+          "uid": 501,
+          "sysctlResult": 0,
+          "kernelBytes": 648,
+          "kernelStatus": 5,
+          "SZOMB": 5,
+          "pathBytes": 0,
+          "pathErrno": 3,
+          "birthSeconds": 1794001942,
+          "birthMicroseconds": 888405,
+          "zombieVerified": true
+        },
+        "scan": {
+          "at": "2026-11-07T07:35:06.313687+00:00",
+          "scope": "All current-user process metadata; own transient ps observer excluded; no global argv",
+          "inventoriedBefore": 449,
+          "inventoriedAfter": 449,
+          "candidateCoalitions": {
+            "resource coalition": {
+              "id": 61091,
+              "name": "application.com.oliverbross.xlog.integration.623699300.623699320.DE61B775-5A58-4593-8708-243BE5AD2014",
+              "bundleID": "com.oliverbross.xlog.integration"
+            },
+            "jetsam coalition": {
+              "id": 61092,
+              "name": "application.com.oliverbross.xlog.integration.623699300.623699320.DE61B775-5A58-4593-8708-243BE5AD2014",
+              "bundleID": "com.oliverbross.xlog.integration"
+            }
+          },
+          "survivors": [],
+          "unresolved": [
+            {
+              "pid": 79847,
+              "reason": "New, changed, or unreadable same-user process coalition"
+            }
+          ]
+        },
+        "at": "2026-11-07T07:35:06.326319+00:00"
+      },
+      "rawDirectory": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/webcontent-idle-20261107/before"
+    },
+    "after": {
+      "pins": {
+        "app": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.30/native-candidate/OM0RX-xLog.app",
+        "source": "13fb7d52834b75b1fcbde76fee47c476b83d9ed9",
+        "version": "1.5.30",
+        "host": "39c4b4dc7c0167e08e910e29417f88ba04cd2e6b4e828d763b51b0d7aa29750b",
+        "worker": "56be40329bda5b0a12df794a6c9d43623a59f281334748ff0d87d902b68dbe05",
+        "build": "1fc35751d3e57b27fa714f8ed80565aa72f87955aee0396573494d790c3fae79"
+      },
+      "CPU": [
+        {
+          "role": "Host",
+          "pid": 18700,
+          "actualIntervalSeconds": 300.58422537499996,
+          "userSeconds": 2.342988333333333,
+          "systemSeconds": 1.0069467916666666,
+          "percentOfOneCore": 1.1144746936805217
+        },
+        {
+          "role": "GPU",
+          "pid": 18711,
+          "actualIntervalSeconds": 300.58422441666664,
+          "userSeconds": 0.4362268333333333,
+          "systemSeconds": 0.6264561249999999,
+          "percentOfOneCore": 0.3535391654021914
+        },
+        {
+          "role": "WebContent",
+          "pid": 18713,
+          "actualIntervalSeconds": 300.58422329166666,
+          "userSeconds": 3.781082416666666,
+          "systemSeconds": 1.0010362499999998,
+          "percentOfOneCore": 1.5909413389359497
+        },
+        {
+          "role": "Networking",
+          "pid": 18715,
+          "actualIntervalSeconds": 300.58422287499997,
+          "userSeconds": 0.0,
+          "systemSeconds": 0.0,
+          "percentOfOneCore": 0.0
+        },
+        {
+          "role": "Worker",
+          "pid": 18725,
+          "actualIntervalSeconds": 300.58422225,
+          "userSeconds": 0.3350420833333333,
+          "systemSeconds": 0.1922434583333333,
+          "percentOfOneCore": 0.17542023254571096
+        }
+      ],
+      "familyCPUPercentOfOneCore": 3.234375430564374,
+      "samples": [
+        {
+          "startedUTC": "2026-11-07T08:02:22.778070+00:00",
+          "finishedUTC": "2026-11-07T08:02:22.920522+00:00",
+          "familySharedAccountedFootprintMiB": 322.0352554321289,
+          "aggregateCompressedSwappedSubsetMiB": 208.390625,
+          "owners": [
+            {
+              "role": "Host",
+              "pid": 18700,
+              "footprintMiB": 42.751121520996094,
+              "RSSMiB": 41.03125
+            },
+            {
+              "role": "GPU",
+              "pid": 18711,
+              "footprintMiB": 32.09443664550781,
+              "RSSMiB": 10.15625
+            },
+            {
+              "role": "WebContent",
+              "pid": 18713,
+              "footprintMiB": 157.9542007446289,
+              "RSSMiB": 70.5625
+            },
+            {
+              "role": "Networking",
+              "pid": 18715,
+              "footprintMiB": 6.766059875488281,
+              "RSSMiB": 1.625
+            },
+            {
+              "role": "Worker",
+              "pid": 18725,
+              "footprintMiB": 82.79756164550781,
+              "RSSMiB": 14.109375
+            }
+          ]
+        },
+        {
+          "startedUTC": "2026-11-07T08:07:23.314211+00:00",
+          "finishedUTC": "2026-11-07T08:07:23.394038+00:00",
+          "familySharedAccountedFootprintMiB": 332.2696533203125,
+          "aggregateCompressedSwappedSubsetMiB": 174.640625,
+          "owners": [
+            {
+              "role": "Host",
+              "pid": 18700,
+              "footprintMiB": 42.751121520996094,
+              "RSSMiB": 39.21875
+            },
+            {
+              "role": "GPU",
+              "pid": 18711,
+              "footprintMiB": 29.125686645507812,
+              "RSSMiB": 11.875
+            },
+            {
+              "role": "WebContent",
+              "pid": 18713,
+              "footprintMiB": 171.1573486328125,
+              "RSSMiB": 112.71875
+            },
+            {
+              "role": "Networking",
+              "pid": 18715,
+              "footprintMiB": 6.766059875488281,
+              "RSSMiB": 1.59375
+            },
+            {
+              "role": "Worker",
+              "pid": 18725,
+              "footprintMiB": 82.79756164550781,
+              "RSSMiB": 13.953125
+            }
+          ]
+        }
+      ],
+      "configuredWarmupSeconds": 60,
+      "hostAgeAtFirstFootprintSeconds": 190.26039797299194,
+      "visibility": {
+        "reason": "Completed requested observation",
+        "events": 0,
+        "maximumHeartbeatGapSeconds": 0.3760334166666667,
+        "elapsedSeconds": 301.0383544583333,
+        "scope": "Continuous workspace/AX events plus one-second window-list checks; not continuous pixel occlusion proof",
+        "observerSystemSeconds": 0.16589,
+        "success": true,
+        "type": "finished",
+        "stateSamples": 265,
+        "observerUserSeconds": 0.200018
+      },
+      "preflight": {
+        "success": true,
+        "state": {
+          "onscreen": true,
+          "sampledOcclusion": false,
+          "frontmostPID": 18700,
+          "minimized": false,
+          "windowID": 7127,
+          "bounds": {
+            "X": 1200,
+            "Height": 940,
+            "Y": 328,
+            "Width": 1440
+          }
+        },
+        "samePredicateAsWatcher": true,
+        "type": "preflight"
+      },
+      "processAttribution": {
+        "preUIIdentityProven": true,
+        "capturedUnixSeconds": 1794038541.899916,
+        "source": "13fb7d52834b75b1fcbde76fee47c476b83d9ed9",
+        "hostPID": 18700,
+        "workerPID": 18725,
+        "marker": "7655a168-fddd-4430-aa17-deebafc89847",
+        "root": "/private/tmp/xlog-wave1-quality-ui-idle-1.5.29-hx3lt3u6",
+        "ownerIdentities": [
+          {
+            "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.30/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+            "birthMicroseconds": 517672,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 18700,
+            "birthSeconds": 1794038352
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU",
+            "birthMicroseconds": 265391,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 18711,
+            "birthSeconds": 1794038353
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent",
+            "birthMicroseconds": 316090,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 18713,
+            "birthSeconds": 1794038353
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking",
+            "birthMicroseconds": 394617,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 18715,
+            "birthSeconds": 1794038353
+          },
+          {
+            "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.30/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+            "birthMicroseconds": 97742,
+            "ppid": 18700,
+            "uid": 501,
+            "pid": 18725,
+            "birthSeconds": 1794038354
+          }
+        ],
+        "ambientIdentities": [
+          {
+            "nativePath": "/Applications/UTM.app/Contents/MacOS/UTM",
+            "birthMicroseconds": 847450,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 81684,
+            "birthSeconds": 1793912594
+          }
+        ],
+        "associations": {
+          "18700": {
+            "pid": 18700,
+            "handle": 18700,
+            "originator": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.30/native-candidate/OM0RX-xLog.app",
+            "creator": "xlog-prototype[18700]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 61866,
+                "name": "application.com.oliverbross.xlog.integration.623898438.623898456.E757F06A-1339-4D84-9974-BA2DED4AA484",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 61867,
+                "name": "application.com.oliverbross.xlog.integration.623898438.623898456.E757F06A-1339-4D84-9974-BA2DED4AA484",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [
+              {
+                "pid": 18711,
+                "label": "com.apple.WebKit.GPU.A92E7150-F3B6-4B14-9ACC-082A20B0319A"
+              },
+              {
+                "pid": 18713,
+                "label": "com.apple.WebKit.WebContent.12ED790C-2DF5-4032-9AF1-3111940328CD"
+              },
+              {
+                "pid": 18715,
+                "label": "com.apple.WebKit.Networking.F5D2EED8-D4A1-46C4-A5FC-26A4D1952EDA"
+              }
+            ],
+            "rawMetadataSHA256": "a84d297f5e0d394c8863e657f8b7cc803e6188793341f9d9de297cd7937e42b6"
+          },
+          "18711": {
+            "pid": 18711,
+            "handle": 18711,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc",
+            "creator": "com.apple.WebKi[18711]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 61866,
+                "name": "application.com.oliverbross.xlog.integration.623898438.623898456.E757F06A-1339-4D84-9974-BA2DED4AA484",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 61867,
+                "name": "application.com.oliverbross.xlog.integration.623898438.623898456.E757F06A-1339-4D84-9974-BA2DED4AA484",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "979225104799e7299645d708ca5e28056d62f5f98c06c1ed02b3b01da2350c31"
+          },
+          "18713": {
+            "pid": 18713,
+            "handle": 18713,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc",
+            "creator": "com.apple.WebKi[18713]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 61866,
+                "name": "application.com.oliverbross.xlog.integration.623898438.623898456.E757F06A-1339-4D84-9974-BA2DED4AA484",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 61867,
+                "name": "application.com.oliverbross.xlog.integration.623898438.623898456.E757F06A-1339-4D84-9974-BA2DED4AA484",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "39c4935d9c6e382982c0915f067fefd65c38a689375ce9b939ac1888f3a4aa27"
+          },
+          "18715": {
+            "pid": 18715,
+            "handle": 18715,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc",
+            "creator": "com.apple.WebKi[18715]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 61866,
+                "name": "application.com.oliverbross.xlog.integration.623898438.623898456.E757F06A-1339-4D84-9974-BA2DED4AA484",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 61867,
+                "name": "application.com.oliverbross.xlog.integration.623898438.623898456.E757F06A-1339-4D84-9974-BA2DED4AA484",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "783b91818f8f1c83a505d705f312953df41f1292556914cb0dd08dfc7f205a03"
+          },
+          "18725": {
+            "pid": 18725,
+            "handle": 18725,
+            "originator": null,
+            "creator": "launchctl[18739]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 61866,
+                "name": "application.com.oliverbross.xlog.integration.623898438.623898456.E757F06A-1339-4D84-9974-BA2DED4AA484",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 61867,
+                "name": "application.com.oliverbross.xlog.integration.623898438.623898456.E757F06A-1339-4D84-9974-BA2DED4AA484",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "d8716e55e88b436a89af76d4074ba32369d294fa38558c8ffce0d7e5f63bfbb1"
+          }
+        },
+        "counters": {
+          "schema": 1,
+          "machTimebaseStatus": 0,
+          "machTimebaseNumer": 125,
+          "machTimebaseDenom": 3,
+          "rows": [
+            {
+              "pid": 18700,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 42680320,
+              "physicalFootprintBytes": 44827800,
+              "processStartAbsoluteTime": 8284236010507,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 18700,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 61866,
+              "jetsamCoalitionID": 61867,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 50716690,
+              "cpuSystemMachTicks": 33952537,
+              "packageIdleWakeups": 7,
+              "interruptWakeups": 7364,
+              "pageins": 8254,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 123150336,
+              "diskWrittenBytes": 20480,
+              "sampleMachAbsoluteTime": 8288779858846
+            },
+            {
+              "pid": 18711,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 10698752,
+              "physicalFootprintBytes": 33653456,
+              "processStartAbsoluteTime": 8284253955856,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 18700,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 61866,
+              "jetsamCoalitionID": 61867,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 16498772,
+              "cpuSystemMachTicks": 15936284,
+              "packageIdleWakeups": 0,
+              "interruptWakeups": 2019,
+              "pageins": 1607,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 21942272,
+              "diskWrittenBytes": 0,
+              "sampleMachAbsoluteTime": 8288779859110
+            },
+            {
+              "pid": 18713,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 75218944,
+              "physicalFootprintBytes": 165626984,
+              "processStartAbsoluteTime": 8284255172628,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 18700,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 61866,
+              "jetsamCoalitionID": 61867,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 90152899,
+              "cpuSystemMachTicks": 34608902,
+              "packageIdleWakeups": 5,
+              "interruptWakeups": 4662,
+              "pageins": 4284,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 66703360,
+              "diskWrittenBytes": 0,
+              "sampleMachAbsoluteTime": 8288779859356
+            },
+            {
+              "pid": 18715,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 1703936,
+              "physicalFootprintBytes": 7094728,
+              "processStartAbsoluteTime": 8284257057296,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 18700,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 61866,
+              "jetsamCoalitionID": 61867,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 762986,
+              "cpuSystemMachTicks": 1100206,
+              "packageIdleWakeups": 0,
+              "interruptWakeups": 89,
+              "pageins": 110,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 2060288,
+              "diskWrittenBytes": 53248,
+              "sampleMachAbsoluteTime": 8288779859552
+            },
+            {
+              "pid": 18725,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 14401536,
+              "physicalFootprintBytes": 86819536,
+              "processStartAbsoluteTime": 8284273932374,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 18700,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 61866,
+              "jetsamCoalitionID": 61867,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 66100674,
+              "cpuSystemMachTicks": 19663869,
+              "packageIdleWakeups": 0,
+              "interruptWakeups": 2,
+              "pageins": 489,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 205078528,
+              "diskWrittenBytes": 45056,
+              "sampleMachAbsoluteTime": 8288779859741
+            }
+          ]
+        }
+      },
+      "preservation": {
+        "qso": {
+          "physicalRows": 100000,
+          "liveQSOs": 100000,
+          "generatedCommentRows": 100000,
+          "hashRows": 100000,
+          "orderedStoredQSOHash": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+          "hashColumns": [
+            "local_id",
+            "wavelog_id",
+            "call",
+            "qso_start",
+            "band",
+            "mode",
+            "frequency_hz",
+            "is_dirty",
+            "deleted_at",
+            "updated_at",
+            "record_json",
+            "baseline_json"
+          ],
+          "readMode": "readonly-WAL-honored",
+          "databaseSHA256": "31d17ebfea05ebc97c7d66218110a1fbcf8f0a533f7f8ece243c49efdacbaa6f",
+          "databaseBytes": 196788224,
+          "walBytes": 0
+        },
+        "settingsPreserved": true
+      },
+      "closure": {
+        "allCandidateOwnersAbsent": true,
+        "specificExitedZombie": {
+          "pid": 79847,
+          "ppid": 79485,
+          "uid": 501,
+          "sysctlResult": 0,
+          "kernelBytes": 648,
+          "kernelStatus": 5,
+          "SZOMB": 5,
+          "pathBytes": 0,
+          "pathErrno": 3,
+          "birthSeconds": 1794001942,
+          "birthMicroseconds": 888405,
+          "zombieVerified": true
+        },
+        "scan": {
+          "at": "2026-11-07T08:08:22.874075+00:00",
+          "scope": "All current-user process metadata; own transient ps observer excluded; no global argv",
+          "inventoriedBefore": 471,
+          "inventoriedAfter": 471,
+          "candidateCoalitions": {
+            "resource coalition": {
+              "id": 61866,
+              "name": "application.com.oliverbross.xlog.integration.623898438.623898456.E757F06A-1339-4D84-9974-BA2DED4AA484",
+              "bundleID": "com.oliverbross.xlog.integration"
+            },
+            "jetsam coalition": {
+              "id": 61867,
+              "name": "application.com.oliverbross.xlog.integration.623898438.623898456.E757F06A-1339-4D84-9974-BA2DED4AA484",
+              "bundleID": "com.oliverbross.xlog.integration"
+            }
+          },
+          "survivors": [],
+          "unresolved": [
+            {
+              "pid": 79847,
+              "reason": "New, changed, or unreadable same-user process coalition"
+            }
+          ]
+        },
+        "at": "2026-11-07T08:08:22.887591+00:00"
+      },
+      "rawDirectory": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/webcontent-idle-20261107/after"
+    }
+  },
+  "webContentReductionPercent": 39.00633846184432,
+  "familyReductionPercent": 23.4561874875851,
+  "build": {
+    "source": "13fb7d52834b75b1fcbde76fee47c476b83d9ed9",
+    "invocation": "bash docs/releases/build-1.5.30-macos-arm64.sh 13fb7d52834b75b1fcbde76fee47c476b83d9ed9",
+    "actualExitCode": 0,
+    "signedWorkerTests": 9,
+    "version": "1.5.30",
+    "app": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.30/native-candidate/OM0RX-xLog.app",
+    "pins": {
+      ".build/releases/1.5.30/OM0RX-xLog-1.5.30-macOS-arm64.zip": "4c22c729c27570cc78634dac24dac18f4686aeb1d5f4442a7c27c9a3f65d243f",
+      ".build/releases/1.5.30/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype": "39c4b4dc7c0167e08e910e29417f88ba04cd2e6b4e828d763b51b0d7aa29750b",
+      ".build/releases/1.5.30/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker": "56be40329bda5b0a12df794a6c9d43623a59f281334748ff0d87d902b68dbe05",
+      ".build/releases/1.5.30/native-candidate/OM0RX-xLog.app/Contents/Resources/NativeBundleBuild.json": "1fc35751d3e57b27fa714f8ed80565aa72f87955aee0396573494d790c3fae79",
+      "docs/releases/build-1.5.30-macos-arm64.sh": "eaadbf6784671b540f0a4682c685a3f94046facd3ea21807961c85b20fe64d18"
+    },
+    "sourceTree": "6e775c7fe79b3c25c1ebc2fce3cd270cadbb635d",
+    "sourceParent": "6f71a1503ec6180dd22c47ed4c0701dc5c353569",
+    "notarizationAttempted": false,
+    "installed": false,
+    "publicRelease": false
+  },
+  "replay": {
+    "scope": "Replay of null-canonical native idle JSON shape; explanatory counters, not live JavaScript instrumentation or CPU proof",
+    "results": {
+      "before": {
+        "reads": 81,
+        "notifications": 81
+      },
+      "after": {
+        "reads": 81,
+        "notifications": 1
+      }
+    }
+  },
+  "toolPins": {
+    "pair.py": "2f3361d565ca3fd9b8c2ee4cd98bff92dbf0f245abcf6af35b1d0a2432ab7ef8",
+    "visibility-300.m": "d0df0c9b595229d54f7d86b50ae137655e0cf71ed87ebbba7137aa5a3e6d9f98",
+    "visibility-300-before": "b6ae3b1a11ad41f470b91e2ef59e9dd52e50b025e514afc54252f9a308c67553",
+    "visibility-300-after": "56f657ba75cabcc3f8218cdd97e65d34556391ec4693374f57b51ff485f40df2",
+    "local-before.m": "3277fc10a36dd78b3c8ae64c33ec53aad424a49aa3b785558f8b31bea27fa31b",
+    "local-after.m": "19fb3e5d293051ed5ea80fe08a62914bae5c2a04dac099985a07304af2375f84",
+    "local-before": "3dc018387e9552f96f7eb22b5400bd8d927ca4f5935d17eeab53f03c2f35231d",
+    "local-after": "94d8423eef61a0142855e9175fdb57b81318834ec07ada84cb6591a11c5d2614"
+  },
+  "finalState": {
+    "at": "2026-11-07T08:10:43.498906+00:00",
+    "installedVersion": "1.5.29",
+    "installedPinsUnchanged": {
+      "host": "7f093294faf820b919edf45220301670895c808b7f2517298cdafbbc8c8041d8",
+      "worker": "19da48c6fbb14ad468bfea6df0a02c1370947ae758b25298ca4f706087a90cdd",
+      "manifest": "107cfefd3b6fdcb9e7fee65651c74a65ae17b003f070c77dccd9df6f08027c06"
+    },
+    "dailyRemainsClosedAsFound": true,
+    "UTMIdentitiesUnchanged": [
+      {
+        "nativePath": "/Applications/UTM.app/Contents/MacOS/UTM",
+        "birthMicroseconds": 847450,
+        "ppid": 1,
+        "uid": 501,
+        "pid": 81684,
+        "birthSeconds": 1793912594
+      }
+    ],
+    "productionDataSettingsAudioNotOpenedOrModifiedByThisTask": true,
+    "candidateFamiliesClosedWith100kPreservation": true,
+    "dockOriginalAutohide": false,
+    "dockRestorationVerified": true
+  },
+  "profile": {
+    "source": "78681662f9104264d0903329996d15962c395711",
+    "directory": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/webcontent-profile-20261107",
+    "webContentSHA256": "1bf4c71d62b81dd13cca816bc0f7fbe53d02ce83bee0d2db901fe0fbc968b9ae",
+    "hostSHA256": "77146e6dae060b1d7fcfd01c81b6e0b2752cc4a88a9944c77c431604cf1a9da6",
+    "durationSeconds": 60,
+    "notUsedForNormalCPUMeasurement": true,
+    "JavaScriptJITFramesUnsymbolized": true
+  },
+  "sourceCI": {
+    "resolvedRuns": [
+      {
+        "conclusion": "success",
+        "databaseId": 42351158198,
+        "headSha": "13fb7d52834b75b1fcbde76fee47c476b83d9ed9",
+        "name": "CI",
+        "status": "completed",
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42351158198"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 42351158212,
+        "headSha": "13fb7d52834b75b1fcbde76fee47c476b83d9ed9",
+        "name": "Cross-platform beta qualification",
+        "status": "completed",
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42351158212"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 42351158168,
+        "headSha": "13fb7d52834b75b1fcbde76fee47c476b83d9ed9",
+        "name": "Contest portability",
+        "status": "completed",
+        "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42351158168"
+      }
+    ],
+    "betaJobReceipt": {
+      "conclusion": "success",
+      "headSha": "13fb7d52834b75b1fcbde76fee47c476b83d9ed9",
+      "jobs": [
+        {
+          "completedAt": "2026-11-07T08:01:07Z",
+          "conclusion": "success",
+          "databaseId": 128339384583,
+          "name": "prototype (macos-15)",
+          "startedAt": "2026-11-07T07:24:34Z",
+          "status": "completed",
+          "steps": [
+            {
+              "completedAt": "2026-11-07T07:24:38Z",
+              "conclusion": "success",
+              "name": "Set up job",
+              "number": 1,
+              "startedAt": "2026-11-07T07:24:34Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:24:38Z",
+              "conclusion": "skipped",
+              "name": "Enable Windows checkout long paths",
+              "number": 2,
+              "startedAt": "2026-11-07T07:24:38Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:24:45Z",
+              "conclusion": "success",
+              "name": "Run actions/checkout@v4",
+              "number": 3,
+              "startedAt": "2026-11-07T07:24:38Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:24:45Z",
+              "conclusion": "success",
+              "name": "Select macOS Swift toolchain",
+              "number": 4,
+              "startedAt": "2026-11-07T07:24:45Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:24:47Z",
+              "conclusion": "success",
+              "name": "Run actions/setup-node@v4",
+              "number": 5,
+              "startedAt": "2026-11-07T07:24:45Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:25:19Z",
+              "conclusion": "success",
+              "name": "Install supported contest Python before native tests",
+              "number": 6,
+              "startedAt": "2026-11-07T07:24:47Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:27:21Z",
+              "conclusion": "success",
+              "name": "Restore native dependency/build cache",
+              "number": 7,
+              "startedAt": "2026-11-07T07:25:19Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:27:21Z",
+              "conclusion": "skipped",
+              "name": "Linux build dependencies",
+              "number": 8,
+              "startedAt": "2026-11-07T07:27:21Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:27:21Z",
+              "conclusion": "skipped",
+              "name": "Swift toolchain (Linux)",
+              "number": 9,
+              "startedAt": "2026-11-07T07:27:21Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:27:21Z",
+              "conclusion": "skipped",
+              "name": "Swift toolchain (Windows)",
+              "number": 10,
+              "startedAt": "2026-11-07T07:27:21Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:27:21Z",
+              "conclusion": "skipped",
+              "name": "Windows SQLite",
+              "number": 11,
+              "startedAt": "2026-11-07T07:27:21Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:27:30Z",
+              "conclusion": "success",
+              "name": "Record native toolchains",
+              "number": 12,
+              "startedAt": "2026-11-07T07:27:21Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:27:38Z",
+              "conclusion": "success",
+              "name": "Install frontend dependencies",
+              "number": 13,
+              "startedAt": "2026-11-07T07:27:30Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:28:03Z",
+              "conclusion": "success",
+              "name": "Release payload guard tests",
+              "number": 14,
+              "startedAt": "2026-11-07T07:27:38Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:28:03Z",
+              "conclusion": "skipped",
+              "name": "Actual Linux QA process lifecycle regressions",
+              "number": 15,
+              "startedAt": "2026-11-07T07:28:03Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:28:04Z",
+              "conclusion": "success",
+              "name": "Test atomic pinned contest catalog initialization",
+              "number": 16,
+              "startedAt": "2026-11-07T07:28:03Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:28:04Z",
+              "conclusion": "skipped",
+              "name": "Parse Windows installer scripts and validate scope policy",
+              "number": 17,
+              "startedAt": "2026-11-07T07:28:04Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:28:04Z",
+              "conclusion": "skipped",
+              "name": "Linux C vault in a private Secret Service session",
+              "number": 18,
+              "startedAt": "2026-11-07T07:28:04Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:31:31Z",
+              "conclusion": "success",
+              "name": "Compile portable native test fixtures early (Unix)",
+              "number": 19,
+              "startedAt": "2026-11-07T07:28:04Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:31:31Z",
+              "conclusion": "skipped",
+              "name": "Compile portable native test fixtures early (Windows)",
+              "number": 20,
+              "startedAt": "2026-11-07T07:31:31Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:41:20Z",
+              "conclusion": "success",
+              "name": "Frontend tests and build",
+              "number": 21,
+              "startedAt": "2026-11-07T07:31:31Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:41:26Z",
+              "conclusion": "success",
+              "name": "Test retained FLEX CWX transport fixture (Mac)",
+              "number": 22,
+              "startedAt": "2026-11-07T07:41:20Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:46:26Z",
+              "conclusion": "success",
+              "name": "Test complete portable Swift core (Unix)",
+              "number": 23,
+              "startedAt": "2026-11-07T07:41:26Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:46:26Z",
+              "conclusion": "skipped",
+              "name": "Test portable Swift core (Windows)",
+              "number": 24,
+              "startedAt": "2026-11-07T07:46:26Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:46:26Z",
+              "conclusion": "skipped",
+              "name": "Linux credential vault in a private Secret Service session",
+              "number": 25,
+              "startedAt": "2026-11-07T07:46:26Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:52:13Z",
+              "conclusion": "success",
+              "name": "Build Swift worker (Unix)",
+              "number": 26,
+              "startedAt": "2026-11-07T07:46:26Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:52:13Z",
+              "conclusion": "skipped",
+              "name": "Build Swift worker (Windows)",
+              "number": 27,
+              "startedAt": "2026-11-07T07:52:13Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:52:16Z",
+              "conclusion": "success",
+              "name": "Stage isolated worker",
+              "number": 28,
+              "startedAt": "2026-11-07T07:52:13Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:54:22Z",
+              "conclusion": "success",
+              "name": "Build pinned Hamlib radio and rotor helpers (Mac integration)",
+              "number": 29,
+              "startedAt": "2026-11-07T07:52:16Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:54:22Z",
+              "conclusion": "skipped",
+              "name": "Build pinned Hamlib radio and rotor helpers (Linux integration)",
+              "number": 30,
+              "startedAt": "2026-11-07T07:54:22Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:54:22Z",
+              "conclusion": "skipped",
+              "name": "Stage pinned Hamlib radio and rotor helpers (Windows integration)",
+              "number": 31,
+              "startedAt": "2026-11-07T07:54:22Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:54:23Z",
+              "conclusion": "success",
+              "name": "Test worker process framing (Unix)",
+              "number": 32,
+              "startedAt": "2026-11-07T07:54:22Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:54:23Z",
+              "conclusion": "skipped",
+              "name": "Test worker process framing (Windows)",
+              "number": 33,
+              "startedAt": "2026-11-07T07:54:23Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:55:34Z",
+              "conclusion": "success",
+              "name": "Shell contract tests",
+              "number": 34,
+              "startedAt": "2026-11-07T07:54:23Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:56:08Z",
+              "conclusion": "success",
+              "name": "Bundled Hamlib dummy protocol and lifecycle tests",
+              "number": 35,
+              "startedAt": "2026-11-07T07:55:34Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:56:08Z",
+              "conclusion": "skipped",
+              "name": "Bundled Hamlib dummy protocol and lifecycle tests (Windows)",
+              "number": 36,
+              "startedAt": "2026-11-07T07:56:08Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:59:05Z",
+              "conclusion": "success",
+              "name": "Build desktop executable (not an installer acceptance claim)",
+              "number": 37,
+              "startedAt": "2026-11-07T07:56:08Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:59:07Z",
+              "conclusion": "success",
+              "name": "Collect resolved dependency inventory and notices",
+              "number": 38,
+              "startedAt": "2026-11-07T07:59:05Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:59:07Z",
+              "conclusion": "skipped",
+              "name": "Package macOS application",
+              "number": 39,
+              "startedAt": "2026-11-07T07:59:07Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:59:07Z",
+              "conclusion": "skipped",
+              "name": "Upload macOS package",
+              "number": 40,
+              "startedAt": "2026-11-07T07:59:07Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:59:07Z",
+              "conclusion": "skipped",
+              "name": "Package Linux runtime and Debian application",
+              "number": 41,
+              "startedAt": "2026-11-07T07:59:07Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:59:07Z",
+              "conclusion": "skipped",
+              "name": "Package Windows portable runtime",
+              "number": 42,
+              "startedAt": "2026-11-07T07:59:07Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:59:07Z",
+              "conclusion": "skipped",
+              "name": "Package current-user and all-users EXE installers from one audited runtime",
+              "number": 43,
+              "startedAt": "2026-11-07T07:59:07Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:59:07Z",
+              "conclusion": "skipped",
+              "name": "Upload Linux runtime packages",
+              "number": 44,
+              "startedAt": "2026-11-07T07:59:07Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:59:07Z",
+              "conclusion": "skipped",
+              "name": "Upload Windows runtime package",
+              "number": 45,
+              "startedAt": "2026-11-07T07:59:07Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:59:10Z",
+              "conclusion": "success",
+              "name": "Upload development executables and evidence inputs",
+              "number": 46,
+              "startedAt": "2026-11-07T07:59:07Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T07:59:10Z",
+              "conclusion": "skipped",
+              "name": "Upload portable Swift pin verification receipts",
+              "number": 47,
+              "startedAt": "2026-11-07T07:59:10Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T08:01:01Z",
+              "conclusion": "success",
+              "name": "Save native dependency/build cache",
+              "number": 48,
+              "startedAt": "2026-11-07T07:59:10Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T08:01:02Z",
+              "conclusion": "success",
+              "name": "Post Install supported contest Python before native tests",
+              "number": 94,
+              "startedAt": "2026-11-07T08:01:01Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T08:01:04Z",
+              "conclusion": "success",
+              "name": "Post Run actions/setup-node@v4",
+              "number": 95,
+              "startedAt": "2026-11-07T08:01:02Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T08:01:04Z",
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v4",
+              "number": 96,
+              "startedAt": "2026-11-07T08:01:04Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-07T08:01:05Z",
+              "conclusion": "success",
+              "name": "Complete job",
+              "number": 97,
+              "startedAt": "2026-11-07T08:01:04Z",
+              "status": "completed"
+            }
+          ],
+          "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42351158212/job/128339384583"
+        },
+        {
+          "completedAt": "2026-11-07T08:01:07Z",
+          "conclusion": "skipped",
+          "databaseId": 128346941288,
+          "name": "Windows fresh-runner runtime acceptance (${{ matrix.installer_scope }})",
+          "startedAt": "2026-11-07T08:01:07Z",
+          "status": "completed",
+          "steps": [],
+          "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42351158212/job/128346941288"
+        },
+        {
+          "completedAt": "2026-11-07T08:01:07Z",
+          "conclusion": "skipped",
+          "databaseId": 128346941573,
+          "name": "Linux runtime-only container acceptance",
+          "startedAt": "2026-11-07T08:01:07Z",
+          "status": "completed",
+          "steps": [],
+          "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42351158212/job/128346941573"
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/oliverbross/OM0RX-xLog/actions/runs/42351158212"
+    }
+  },
+  "limitations": [
+    "Single sequential pair; OS caches, memory compression and ambient activity uncontrolled",
+    "Both configured 60-second quiet warm-up after preparation; host ages at start 126.532/190.260 seconds",
+    "Baseline was launched in background then activated after complete ownership proof; measured after arm used foreground launch to avoid demonstrated WebKit bootstrap suspension",
+    "Continuous workspace/AX supervision and nominal one-second geometry checks; no continuous pixel occlusion proof",
+    "No allocation-turnover or retained-JS measurement; no memory saving or historical 7 GB attribution",
+    "No new 30-minute S30 observation or connected-station/hardware qualification; installed daily remains S29"
+  ],
+  "toolPinsCaptured": "Post-run pins. Measurement body unchanged across arms; the intentional startup -g removal is recorded separately in per-arm LaunchServices receipts. Collector source was not independently sealed before each arm."
+}

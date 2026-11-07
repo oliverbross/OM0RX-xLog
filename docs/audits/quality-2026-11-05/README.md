@@ -14,6 +14,42 @@ and physical evidence remain separate.
 
 ## Current checkpoint — 7 November 2026, Darwin
 
+### Signed S29 → S30 passive CW comparison — CPU lower; no memory benefit
+
+The [focused native profile and signed pair](idle-cw-2026-11-07.md) starts from
+clean, fast-forward-verified `6f71a150`. Native S29 samples show timer/microtask/
+IPC work; source and a replay establish repeated successful disarmed CW JSON
+snapshots publishing at the Desk root solely because nested objects are fresh.
+Product/source `13fb7d52` suppresses only identical complete validated passive
+replies. Reads, validation, sequences, timers, timestamps, safety/Stop and schema
+remain unchanged. Replay: 81 reads in both arms, 81 → 1 notifications.
+
+Same offline generated-100k Standard WebGL Desk, signed release builds/bundled
+workers, 60-second configured quiet warm-up and 300.420 / 300.584-second native
+CPU deltas: WebContent **2.608 → 1.591% of one core (39.0% lower)**; complete
+family **4.226 → 3.234% (23.5% lower)**. Host/worker do not improve. Both short
+visibility intervals pass, with identical geometry, no exclusions or interactive
+observation during sampling. Initial launch-mode/setup-age differences and
+single sequential-pair/cache/compression limits are explicit in the report.
+
+Memory does **not** improve: shared-accounted family footprint
+**310.1 → 311.7 / 322.0 → 332.3 MiB**. RSS and compressed subsets are separate;
+there is no allocation-rate/retained-JS/leak or historical ~7 GB attribution.
+The under-1% CPU goal remains unmet. Failed background startup, the explicitly
+authorized one-PID activation, helper reply-order/stale-manifest error and Dock
+readiness failures are retained; all affected candidates were normally retired
+with full family absence and 100k/settings preservation. No production fallback.
+
+One signed [1.5.30 candidate](../../releases/v1.5.30-macos-quality-candidate.md)
+was built from exact pushed `13fb7d52834b75b1fcbde76fee47c476b83d9ed9` for this
+comparison. Focused 19/19, frontend 5,201/5,201 plus Node 6/6, frontend/window
+build gates, exact-source CI/Mac/portability, signing/privacy and signed-worker
+9/9 PASS; Linux/Windows packaged-runtime jobs remain SKIPPED. **Installed daily
+S29 is unchanged/available**, closed as found. No installation/public release,
+production data/settings/audio access, UTM/Windows or Skimmer change.
+Next: one valid 30-minute signed-S30 observation to check its higher footprint
+and sustained CPU saving before considering installation.
+
 ### Signed S29 local-only 30-minute interval — valid; idle CPU goal not met
 
 The [completed observation](idle-signed-1.5.29-valid-2026-11-07.md) uses the
