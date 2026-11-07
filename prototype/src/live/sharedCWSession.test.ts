@@ -4,6 +4,18 @@ import { defaultCWProfile } from "./cwMacros";
 const snapshot = (client: string, revision = 1) => ({ revision, armed: false, pending: false, owner: null, lease: "lease", client,
   message: "CW disarmed", error: "", winkeyer: null, canonical: { profile: defaultCWProfile, context: { CALL: "K1ABC" }, provider: "direct_agent" } });
 describe("native shared CW renderer adapter", () => {
+  it("keeps passive reads and sequence ordering while suppressing an identical disarmed error notification", async () => {
+    const transport = vi.fn<CWTransport>().mockRejectedValue(new Error("Native CW unavailable"));
+    const session = new SharedCWSession(transport), changed = vi.fn(); session.subscribe(changed);
+    await session.refresh(); const failed = session.getSnapshot();
+    await session.refresh(); await session.refresh();
+    expect(session.getSnapshot()).toBe(failed); expect(changed).toHaveBeenCalledOnce();
+    expect(transport.mock.calls.map(call => [call[1], call[2].action])).toEqual([[1, "snapshot"], [2, "snapshot"], [3, "snapshot"]]);
+    transport.mockRejectedValueOnce(new Error("Different read error")); await session.refresh();
+    expect(changed).toHaveBeenCalledTimes(2);
+    transport.mockImplementation(async client => snapshot(client)); await session.refresh();
+    expect(session.getSnapshot().error).toBe(""); expect(changed).toHaveBeenCalledTimes(3);
+  });
   it("never substitutes a missing contest message projection with raw report and serial fields",async()=>{
     const transport=vi.fn<CWTransport>(async client=>({...snapshot(client),canonical:{profile:defaultCWProfile,contestSessionID:"contest-1",context:{RST:"599",SERIAL:"1"}}}));
     const session=new SharedCWSession(transport);await session.refresh();

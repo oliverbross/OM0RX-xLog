@@ -4,6 +4,9 @@ import { loadOwnRBNPickups, type OwnRBNTransport } from "./ownRbnFeed";
 import { useDocumentVisible } from "./useDocumentVisible";
 import type { OwnRBNSpot } from "./hfPropagationModel";
 import { ownRbnClockMilliseconds, ownRbnRefreshMilliseconds } from "./ownRbnPolicy";
+// Disabled/context-mismatched feeds have no observations. A stable sentinel
+// avoids rebuilding receiver geometry/effects on unrelated Desk renders.
+const emptySpots: OwnRBNSpot[] = [];
 export const nativeOwnRbnTransport: OwnRBNTransport = (source, parameters = {}) => {
   if (!isTauri()) return Promise.reject(new Error("RBN requires the desktop app."));
   return invoke("hf_propagation_fetch", { request: { source, ...parameters } });
@@ -30,5 +33,5 @@ export function useOwnRbn(call: string, enabled: boolean, context: string, trans
     const refresh = setInterval(read, ownRbnRefreshMilliseconds), clock = setInterval(() => setNow(Date.now()), ownRbnClockMilliseconds);
     return () => { active = false; clearInterval(refresh); clearInterval(clock); };
   }, [key, call, enabled, visible, transport]);
-  return { ...state, spots: enabled && state.key === key ? state.spots : [], now, status: !enabled ? "Disabled" : !call.trim() ? "Set a station callsign" : state.key !== key ? "Loading" : state.status };
+  return { ...state, spots: enabled && state.key === key ? state.spots : emptySpots, now, status: !enabled ? "Disabled" : !call.trim() ? "Set a station callsign" : state.key !== key ? "Loading" : state.status };
 }

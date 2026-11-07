@@ -25,6 +25,25 @@ it("subscribes before reading the disabled-by-default native permission", async 
   view.unmount(); expect(bridge.stop).toHaveBeenCalledOnce();
 });
 
+it("retains only identical idle displays while preserving polls, wakes, errors and every permission/settlement transition", async () => {
+  bridge.call.mockImplementation(async () => structuredClone(state()));
+  const view = renderHook(() => useFollowRadio()); await settle(); const first = view.result.current.state;
+  await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+  expect(bridge.call).toHaveBeenCalledTimes(3); expect(view.result.current.state).toBe(first);
+  bridge.call.mockRejectedValueOnce(new Error("Read unavailable")); await act(async () => bridge.wake?.());
+  expect(view.result.current.error).toBe("Read unavailable");
+  await act(async () => bridge.wake?.()); expect(view.result.current.error).toBe(""); expect(view.result.current.state).toBe(first);
+  for (const next of [state(true), state(true, 1), { ...state(true, 1), settlementPending: true }, { ...state(true, 1), error: "Blocked" }]) {
+    bridge.call.mockResolvedValueOnce(next); await act(async () => bridge.wake?.()); expect(view.result.current.state).toBe(next);
+  }
+  const preparing: FollowRadioState = { ...state(true, 1), operation: { operationId: "00000000-0000-4000-8000-000000000001", phase: "preparing", barrier: null } };
+  for (const next of [preparing, structuredClone(preparing)]) {
+    bridge.call.mockResolvedValueOnce(next); await act(async () => bridge.wake?.()); expect(view.result.current.state).toBe(next);
+  }
+  view.unmount(); const calls = bridge.call.mock.calls.length;
+  await vi.advanceTimersByTimeAsync(6000); expect(bridge.call).toHaveBeenCalledTimes(calls); expect(bridge.stop).toHaveBeenCalledOnce();
+});
+
 it("sets the shared permission against the observed epoch and adopts its reply", async () => {
   const view = renderHook(() => useFollowRadio()); await settle();
   bridge.call.mockResolvedValueOnce(state(true, 1));

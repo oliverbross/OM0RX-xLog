@@ -14,7 +14,13 @@ export function useSpotEditor(participants: readonly SpotEditorParticipant[], re
     if (!nativeSpotEditor()) return;
     let active = true;
     setRegistered(false);
-    const connection = connectSpotEditor(members.current, snapshot => ready.current(snapshot), snapshot => { if (active) { setRegistered(true); setStatus(snapshot); setError(""); } },
+    const connection = connectSpotEditor(members.current, snapshot => ready.current(snapshot), snapshot => { if (active) {
+      setRegistered(true);
+      // The coordinator has already validated and processed this observation.
+      // Idle has fixed null operation/barrier fields; retain its display identity.
+      setStatus(previous => previous?.phase === "idle" && snapshot.phase === "idle" ? previous : snapshot);
+      setError("");
+    } },
       message => { if (active) { setRegistered(false); setError(message); } }, undefined, disposal.current);
     current.current = connection;
     return () => { active = false; current.current = null; disposal.current = connection.dispose(); };

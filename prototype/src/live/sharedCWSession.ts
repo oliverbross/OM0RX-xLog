@@ -22,7 +22,12 @@ export class SharedCWSession {
   constructor(private transport = native, readonly client = crypto.randomUUID()) {}
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   getSnapshot = () => this.state;
-  private update(change: Partial<SharedCWState>) { this.state = { ...this.state, ...change }; this.listeners.forEach(listener => listener()); }
+  private update(change: Partial<SharedCWState>) {
+    // Repeated failed passive reads can report the same disarmed/error fields.
+    // Keep every authority read and uncertainty transition; notify on new state.
+    if ((Object.keys(change) as Array<keyof SharedCWState>).every(key => Object.is(this.state[key], change[key]))) return;
+    this.state = { ...this.state, ...change }; this.listeners.forEach(listener => listener());
+  }
   private async action(action: string, params: Data = {}) {
     if (this.disposed && action !== "unregister") return;
     try {

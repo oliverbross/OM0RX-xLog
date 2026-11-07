@@ -29,7 +29,12 @@ export function useFollowRadio() {
   const adopt = useCallback((value: unknown) => {
     if (!valid(value)) throw new Error("Native Follow Radio status could not be verified.");
     if (active.current && (!latest.current || value.epoch >= latest.current.epoch)) {
-      latest.current = value; setState(value); setError(value.error);
+      const previous = latest.current;
+      const unchangedIdle = previous?.operation.phase === "idle" && value.operation.phase === "idle" &&
+        previous.enabled === value.enabled && previous.epoch === value.epoch && previous.error === value.error &&
+        previous.settlementPending === value.settlementPending;
+      latest.current = unchangedIdle ? previous : value;
+      setState(latest.current); setError(value.error);
     }
     return value;
   }, []);
