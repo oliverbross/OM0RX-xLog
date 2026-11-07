@@ -1,0 +1,305 @@
+{
+  "diagnosticOnly": true,
+  "strictLongDurationQualification": false,
+  "sourceBefore": "a2c1bc66",
+  "productCommit": "d1c4ce9072af93ece96c7dc1159dc77535aee0e5",
+  "buildMode": "Same canonical debug native host plus Vite/React development renderer; unchanged signed S28 worker. No instrumentation/profiler during matched intervals.",
+  "fixture": "Same disposable generated 100000-QSO root, full 12-column ordered QSO hash c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+  "conditions": "Traditional Desk; blank callsign; Standard bundled WebGL map, Detailed/Both, Sun/Greyline on, Heard me off; no station/cluster/credential I/O; daily1.5.28 and UTM running separately; fresh processes; 60s warm-up plus300s per arm; no GUI input/observation during sampling.",
+  "limits": [
+    "Single sequential pair; OS caches and ambient system activity uncontrolled",
+    "Development/StrictMode/Vite overhead; not a signed-app comparison or production budget",
+    "No continuous geometric visibility receipt; historical 30min visibility failure remains open",
+    "vmmap malloc statistics count native live allocations including allocator/JS capacity, not retained JS objects or allocation turnover",
+    "Endpoint footprint or malloc changes do not establish a leak, growth rate, or explanation for historical7GB incident",
+    "After exploratory React counters overlapped validation load; native matched arms did not"
+  ],
+  "arms": {
+    "normal-before": {
+      "rows": [
+        {
+          "role": "xlog-prototype",
+          "intervalSeconds": 300.62954249999996,
+          "CPUPercentOfOneCore": 1.4301644190540588,
+          "footprintBytes": [
+            47596696,
+            47760536
+          ],
+          "residentBytes": [
+            106954752,
+            49709056
+          ],
+          "diskReadBytesDelta": 1126400,
+          "diskWriteBytesDelta": 0
+        },
+        {
+          "role": "com.apple.WebKit.GPU",
+          "intervalSeconds": 300.62954279166667,
+          "CPUPercentOfOneCore": 0.2898943996789031,
+          "footprintBytes": [
+            32965304,
+            33391288
+          ],
+          "residentBytes": [
+            19742720,
+            11452416
+          ],
+          "diskReadBytesDelta": 0,
+          "diskWriteBytesDelta": 0
+        },
+        {
+          "role": "com.apple.WebKit.WebContent",
+          "intervalSeconds": 300.6295447083333,
+          "CPUPercentOfOneCore": 4.679728477889914,
+          "footprintBytes": [
+            358630696,
+            236438872
+          ],
+          "residentBytes": [
+            158957568,
+            159154176
+          ],
+          "diskReadBytesDelta": 2723840,
+          "diskWriteBytesDelta": 0
+        },
+        {
+          "role": "com.apple.WebKit.Networking",
+          "intervalSeconds": 300.6296218333333,
+          "CPUPercentOfOneCore": 0.07046368453031977,
+          "footprintBytes": [
+            10256984,
+            10256984
+          ],
+          "residentBytes": [
+            8224768,
+            5668864
+          ],
+          "diskReadBytesDelta": 385024,
+          "diskWriteBytesDelta": 0
+        },
+        {
+          "role": "xlog-prototype-worker",
+          "intervalSeconds": 300.6296278333333,
+          "CPUPercentOfOneCore": 0.10079503879371189,
+          "footprintBytes": [
+            76563080,
+            76563080
+          ],
+          "residentBytes": [
+            19218432,
+            14548992
+          ],
+          "diskReadBytesDelta": 196608,
+          "diskWriteBytesDelta": 0
+        }
+      ],
+      "familySharedAccountedFootprintBytes": [
+        525635928,
+        404033928
+      ],
+      "familyCPUPercentOfOneCore": 6.571046019946908,
+      "webContentMallocZone": {
+        "start": {
+          "liveAllocations": 627773,
+          "allocatedSizeRounded": "271.3M"
+        },
+        "end": {
+          "liveAllocations": 501352,
+          "allocatedSizeRounded": "172.2M"
+        }
+      },
+      "rawResultSHA256": "a8b36774c658759c32fa036d0e8b7e51e6b86088ef77a2832c71a1bc99280640"
+    },
+    "normal-after": {
+      "rows": [
+        {
+          "role": "xlog-prototype",
+          "intervalSeconds": 300.5639655,
+          "CPUPercentOfOneCore": 1.443745660300497,
+          "footprintBytes": [
+            48383128,
+            48743576
+          ],
+          "residentBytes": [
+            72663040,
+            58703872
+          ],
+          "diskReadBytesDelta": 9912320,
+          "diskWriteBytesDelta": 0
+        },
+        {
+          "role": "com.apple.WebKit.GPU",
+          "intervalSeconds": 300.563965625,
+          "CPUPercentOfOneCore": 0.33125875760354906,
+          "footprintBytes": [
+            33260240,
+            33260240
+          ],
+          "residentBytes": [
+            15761408,
+            10551296
+          ],
+          "diskReadBytesDelta": 2027520,
+          "diskWriteBytesDelta": 0
+        },
+        {
+          "role": "com.apple.WebKit.WebContent",
+          "intervalSeconds": 300.5639649583333,
+          "CPUPercentOfOneCore": 3.5557223794769337,
+          "footprintBytes": [
+            372737392,
+            236717496
+          ],
+          "residentBytes": [
+            148389888,
+            73646080
+          ],
+          "diskReadBytesDelta": 13664256,
+          "diskWriteBytesDelta": 0
+        },
+        {
+          "role": "com.apple.WebKit.Networking",
+          "intervalSeconds": 300.5639647083333,
+          "CPUPercentOfOneCore": 0.07720704040214996,
+          "footprintBytes": [
+            10420752,
+            10224144
+          ],
+          "residentBytes": [
+            6815744,
+            5881856
+          ],
+          "diskReadBytesDelta": 741376,
+          "diskWriteBytesDelta": 0
+        },
+        {
+          "role": "xlog-prototype-worker",
+          "intervalSeconds": 300.5639645833333,
+          "CPUPercentOfOneCore": 0.1394714213044349,
+          "footprintBytes": [
+            76006024,
+            76006024
+          ],
+          "residentBytes": [
+            17743872,
+            14581760
+          ],
+          "diskReadBytesDelta": 118784,
+          "diskWriteBytesDelta": 0
+        }
+      ],
+      "familySharedAccountedFootprintBytes": [
+        540430704,
+        404591032
+      ],
+      "familyCPUPercentOfOneCore": 5.547405259087564,
+      "webContentMallocZone": {
+        "start": {
+          "liveAllocations": 578816,
+          "allocatedSizeRounded": "283.4M"
+        },
+        "end": {
+          "liveAllocations": 467293,
+          "allocatedSizeRounded": "143.8M"
+        }
+      },
+      "rawResultSHA256": "149877730693b635ce1e4f60aaf8d41c17114085e7f4eab60c15ced1644ef170"
+    }
+  },
+  "profiling": {
+    "profile-before": {
+      "elapsedMs": 90008,
+      "react": {
+        "commits": 516,
+        "ms": 1828
+      },
+      "hits": {
+        "render.LiveApp.tsx": {
+          "count": 748,
+          "ms": 0
+        },
+        "render.live/OperatorDesk.tsx": {
+          "count": 654,
+          "ms": 0
+        },
+        "render.Map": {
+          "count": 616,
+          "ms": 0
+        },
+        "effect.Map.2": {
+          "count": 240,
+          "ms": 0
+        },
+        "effect.Map.4": {
+          "count": 240,
+          "ms": 0
+        },
+        "failure.live/rotorTelemetry.ts": {
+          "count": 89,
+          "ms": 0
+        },
+        "effect.Map.15": {
+          "count": 2,
+          "ms": 0
+        }
+      },
+      "commands": {
+        "cw_session_request": 118,
+        "operator_draft_follow_snapshot": 60,
+        "spot_activation_snapshot": 180,
+        "auto_rotor_snapshot": 60,
+        "operating_module_status": 149,
+        "worker_request:logbook_operator_draft": 60,
+        "worker_request:cluster_resume_initialize": 89,
+        "propagation_session_request": 2
+      },
+      "contextChanges": [],
+      "rawSHA256": "194c05e982a675db26e04713c2242e9a7ccf9ed93894b2fd96e8c4b0c8030c3d"
+    },
+    "profile-after": {
+      "elapsedMs": 90013,
+      "react": {
+        "commits": 346,
+        "ms": 1064
+      },
+      "hits": {
+        "failure.live/rotorTelemetry.ts": {
+          "count": 90,
+          "ms": 0
+        },
+        "CW.unchanged": {
+          "count": 118,
+          "ms": 0
+        },
+        "render.LiveApp.tsx": {
+          "count": 462,
+          "ms": 0
+        },
+        "render.live/OperatorDesk.tsx": {
+          "count": 414,
+          "ms": 0
+        },
+        "render.Map": {
+          "count": 240,
+          "ms": 0
+        },
+        "effect.Map.15": {
+          "count": 2,
+          "ms": 0
+        }
+      },
+      "commands": {
+        "operating_module_status": 150,
+        "worker_request:cluster_resume_initialize": 90,
+        "cw_session_request": 118,
+        "worker_request:logbook_operator_draft": 60,
+        "operator_draft_follow_snapshot": 60,
+        "spot_activation_snapshot": 180,
+        "auto_rotor_snapshot": 60,
+        "propagation_session_request": 2
+      },
+      "contextChanges": [],
+      "rawSHA256": "acb0be6c5d4bd00ac804248a37534313bfe1ea2b63e3290abad7c096176af893"
+    }
+  }
+}
