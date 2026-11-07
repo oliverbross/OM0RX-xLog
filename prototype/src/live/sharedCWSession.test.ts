@@ -4,6 +4,26 @@ import { defaultCWProfile } from "./cwMacros";
 const snapshot = (client: string, revision = 1) => ({ revision, armed: false, pending: false, owner: null, lease: "lease", client,
   message: "CW disarmed", error: "", winkeyer: null, canonical: { profile: defaultCWProfile, context: { CALL: "K1ABC" }, provider: "direct_agent" } });
 describe("native shared CW renderer adapter", () => {
+  it("reads every passive snapshot but publishes identical native JSON only once", async () => {
+    let value: any = { ...snapshot("other"), capabilities: { speedSegments: false, streaming: false } };
+    const transport = vi.fn<CWTransport>(async () => structuredClone(value));
+    const session = new SharedCWSession(transport), changed = vi.fn(); session.subscribe(changed);
+    await session.refresh(); const first = session.getSnapshot();
+    for (let i = 0; i < 80; i++) await session.refresh();
+    expect(transport).toHaveBeenCalledTimes(81); expect(changed).toHaveBeenCalledOnce();
+    expect(session.getSnapshot()).toBe(first);
+    // Revision alone cannot establish equality: capabilities/errors may change.
+    value.capabilities.streaming = true; await session.refresh();
+    expect(changed).toHaveBeenCalledTimes(2);
+    value.error = "CW unavailable"; await session.refresh();
+    expect(session.getSnapshot().error).toBe("CW unavailable"); expect(changed).toHaveBeenCalledTimes(3);
+    transport.mockRejectedValueOnce(new Error("Read lost")); await session.refresh(); await session.refresh();
+    expect(changed).toHaveBeenCalledTimes(5); expect(session.getSnapshot().error).toBe("CW unavailable");
+    value.armed = true; await session.refresh(); await session.refresh();
+    expect(changed).toHaveBeenCalledTimes(7);
+    value.armed = false; value.pending = true; await session.refresh(); await session.refresh();
+    expect(changed).toHaveBeenCalledTimes(9);
+  });
   it("keeps passive reads and sequence ordering while suppressing an identical disarmed error notification", async () => {
     const transport = vi.fn<CWTransport>().mockRejectedValue(new Error("Native CW unavailable"));
     const session = new SharedCWSession(transport), changed = vi.fn(); session.subscribe(changed);

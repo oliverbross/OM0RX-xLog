@@ -19,6 +19,7 @@ export class SharedCWSession {
   private sequence = 0;
   private disposed = false;
   private uncertain = false;
+  private passiveSnapshot: string | undefined;
   constructor(private transport = native, readonly client = crypto.randomUUID()) {}
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   getSnapshot = () => this.state;
@@ -26,6 +27,7 @@ export class SharedCWSession {
     // Repeated failed passive reads can report the same disarmed/error fields.
     // Keep every authority read and uncertainty transition; notify on new state.
     if ((Object.keys(change) as Array<keyof SharedCWState>).every(key => Object.is(this.state[key], change[key]))) return;
+    this.passiveSnapshot = undefined;
     this.state = { ...this.state, ...change }; this.listeners.forEach(listener => listener());
   }
   private async action(action: string, params: Data = {}) {
@@ -37,8 +39,16 @@ export class SharedCWSession {
       if (value.revision < this.state.revision) return;
       if (value.canonical) validateCWProfile(value.canonical.profile);
       if (action === "arm" || action === "stop" || action === "acknowledge") this.uncertain = false;
+      // Native JSON replies recreate nested capabilities/context on every poll.
+      // Compare the complete validated reply only while passive and disarmed;
+      // expiry, pending/output and every changed field still publish immediately.
+      const passive = action === "snapshot" && !value.armed && !value.pending && !this.uncertain
+        ? JSON.stringify(value) : undefined;
+      if (passive !== undefined && passive === this.passiveSnapshot) return value;
+      this.passiveSnapshot = undefined;
       this.update({ ...value, armed: value.armed && value.client === this.client && !this.uncertain,
         error: this.uncertain ? "CW acknowledgement was lost. Use Stop; do not retry the macro." : value.error } as SharedCWState);
+      this.passiveSnapshot = passive;
       return value;
     } catch (cause) {
       if (!this.disposed) {
