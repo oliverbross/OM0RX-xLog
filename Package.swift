@@ -23,9 +23,7 @@ let portableDependencies: [Package.Dependency] = []
 let portableCrypto: [Target.Dependency] = []
 let nativeTransferTargets: [Target] = [
     .target(name: "CCurlBackup", linkerSettings: [.linkedLibrary("curl")]),
-    .target(name: "CCWProcess"),
 ]
-let cwProcessDependencies: [Target.Dependency] = ["CCWProcess"]
 let sqlitePkgConfig: String? = nil
 let liveCoreName = "XLogCore"
 let liveIntegrationDependencies: [Target.Dependency] = ["XCatIntegrationCore"]
@@ -43,22 +41,20 @@ let portableDependencies: [Package.Dependency] = [
 ]
 let portableCrypto: [Target.Dependency] = [.product(name: "Crypto", package: "swift-crypto")]
 let nativeTransferTargets: [Target] = []
-let cwProcessDependencies: [Target.Dependency] = []
 let sqlitePkgConfig: String? = "sqlite3"
 let liveCoreName = "XLogPortableCore"
 let liveIntegrationDependencies: [Target.Dependency] = ["XCatIntegrationCore"]
 let prototypeCoreTargets: [Target] = [
-    // Propagation and pure IQ parsing/metadata share the native implementation.
+    // Propagation and protocol parsing share the native implementation.
     // Radio/network owners remain excluded from this portable source slice.
     .target(name: "XCatIntegrationCore", exclude: [
         "Models.swift", "DXSpot.swift", "SmartLinkRadioClient.swift", "CATCommandProcessor.swift", "SimulatedRadio.swift",
         "RemoteStationConfiguration.swift", "FlexRadioClient.swift", "Rotator.swift",
         "RigCtlCommandProcessor.swift", "RemoteAgentModels.swift", "RemoteAgentClient.swift",
         "TCPCommandServer.swift", "LegacyXCATClient.swift", "SmartLinkBroker.swift",
-        "SmartLinkAuth.swift", "RemoteAgentAuth.swift", "FlexRadioClient+IQ.swift",
-        "FlexIQDatagramReceiver.swift", "TCIIQSubscription.swift"
+        "SmartLinkAuth.swift", "RemoteAgentAuth.swift"
     ], sources: ["XCatError.swift", "PropagationConditions.swift", "TCIProtocol.swift",
-                 "TCIIQFrame.swift", "FlexIQTransport.swift", "FlexIQResources.swift", "FlexIQSubscription.swift", "FlexCWX.swift"]),
+                 "FlexCWX.swift"]),
     .target(name: "XLogPortableCore", dependencies: portableCrypto + ["CSQLitePrototype", .target(name: "CPlatformDigest", condition: .when(platforms: [.windows]))], path: "Sources/XLogCore",
         exclude: ["DXCCBoundaries.swift", "FlexSpotForwarder.swift",
                   "QRZClient.swift", "SecretStore.swift",
@@ -74,14 +70,13 @@ let prototypeCoreTargets: [Target] = [
 #endif
 
 var portableProducts: [Product] = [
-    .library(name: "XCWCore", targets: ["XCWCore"]),
     .library(name: "XContestCore", targets: ["XContestCore"]),
     .library(name: "XContestStore", targets: ["XContestStore"]),
     .executable(name: "xlog-prototype-worker", targets: ["XLogPrototypeWorker"]),
 ]
 var prototypeSupportDependencies: [Target.Dependency] = [
     .byName(name: liveCoreName), "CSQLitePrototype", "CPlatformVault",
-    "XClusterIntegrationCore", "XStationIntegrationCore", "XContestCore", "XContestStore", "XCWCore",
+    "XClusterIntegrationCore", "XStationIntegrationCore", "XContestCore", "XContestStore",
 ]
 prototypeSupportDependencies.append(contentsOf: portableCrypto)
 prototypeSupportDependencies.append(contentsOf: liveIntegrationDependencies)
@@ -93,9 +88,8 @@ portableTargets.append(contentsOf: [
     .target(name: "CClusterSocket", linkerSettings: [.linkedLibrary("ws2_32", .when(platforms: [.windows]))]),
     .target(name: "CPlatformVault", dependencies: platformVaultDependencies,
             linkerSettings: [.linkedLibrary("Advapi32", .when(platforms: [.windows]))]),
-    .target(name: "XClusterIntegrationCore", dependencies: ["CClusterSocket", "XCWCore"]),
+    .target(name: "XClusterIntegrationCore", dependencies: ["CClusterSocket"]),
     .target(name: "XStationIntegrationCore"),
-    .target(name: "XCWCore", dependencies: cwProcessDependencies),
     .target(name: "XContestCore", resources: [
         .copy("Resources/ContestDefinitions"), .copy("Resources/CountryReferences"),
     ]),
@@ -107,16 +101,9 @@ portableTargets.append(contentsOf: [
     .testTarget(name: "XClusterIntegrationTests", dependencies: ["XClusterIntegrationCore", "CClusterSocket", "CClusterSocketTestSupport"]),
     .testTarget(name: "XCatIntegrationTests", dependencies: ["XCatIntegrationCore"]),
     .testTarget(name: "XStationIntegrationTests", dependencies: ["XStationIntegrationCore"]),
-    .testTarget(name: "XCWCoreTests", dependencies: ["XCWCore"]),
     .testTarget(name: "XContestCoreTests", dependencies: ["XContestCore"], exclude: ["SourceFixtures"]),
     .testTarget(name: "XContestStoreTests", dependencies: ["XContestStore", "XContestCore", "CSQLitePrototype"]),
 ])
-
-#if os(macOS)
-// Developer-only passive instrument; never staged into the application bundle.
-portableProducts.append(.executable(name:"xlog-cw-flex-inspect",targets:["CWFlexInspect"]))
-portableTargets.append(.executableTarget(name:"CWFlexInspect",dependencies:["XCatIntegrationCore"],path:"tools/CWFlexInspect",exclude:["README.md"]))
-#endif
 
 let package: Package
 if portableOnly {

@@ -90,7 +90,6 @@ public struct XLogSettings: Codable, Equatable, Sendable {
     /// Only explicitly created first-run workspaces opt into setup. Missing in
     /// an existing profile means complete, so upgrades never interrupt operators.
     public var onboardingCompleted = true
-    public var showCWDecode = false
     public var defaultRadio: String
     public var wavelogURL: String
     public var wavelogStationID: Int
@@ -411,7 +410,7 @@ public enum RotorConfigurationError: Error {
 
 extension XLogSettings {
     private enum CodingKeys: String, CodingKey {
-        case operatorCall, stationCall, gridSquare, stationLocation, defaultPower, defaultRadio, automaticTransmitPower, clearAfterQSY, onboardingCompleted, showCWDecode
+        case operatorCall, stationCall, gridSquare, stationLocation, defaultPower, defaultRadio, automaticTransmitPower, clearAfterQSY, onboardingCompleted
         case wavelogURL, wavelogStationID, logbookMode, automaticSync, syncIntervalMinutes
         case qrzUsername, qrzEnabled, callsignLookupProvider, hamqthUsername
         case xcatHost, xcatRigCtlPort, clubLogCTYURL, lotwActivityURL
@@ -428,7 +427,6 @@ extension XLogSettings {
         automaticTransmitPower = try values.decodeIfPresent(Bool.self, forKey: .automaticTransmitPower) ?? false
         clearAfterQSY = try values.decodeIfPresent(Bool.self, forKey: .clearAfterQSY) ?? false
         onboardingCompleted = try values.decodeIfPresent(Bool.self, forKey: .onboardingCompleted) ?? true
-        showCWDecode = try values.decodeIfPresent(Bool.self, forKey: .showCWDecode) ?? false
         defaultRadio = try values.decode(String.self, forKey: .defaultRadio)
         wavelogURL = try values.decode(String.self, forKey: .wavelogURL)
         wavelogStationID = try values.decode(Int.self, forKey: .wavelogStationID)

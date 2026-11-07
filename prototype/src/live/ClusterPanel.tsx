@@ -433,7 +433,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
     bands, modes, continents: ["AF", "AN", "AS", "EU", "NA", "OC", "SA"],
     spotterContinents: ["AF", "AN", "AS", "EU", "NA", "OC", "SA"],
     callStatuses, dxccStatuses, specials: specialNames,
-    sources: ["cluster", "rbl", "local_cw"], worked: ["Worked before", "Not worked"],
+    sources: ["cluster", "rbl"], worked: ["Worked before", "Not worked"],
   };
   const filterLabels: Partial<Record<keyof Filter, string>> = {
     bands: "Bands", modes: "Modes", continents: "DX continent", spotterContinents: "Spotter continent", callStatuses: "Call status",
@@ -523,7 +523,7 @@ export function ClusterPanel({ snapshot, onRequest, onSelect, passive = false, p
       </div>
       <button type="button" onClick={() => changeFilter(activePicker === "specials"
         ? { ...filter, specials: [], excludedSpecials: [] }
-        : { ...filter, [activePicker]: activePicker === "sources" ? ["cluster", "rbl", "local_cw"] : [] })}>All</button>
+        : { ...filter, [activePicker]: activePicker === "sources" ? ["cluster", "rbl"] : [] })}>All</button>
     </div>}</div>}
 
     {!presentationOnly && columnsOpen && <section id={`${panelId}-columns`} className="live-cluster-columns" aria-label="Full cluster columns">

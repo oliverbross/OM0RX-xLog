@@ -6,7 +6,7 @@ import { defaultRotorConfiguration, RotorConfigurationSession } from "./rotorCon
 const generation = "00000000-0000-4000-8000-000000000001";
 function fixture(existing = false, completed = false, saveSecret: () => Promise<void> = async () => {}) {
   let exists = existing, revision = 0, rotorRevision = 0;
-  let values = { onboardingCompleted: completed, showCWDecode: false, operatorCall: "", stationCall: "", defaultPower: "100", logbookMode: "local", automaticSync: false };
+  let values = { onboardingCompleted: completed, operatorCall: "", stationCall: "", defaultPower: "100", logbookMode: "local", automaticSync: false };
   let configuration = defaultRotorConfiguration();
   const request = vi.fn(async (method: string, params: Record<string, any> = {}) => {
     if (method === "workspace_status") return { workspace_exists: exists, first_run_eligible: !exists };

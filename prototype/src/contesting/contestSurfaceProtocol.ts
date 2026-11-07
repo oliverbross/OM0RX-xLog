@@ -16,7 +16,6 @@ export type ContestSurfaceAction =
   | { action: "spot_set_marked_only"; params: DraftRevision & { markedOnly: boolean } }
   | { action: "spot_set_show_worked"; params: DraftRevision & { showWorked: boolean } }
   | { action: "entry_set_text"; params: DraftRevision & { field: "callsign" | "sentReport" | "receivedReport"; value: string } }
-  | { action: "entry_cw_callsign"; params: DraftRevision & { sourceEpoch: string; spotID: string; spotVersion: string; laneID?: "laneA" | "laneB"; bindingVersion?: number } }
   | { action: "entry_group_pass"; params: DraftRevision & { messageID: string; messageVersion: number;
       operation: "load" | "tune" | "park"; targetLaneID: "laneA" | "laneB"; bindingVersion: number | null;
       connectionGeneration: string | number | null; reviewedUTC: string } }
@@ -664,9 +663,6 @@ function validParams(action: string, params: Record<string, unknown>) {
   if (action === "spot_set_show_worked") return draft(params, ["showWorked"]) && typeof params.showWorked === "boolean";
   if (action === "entry_set_text") return draft(params, ["field", "value"]) &&
     oneOf(params.field, ["callsign", "sentReport", "receivedReport"]) && text(params.value, 160, true);
-  if (action === "entry_cw_callsign") return draft(params,["sourceEpoch","spotID","spotVersion"], ["laneID","bindingVersion"]) &&
-    [params.sourceEpoch,params.spotID,params.spotVersion].every(validContestSurfaceUUID) &&
-    (params.laneID === undefined ? params.bindingVersion === undefined : oneOf(params.laneID,["laneA","laneB"]) && uint(params.bindingVersion));
   if (action === "entry_group_pass") return draft(params,["messageID","messageVersion","operation","targetLaneID","bindingVersion","connectionGeneration","reviewedUTC"]) &&
     validContestSurfaceUUID(params.messageID) && params.messageVersion === 1 && oneOf(params.operation,["load","tune","park"]) &&
     oneOf(params.targetLaneID,["laneA","laneB"]) && (params.bindingVersion === null || uint(params.bindingVersion)) &&

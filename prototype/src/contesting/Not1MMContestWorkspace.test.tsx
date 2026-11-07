@@ -13,8 +13,6 @@ import { newContestSetup } from "./ContestSetupPanel";
 import {ManualTuneSession,captureManualTuneBinding} from "../live/manualTune";
 import {createContestPassTuneCapture} from "./contestSpotTune";
 const stationControl = vi.hoisted(() => ({ speed: vi.fn(async () => ({accepted:true})) }));
-const cwCallsignSource = vi.hoisted(() => ({resolve:vi.fn(async()=>"K1ABC")}));
-vi.mock("./cwCallsign",()=>({resolveContestCWCallsign:cwCallsignSource.resolve}));
 vi.mock("./contestStationControl", () => ({ setContestCWSpeed: stationControl.speed }));
 const nativeCW = vi.hoisted(() => ({ execute: vi.fn(), stop:vi.fn(async () => {}),state:{pending:false,armed:false,message:"CW disarmed",error:""} }));
 const nativeExport = vi.hoisted(() => ({ save: vi.fn() }));
@@ -803,57 +801,6 @@ const operationalRequest=(current:()=>ReturnType<typeof projection>,point:(spotI
     method==="contest_create"?{projection:active}:method==="contest_log_page"?{rows:[],total:0}:
     method==="contest_score"?{score:active.score}:null;
   if(!result)throw new Error(method);return{id:crypto.randomUUID(),ok:true,result};
-});
-
-it("loads a fenced CW callsign through the sole Entry owner while preserving operating fields",async()=>{
-  let current=projection(1,{sent:"579",receive:"589",other_2:"14"});
-  const base=operationalRequest(()=>current);
-  const request=vi.fn(async(method:string,params:Record<string,unknown>={})=>{
-    if(method==="contest_draft_apply"){
-      current={...current,revision:current.revision+1,fields:current.fields.map(field=>({...field,value:(params.fields as Record<string,string>)[String(field.id)]??field.value}))};
-      return{id:crypto.randomUUID(),ok:true,result:{operationID:params.operationID,projection:current}};
-    }
-    return base(method,params);
-  });
-  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
-  await createContestThroughSetup();await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].status).toBe("ready"));
-  const entry=surfaceOwner.current.projections["active-qso"];
-  const action={operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,panelID:"active-qso",projectionRevision:1,
-    requestID:crypto.randomUUID(),action:"entry_cw_callsign",params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,
-    sourceEpoch:crypto.randomUUID(),spotID:crypto.randomUUID(),spotVersion:crypto.randomUUID()}};
-  await act(async()=>surfaceOwner.current.handle(action));
-  expect(cwCallsignSource.resolve).toHaveBeenCalledExactlyOnceWith(action);
-  const params=request.mock.calls.find(([method])=>method==="contest_draft_apply")![1]!;
-  expect(params.operationID).toBe(action.requestID);
-  expect(params.fields).toMatchObject({callsign:"K1ABC",sent:"579",receive:"589",other_2:"14"});
-  expect(params).not.toHaveProperty("frequencyHz");expect(params).not.toHaveProperty("mode");
-  expect(current.frequencyHz).toBe(14025000);expect(current.mode).toBe("CW");expect(current.score.qsos).toBe(0);
-  expect(workspaceProps.stationTune).not.toHaveBeenCalled();expect(nativeCW.stop).not.toHaveBeenCalled();
-  await expect(surfaceOwner.current.handle({...action,requestID:crypto.randomUUID()})).rejects.toThrow(/entry changed/i);
-  expect(cwCallsignSource.resolve).toHaveBeenCalledTimes(1);
-});
-it("preserves an occupied Contest Entry instead of replacing its callsign",async()=>{
-  const current=projection(1,{callsign:"K1HOLD",other_2:"14"}),request=operationalRequest(()=>current);
-  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
-  await createContestThroughSetup();await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].status).toBe("ready"));
-  const entry=surfaceOwner.current.projections["active-qso"];
-  await expect(surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,panelID:"active-qso",projectionRevision:1,
-    requestID:crypto.randomUUID(),action:"entry_cw_callsign",params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,
-      sourceEpoch:crypto.randomUUID(),spotID:crypto.randomUUID(),spotVersion:crypto.randomUUID()}})).rejects.toThrow(/occupied/i);
-  expect(cwCallsignSource.resolve).not.toHaveBeenCalled();expect(request.mock.calls.some(([method])=>method==="contest_draft_apply")).toBe(false);
-  expect(surfaceOwner.current.projections["active-qso"].draft.callsign).toBe("K1HOLD");
-});
-it.each(["armed","pending","error"] as const)("refuses CW callsign loading while output is %s without sending Stop",async condition=>{
-  if(condition==="error")nativeCW.state.error="Output release unknown";else nativeCW.state[condition]=true;
-  const current=projection(),request=operationalRequest(()=>current);
-  render(<Not1MMContestWorkspace request={request} serviceRequest={request} {...workspaceProps}/>);
-  await createContestThroughSetup();await waitFor(()=>expect(surfaceOwner.current.projections["active-qso"].status).toBe("ready"));
-  const entry=surfaceOwner.current.projections["active-qso"];
-  await expect(surfaceOwner.current.handle({operatingContext,scope:"contesting",sessionID:current.sessionID,workspaceGeneration,panelID:"active-qso",projectionRevision:1,
-    requestID:crypto.randomUUID(),action:"entry_cw_callsign",params:{draftID:current.draftID,expectedDraftRevision:entry.draft.revision,
-      sourceEpoch:crypto.randomUUID(),spotID:crypto.randomUUID(),spotVersion:crypto.randomUUID()}})).rejects.toThrow(/Disarm contest output/);
-  expect(cwCallsignSource.resolve).not.toHaveBeenCalled();expect(nativeCW.stop).not.toHaveBeenCalled();
-  expect(request.mock.calls.some(([method])=>method==="contest_draft_apply")).toBe(false);
 });
 
 it("projects the expected country universe, classified opportunities, hourly timeline and advisory received-zone values",async()=>{
@@ -4012,8 +3959,6 @@ it("defers a native contest window command until the saved session is fully rest
     expect.objectContaining({enabled:false,multicastGroup:"239.1.1.1",multicastPort:2239,interface:"0.0.0.0"})));
   await expect(route!("contest-window-qrz-details")).resolves.toBe(true);
   expect(surfaceWindow.open).toHaveBeenCalledWith(expect.objectContaining({sessionID:current.sessionID}),"qrz-details");
-  await expect(route!("contest-window-cw-decode")).resolves.toBe(true);
-  expect(surfaceWindow.open).toHaveBeenLastCalledWith(expect.objectContaining({sessionID:current.sessionID}),"cw-decode");
 });
 
 it("does not open Main Logging until its ready projection is published", async () => {

@@ -11,18 +11,10 @@ public struct SpotDraftSelection: Codable, Equatable, Sendable {
     public let comment: String
     public let specialTags: [String]
     public let opportunity: OpportunityDraftReference?
-    public var cwCallsign: CWCallsignDraftReference? = nil
-    public var draftOnly:Bool {opportunity != nil || cwCallsign != nil}
-
-    public struct CWCallsignDraftReference:Codable,Equatable,Sendable {
-        public let sessionID:UUID
-        public let sourceID:UUID
-        public let streamToken:UUID
-        public let epoch:String
-        public let trackID:UUID
-        public let revision:String
-        public let selectionID:UUID
-    }
+    // Persisted receipt compatibility only. New selections reject this field;
+    // retaining it prevents startup recovery from stripping historical evidence.
+    public var cwCallsign: [String: String]? = nil
+    public var draftOnly: Bool { opportunity != nil || cwCallsign != nil }
 
     public struct OpportunityDraftReference: Codable, Equatable, Sendable {
         public let kind: String
@@ -46,17 +38,6 @@ public struct SpotDraftSelection: Codable, Equatable, Sendable {
                   ["pota", "sota", "wwff", "wwbota", "iota", "castle", "dxpedition", "special_event"].contains(opportunity.referenceKind)
             else { throw SpotDraftError.invalid }
         }
-        if let cwCallsign {
-            guard (3...20).contains(normalized.utf8.count),normalized.utf8.contains(where:{(65...90).contains($0)}),
-                  normalized.utf8.contains(where:{(48...57).contains($0)}),!normalized.contains("-"),
-                  !normalized.hasPrefix("/"),!normalized.hasSuffix("/"),!normalized.contains("//"),
-                  opportunity==nil,frequencyHz==nil,band.isEmpty,mode.isEmpty,country.isEmpty,dxcc==nil,
-                  comment.isEmpty,specialTags.isEmpty,
-                  UInt64(cwCallsign.epoch).map({String($0)})==cwCallsign.epoch,
-                  UInt64(cwCallsign.revision).map({String($0)})==cwCallsign.revision,
-                  [cwCallsign.sessionID,cwCallsign.sourceID,cwCallsign.streamToken,cwCallsign.trackID,cwCallsign.selectionID]
-                    .allSatisfy({$0.uuidString != "00000000-0000-0000-0000-000000000000"}) else {throw SpotDraftError.invalid}
-        }
     }
 
     func applying(to previous: QSO) -> QSO {
@@ -67,14 +48,6 @@ public struct SpotDraftSelection: Codable, Equatable, Sendable {
             qso.state = ""; qso.county = ""; qso.qth = ""; qso.email = ""
         }
         qso.call = call.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        if cwCallsign != nil {
-            if previous.call.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() != qso.call {
-                qso.country="";qso.dxcc=nil
-            }
-            // Callsign loading preserves operating fields and operator text.
-            // The database's existing start-time and power owners still apply.
-            return qso
-        }
         qso.frequencyHz = frequencyHz
         qso.band = opportunity != nil ? frequencyHz.map(BandPlan.band(for:)) ?? previous.band : band.lowercased()
         qso.mode = opportunity != nil && mode.isEmpty ? previous.mode : mode.uppercased()
@@ -149,18 +122,6 @@ public struct SpotDraftRecord: Codable, Equatable, Sendable {
     public let leaseID: UUID
     public internal(set) var phase: SpotDraftPhase
 
-    /// Proof of the original callsign-only draft commit, never fresh RF authority.
-    public func validateCWReceipt(operationID: UUID, generation: UUID) throws {
-        try command.validate();try receipt.draft.validate()
-        let zero=UUID(uuid:(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
-        guard [operationID,generation,command.draftID,leaseID].allSatisfy({$0 != zero}),
-              command.operationID==operationID,receipt.operationID==operationID,
-              command.generation==generation,receipt.generation==generation,
-              command.spot.cwCallsign != nil,receipt.phase == .draft_applied,
-              receipt.draft.qso.id==command.draftID,receipt.draft.revision==command.expectedRevision+1,
-              receipt.draft.qso.call==command.spot.call.trimmingCharacters(in:.whitespacesAndNewlines).uppercased(),
-              [.draft_applied,.confirmed,.failed,.uncertain].contains(phase) else {throw SpotDraftError.invalid}
-    }
 }
 
 public struct SpotDraftApplyResult: Sendable {

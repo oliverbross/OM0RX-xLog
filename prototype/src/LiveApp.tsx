@@ -24,7 +24,6 @@ import { ClusterPanel } from "./live/ClusterPanel";
 import { clusterInitializationPending, clusterSessionIntentKey, initializeNativeClusterResume, nativeClusterSession, shouldResumeCluster } from "./live/clusterResume";
 import OpportunitiesPanel, { type Opportunity } from "./live/OpportunitiesPanel";
 import { SpotHistoryPanel } from "./live/SpotHistoryPanel";
-import { CWDecodePanel } from "./live/CWDecodePanel";
 import { useReferenceSchedule } from "./live/referenceSchedule";
 import { openDetachedCluster, dockDetachedWorkspace, onDetachedDock,
   publishClusterSelection } from "./live/DetachedClusterBridge";
@@ -98,7 +97,7 @@ import { LogbookMutationSession, readLogbookMutationJournal } from "./live/logbo
 import { LogbookMutationStatus } from "./live/LogbookMutationStatus";
 import { requestLogbookContact } from "./live/logbookContactTransport";
 import { ContactEditStatus } from "./live/ContactEditStatus";
-import { connectWorkspaceNavigation, isContestMenuRoute, visibleWorkspaceMenuScreens } from "./live/workspaceNavigation";
+import { connectWorkspaceNavigation, isContestMenuRoute, workspaceMenuScreens } from "./live/workspaceNavigation";
 import FirstRunSetup from "./live/FirstRunSetup";
 import { completeFirstRunSetup } from "./live/firstRunSetupState";
 import { retireStationProvider } from "./live/stationHandover";
@@ -135,7 +134,7 @@ export function contestingRuntimeAvailable(value: unknown): boolean {
 export { boundedCallsignLookup } from "./live/callsignLookupRecovery";
 export const syncSettingsDestination = (logbookMode: unknown): "Logbook" | "Sync" => logbookMode === "local" ? "Logbook" : "Sync";
 const screenIcons: Record<string, typeof Radio> = {
-  "operator-desk": LayoutDashboard, "log-qso": Radio, logbook: BookOpen, "dx-cluster": Network, "spot-history": History, "cw-decode": Activity,
+  "operator-desk": LayoutDashboard, "log-qso": Radio, logbook: BookOpen, "dx-cluster": Network, "spot-history": History,
   "world-map": MapIcon, "band-maps": Activity, "chaser-dx": Activity, "hf-propagation-live": Sun, awards: Award,
   "station-control": Radio, sync: RefreshCw, settings: Settings,
 };
@@ -202,9 +201,6 @@ function MainLiveApp() {
     readSettingsJournal(storedDraftValue(settingsJournalKey))));
   const settingsState = useSyncExternalStore(settingsSession.subscribe, settingsSession.getSnapshot);
   const settings = settingsState.draft;
-  const showCWDecode = settingsState.snapshot?.settings.showCWDecode === true;
-  const workspaceMenuScreens = visibleWorkspaceMenuScreens(showCWDecode);
-  useEffect(() => { if (settingsState.snapshot && isTauri()) void invoke("set_cw_decode_menu_visibility", { visible: showCWDecode }).catch(() => {}); }, [showCWDecode, !!settingsState.snapshot]);
   const [rotorConfigurationSession] = useState(() => new RotorConfigurationSession(requestRotorConfiguration,
     journal => journal ? localStorage.setItem(rotorConfigurationJournalKey, JSON.stringify(journal)) : localStorage.removeItem(rotorConfigurationJournalKey),
     readRotorConfigurationJournal(storedDraftValue(rotorConfigurationJournalKey))));
@@ -1437,7 +1433,7 @@ function MainLiveApp() {
       </>}
       </>}
       {/* Spot History only reads archive diagnostics; editors still require a verified workspace. */}
-      {settingsState.snapshot?.settings.onboardingCompleted !== false && (workspace?.workspace_exists === true || view === "Spot History" || view === "CW Decode" || view === "HF Prop live") && <>
+      {settingsState.snapshot?.settings.onboardingCompleted !== false && (workspace?.workspace_exists === true || view === "Spot History" || view === "HF Prop live") && <>
       {view === "Operator Desk" && <OperatorCanvas {...deskLayout} equipment={deskKind === "none" ? undefined : deskKind}
         canChangeLayout={() => !logbookWorkingRef.current && !editorBufferPending.current && !mainClosing.current && !editorTransition.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput()}
         onChangeInFlight={value => { layoutChanging.current = value; }} panels={{
@@ -1480,7 +1476,6 @@ function MainLiveApp() {
       {view === "Chaser & DX" && <OpportunitiesPanel request={panelRequest} refresh={refresh} onSelect={loadOpportunity} home={stats?.map_home} />}
       {view === "HF Prop live" && <HFPropagationLive initialOwnCall={settings?.stationCall} initialLocator={settings?.gridSquare} />}
       {view === "Spot History" && <SpotHistoryPanel request={request} />}
-      {view === "CW Decode" && <CWDecodePanel onUndock={() => void invoke("open_detached_map", { kind: "cw-decode" }).catch(cause => setError(String(cause)))} />}
       {view === "World Map" && <><div className="live-actions"><button type="button" onClick={() => void openDetachedMap("world-map").catch(e => setError(e.message))}><ExternalLink size={14} />Undock World Map</button></div><div className="live-map full">{map}</div></>}
       {view === "Band Maps" && <BandMaps spots={liveSpots} onSelect={selectSpot} radioFrequencyHz={station?.radio?.frequency_hz} onUndock={() => void openDetachedMap("band-maps").catch(e => setError(e.message))} preferences={workspacePreferences ? bandMapView(workspacePreferences, false) : undefined} onPreferencesChange={value => changeBandMapPreferences(false, value)} />}
       {view === "Station Control" && <><div className="live-tabs" role="group" aria-label="Station sections">{["Control and connections", "RUMlog spots", "WSJT-X logging"].map(section => <button key={section} aria-pressed={stationSection === section} onClick={() => setStationSection(section)}>{section}</button>)}</div>

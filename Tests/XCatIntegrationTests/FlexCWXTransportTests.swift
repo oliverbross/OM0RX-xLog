@@ -7,6 +7,14 @@ import XCTest
 /// Real FlexRadioClient TCP framing/continuations against a disposable protocol
 /// fixture. These are transport tests, not physical FLEX-8400 qualification.
 final class FlexCWXTransportTests: XCTestCase {
+    func testCWXClientHandlesKeepHexadecimalProtocolSemanticsWithoutIQInventory() {
+        XCTAssertEqual(FlexRadioClient.protocolHandle("00000010"), 16)
+        XCTAssertEqual(FlexRadioClient.protocolHandle("000000ab"), 171)
+        XCTAssertEqual(FlexRadioClient.protocolHandle("0xAB"), 171)
+        for value in ["", "0x", " 10", "+10", "100000000", "not-a-handle"] {
+            XCTAssertNil(FlexRadioClient.protocolHandle(value))
+        }
+    }
     private func setup(malformedReply:Bool=false) async throws -> (FlexRadioClient,CWXWire) {
         let wire=CWXWire(malformedReply:malformedReply),port=try await wire.start()
         let radio=FlexRadioClient(host:"127.0.0.1",port:port,stationName:"Fixture")

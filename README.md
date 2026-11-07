@@ -1,5 +1,15 @@
 # OM0RX-xLog
 
+The unfinished embedded CW decoder/skimmer has been retired. Normal CW sending,
+WinKeyer, Flex CWX, CW/voice memories, PTT/Stop, radio/TCI control, contesting,
+external cluster/RBN spots, bandmaps and click-to-tune/log remain part of xLog.
+Saved decoder-window entries are retired without discarding other profile data.
+
+CW decoding and skimming now belong to the separately developed
+[OM0RX-Skimmer](https://github.com/oliverbross/OM0RX-Skimmer).
+Future integration: consume its existing TCP/DX-cluster feed through xLog.
+This change does not implement that integration or enable its unqualified spot output.
+
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black)](#requirements)
 [![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138)](Package.swift)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)

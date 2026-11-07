@@ -40,192 +40,23 @@ struct SpotDraftActivationTests {
         let receipt = try #require(result["receipt"] as? [String: Any])
         return try #require(receipt["draft"] as? [String: Any])
     }
-    private func cwSelection() -> [String:Any] {
-        ["call":"K1ABC","frequencyHz":NSNull(),"band":"","mode":"","country":"","comment":"","specialTags":[],
-         "cwCallsign":["sessionID":UUID().uuidString,"sourceID":UUID().uuidString,"streamToken":UUID().uuidString,
-            "epoch":"1","trackID":UUID().uuidString,"revision":"0","selectionID":UUID().uuidString]]
-    }
-
-    @Test("CW callsign loading preserves operating fields and user text and cannot grant station effects")
-    func cwCallsignOnly() throws {
+    @Test("Retired decoder receipt evidence round-trips but cannot apply a new draft")
+    func retiredDecoderReceiptCompatibility() throws {
         try fixture { service, _ in
-            let db=try service.openedDatabase(),current=try db.operatorDraft(initial:QSO(call:"",band:"20m",mode:"CW"))
-            var qso=current.qso
-            qso.call="DL1ABC";qso.start=Date(timeIntervalSince1970:1_700_000_000)
-            qso.frequencyHz=7_188_000;qso.band="40m";qso.mode="SSB";qso.rstSent="57";qso.rstReceived="56"
-            qso.country="Germany";qso.dxcc=230;qso.name="Prior station";qso.gridSquare="JO62"
-            qso.comment="Operator text";qso.potaReference="K-0001"
-            let edit=OperatorDraftMutation(operationID:UUID(),draftID:current.qso.id,expectedRevision:current.revision,action:.replace,qso:qso)
-            _ = try db.applyOperatorDraft(edit,nextDraft:QSO(call:"",band:"20m",mode:"CW"))
-            var request=try command(snapshot(service));request["spot"]=cwSelection()
-            let applied=try service.handle(method:"spot_draft_apply",params:request)
-            let selected=try #require(scopedReceiptDraft(applied)["qso"] as? [String:Any])
-            #expect(selected["call"] as? String == "K1ABC")
-            #expect(selected["frequencyHz"] as? Int == 7_188_000)
-            #expect(selected["band"] as? String == "40m");#expect(selected["mode"] as? String == "SSB")
-            #expect(selected["rstSent"] as? String == "57");#expect(selected["rstReceived"] as? String == "56")
-            #expect(selected["comment"] as? String == "Operator text");#expect(selected["potaReference"] as? String == "K-0001")
-            let saved=try db.operatorDraft(initial:qso)
-            #expect(saved.qso.start==qso.start);#expect(!saved.automaticStart)
-            #expect(saved.qso.country.isEmpty);#expect(saved.qso.dxcc==nil);#expect(saved.qso.name.isEmpty);#expect(saved.qso.gridSquare.isEmpty)
-            for name in ["tune_started","rotor_started"] {
-                var stage=try control(request,applied);stage["stage"]=name
-                #expect(throws:WorkerFailure.self){try service.handle(method:"spot_draft_stage",params:stage)}
-            }
-            var finish=try control(request,applied);finish["outcome"]="confirmed"
-            #expect(try service.handle(method:"spot_draft_finish",params:finish)["phase"] as? String == "confirmed")
-            let replay=try service.handle(method:"spot_draft_apply",params:request)
-            #expect(replay["replay"] as? Bool == true);#expect(replay["leaseID"]==nil)
-        }
-    }
-
-    @Test("CW callsign-only commands reject mixed selections, RF fields and unknown provenance")
-    func cwCallsignCommandBounds() throws {
-        try fixture { service, _ in
-            let request=try command(snapshot(service))
-            for (key,value):(String,Any) in [("frequencyHz",14_025_000),("mode","CW"),("country","United States"),
-                ("call","CQ"),("call","K1ABC-1"),
-                ("opportunity",["kind":"pota","reference":"K-0001","referenceKind":"pota"])] {
-                var invalid=request,spot=cwSelection();spot[key]=value;invalid["spot"]=spot
-                #expect(throws:WorkerFailure.self){try service.handle(method:"spot_draft_apply",params:invalid)}
-            }
-            var invalid=request,spot=cwSelection(),reference=try #require(spot["cwCallsign"] as? [String:Any])
-            reference["call"]="K1ABC";spot["cwCallsign"]=reference;invalid["spot"]=spot
-            #expect(throws:WorkerFailure.self){try service.handle(method:"spot_draft_apply",params:invalid)}
-        }
-    }
-
-    @Test("CW receipt-only recovery survives worker replacement and cannot replace later draft edits")
-    func cwReceiptReadAfterRestart() throws {
-        try fixture { service, root in
-            var request=try command(snapshot(service));request["spot"]=cwSelection()
-            let applied=try service.handle(method:"spot_draft_apply",params:request)
-            var finish=try control(request,applied);finish["outcome"]="confirmed"
-            _ = try service.handle(method:"spot_draft_finish",params:finish)
-            let db=try service.openedDatabase(),current=try db.operatorDraft(initial:QSO(call:"",band:"20m",mode:"CW"))
-            var edited=current.qso;edited.call="K2XYZ";edited.comment="Later operator text"
-            _ = try db.applyOperatorDraft(OperatorDraftMutation(operationID:UUID(),draftID:current.qso.id,
-                expectedRevision:current.revision,action:.replace,qso:edited),nextDraft:QSO(call:"",band:"20m",mode:"CW"))
-            db.close()
-            let replacement=LiveLogbookMethods(supportDirectory:root,inheritNativePreferences:false)
-            defer {try? replacement.openedDatabase().close()}
-            let before=try snapshot(replacement)
-            let result=try replacement.handle(method:"spot_draft_cw_status",params:["operationID":try #require(request["operationID"])])
-            #expect(result["phase"] as? String == "confirmed")
-            #expect(result["reservationActive"] as? Bool == false)
-            #expect(result["draftOnly"] as? Bool == true);#expect(result["tuneConfirmed"] as? Bool == false)
-            #expect(result["rotor"] as? String == "not_requested");#expect(result["draft"]==nil)
-            #expect(jsonObjectsEqual(before, try snapshot(replacement)))
-            #expect((before["qso"] as? [String:Any])?["call"] as? String == "K2XYZ")
-            try JSONEncoder().encode(UUID()).write(to:replacement.workspaceDirectoryURL.appendingPathComponent("edit-generation.json"),options:.atomic)
-            #expect(throws:WorkerFailure.self){try replacement.handle(method:"spot_draft_cw_status",params:["operationID":try #require(request["operationID"])])}
-        }
-    }
-
-    @Test("Explicit CW reconciliation completes only the proven original receipt after restart and preserves later edits")
-    func cwReconcileInterruptedOriginal() throws {
-        try fixture { service, root in
-            var request=try command(snapshot(service));request["spot"]=cwSelection()
-            _ = try service.handle(method:"spot_draft_apply",params:request)
-            let params=["operationID":try #require(request["operationID"])]
-            let active=try service.handle(method:"spot_draft_cw_reconcile",params:params)
-            #expect(active["phase"] as? String == "draft_applied");#expect(active["reservationActive"] as? Bool == true)
-            #expect(try service.openedDatabase().spotDraftActivationActive)
-            try service.openedDatabase().close()
-            let replacement=LiveLogbookMethods(supportDirectory:root,inheritNativePreferences:false)
-            defer {try? replacement.openedDatabase().close()}
-            let current=try snapshot(replacement),db=try replacement.openedDatabase()
-            let draft=try db.operatorDraft(initial:QSO(call:"",band:"20m",mode:"CW"))
-            var edited=draft.qso;edited.call="K2XYZ";edited.comment="Later operator text"
-            _ = try db.applyOperatorDraft(OperatorDraftMutation(operationID:UUID(),draftID:draft.qso.id,
-                expectedRevision:draft.revision,action:.replace,qso:edited),nextDraft:QSO(call:"",band:"20m",mode:"CW"))
-            let before=try snapshot(replacement)
-            #expect(current["qso"] != nil)
-            #expect((try replacement.handle(method:"spot_draft_cw_status",params:params))["phase"] as? String == "uncertain")
-            let reconciled=try replacement.handle(method:"spot_draft_cw_reconcile",params:params)
-            #expect(reconciled["phase"] as? String == "confirmed");#expect(reconciled["reservationActive"] as? Bool == false)
-            #expect(reconciled["draft"] == nil)
-            #expect(jsonObjectsEqual(before, try snapshot(replacement)))
-            #expect((try replacement.handle(method:"spot_draft_cw_pending",params:[:]))["operationIds"] as? [String] == [])
-            #expect(jsonObjectsEqual(reconciled, try replacement.handle(method:"spot_draft_cw_reconcile",params:params)))
-            #expect((try replacement.handle(method:"spot_draft_cw_reconcile",params:["operationID":UUID().uuidString]))["phase"] as? String == "uncertain")
-            #expect(throws:WorkerFailure.self){try replacement.handle(method:"spot_draft_cw_reconcile",params:["operationID":try #require(request["operationID"]),"clear":true])}
-            try JSONEncoder().encode(UUID()).write(to:replacement.workspaceDirectoryURL.appendingPathComponent("edit-generation.json"),options:.atomic)
-            #expect(throws:WorkerFailure.self){try replacement.handle(method:"spot_draft_cw_reconcile",params:params)}
-        }
-    }
-
-    @Test("CW original receipt proof rejects substituted identities, revision, callsign and RF phases")
-    func cwOriginalReceiptProofCorrelation() throws {
-        try fixture { service, _ in
-            var request=try command(snapshot(service));request["spot"]=cwSelection()
-            _ = try service.handle(method:"spot_draft_apply",params:request)
-            let rawID=try #require(request["operationID"] as? String),operation=try #require(UUID(uuidString:rawID))
-            let db=try service.openedDatabase(),stored=try db.spotDraftRecord(operationID:operation)
-            let record=try #require(stored)
-            func reject(_ mutate:(inout [String:Any])->Void) throws {
-                let encoded=try JSONEncoder().encode(record),decoded=try JSONSerialization.jsonObject(with:encoded)
-                var raw=try #require(decoded as? [String:Any])
-                mutate(&raw)
-                let changed=try JSONDecoder().decode(SpotDraftRecord.self,from:JSONSerialization.data(withJSONObject:raw))
-                #expect(throws:SpotDraftError.self){try changed.validateCWReceipt(operationID:operation,generation:record.command.generation)}
-            }
-            try reject{$0["phase"]="tune_started"}
-            try reject{$0["leaseID"]="00000000-0000-0000-0000-000000000000"}
-            try reject{var receipt=$0["receipt"] as! [String:Any];receipt["operationID"]=UUID().uuidString;$0["receipt"]=receipt}
-            try reject{var receipt=$0["receipt"] as! [String:Any];receipt["generation"]=UUID().uuidString;$0["receipt"]=receipt}
-            try reject{var receipt=$0["receipt"] as! [String:Any],draft=receipt["draft"] as! [String:Any]
-                draft["revision"]=record.receipt.draft.revision+1;receipt["draft"]=draft;$0["receipt"]=receipt}
-            try reject{var receipt=$0["receipt"] as! [String:Any],draft=receipt["draft"] as! [String:Any],qso=draft["qso"] as! [String:Any]
-                qso["call"]="K2XYZ";draft["qso"]=qso;receipt["draft"]=draft;$0["receipt"]=receipt}
-        }
-    }
-
-    @Test("CW pending discovery recovers the original ID without a surviving window or source")
-    func cwPendingIdentityDiscovery() throws {
-        try fixture { service, root in
-            let unrelated=try command(snapshot(service)),applied=try service.handle(method:"spot_draft_apply",params:unrelated)
-            var finish=try control(unrelated,applied);finish["outcome"]="uncertain"
-            _ = try service.handle(method:"spot_draft_finish",params:finish)
-            #expect((try service.handle(method:"spot_draft_cw_pending",params:[:]))["operationIds"] as? [String] == [])
-            var cw=try command(snapshot(service));cw["spot"]=cwSelection()
-            _ = try service.handle(method:"spot_draft_apply",params:cw)
-            let original=try #require(cw["operationID"] as? String),before=try snapshot(service)
-            #expect((try service.handle(method:"spot_draft_cw_pending",params:[:]))["operationIds"] as? [String] == [original])
+            var request = try command(snapshot(service))
+            var spot = try #require(request["spot"] as? [String: Any])
+            let reference = ["sessionID": UUID().uuidString, "sourceID": UUID().uuidString,
+                "streamToken": UUID().uuidString, "epoch": "1", "trackID": UUID().uuidString,
+                "revision": "0", "selectionID": UUID().uuidString]
+            spot["cwCallsign"] = reference; spot["frequencyHz"] = NSNull()
+            spot["band"] = ""; spot["mode"] = ""; request["spot"] = spot
+            let stored = try JSONDecoder().decode(SpotDraftCommand.self, from: JSONSerialization.data(withJSONObject: request))
+            let roundTrip = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(stored)) as? [String: Any])
+            #expect((roundTrip["spot"] as? [String: Any])?["cwCallsign"] as? [String: String] == reference)
+            let before = try snapshot(service)
+            #expect(throws: SpotDraftError.self) { try service.openedDatabase().applySpotDraft(stored) }
+            #expect(throws: WorkerFailure.self) { try service.handle(method: "spot_draft_apply", params: request) }
             #expect(jsonObjectsEqual(before, try snapshot(service)))
-            try service.openedDatabase().close()
-            let replacement=LiveLogbookMethods(supportDirectory:root,inheritNativePreferences:false)
-            defer {try? replacement.openedDatabase().close()}
-            #expect((try replacement.handle(method:"spot_draft_cw_pending",params:[:]))["operationIds"] as? [String] == [original])
-            #expect(throws:WorkerFailure.self){try replacement.handle(method:"spot_draft_cw_pending",params:["clear":true])}
-            try JSONEncoder().encode(UUID()).write(to:replacement.workspaceDirectoryURL.appendingPathComponent("edit-generation.json"),options:.atomic)
-            #expect((try replacement.handle(method:"spot_draft_cw_pending",params:[:]))["operationIds"] as? [String] == [])
-        }
-    }
-
-    @Test("CW receipt-only read withholds missing, unrelated, malformed and unfinished outcomes")
-    func cwReceiptReadBounds() throws {
-        try fixture { service, root in
-            let missing=try service.handle(method:"spot_draft_cw_status",params:["operationID":UUID().uuidString])
-            #expect(missing["phase"] as? String == "uncertain");#expect(missing["reservationActive"] as? Bool == false)
-            for params:[String:Any] in [["operationID":"bad"],["operationID":UUID().uuidString,"generation":UUID().uuidString],
-                ["operationID":"00000000-0000-0000-0000-000000000000"],["operationID":UUID().uuidString,"outcome":"confirmed"]] {
-                #expect(throws:WorkerFailure.self){try service.handle(method:"spot_draft_cw_status",params:params)}
-            }
-            let normal=try command(snapshot(service)),applied=try service.handle(method:"spot_draft_apply",params:normal)
-            #expect(throws:WorkerFailure.self){try service.handle(method:"spot_draft_cw_status",params:["operationID":try #require(normal["operationID"])])}
-            var finish=try control(normal,applied);finish["outcome"]="failed"
-            _ = try service.handle(method:"spot_draft_finish",params:finish)
-            var cw=try command(snapshot(service));cw["spot"]=cwSelection()
-            _ = try service.handle(method:"spot_draft_apply",params:cw)
-            let active=try service.handle(method:"spot_draft_cw_status",params:["operationID":try #require(cw["operationID"])])
-            #expect(active["phase"] as? String == "draft_applied");#expect(active["reservationActive"] as? Bool == true)
-            #expect(try service.openedDatabase().spotDraftActivationActive)
-            try service.openedDatabase().close()
-            let replacement=LiveLogbookMethods(supportDirectory:root,inheritNativePreferences:false)
-            defer {try? replacement.openedDatabase().close()}
-            let recovered=try replacement.handle(method:"spot_draft_cw_status",params:["operationID":try #require(cw["operationID"])])
-            #expect(recovered["phase"] as? String == "uncertain");#expect(recovered["reservationActive"] as? Bool == false)
         }
     }
 

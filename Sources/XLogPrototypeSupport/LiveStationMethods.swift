@@ -70,35 +70,6 @@ struct StationRadioRegistry: Sendable {
 /// The Mac worker talks to the real xCat loopback service. No values are
 /// synthesized when that service or its radio is unavailable.
 enum LiveStationMethods {
-    #if os(macOS)
-    static func cwFlexCapabilities(radioID:String) async -> FlexIQCapabilities?{await StationRadioRegistry.shared.flex[radioID]?.cwIQCapabilities()}
-    static func cwFlexRevokeHandoffs() async {
-        async let first:Void=StationRadioRegistry.shared.flex["radio1"]?.cwRevokeIQHandoffs() ?? ()
-        async let second:Void=StationRadioRegistry.shared.flex["radio2"]?.cwRevokeIQHandoffs() ?? ()
-        _ = await(first,second)
-    }
-    static func cwFlexHandoff(radioID:String,panadapterID:String,inventoryRevision:String) async throws {
-        guard let owner=StationRadioRegistry.shared.flex[radioID] else{throw invalidParams()}
-        try await owner.cwAuthorizeIQHandoff(panadapterID:panadapterID,inventoryRevision:inventoryRevision)
-    }
-    static func cwStartFlex(radioID:String,panadapterID:String,sampleRate:Int,leaseID:UUID) async throws -> FlexIQSubscription {
-        guard let owner=StationRadioRegistry.shared.flex[radioID] else{throw invalidParams()}
-        return try await owner.cwStartIQ(panadapterID:panadapterID,sampleRate:sampleRate,leaseID:leaseID)
-    }
-    static func cwStopFlex(radioID:String,leaseID:UUID) async{await StationRadioRegistry.shared.flex[radioID]?.cwStopIQ(leaseID:leaseID)}
-    static func cwFlexCapture(radioID:String,leaseID:UUID) async -> FlexIQCapture?{await StationRadioRegistry.shared.flex[radioID]?.cwIQCapture(leaseID:leaseID)}
-    static func cwTCICapabilities(radioID:String) async -> TCIIQCapabilities? {
-        await StationRadioRegistry.shared.tci[radioID]?.cwIQCapabilities()
-    }
-    static func cwStartTCI(radioID:String,receiver:Int,sampleRate:Int,leaseID:UUID) async throws -> TCIIQSubscription {
-        guard let owner=StationRadioRegistry.shared.tci[radioID] else {throw invalidParams()}
-        return try await owner.cwStartIQ(receiver:receiver,sampleRate:sampleRate,leaseID:leaseID)
-    }
-    static func cwStopTCI(radioID:String,leaseID:UUID) async {await StationRadioRegistry.shared.tci[radioID]?.cwStopIQ(leaseID:leaseID)}
-    static func cwTCICapture(radioID:String,leaseID:UUID) async -> TCIIQCapture? {
-        await StationRadioRegistry.shared.tci[radioID]?.cwIQCapture(leaseID:leaseID)
-    }
-    #endif
     static let methods: Set<String> = ["station_snapshot", "station_tune", "station_action", "station_receive_filter",
                                        "station_connect", "station_disconnect", "station_reconnect",
                                        "station_forget", "station_configuration", "station_configuration_save",

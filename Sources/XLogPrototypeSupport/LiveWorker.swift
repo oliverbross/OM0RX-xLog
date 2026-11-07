@@ -83,20 +83,6 @@ public actor LiveWorker {
             if method == "logbook_operator_draft" { result["power_capture_status"] = powerStatus }
             return result
         }
-        #if os(macOS)
-        func applyCWCallsign(params:[String:Any],resolver:LiveCWDecodeMethods) async throws -> [String:Any] {
-            guard let spot=params["spot"] as? [String:Any],let reference=spot["cwCallsign"],let call=spot["call"] as? String else {
-                throw WorkerFailure("invalid_params","CW callsign parameters are invalid.")
-            }
-            // Resolve after entering the database lane, rather than allowing a
-            // queued import to make an earlier router read stale before commit.
-            let resolved=try await resolver.handle(method:"cw_decode_resolve_selection",params:["reference":reference,"require_frequency":false])
-            guard resolved["callsign"] as? String==call else {
-                throw WorkerFailure("cw_selection_stale","This signal changed before the draft could be updated.")
-            }
-            return try handle(method:"spot_draft_apply",params:params)
-        }
-        #endif
 
         func workspaceGeneration() throws -> String {
             guard let generation = try service.syncOwnerContext()["generation"] as? String,
@@ -173,9 +159,6 @@ public actor LiveWorker {
     private let logbookMethods: LiveLogbookMethods
     private var rtcScores: RTCScoreReportingService?
     private let references: LiveReferenceMethods
-    #if os(macOS)
-    private let cwDecode: LiveCWDecodeMethods
-    #endif
     private let localAcceptance: Bool
     private let runtimeProfile: AppRuntimeProfile
     private let operatingModule: WorkerOperatingModule
@@ -296,11 +279,6 @@ public actor LiveWorker {
                                            forwardClassifiedIngressSpots: operatingModule == .normalLogging,
                                            radioSideEffectsAllowed: ownsProcessSingletons && runtimeProfile.externalIOAllowed && !localAcceptance))
         self.cluster = cluster
-        #if os(macOS)
-        cwDecode = LiveCWDecodeMethods(logbook:logbook,prepareListener:{try await cluster.prepareLocalCWListener()},
-            ingestSpot:{spot,call in try await cluster.ingestLocalCW(spot,stationCallsign:call)},
-            classify:{call,frequency in await cluster.classifyCWIfCurrent(call:call,frequencyHz:frequency)})
-        #endif
         self.contactRefresher = contactRefresher ?? { try await cluster.refreshContacts() }
         let opportunityMethods = opportunityMethods ?? LiveOpportunitiesMethods(logbook: logbook,
             dxpeditionHistory: { try await cluster.dxpeditionHistory(callsigns: $0) },
@@ -319,9 +297,6 @@ public actor LiveWorker {
         terminalShutdown = true
         let readers = aggregateReads
         async let aggregateRetirement: Void = readers.terminate()
-        #if os(macOS)
-        await cwDecode.terminate()
-        #endif
         await contestLane?.shutdown()
         await pythonContestLane?.shutdown()
         await rtcScores?.terminate()
@@ -519,9 +494,6 @@ public actor LiveWorker {
                 && Set(params.keys) == ["provider", "radio_id"]
                 && ["radio1", "radio2"].contains(params["radio_id"] as? String ?? "")
                 && stationRegistry != nil
-            if terminalShutdown && method.hasPrefix("cw_decode_") {
-                throw WorkerFailure("worker_stopping", "CW Decode is shutting down.")
-            }
             let requestOperatingModule: WorkerOperatingModule
             if let rawModule = envelope["operatingModule"] as? String {
                 guard let module = WorkerOperatingModule(rawValue: rawModule) else {
@@ -710,12 +682,6 @@ public actor LiveWorker {
                 try logbookMethods.confirmAggregateOwner(reply.owner)
                 result = reply.payload
             } else if method == "hm_control_logbook" || method == "cluster_history" || method.hasPrefix("spot_draft_") || method.hasPrefix("workspace_") || method.hasPrefix("logbook_") || method.hasPrefix("settings_") || method.hasPrefix("backup_") {
-                #if os(macOS)
-                let cwCallsign=method=="spot_draft_apply" && (params["spot"] as? [String:Any])?["cwCallsign"] != nil
-                if cwCallsign {
-                    guard ownsProcessSessions else {throw WorkerFailure("cw_owner_required","CW callsign loading requires the application worker owner.")}
-                }
-                #endif
                 if method == "logbook_operator_draft_apply", params["action"] as? String == "save" {
                     // Include the callback prefix already emitted before Save
                     // admission; unstructured actor Tasks alone are not FIFO.
@@ -753,12 +719,7 @@ public actor LiveWorker {
                     await aggregateReads.suspendForWorkspaceChange()
                 }
                 do {
-                    #if os(macOS)
-                    if cwCallsign {result=try await logbookLane.applyCWCallsign(params:params,resolver:cwDecode)}
-                    else {result = try await logbookLane.handle(method:method,params:params)}
-                    #else
                     result = try await logbookLane.handle(method:method,params:params)
-                    #endif
                 }
                 catch {
                     if changingAggregateWorkspace {
@@ -872,12 +833,7 @@ public actor LiveWorker {
                 }
             } else {
                 #if os(macOS)
-                if method.hasPrefix("cw_decode_") {
-                    guard !["cw_decode_start","cw_decode_source_start","cw_decode_listener_start","cw_decode_flex_handoff"].contains(method) || ownsProcessSessions else {
-                        throw WorkerFailure("cw_owner_required", "CW Decode requires the application worker owner.")
-                    }
-                    result = try await cwDecode.handle(method: method, params: params)
-                } else if method == LiveConnectionDoctorMethods.method {
+                if method == LiveConnectionDoctorMethods.method {
                     result = try LiveConnectionDoctorMethods.handle(params)
                 } else if method.hasPrefix("station_") {
                 result = try await LiveStationMethods.handle(method, params: params, registry: stationRegistry ?? .shared)

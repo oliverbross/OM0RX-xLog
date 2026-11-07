@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { connectWorkspaceNavigation, contestMenuPanelIDs, contestSetupDialogRoutes, isContestMenuRoute, validWorkspaceNavigation, visibleWorkspaceMenuScreens, workspaceScreens, workspaceMenuScreens } from "./workspaceNavigation";
+import { connectWorkspaceNavigation, contestMenuPanelIDs, contestSetupDialogRoutes, isContestMenuRoute, validWorkspaceNavigation, workspaceScreens, workspaceMenuScreens } from "./workspaceNavigation";
 import { OperatorDraftSession } from "./operatorDraftSession";
 import { SpotActivationEditor } from "./spotActivation";
 const tick = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
@@ -12,12 +12,11 @@ function fixture() {
 }
 it("has every existing destination and no unknown navigation or CW function-key shortcut", () => {
   expect(workspaceMenuScreens.some(screen => screen.id === "cw-decode")).toBe(false);
-  expect(visibleWorkspaceMenuScreens(true).some(screen => screen.id === "cw-decode")).toBe(true);
   expect(workspaceMenuScreens.some(screen => screen.id === "sync")).toBe(false);
   expect(workspaceMenuScreens.some(screen => screen.id === "settings")).toBe(true);
   expect(workspaceMenuScreens.some(screen => screen.id === "station-control")).toBe(false);
   expect(workspaceMenuScreens.some(screen => screen.id === "radio1-settings" || screen.id === "radio2-settings")).toBe(false);
-  expect(workspaceScreens.map(s => s.title)).toEqual(["Operator Desk", "Log QSO", "Logbook", "DX Cluster", "Spot History", "CW Decode", "World Map", "Band Maps", "Chaser & DX", "HF Prop live", "Awards", "Station Control", "Radio 1 Settings", "Radio 2 Settings", "Sync", "Wavelog Settings", "Callsign Lookup Settings", "Online Log Settings", "Reference Data Settings", "Station Settings", "CW Settings", "Cluster Settings", "Integrations Settings", "Settings"]);
+  expect(workspaceScreens.map(s => s.title)).toEqual(["Operator Desk", "Log QSO", "Logbook", "DX Cluster", "Spot History", "World Map", "Band Maps", "Chaser & DX", "HF Prop live", "Awards", "Station Control", "Radio 1 Settings", "Radio 2 Settings", "Sync", "Wavelog Settings", "Callsign Lookup Settings", "Online Log Settings", "Reference Data Settings", "Station Settings", "CW Settings", "Cluster Settings", "Integrations Settings", "Settings"]);
   expect(workspaceScreens.some(screen => screen.id === "contesting")).toBe(false);
   for (const s of workspaceScreens) {
     expect(validWorkspaceNavigation({ revision: 1, screen: s.id })).toBe(true);

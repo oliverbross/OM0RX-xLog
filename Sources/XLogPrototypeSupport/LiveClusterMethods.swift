@@ -5,7 +5,6 @@ import Security
 import XCatIntegrationCore
 #endif
 import XClusterIntegrationCore
-import XCWCore
 #if canImport(XLogCore)
 import XLogCore
 #else
@@ -625,13 +624,6 @@ public actor LiveClusterMethods {
     }
     /// Annotation reads only an existing current contact projection. Opening a
     /// CW view cannot scan the database or start a cluster connection.
-    func classifyCWIfCurrent(call:String,frequencyHz:Int64) async -> ClusterClassification? {
-        guard !terminated,workspaceTransitionCount==0,contactRefreshState=="current",let service else{return nil}
-        let revision=contactRefreshRevision
-        let value=await service.classifyLocalCW(call:call,frequencyHz:frequencyHz)
-        guard !terminated,workspaceTransitionCount==0,contactRefreshState=="current",revision==contactRefreshRevision else{return nil}
-        return value
-    }
 
     func dxpeditionHistory(callsigns: [String]) async throws -> [[String: Any]] {
         try await historyService().dxpeditionRows(callsigns: callsigns)
@@ -843,17 +835,6 @@ public actor LiveClusterMethods {
 
     /// Native CW acceptance enters the same classification/history owner;
     /// callers never publish through a loopback connection or a renderer RPC.
-    func ingestLocalCW(_ spot: XCWCore.CWConfirmedSpot,stationCallsign:String) async throws -> Bool {
-        try requireRunning()
-        let service=try await readyService()
-        try requireRunning()
-        return try await service.ingestLocalCW(spot,stationCallsign:stationCallsign)
-    }
-    func prepareLocalCWListener() async throws {
-        let service=try await readyService(refreshInitialContacts:false)
-        try requireRunning()
-        try await service.prepareLocalCWListener()
-    }
 
     private func validateConfigurationPath() throws {
         for url in [configurationURL.deletingLastPathComponent(), configurationURL] {
@@ -1373,7 +1354,7 @@ public actor LiveClusterMethods {
               value.callStatuses.isSubset(of: ["New Call", "New Band", "New Mode", "New Band+Mode", "Worked", "Confirmed", "Unknown"]),
               value.dxccStatuses.isSubset(of: ["ATNO", "C/New Band", "C/New Mode", "C/New Band+Mode",
                                            "W/New Band", "W/New Mode", "W/New Band+Mode", "Worked", "Confirmed", "Unknown"]),
-              value.sources.isSubset(of: ["cluster", "rbl", "local_cw"]),
+              value.sources.isSubset(of: ["cluster", "rbl"]),
               value.worked.isSubset(of: ["Worked before", "Not worked"]) else { throw invalid() }
     }
 

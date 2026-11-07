@@ -113,14 +113,7 @@ public actor FlexRadioClient: RadioControlling {
     private var wordsPerMinute = 25
     private var reportedClientHandles: Set<String> = []
     private var reportedSliceIDs: Set<Int> = []
-    var iqState = FlexIQState()
-    var iqEvents:[FlexIQDiagnosticEvent]=[]
-    var iqCleanups:[UUID:FlexIQCleanup]=[:]
-    var iqLastInputDiagnostics:FlexIQInputDiagnostics?
-    var iqMaximumReaderQueueAgeNS:UInt64?
-    var iqMeasuredReaderPackets:UInt64=0
     private var ownClientHandle:UInt32?
-    private var iqBoundClientID:String?
 
     public init(
         host: String,
@@ -169,9 +162,6 @@ public actor FlexRadioClient: RadioControlling {
     public func stopTransportOnly() async {
         cwx.retire()
         cwx.invalidate("CWX connection closed; pending text was retired.")
-        shouldRun=false;iqState.stopping=true
-        await iqAwaitPendingCleanup()
-        iqReset()
         shouldRun = false
         reconnectTask?.cancel()
         reconnectTask = nil
@@ -195,7 +185,6 @@ public actor FlexRadioClient: RadioControlling {
             start()
             return
         }
-        iqReset()
         reconnectAttempt = 0
         generation += 1
         connection?.cancel()
@@ -549,7 +538,7 @@ public actor FlexRadioClient: RadioControlling {
         }
         if line.first == "H" {
             clientHandleReceived = true
-            ownClientHandle=FlexIQResourceInventory.handle(String(line.dropFirst()))
+            ownClientHandle=Self.protocolHandle(String(line.dropFirst()))
             cwx.identify(ownClientHandle)
             return
         }
@@ -558,8 +547,7 @@ public actor FlexRadioClient: RadioControlling {
         let statusParts = payload.split(separator: "|", maxSplits: 1, omittingEmptySubsequences: false)
         guard statusParts.count == 2 else { return }
         let body = String(statusParts[1])
-        cwx.status(handle: FlexIQResourceInventory.handle(String(statusParts[0])), body: body, generation: generation)
-        iqConsumeStatus(body)
+        cwx.status(handle: Self.protocolHandle(String(statusParts[0])), body: body, generation: generation)
         let tokens = body.split(separator: " ")
         guard let object = tokens.first else { return }
 
@@ -600,7 +588,6 @@ public actor FlexRadioClient: RadioControlling {
                     interlockKnown = false
                 }
                 publishSnapshot()
-                iqRevalidate()
             }
         case "transmit":
             if let watts = FlexRFPowerStatusParser.parse(line) {
@@ -618,9 +605,15 @@ public actor FlexRadioClient: RadioControlling {
         }
     }
 
+    static func protocolHandle(_ text: String) -> UInt32? {
+        let value = text.lowercased().hasPrefix("0x") ? String(text.dropFirst(2)) : text
+        guard (1...8).contains(value.utf8.count), value.utf8.allSatisfy({
+            (48...57).contains($0) || (65...70).contains($0) || (97...102).contains($0)
+        }) else { return nil }
+        return UInt32(value, radix: 16)
+    }
+
     private func applyClient(identifier: String?, properties: [String: String]) {
-        iqObserveStation(handle:Self.normalizedHandle(identifier ?? properties["handle"]).flatMap(FlexIQResourceInventory.handle),
-            matches:properties["station"].map{Self.normalizedStation($0)==Self.normalizedStation(stationName)},removed:properties["removed"] != nil)
         if let handle = Self.normalizedHandle(identifier ?? properties["handle"]),
            reportedClientHandles.insert(handle).inserted {
             let observedStation = properties["station"].map(Self.displayStation) ?? "unnamed"
@@ -631,8 +624,6 @@ public actor FlexRadioClient: RadioControlling {
             if Self.normalizedHandle(identifier ?? properties["handle"]) == followedClientHandle {
                 followedClientHandle = nil
                 followedClientID = nil
-                iqBoundClientID = nil
-                iqRevalidate()
                 selectedSliceID = nil
                 value.isConnected = false
                 publishSnapshot()
@@ -646,17 +637,14 @@ public actor FlexRadioClient: RadioControlling {
         followedClientHandle = Self.normalizedHandle(identifier ?? properties["handle"])
         followedClientID = newClientID ?? followedClientID
         if shouldBind, let followedClientID {
-            iqBoundClientID=nil
             let bindingGeneration=generation
             Task {
                 do {
                     try await sendCommand("client bind client_id=\(followedClientID)")
                     guard generation==bindingGeneration,self.followedClientID==followedClientID else{return}
-                    iqBoundClientID=followedClientID
-                } catch { /* CAT observation remains available; IQ binding is unproven. */ }
+                } catch { /* CAT observation remains available while Station binding fails. */ }
             }
         }
-        iqRevalidate()
         selectBestSlice()
     }
 
@@ -816,7 +804,6 @@ public actor FlexRadioClient: RadioControlling {
         guard currentGeneration == generation else { return }
         cwx.retire()
         cwx.invalidate("CWX connection lost; pending text was retired without replay.")
-        iqReset()
         pingTask?.cancel()
         pingTask = nil
         generation += 1
@@ -851,9 +838,7 @@ public actor FlexRadioClient: RadioControlling {
 
     private func resetSessionState() {
         cwx.reset(generation: generation)
-        iqReset()
         ownClientHandle=nil
-        iqBoundClientID=nil
         pingTask?.cancel()
         pingTask = nil
         inboundBuffer.removeAll(keepingCapacity: true)
@@ -877,42 +862,6 @@ public actor FlexRadioClient: RadioControlling {
         onState(newState, description)
     }
 
-    // The IQ companion uses this exact control owner and its acknowledged Station
-    // binding. A DNS name, selected slice, or client-bind attempt is insufficient.
-    func iqControlContext() -> FlexIQControlContext? {
-        guard wanValidationHandle==nil,transportReady,state == .ready,
-              let ownClientHandle,let followedClientID,iqBoundClientID==followedClientID,
-              let station=followedClientHandle.flatMap(FlexIQResourceInventory.handle),
-              iqState.stationMatches==[station],
-              case let .hostPort(peer,peerPort)=connection?.currentPath?.remoteEndpoint else{return nil}
-        switch peer {case .ipv4,.ipv6:break;default:return nil}
-        return FlexIQControlContext(generation:generation,peer:peer,port:peerPort.rawValue,
-            ownHandle:ownClientHandle,stationHandle:station,knownReceive:interlockKnown && !value.isTransmitting && iqState.receiveKnown)
-    }
-    func iqContextDiagnostic()->String {
-        "transportReady=\(transportReady) state=\(state) ownHandle=\(ownClientHandle != nil) followedClient=\(followedClientID != nil) bindingMatches=\(iqBoundClientID==followedClientID) stationMatches=\(iqState.stationMatches.count)"
-    }
-    func iqCommand(_ command:String,generation expected:Int) async throws -> String {
-        guard expected==generation,transportReady else{throw FlexIQSubscriptionError.stationChanged}
-        iqTrace("command",command)
-        do {
-            let reply=try await sendReply(command)
-            guard expected==generation,transportReady else{throw FlexIQSubscriptionError.stationChanged}
-            iqTrace("ack",command+" reply="+reply)
-            return reply
-        } catch {iqTrace("command_failed",command+" error=\(error)");throw error}
-    }
-    func iqMayRemoveStream(_ id:UInt32,generation expected:Int)->Bool {
-        guard generation==expected,transportReady,let ownClientHandle else{return false}
-        return iqState.inventory.streams[id]?.clientHandle.map{$0==ownClientHandle} ?? true
-    }
-    func iqTrace(_ operation:String,_ detail:String) {
-        // Keep across transport reset so the original failed operation remains reviewable.
-        let safe=String(detail.unicodeScalars.prefix(512).map{ $0.value>=32 && $0.value<127 ? Character($0):"?" })
-        iqEvents.append(FlexIQDiagnosticEvent(monotonicNS:String(DispatchTime.now().uptimeNanoseconds),
-            connectionGeneration:generation,operation:operation,detail:safe))
-        if iqEvents.count>128{iqEvents.removeFirst(iqEvents.count-128)}
-    }
 
     private static func normalizedHandle(_ value: String?) -> String? {
         guard var value = value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), !value.isEmpty else {

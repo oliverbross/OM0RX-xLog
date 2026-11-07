@@ -9,15 +9,12 @@ on:
         default: false
   push:
     paths:
-      - 'Sources/XCWCore/**'
-      - 'Tests/XCWCoreTests/**'
       - 'Sources/XCatIntegrationCore/**'
       - 'Tests/XCatIntegrationTests/**'
       - 'Sources/XLogPrototypeSupport/LiveClusterMethods.swift'
       - 'Tests/XLogPrototypeTests/LiveClusterMethodsTests.swift'
       - 'prototype/src-tauri/src/durable_file.rs'
       - 'prototype/src-tauri/src/module_restart_intent.rs'
-      - 'tools/check_portable_iq_sources.py'
       - 'tools/check_reviewed_security_patches.py'
       - 'python/tests/test_reviewed_security_patches.py'
       - 'Sources/XContestCore/**'
@@ -60,15 +57,12 @@ on:
       - '.github/workflows/contest-portability.yml'
   pull_request:
     paths:
-      - 'Sources/XCWCore/**'
-      - 'Tests/XCWCoreTests/**'
       - 'Sources/XCatIntegrationCore/**'
       - 'Tests/XCatIntegrationTests/**'
       - 'Sources/XLogPrototypeSupport/LiveClusterMethods.swift'
       - 'Tests/XLogPrototypeTests/LiveClusterMethodsTests.swift'
       - 'prototype/src-tauri/src/durable_file.rs'
       - 'prototype/src-tauri/src/module_restart_intent.rs'
-      - 'tools/check_portable_iq_sources.py'
       - 'tools/check_reviewed_security_patches.py'
       - 'python/tests/test_reviewed_security_patches.py'
       - 'Sources/XContestCore/**'
@@ -159,9 +153,6 @@ jobs:
           "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin" >> $env:GITHUB_PATH
       - name: Record native Swift toolchain
         run: swift --version
-      - name: Verify non-macOS pure IQ source slice on macOS
-        if: runner.os == 'macOS'
-        run: python3 tools/check_portable_iq_sources.py --output "${{ runner.temp }}/portable-iq-manifest"
       - name: Verify contest test discovery (macOS and Linux)
         if: runner.os != 'Windows'
         shell: bash
@@ -192,7 +183,6 @@ jobs:
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.WorkerStartupTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.LiveOnlineLogDeliveryServiceTests/')" -ge 1
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.NativeDraftPowerCaptureTests/')" -ge 1
-          test "$(printf '%s\n' "$discovered" | grep -c '^XCWCoreTests\.CWComputeWirePrimitiveTests/')" -eq 4
           test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.LiveClusterMethodsTests/portablePriorCleanupUsesFirstAdmissionClock')" -eq 1
           if test "$(uname -s)" = Darwin; then
             test "$(printf '%s\n' "$discovered" | grep -c '^XLogPrototypeTests\.LiveWSJTXBridgeTests/')" -ge 1
@@ -229,19 +219,17 @@ jobs:
           $onlineDelivery = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.LiveOnlineLogDeliveryServiceTests/' }).Count
           $draftPower = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.NativeDraftPowerCaptureTests/' }).Count
           if ($core -lt 1 -or $callHistoryCore -lt 1 -or $callHistoryProjection -lt 1 -or $store -lt 1 -or $adif -lt 1 -or $naqpAdif -lt 1 -or $arrlRttyAdif -lt 1 -or $jidxAdif -lt 1 -or $arrlDxAdif -lt 1 -or $jidxWorker -lt 1 -or $arrlDxWorker -lt 1 -or $service -lt 1 -or $declarativeExportService -lt 1 -or $declarativeActivation -lt 1 -or $lane -lt 1 -or $wire -lt 1 -or $contestingLane -lt 1 -or $assistanceLane -lt 1 -or $scpWorker -lt 1 -or $callHistoryService -lt 1 -or $callHistoryWorker -lt 1 -or $workerStartup -lt 1 -or $onlineDelivery -lt 1 -or $draftPower -lt 1) { throw "Expected contest test targets were not discovered." }
-          $wirePrimitives = @($discovered | Where-Object { $_ -match '^XCWCoreTests\.CWComputeWirePrimitiveTests/' }).Count
           $portableCluster = @($discovered | Where-Object { $_ -match '^XLogPrototypeTests\.LiveClusterMethodsTests/portablePriorCleanupUsesFirstAdmissionClock' }).Count
-          if ($wirePrimitives -ne 4 -or $portableCluster -ne 1) { throw "Expected portable primitive/admission regressions were not discovered." }
-      - name: Test portable CW primitives and cluster admission (macOS and Linux)
+          if ($portableCluster -ne 1) { throw "Expected portable cluster admission regression was not discovered." }
+      - name: Test portable cluster admission (macOS and Linux)
         if: runner.os != 'Windows'
         run: |
-          swift test --skip-build --scratch-path .build/contest-platform --filter CWComputeWirePrimitiveTests
           swift test --skip-build --scratch-path .build/contest-platform --filter portablePriorCleanupUsesFirstAdmissionClock
-      - name: Test portable CW primitives and cluster admission (Windows)
+      - name: Test portable cluster admission (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          foreach ($filter in @('CWComputeWirePrimitiveTests', 'portablePriorCleanupUsesFirstAdmissionClock')) {
+          foreach ($filter in @('portablePriorCleanupUsesFirstAdmissionClock')) {
             swift test --skip-build --scratch-path .build/contest-platform -Xcc "-I$env:XLOG_SQLITE_PREFIX/include" -Xlinker "/LIBPATH:$env:XLOG_SQLITE_PREFIX/lib" --filter $filter
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }

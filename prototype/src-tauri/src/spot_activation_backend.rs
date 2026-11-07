@@ -232,10 +232,9 @@ impl Backend for NativeBackend {
         let worker = running_worker()?;
         recover_missing_with(operation_id, |method, params| call(worker, method, params))
     }
-    fn draft_only(&self, request: &Request) -> bool { crate::opportunity_selection::owns(&request.source_epoch) || crate::cw_track_selection::owns(&request.source_epoch) }
+    fn draft_only(&self, request: &Request) -> bool { crate::opportunity_selection::owns(&request.source_epoch) }
     fn resolve(&self, request: &Request) -> Result<Value, String> {
         if crate::worker::local_acceptance() { return Err("Live reports are unavailable in isolated acceptance".into()); }
-        if crate::cw_track_selection::owns(&request.source_epoch) {return crate::cw_track_selection::resolve(request);}
         if crate::opportunity_selection::owns(&request.source_epoch) { return crate::opportunity_selection::resolve(request); }
         crate::cluster_session::owner(&self.app)?.activation_spot(&request.source_epoch, &request.spot_id, &request.spot_version)
     }
@@ -257,8 +256,7 @@ impl Backend for NativeBackend {
         {
             let mut contexts = self.operations.lock().map_err(|_| "Activation context unavailable")?;
             if contexts.contains_key(&request.operation_id) { return Err("Activation apply was already attempted; read its durable status instead".into()); }
-            let radio=if crate::cw_track_selection::owns(&request.source_epoch) {&base["qso"]} else {spot};
-            let expected_radio=json!({"frequencyHz":radio["frequencyHz"],"mode":radio["mode"],"band":radio["band"]});
+            let expected_radio=json!({"frequencyHz":spot["frequencyHz"],"mode":spot["mode"],"band":spot["band"]});
             contexts.insert(request.operation_id.clone(), Context { request:request.clone(), worker, generation:generation.clone(),
                 draft:draft.clone(), revision, spot:spot.clone(), expected_radio, lease:None, permit:None });
         }
@@ -481,20 +479,6 @@ mod tests {
             ("/receipt/draft/qso/band",json!("40m")),("/receipt/phase",json!("confirmed")),("/replay",json!(null))] {
             let mut changed = valid.clone(); *changed.pointer_mut(path).unwrap()=value;
             assert!(validate_receipt(&changed,&context).is_err(),"{path}");
-        }
-    }
-    #[test]
-    fn callsign_only_receipts_must_preserve_the_canonical_radio_fields() {
-        let mut context=context();
-        context.spot=json!({"call":"K1ABC","frequencyHz":null,"mode":"","band":"","cwCallsign":{}});
-        context.expected_radio=json!({"frequencyHz":7188000,"mode":"LSB","band":"40m"});
-        let mut valid=receipt(&context);
-        valid["receipt"]["draft"]["qso"]["frequencyHz"]=json!(7188000);
-        valid["receipt"]["draft"]["qso"]["mode"]=json!("LSB");valid["receipt"]["draft"]["qso"]["band"]=json!("40m");
-        validate_receipt(&valid,&context).unwrap();
-        for (field,value) in [("frequencyHz",Value::Null),("mode",json!("CW")),("band",json!("20m"))] {
-            let mut changed=valid.clone();changed["receipt"]["draft"]["qso"][field]=value;
-            assert!(validate_receipt(&changed,&context).is_err(),"{field}");
         }
     }
     #[test]

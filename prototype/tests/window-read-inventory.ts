@@ -8,7 +8,6 @@ export const normalWindowReads = [
   { id: "callsign-intelligence", policy: "draft-scoped-local", initial: "Canonical draft, keyed lookup cache, bounded local history and preferences" },
   { id: "log-qso", policy: "canonical-editor", initial: "Canonical draft/receipt first; lookup and previous QSOs are secondary" },
   { id: "spot-history", policy: "bounded-local", initial: "Archive page, then same-watermark statistics; visible status poll 5s" },
-  { id: "cw-decode", policy: "live-owner", initial: "cw_decode_snapshot; experimental visibility setting gates discovery" },
   { id: "monitor", policy: "retained-native", initial: "monitor_context_snapshot plus map_context_snapshot; freshness fences retained" },
   { id: "world-map", policy: "retained-native", initial: "map_context_snapshot; metadata and spots already held by native owner" },
   { id: "dxpedition-map", policy: "retained-then-feed", initial: "opportunities_dxpedition_snapshot and map context, then automatic public feeds" },
@@ -31,7 +30,7 @@ export const normalWindowReads = [
 ] as const;
 
 export const contestWindowReads = [
-  "cw-decode", "active-qso", "call-history", "qrz-details", "group-chat", "band-maps", "world-map",
+  "active-qso", "call-history", "qrz-details", "group-chat", "band-maps", "world-map",
   "callsign-intelligence", "monitor", "score-reporting", "messages", "propagation", "awards", "chaser-dx",
   "rotor", "station-control", "logbook", "edit-contact", "dx-cluster",
 ] as const;

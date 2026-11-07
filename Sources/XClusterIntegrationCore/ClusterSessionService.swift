@@ -1,5 +1,4 @@
 import Foundation
-import XCWCore
 
 /// Synchronous transport callbacks must reach the actor in wire order. Separate
 /// unstructured Tasks can otherwise reorder a disconnect or consecutive spots.
@@ -62,7 +61,7 @@ public struct ClusterSpotFilter: Codable, Equatable, Sendable {
     /// Legacy wire field; special visibility now uses exclusions only.
     public var specials: Set<String> = []
     public var excludedSpecials: Set<String> = []
-    public var sources: Set<String> = ["cluster", "rbl", "local_cw"]
+    public var sources: Set<String> = ["cluster", "rbl"]
     public var worked: Set<String> = []
     public var sort: ClusterSpotSort = .newest
 
@@ -85,7 +84,8 @@ public struct ClusterSpotFilter: Codable, Equatable, Sendable {
         _ = try values.decodeIfPresent(Set<String>.self, forKey: .specials)
         specials = []
         excludedSpecials = try values.decodeIfPresent(Set<String>.self, forKey: .excludedSpecials) ?? []
-        sources = try values.decodeIfPresent(Set<String>.self, forKey: .sources) ?? ["cluster", "rbl", "local_cw"]
+        sources = (try values.decodeIfPresent(Set<String>.self, forKey: .sources) ?? ["cluster", "rbl"])
+            .subtracting(["local_cw"])
         worked = try values.decodeIfPresent(Set<String>.self, forKey: .worked) ?? []
         sort = try values.decodeIfPresent(ClusterSpotSort.self, forKey: .sort) ?? .newest
     }
@@ -287,7 +287,6 @@ public struct ClassifiedClusterSpot: Codable, Hashable, Identifiable, Sendable {
     public var statusHex: String
     public var bandHex: String
     public var modeHex: String
-    public var localCW: CWConfirmedSpot? = nil
     public var countryReferenceRevision: String? = nil
     public var countryResolutionStatus: String? = nil
     public var locationPrecision: String? = nil
@@ -296,7 +295,6 @@ public struct ClassifiedClusterSpot: Codable, Hashable, Identifiable, Sendable {
     /// classification captured when they were received.
     @discardableResult
     mutating func refreshInferredMode(palette: ClusterPalette) -> Bool {
-        guard localCW==nil else {return false}
         let inferred = SpotLogic.mode(comment: comment, band: band, khz: frequencyKHz)
         guard inferred != mode else { return false }
         mode = inferred
@@ -360,12 +358,8 @@ public actor ClusterSessionService {
         let name: String
         let host: String
         let port: Int
-        let local: Bool
-        init(server: ClusterServerConfiguration) {
-            id=server.id;name=server.name;host=server.host;port=server.port;local=false
-        }
-        init(local spot: CWConfirmedSpot) {
-            id=spot.originInstanceID;name="Local CW";host="";port=0;local=true
+                init(server: ClusterServerConfiguration) {
+            id=server.id;name=server.name;host=server.host;port=server.port
         }
     }
     private struct HistorySegment {
@@ -393,13 +387,11 @@ public actor ClusterSessionService {
     private var connectionGeneration = UUID()
     private var transportGenerations: [UUID: UUID] = [:]
     private var historySegments: [UUID: HistorySegment] = [:]
-    private var localSpotIDs: [(UUID,Date)] = []
     private var contactCounts: [String: Int] = [:]
     private var contactRevision = 0
     private var contactPublicationRevision: UInt64 = 0
     private var hasContactSnapshot = false
     private var terminated = false
-    private let endpointOwner=UUID()
     private let transportFactory: ClusterTransportFactory
     private let onUpdate: (@Sendable (ClusterSessionSnapshot) -> Void)?
     private let onSpot: (@Sendable (ClassifiedClusterSpot, UUID) -> Void)?
@@ -422,7 +414,6 @@ public actor ClusterSessionService {
         self.onHistoryConnection = onHistoryConnection
         self.transportFactory = transportFactory
     }
-    deinit {CWLocalEndpointGuard.shared.removeInbound(owner:endpointOwner)}
 
     /// Display edits never disturb sockets or received history. Resolve credentials
     /// only for replacement connections, before touching any running transport.
@@ -430,7 +421,6 @@ public actor ClusterSessionService {
                           password: @Sendable (UUID) throws -> String = { _ in "" }) throws {
         guard !terminated else { throw ClusterSessionError.terminated }
         try validate(value)
-        try guardGeneratedEndpoint(value)
         let wasRunning = !transports.isEmpty
         let enabled = value.servers.filter(\.enabled)
         let retained = Set(enabled.compactMap { next -> UUID? in
@@ -479,7 +469,6 @@ public actor ClusterSessionService {
         guard !enabled.isEmpty else { throw ClusterSessionError.invalidConfiguration("Configure and enable a cluster server first.") }
         guard transports.isEmpty else { return }
         try validate(configuration)
-        try guardGeneratedEndpoint(configuration)
         for server in enabled { try validatePassword(passwords[server.id] ?? "") }
         connectionGeneration = UUID()
         for server in enabled { start(server, password: passwords[server.id] ?? "") }
@@ -501,18 +490,6 @@ public actor ClusterSessionService {
         }
     }
 
-    private func guardGeneratedEndpoint(_ value:ClusterSessionConfiguration) throws {
-        do {
-            try CWLocalEndpointGuard.shared.setInbound(owner:endpointOwner,
-                endpoints:value.servers.filter(\.enabled).map{CWInboundEndpoint(host:$0.host,port:$0.port)})
-        } catch {
-            throw ClusterSessionError.invalidConfiguration("The generated Local CW endpoint cannot be an inbound cluster source.")
-        }
-    }
-    public func prepareLocalCWListener() throws {
-        guard !terminated else {throw ClusterSessionError.terminated}
-        try guardGeneratedEndpoint(configuration)
-    }
 
     private func validatePassword(_ password: String) throws {
         if password.utf8.count > 256 || password.contains("\r") || password.contains("\n") {
@@ -540,7 +517,7 @@ public actor ClusterSessionService {
     public func disconnect() {
         connectionGeneration = UUID()
         let stoppedAt = Date()
-        for (id,segment) in historySegments where !segment.origin.local || terminated {
+        for id in historySegments.keys {
             closeHistorySegment(serverID: id, at: stoppedAt, phase: .disconnected)
         }
         transportGenerations.removeAll()
@@ -555,7 +532,6 @@ public actor ClusterSessionService {
     public func terminate() {
         terminated = true
         disconnect()
-        CWLocalEndpointGuard.shared.removeInbound(owner:endpointOwner)
     }
 
     @discardableResult
@@ -741,14 +717,6 @@ public actor ClusterSessionService {
     private func receiveLine(_ line: String, serverID: UUID, generation: UUID, arrivedAt: Date) {
         guard generation == transportGenerations[serverID], transports[serverID] != nil,
               let server = configuration.servers.first(where: { $0.id == serverID }) else { return }
-        if CWLocalEndpointGuard.shared.isOwnGreeting(line) {
-            transportGenerations.removeValue(forKey:serverID)
-            transports.removeValue(forKey:serverID)?.stop()
-            closeHistorySegment(serverID:serverID,at:arrivedAt,phase:.failed)
-            statuses[serverID]?.phase = .failed
-            statuses[serverID]?.error = "Local CW self-loop rejected. Choose an external cluster source."
-            publish();return
-        }
         guard line.utf8.count <= ClusterLineParser.maximumLineBytes else { return }
         if let raw = ClusterLineParser.parse(line, clusterID: serverID, clusterName: server.name, at: arrivedAt) {
             addSpot(raw, line: line, origin: ObservationOrigin(server:server), generation: generation, arrivedAt: arrivedAt)
@@ -758,30 +726,8 @@ public actor ClusterSessionService {
         publish()
     }
 
-    /// Trusted native admission only; no renderer or network command accepts a
-    /// CWConfirmedSpot. The source owner rechecks its capture before calling.
-    @discardableResult
-    public func ingestLocalCW(_ value: CWConfirmedSpot,stationCallsign:String,arrivedAt:Date=Date()) throws -> Bool {
-        guard !terminated else {throw ClusterSessionError.terminated}
-        try value.validateProvenance()
-        guard arrivedAt.timeIntervalSince(value.observedAt)>=0,arrivedAt.timeIntervalSince(value.observedAt)<=120 else {return false}
-        let line=try CWSpotWire.line(value,stationCallsign:stationCallsign)
-        localSpotIDs.removeAll{arrivedAt.timeIntervalSince($0.1)>900}
-        guard !localSpotIDs.contains(where:{$0.0==value.id}) else {return false}
-        if localSpotIDs.count>=4096 {localSpotIDs.removeFirst()}
-        localSpotIDs.append((value.id,arrivedAt))
-        let origin=ObservationOrigin(local:value)
-        let raw=RawSpot(clusterID:origin.id,clusterName:origin.name,spotter:try CWSpotWire.reporter(stationCallsign),
-            frequencyKHz:Double(value.frequencyHz)/1000,frequencyText:String(format:"%.3f",locale:Locale(identifier:"en_US_POSIX"),Double(value.frequencyHz)/1000),
-            callsign:value.callsign,comment:"CW Local",receivedAt:value.observedAt)
-        if let previous=historySegments[origin.id],previous.generation != value.sessionID {
-            closeHistorySegment(serverID:origin.id,at:arrivedAt,phase:.disconnected)
-        }
-        addSpot(raw,line:line,origin:origin,generation:value.sessionID,arrivedAt:arrivedAt,localCW:value)
-        publish();return true
-    }
 
-    private func addSpot(_ raw: RawSpot, line: String, origin: ObservationOrigin, generation: UUID, arrivedAt: Date,localCW:CWConfirmedSpot?=nil) {
+    private func addSpot(_ raw: RawSpot, line: String, origin: ObservationOrigin, generation: UUID, arrivedAt: Date) {
         guard raw.callsign.utf8.count <= 32, raw.spotter.utf8.count <= 64 else { return }
         guard !configuration.hideWSPRSpots
                 || !SpotLogic.isWSPR(clusterName: raw.clusterName, spotter: raw.spotter, comment: raw.comment) else { return }
@@ -789,9 +735,9 @@ public actor ClusterSessionService {
         let country = facts.country
         let spotterCountry = countries.resolve(raw.spotter, at: raw.receivedAt)
         let band = SpotLogic.band(for: raw.frequencyKHz)
-        let mode = localCW==nil ? SpotLogic.mode(comment: raw.comment, band: band, khz: raw.frequencyKHz):"CW"
+        let mode = SpotLogic.mode(comment: raw.comment, band: band, khz: raw.frequencyKHz)
         let classification = classify(call: raw.callsign, band: band, mode: mode, adif: country?.adif)
-        let source = localCW==nil ? SpotLogic.source(spotter: raw.spotter, comment: raw.comment):"local_cw"
+        let source = SpotLogic.source(spotter: raw.spotter, comment: raw.comment)
         let specials = specialTags(comment: raw.comment, source: source)
         let displayComment = source == "rbl" && !raw.comment.uppercased().hasPrefix("RBN")
             ? (raw.comment.isEmpty ? "RBN" : "RBN · \(raw.comment)")
@@ -814,21 +760,19 @@ public actor ClusterSessionService {
             bandHex: configuration.palette.band[band] ?? "#B0B0B0",
             modeHex: configuration.palette.mode[mode] ?? "#B0B0B0"
         )
-        spot.localCW=localCW
         spot.countryReferenceRevision = facts.referenceRevision
         spot.countryResolutionStatus = facts.status
         spot.locationPrecision = facts.locationPrecision
         if onObservation != nil {
             if historySegments[origin.id] == nil {
                 openHistorySegment(origin:origin, generation: generation, at: arrivedAt,
-                                   phase: origin.local ? .connected:(statuses[origin.id]?.phase ?? .connecting))
+                                   phase: statuses[origin.id]?.phase ?? .connecting)
             }
             if var segment = historySegments[origin.id] {
                 segment.sequence += 1
                 historySegments[origin.id] = segment
-                let (reportedAt, timeBasis, recordKind) = localCW.map{(Optional($0.observedAt),"capture_host_receipt","local_cw")}
-                    ?? ClusterSpotObservation.reportTime(line: line, raw: raw, arrivedAt: arrivedAt)
-                onObservation?(.init(id:localCW?.id ?? UUID(),sessionID: segment.id, sequence: segment.sequence,
+                let (reportedAt, timeBasis, recordKind) = ClusterSpotObservation.reportTime(line: line, raw: raw, arrivedAt: arrivedAt)
+                onObservation?(.init(id:UUID(),sessionID: segment.id, sequence: segment.sequence,
                     clusterID: origin.id, clusterName: raw.clusterName, clusterHost: segment.origin.host,
                     clusterPort: segment.origin.port, transportGeneration: generation,
                     arrivedAt: arrivedAt, reportedAt: reportedAt, timeBasis: timeBasis,
@@ -838,7 +782,6 @@ public actor ClusterSessionService {
         }
         spot.comment = String(decoding: Data(displayComment.utf8.prefix(512)), as: UTF8.self)
         if let index = spots.firstIndex(where: { $0.callsign == spot.callsign && $0.source==spot.source
-            && $0.localCW?.sourceID==spot.localCW?.sourceID && $0.localCW?.originInstanceID==spot.localCW?.originInstanceID
             && abs($0.frequencyKHz - spot.frequencyKHz) <= 0.1
             && raw.receivedAt.timeIntervalSince($0.receivedAt) < 180 }) {
             spot.aggregateCount = spots[index].aggregateCount + 1
@@ -927,16 +870,6 @@ public actor ClusterSessionService {
         if console.count > 400 { console.removeFirst(console.count - 400) }
     }
 
-    /// Passive logbook annotation for an already resolved CW identity. It does
-    /// not publish a spot, alter evidence, connect or repair the callsign.
-    public func classifyLocalCW(call:String,frequencyHz:Int64) -> ClusterClassification? {
-        guard !terminated,hasContactSnapshot,(100_000...1_000_000_000).contains(frequencyHz),
-              call.count>=3,call.count<=20,call==call.uppercased(),
-              call.range(of:#"^(?=.*[A-Z])(?=.*[0-9])[A-Z0-9]+(?:/[A-Z0-9]+)*$"#,options:.regularExpression) != nil else{return nil}
-        let band=SpotLogic.band(for:Double(frequencyHz)/1000)
-        guard band != "OTHER" else{return nil}
-        return classify(call:call,band:band,mode:"CW",adif:countries.resolve(call)?.adif)
-    }
     private func classify(call: String, band: String, mode: String, adif: Int?) -> ClusterClassification {
         guard hasContactSnapshot else {
             return ClusterClassification(callStatus: "Unknown", dxccStatus: "Unknown", workedBefore: nil)

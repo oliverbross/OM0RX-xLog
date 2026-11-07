@@ -8,7 +8,7 @@ import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 
-const installedPaths = ['MacOS/xlog-prototype', 'MacOS/xlog-prototype-worker', 'MacOS/xlog-cw-worker', 'MacOS/rigctld', 'MacOS/rotctld',
+const installedPaths = ['MacOS/xlog-prototype', 'MacOS/xlog-prototype-worker', 'MacOS/rigctld', 'MacOS/rotctld',
   'Frameworks/Python.framework/Versions/3.12/bin/python3.12'];
 
 let fixtureBuild = null, fixtureBuildError = null;

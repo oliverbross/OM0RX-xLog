@@ -16,6 +16,12 @@ describe("normalizeClusterFilter", () => {
     expect(migrated.excludedSpecials).toEqual(["CONTEST"]);
     expect(migrated.bands).toEqual(["20m"]);
   });
+  it("retires only the saved decoder source while preserving external filters", () => {
+    const saved = { ...defaultClusterFilter(), query: "K1", bands: ["20m"], sources: ["cluster", "rbl", "local_cw"] };
+    expect(normalizeClusterFilter(saved)).toEqual({ ...saved, sources: ["cluster", "rbl"] });
+    expect(normalizeClusterFilter({ sources: ["local_cw"] }).sources).toEqual([]);
+    expect(normalizeClusterFilter({ sources: [] }).sources).toEqual([]);
+  });
 });
 
 describe("filterClusterSpots", () => {
@@ -55,11 +61,5 @@ describe("filterClusterSpots", () => {
     expect(filterClusterSpots(mixed, noContest).map(spot => spot.callsign)).toEqual(["K1PLAIN"]);
     expect(setSpecialShown(noContest, "RBN", true).excludedSpecials).toEqual(["CONTEST"]);
   });
-  it("keeps Local CW separate from network and RBN sources", () => {
-    const local = { ...spots[0], source: "local_cw", callsign: "K1LOCAL" };
-    expect(filterClusterSpots([...spots, local], { ...defaultClusterFilter(), sources: ["local_cw"] }).map(spot => spot.callsign)).toEqual(["K1LOCAL"]);
-    expect(filterClusterSpots([local], { ...defaultClusterFilter(), sources: ["cluster", "rbl"] })).toEqual([]);
-    expect(normalizeClusterFilter({ sources: [] }).sources).toEqual([]);
-    expect(normalizeClusterFilter().sources).toContain("local_cw");
-  });
+
 });

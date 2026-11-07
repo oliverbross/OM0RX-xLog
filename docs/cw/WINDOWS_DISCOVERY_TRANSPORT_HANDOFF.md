@@ -1,3 +1,5 @@
+> Historical embedded-decoder evidence. The embedded feature and its runtime/payload were retired in 1.5.27. See the current [product description](../../README.md). This record is retained unchanged below; it is not a current feature or qualification claim.
+
 # Windows qualification handoff: Flex discovery transport only
 
 This is a bounded supporting task for W16 / NL-07. The Mac integration owner

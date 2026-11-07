@@ -7,7 +7,6 @@ import { bearingAndDistance } from "../MapGeography";
 import { contestSchedule } from "./contestSchedule";
 import { selectContestLog } from "./contestLogSelection";
 import { validReviewCall } from "./logReview";
-import { resolveContestCWCallsign } from "./cwCallsign";
 import { connectMapContext, type MapContext } from "../live/mapContext";
 import { useSharedCW } from "../live/useSharedCW";
 import CWComposition from "../live/CWComposition";
@@ -2786,7 +2785,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     return {operationID:operation.operationID,draft:stackDraft(next,projectionFields(next)),...(operation.kind==="commit"?{qsoID:operation.operationID}:{})};
   };
   const mutateStack=async(operation:CallStackOperation)=>{
-    if(operation.stackTransition&&cwCallsignOutputBlockedRef.current)
+    if(operation.stackTransition&&draftOutputBlockedRef.current)
       throw new Error("Disarm contest output and finish its pending operation before parking or resuming Entry.");
     if(operation.draft.laneID){
       const current=projectionRef.current;if(!current)throw Error("The Call Stack session changed.");
@@ -3381,9 +3380,9 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
     return()=>{cancelled=true;};
   },[authorityClientReady,surfaceContext?.operatingContext,surfaceContext?.sessionID,surfaceContext?.workspaceGeneration,
     projection?.draftID,projection?.mode,fields.callsign,operationFrequencyHz]);
-  const cwCallsignOutputBlockedRef=useRef(false);
+  const draftOutputBlockedRef=useRef(false);
   passStationStateRef.current={retiring,configuredClient,authorityClientReady};
-  cwCallsignOutputBlockedRef.current=Boolean(autoCQActiveRef.current || cw.state.armed || cw.state.pending || cw.state.error || phoneReleaseBlocking || phoneSimulationArmed || phoneSimulationPending);
+  draftOutputBlockedRef.current=Boolean(autoCQActiveRef.current || cw.state.armed || cw.state.pending || cw.state.error || phoneReleaseBlocking || phoneSimulationArmed || phoneSimulationPending);
   const handleSurfaceAction = async (action: ContestSurfaceActionEnvelope) => {
     const active = projectionRef.current;
     if (!active || !detachedAvailable || action.sessionID !== active.sessionID ||
@@ -3499,7 +3498,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
         const frequencyHz=contestFrequency(proposal.frequencyHz,active.supportedBands??activeSupportedBands,bandDefinitions);
         const admittedMode=(active.supportedModes??[active.mode]).find(mode=>canonicalContestSurfaceMode(mode)===canonicalContestSurfaceMode(proposal.mode));
         if(frequencyHz===null||!admittedMode)throw Error("The pass frequency or mode is unavailable in this contest.");
-        if(params.operation!=="tune"&&cwCallsignOutputBlockedRef.current)throw Error("Disarm contest output and finish its pending operation before loading a directed pass.");
+        if(params.operation!=="tune"&&draftOutputBlockedRef.current)throw Error("Disarm contest output and finish its pending operation before loading a directed pass.");
         const captured={operatingContext,sessionID:active.sessionID,workspaceGeneration:active.workspaceGeneration,
           draftID:params.draftID,draftRevision:params.expectedDraftRevision,laneID:params.targetLaneID,
           bindingVersion:params.bindingVersion,connectionGeneration:params.connectionGeneration,binding,stationBinding:singleTune?.binding??null,
@@ -3517,7 +3516,7 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
               stackControllerWaitersRef.current.add(waiter);
             });
           }
-          if(!current()||busyRef.current||cwCallsignOutputBlockedRef.current)throw Error("The original directed pass context changed while opening Call Stack.");
+          if(!current()||busyRef.current||draftOutputBlockedRef.current)throw Error("The original directed pass context changed while opening Call Stack.");
           const itemID=controller.add(proposal.call);
           passStackAdmissionRef.current={sessionID:active.sessionID,workspaceGeneration:active.workspaceGeneration,draftID:params.draftID};
           try{await controller.load(itemID,park?"park":undefined);}
@@ -3545,36 +3544,6 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
         });
         setNotice(params.operation==="tune"?"Directed pass tune accepted by the station owner; review observed frequency separately.":
           params.operation==="park"?"Original entry parked and directed pass loaded. Tune remains a separate action.":"Directed pass loaded. Tune remains a separate action.");
-        return;
-      }
-      case "entry_cw_callsign": {
-        const outputBlocked=()=>cwCallsignOutputBlockedRef.current;
-        if(outputBlocked())throw new Error("Disarm contest output and finish its pending operation before loading a CW callsign.");
-        if((fieldsRef.current.callsign??"").trim())throw new Error("Contest Entry is occupied. Finish or park this draft before loading a CW callsign.");
-        const inputVersion=editVersionRef.current,laneScope=dualContestLanes(active)?captureContestLaneScope(active):null;
-        if(laneScope ? action.params.laneID!==laneScope.laneID || action.params.bindingVersion!==laneScope.bindingVersion || action.params.draftID!==laneScope.draftID
-          : action.params.laneID!==undefined || action.params.bindingVersion!==undefined)
-          throw new Error("Contest Entry lane or receiver binding changed before CW readback.");
-        const callsign=await resolveContestCWCallsign(action),current=projectionRef.current;
-        if(!current || current.sessionID!==action.sessionID || current.workspaceGeneration!==action.workspaceGeneration ||
-          current.draftID!==action.params.draftID || surfaceDraftRevisionRef.current?.revision!==action.params.expectedDraftRevision ||
-          editVersionRef.current!==inputVersion || busyRef.current || retiring || outputBlocked())
-          throw new Error("Contest Entry changed during CW callsign readback.");
-        if(laneScope){
-          assertContestLaneScope(current,laneScope);
-          if(current.operatingLanes!.keyboardLaneID!==laneScope.laneID)throw new Error("Contest Entry lane changed during CW callsign readback.");
-          await enqueueLane(laneScope,async base=>{
-            if(outputBlocked() || surfaceDraftRevisionRef.current?.revision!==action.params.expectedDraftRevision ||
-              editVersionRef.current!==inputVersion || laneBuffer(laneScope).conflicts.length ||
-              projectionRef.current?.operatingLanes?.keyboardLaneID!==laneScope.laneID)
-              throw new Error("Contest Entry changed before CW callsign loading.");
-            const buffer=laneBuffer(laneScope);buffer.fields={...buffer.fields,callsign};buffer.version++;
-            const submitted=structuredClone(buffer);renderLaneBuffers(value=>value+1);
-            admitLaneResult(await mutate("contest_draft_apply",base,{...contestLaneParams(laneScope),fields:submitted.fields},action.requestID),laneScope,submitted);
-          },false);return;
-        }
-        const next={...fieldsRef.current,callsign};fieldsRef.current=next;setFields(next);editVersionRef.current+=1;
-        await runMutation(base=>mutate("contest_draft_apply",base,{fields:next},action.requestID),false,false,false,true);
         return;
       }
       case "entry_set_exchange":
@@ -4084,14 +4053,6 @@ export function Not1MMContestWorkspace({ request, serviceRequest, stationTune: s
           setManager(true); setError("Open a contest session before opening Group Chat."); return true;
         }
         await openContestGroupChatWindow(surfaceContext);
-        return true;
-      }
-      if (route === "contest-window-cw-decode") {
-        if (startupPending) return false;
-        if (!projectionRef.current || !detachedAvailable || !surfaceContext) {
-          setManager(true); setError("Open a contest session before opening CW Decode."); return true;
-        }
-        await openContestSurfaceWindow(surfaceContext, "cw-decode");
         return true;
       }
       const panelID = route.startsWith("contest-window-") ? route.slice("contest-window-".length) as ContestSurfacePanelID : null;

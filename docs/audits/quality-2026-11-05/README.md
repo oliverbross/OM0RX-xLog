@@ -12,6 +12,32 @@ and physical evidence remain separate.
 
 ## Current checkpoint — 7 November 2026, Darwin
 
+### Focused 1.5.27 continuation
+
+The user authorized retirement of the unfinished embedded CW decoder and local
+installation over daily 1.5.15 after a **new** verified app/data/voice backup.
+The missing historical backup is not a recovery source. No public release is
+authorized. UTM and the separate OM0RX-Skimmer project remain untouched.
+
+The embedded UI, settings switch, RPCs, polling, native compute/model/runtime,
+IQ subscriptions/capture, local generated-spot server and packaging are removed.
+Normal sending/CWX/keyer/memories/PTT/Stop, radio/TCI, contesting, external
+cluster/RBN, bandmap and spot activation remain. Saved contest decoder windows
+and the retired cluster-filter token are migrated narrowly; inert historical
+receipt fields remain readable and cannot authorize a new effect.
+
+`codex/archive-embedded-cw-skimmer-20261107` is pushed at
+`3a28134caa6c6c981c5f2a564fa22a69d1bc7778`. The retired worktree had no unique
+commits or uncommitted source; its sole untracked entry was a verified symlink
+to canonical node_modules. It was removed normally without force. Historical
+decoder evidence remains in Git and the existing CW records.
+
+Focused Rust: 1,086 shell + 34 Hamlib tests pass. Focused Swift and frontend
+build/window budgets pass. Two local contest voice tests originally timed out
+at their existing five-second bounds; each later passed unchanged in a focused
+recheck. Final frontend recheck/source gates, signed build, attributed desktop
+interval, fresh backup and installation evidence follow in the candidate record.
+
 | ID | Current scope / status | Evidence and next step |
 |---|---|---|
 | Q00 | Canonical integration advanced; installed bytes unchanged; historical data backup absent | Paging `f53ab0ed` and exact reviewed ADIF `e7fce13b` are committed/pushed. Installed Mac 1.5.15 host/worker hashes still match; the user reopened it and the exact installed pair is process-verified. UTM is started. The 1.5.9 application rollback ZIP was rehashed, but the original pre-1.5.15 data-backup directory is absent; these are distinct preservation results. Public release and protected worktrees remain unchanged. S25 package source is separately frozen at `ff8a8e38`. |

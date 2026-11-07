@@ -32,11 +32,6 @@ pub fn validate_surface(label: &str, request: &Value) -> Result<(), String> {
     }
     if label == "about" { return Err("About OM0RX-xLog has no worker access.".into()); }
     if label == "hm-control" { return Err("HM Control can only use its non-secret read-only display projection.".into()); }
-    if request["method"].as_str().is_some_and(|method| method.starts_with("cw_decode_")) {
-        return if matches!(label, "main" | "cw-decode" | "contest--cw-decode") { Ok(()) }
-        else { Err("CW Decode requests belong to the main or CW Decode window.".into()) };
-    }
-    if matches!(label,"cw-decode" | "contest--cw-decode") { return Err("CW Decode can only use its receive-only decoder service.".into()); }
     if request["method"].as_str().is_some_and(|method| method.starts_with("contest_multi_")) {
         return Err("Use the native group-authority or replica-sync owner for multi-operator requests.".into());
     }
@@ -270,19 +265,6 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
     }
     if ![
         "health",
-        "cw_decode_snapshot",
-        "cw_decode_resolve_selection",
-        "cw_decode_resolve_signal",
-        "cw_decode_track_mute",
-        "cw_decode_track_focus",
-        "cw_decode_configuration_save",
-        "cw_decode_start",
-        "cw_decode_stop",
-        "cw_decode_source_start",
-        "cw_decode_source_stop",
-        "cw_decode_listener_start",
-        "cw_decode_listener_stop",
-        "cw_decode_flex_handoff",
         "parse_adif",
         "self_test",
         "integration_self_test",
@@ -415,7 +397,7 @@ pub fn validate_request(request: &Value) -> Result<(), String> {
         "logbook_operator_draft_antenna_proposal",
         "logbook_operator_draft_antenna_follow",
         "logbook_operator_draft_radio_follow",
-        "spot_draft_apply", "spot_draft_status", "spot_draft_stage", "spot_draft_finish", "spot_draft_abandon", "spot_draft_cw_status", "spot_draft_cw_pending", "spot_draft_cw_reconcile",
+        "spot_draft_apply", "spot_draft_status", "spot_draft_stage", "spot_draft_finish", "spot_draft_abandon",
         "logbook_contact",
         "logbook_contact_apply",
         "logbook_contact_receipt",
@@ -1202,10 +1184,9 @@ fn request_using(request: Value, session: impl FnOnce() -> Result<Arc<Session>, 
 fn request_blocks_module_transition(request: &Value) -> bool {
     !matches!(request["method"].as_str(), Some(
         "health" | "workspace_status" | "settings_load" |
-        "spot_draft_cw_status" | "spot_draft_cw_pending" |
         "station_snapshot" | "station_rotor_snapshot" | "rotor_snapshot" |
         "spot_bridge_snapshot" | "wsjtx_snapshot" | "fldigi_snapshot" |
-        "cluster_snapshot" | "cluster_history" | "cw_decode_snapshot" | "cw_decode_resolve_selection" | "cw_decode_resolve_signal" |
+        "cluster_snapshot" | "cluster_history" |
         "opportunities_snapshot" | "opportunities_refresh" |
         "opportunities_dxpedition_snapshot" | "opportunities_dxpedition_refresh" |
         "spot_history_status" | "spot_history_query" | "spot_history_detail" | "reference_log_review" |
@@ -1309,11 +1290,7 @@ fn request_can_change_station_state(request: &Value) -> bool {
 
 fn request_is_non_retiring_read(request: &Value) -> bool {
     matches!(request["method"].as_str(), Some(
-        "station_snapshot" | "station_rotor_snapshot" | "rotor_snapshot" | "cw_decode_snapshot" | "cw_decode_resolve_selection" | "cw_decode_resolve_signal" |
-        "spot_draft_cw_status" | "spot_draft_cw_pending" |
-        // Exact original-receipt metadata reconciliation is also safe to keep
-        // pending after a deadline; it cannot apply a draft or station effect.
-        "spot_draft_cw_reconcile" |
+        "station_snapshot" | "station_rotor_snapshot" | "rotor_snapshot" |
         "workspace_map_context" | "hm_control_logbook" | "lookup_call" | "logbook_previous" | "logbook_duplicate" |
         "logbook_matrix" | "cluster_history" | "cluster_snapshot" |
         "opportunities_snapshot" | "opportunities_refresh" |
@@ -1331,7 +1308,6 @@ fn request_is_non_retiring_read(request: &Value) -> bool {
 }
 fn request_keeps_worker_on_timeout(request: &Value) -> bool {
     request_is_non_retiring_read(request)
-        || request["method"].as_str().is_some_and(|method| method.starts_with("cw_decode_"))
 }
 
 fn request_timeout(request: &Value) -> Duration {
@@ -1364,57 +1340,17 @@ fn service_request_failure(phase: &str, control_request: bool) -> String {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn retired_decoder_rpcs_are_not_in_the_product_allowlist() {
+        for method in ["cw_decode_snapshot", "cw_decode_start", "cw_decode_stop", "cw_decode_listener_start",
+            "cw_decode_resolve_selection", "spot_draft_cw_status", "spot_draft_cw_pending", "spot_draft_cw_reconcile"] {
+            assert!(super::validate_request(&serde_json::json!({"id":"retired","method":method,"params":{}})).is_err());
+        }
+    }
+    #[test]
     fn about_window_has_no_worker_or_secret_authority() {
-        for method in ["health", "workspace_status", "settings_load", "settings_save", "secret_status", "secret_save", "station_snapshot", "station_action", "cw_decode_snapshot", "cluster_snapshot"] {
+        for method in ["health", "workspace_status", "settings_load", "settings_save", "secret_status", "secret_save", "station_snapshot", "station_action", "cluster_snapshot"] {
             assert!(super::validate_surface("about", &serde_json::json!({"id":"denied","method":method,"params":{}})).is_err(), "{method}");
         }
-    }
-    #[test]
-    fn cw_decode_has_receive_only_authority_and_never_inherits_cw_output() {
-        for method in ["cw_decode_snapshot", "cw_decode_resolve_selection", "cw_decode_resolve_signal", "cw_decode_configuration_save", "cw_decode_start", "cw_decode_stop", "cw_decode_source_start", "cw_decode_source_stop", "cw_decode_listener_start", "cw_decode_listener_stop", "cw_decode_flex_handoff", "cw_decode_track_mute", "cw_decode_track_focus"] {
-            let request = serde_json::json!({"id":"cw-read","method":method,"params":{}});
-            assert!(super::validate_request(&request).is_ok());
-            for label in ["main", "cw-decode", "contest--cw-decode"] { assert!(super::validate_surface(label, &request).is_ok(), "{label}:{method}"); }
-            for label in ["cw", "monitor", "settings", "station-control", "spot-history", "contest-setup", "unknown"] {
-                assert!(super::validate_surface(label, &request).is_err(), "{label}:{method}");
-            }
-            assert!(!super::request_can_change_station_state(&request));
-            assert!(super::request_keeps_worker_on_timeout(&request));
-            assert_eq!(super::request_blocks_module_transition(&request), !matches!(method,"cw_decode_snapshot" | "cw_decode_resolve_selection" | "cw_decode_resolve_signal"));
-        }
-        for method in ["station_action", "winkeyer_control", "logbook_operator_draft_apply", "secret_save", "cluster_connect"] {
-            assert!(super::validate_surface("cw-decode", &serde_json::json!({"id":"denied","method":method,"params":{}})).is_err(), "{method}");
-            assert!(super::validate_surface("contest--cw-decode", &serde_json::json!({"id":"denied","method":method,"params":{}})).is_err(), "{method}");
-        }
-        assert!(super::validate_request(&serde_json::json!({"id":"denied","method":"cw_decode_set_quality_qualified","params":{}})).is_err());
-    }
-    #[cfg(unix)]
-    #[test]
-    fn cw_decode_timeout_keeps_radio_and_logbook_worker_alive() {
-        for method in ["cw_decode_snapshot", "cw_decode_resolve_selection", "cw_decode_start", "cw_decode_stop", "cw_decode_source_start", "cw_decode_source_stop"] {
-            assert_passive_timeout_preserves_worker(method);
-        }
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn cw_durable_receipt_read_is_passive_and_keeps_the_existing_worker() {
-        for method in ["spot_draft_cw_status","spot_draft_cw_pending"] {
-            let request=json!({"method":method});
-            assert!(!request_blocks_module_transition(&request));
-            assert!(!request_can_change_station_state(&request));
-            assert_eq!(request_timeout(&request),PASSIVE_READ_TIMEOUT);
-            assert_passive_timeout_preserves_worker(method);
-        }
-    }
-    #[cfg(unix)]
-    #[test]
-    fn cw_original_reconcile_is_native_metadata_only_and_preserves_worker_on_lost_reply(){
-        let method="spot_draft_cw_reconcile";let request=json!({"method":method});
-        assert!(request_blocks_module_transition(&request));
-        assert!(!request_can_change_station_state(&request));
-        assert_eq!(request_timeout(&request),PASSIVE_READ_TIMEOUT);
-        assert_passive_timeout_preserves_worker(method);
     }
     #[test]
     fn worker_arguments_compose_runtime_profile_and_local_acceptance() {
@@ -1443,10 +1379,10 @@ mod tests {
     }
     #[test]
     fn native_activation_journal_never_crosses_renderer_surfaces() {
-        for method in ["spot_draft_apply","spot_draft_status","spot_draft_stage","spot_draft_finish","spot_draft_abandon","spot_draft_cw_status","spot_draft_cw_pending","spot_draft_cw_reconcile"] {
+        for method in ["spot_draft_apply","spot_draft_status","spot_draft_stage","spot_draft_finish","spot_draft_abandon"] {
             let request=serde_json::json!({"id":"native-only","method":method,"params":{}});
             super::validate_request(&request).unwrap();
-            for label in ["main","cw-decode","contest--cw-decode","contest-setup","monitor","log-qso","logbook","world-map","band-maps","dx-cluster","awards","spot-history","callsign-intelligence","settings"] {
+            for label in ["main","contest-setup","monitor","log-qso","logbook","world-map","band-maps","dx-cluster","awards","spot-history","callsign-intelligence","settings"] {
                 assert!(super::validate_surface(label,&request).is_err(),"{label}:{method}");
             }
         }
@@ -2619,41 +2555,6 @@ mod tests {
         session.retire("test complete");
     }
 
-    #[test]
-    fn passive_reads_use_bounded_timeout_without_widening_mutation_policy() {
-        for method in [
-            "station_snapshot", "station_rotor_snapshot", "rotor_snapshot",
-            "spot_draft_cw_status",
-            "workspace_map_context", "hm_control_logbook", "lookup_call", "logbook_previous", "logbook_duplicate",
-            "logbook_matrix", "cluster_history", "cluster_snapshot",
-            "opportunities_snapshot", "opportunities_refresh",
-            "opportunities_dxpedition_snapshot", "opportunities_dxpedition_refresh",
-            "wsjtx_snapshot", "reference_resolve", "contest_export_prepare",
-            "contest_export_read", "contest_export_release",
-            "contest_spot_points_preview",
-            "contest_scp_status", "contest_scp_query", "contest_scp_cancel", "contest_scp_select",
-            "contest_history_status", "contest_history_preview_page", "contest_history_preview_cancel",
-            "contest_history_query", "contest_history_query_cancel", "contest_history_select",
-            "contest_log_page", "contest_analytics", "spot_history_status", "spot_history_query", "spot_history_detail",
-        ] {
-            assert!(request_is_non_retiring_read(&json!({"method":method})), "{method}");
-            assert_eq!(request_timeout(&json!({"method":method})),
-                if matches!(method, "lookup_call" | "opportunities_refresh" | "opportunities_dxpedition_refresh") { RESPONSE_TIMEOUT } else { PASSIVE_READ_TIMEOUT }, "{method}");
-        }
-        for method in [
-            "station_connect", "station_tune", "station_action", "station_radio_control",
-            "station_rotor_goto", "station_rotor_stop", "rotor_connect", "rotor_disconnect",
-            "rotor_goto", "rotor_stop", "rotor_park", "logbook_operator_draft_apply",
-            "logbook_contact_apply", "logbook_save", "logbook_delete", "logbook_undo",
-            "logbook_import_adif", "workspace_create", "settings_save", "reference_refresh",
-            "cluster_resume", "contest_qso_correct", "contest_qso_delete",
-            "contest_scp_import_private",
-            "contest_history_preview_private", "contest_history_preview_commit", "contest_history_apply",
-        ] {
-            assert!(!request_is_non_retiring_read(&json!({"method":method})), "{method}");
-            assert_eq!(request_timeout(&json!({"method":method})), RESPONSE_TIMEOUT, "{method}");
-        }
-    }
 
     #[test]
     fn review_reads_do_not_block_module_transitions_or_retire_on_timeout() {

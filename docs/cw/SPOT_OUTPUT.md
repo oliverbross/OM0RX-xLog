@@ -1,3 +1,5 @@
+> Historical embedded-decoder evidence. The embedded feature and its runtime/payload were retired in 1.5.27. See the current [product description](../../README.md). This record is retained unchanged below; it is not a current feature or qualification claim.
+
 # Native accepted CW output
 
 `CWDecodeSession` reconciles committed, sample-aligned copy, extracts transmitting

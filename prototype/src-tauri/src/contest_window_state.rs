@@ -46,6 +46,9 @@ fn checked(mut document: Document) -> Result<Document, String> {
     // or renderer. Drop only that known legacy entry; unknown panels still
     // fail closed so corrupt state is never silently broadened.
     document.open.remove("alerts");
+    // Decoder windows were machine-local tools, never portable layout panels.
+    // Retire this exact saved entry while preserving every other open window.
+    document.open.remove("cw-decode");
     if document.open.len() > crate::workspace_windows::CONTEST_WINDOWS.len()
         || document.open.iter().any(|panel| {
             !crate::workspace_windows::supports_panel(
@@ -196,6 +199,24 @@ mod tests {
         let saved: Document = serde_json::from_slice(&std::fs::read(path(directory.path())).unwrap()).unwrap();
         assert_eq!(saved.version, VERSION);
         assert!(!saved.open.contains("alerts"));
+    }
+
+    #[test]
+    fn retires_decoder_windows_without_losing_saved_tools_or_rewriting_on_read() {
+        for version in [1, 2, VERSION] {
+            let directory = tempfile::tempdir().unwrap();
+            let original = format!(r#"{{"version":{version},"open":["cw-decode","rotor","logbook"]}}"#);
+            std::fs::write(path(directory.path()), &original).unwrap();
+            let restored = labels(directory.path()).unwrap();
+            assert!(restored.contains(&"contest--rotor".to_owned()));
+            assert!(restored.contains(&"contest--logbook".to_owned()));
+            assert!(!restored.iter().any(|label| label.contains("cw-decode")));
+            assert_eq!(std::fs::read_to_string(path(directory.path())).unwrap(), original);
+            remember(directory.path(), "contest--rotor", true).unwrap();
+            let saved: Document = serde_json::from_slice(&std::fs::read(path(directory.path())).unwrap()).unwrap();
+            assert!(saved.open.contains("rotor"));
+            assert!(!saved.open.contains("cw-decode"));
+        }
     }
 
     #[test]

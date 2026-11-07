@@ -1,3 +1,5 @@
+> Historical embedded-decoder evidence. The embedded feature and its runtime/payload were retired in 1.5.27. See the current [product description](../../README.md). This record is retained unchanged below; it is not a current feature or qualification claim.
+
 # CW receive implementation
 
 Current completion work and the frozen launch acceptance contract are tracked in

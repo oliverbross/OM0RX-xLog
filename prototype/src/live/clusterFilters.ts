@@ -9,12 +9,12 @@ export const clusterFilterChoices = {
   spotterContinents: ["AF", "AN", "AS", "EU", "NA", "OC", "SA"],
   callStatuses: ["New Call", "New Band", "New Mode", "New Band+Mode", "Worked", "Confirmed", "Unknown"],
   dxccStatuses: ["ATNO", "C/New Band", "C/New Mode", "C/New Band+Mode", "W/New Band", "W/New Mode", "W/New Band+Mode", "Worked", "Confirmed", "Unknown"],
-  sources: ["cluster", "rbl", "local_cw"],
+  sources: ["cluster", "rbl"],
   worked: ["Worked before", "Not worked"],
 };
 
 export const defaultClusterFilter = (): ClusterFilter => ({ query: "", bands: [], modes: [], continents: [], spotterContinents: [], callStatuses: [], dxccStatuses: [],
-  specials: [], excludedSpecials: [], sources: ["cluster", "rbl", "local_cw"], worked: [], sort: "newest" });
+  specials: [], excludedSpecials: [], sources: ["cluster", "rbl"], worked: [], sort: "newest" });
 
 export function normalizeClusterFilter(value?: Partial<ClusterFilter> | null): ClusterFilter {
   const defaults = defaultClusterFilter();
@@ -24,7 +24,7 @@ export function normalizeClusterFilter(value?: Partial<ClusterFilter> | null): C
     bands: list("bands"), modes: list("modes"), continents: list("continents"), spotterContinents: list("spotterContinents"),
     // Retire the old "Show only" whitelist when reading saved or detached state.
     callStatuses: list("callStatuses"), dxccStatuses: list("dxccStatuses"), specials: [],
-    excludedSpecials: list("excludedSpecials"), sources: list("sources"), worked: list("worked"),
+    excludedSpecials: list("excludedSpecials"), sources: list("sources").filter(source => source !== "local_cw"), worked: list("worked"),
     sort: typeof value?.sort === "string" ? value.sort : defaults.sort,
   };
 }
