@@ -113,7 +113,7 @@ import { loadStationSession, type RadioID } from "./live/stationSession";
 import { providerAllowsCWDesk } from "./live/cwVisibility";
 import { clearConnectedHandoverMessage, rotorCommandParams, rotorProjection, validRotorSnapshot, type RotorSnapshot } from "./live/rotorControl";
 import { prepareOperatingModuleTransition } from "./operatingModulePreparation";
-import { normalModuleTransitionController } from "./live/normalModuleTransition";
+import { normalEditorTransitionBlockReason, normalModuleTransitionController } from "./live/normalModuleTransition";
 import "./live/live.css";
 import appLogo from "./assets/xlog-logo-mark.png";
 
@@ -496,16 +496,12 @@ function MainLiveApp() {
   const acceptsInput = useCallback(() => normalActive.current && !moduleTransitioning.current && !readingRadio.current && !mainClosing.current && !layoutChanging.current && !editorTransition.current && !logbookWorkingRef.current && draftSession.canAcceptLocalInput() && contactSession.canAcceptLocalInput(), [draftSession, contactSession]);
   const normalTransitionBlockReason = useCallback(() => {
     const current = draftSession.getSnapshot(), contact = contactSession.getSnapshot(), mutation = logbookMutations.getSnapshot();
-    if (Object.values(radioSettingsBlocked.current).some(Boolean)) return "Save or Revert the normal window's radio setup and check its pending connection operation.";
-    if (readingRadio.current || readOperation.current) return "Check the retained Read radio operation in the normal logging window.";
-    if (busyRef.current || logbookWorkingRef.current || layoutChanging.current || mutation.busy) return "Wait for the normal window's logbook or workspace action to finish.";
-    if (current.pending || contact.pending || mutation.pending || current.locked || contact.locked) return "Check the pending normal QSO, contact edit or Delete/Undo operation. Its receipt and draft are retained.";
-    if (current.conflict || contact.conflict || current.workspaceChanged || contact.workspaceChanged) return "Resolve the normal window's editor conflict or changed workspace. Its draft is retained.";
-    if (editorBufferPending.current) return "Finish the partial frequency, time or other buffered field in the normal logging window.";
-    if (draftSession.dirty) return "Save or resolve the unsaved QSO draft in the normal logging window. Its text is retained.";
-    if (contact.draft) return "Finish or cancel the logged-contact edit in the normal logging window.";
-    if (current.activationFrozen || contact.activationFrozen) return "The normal QSO editor's activation authority is not settled. Check its retained activation or registration status.";
-    return false;
+    return normalEditorTransitionBlockReason(current, contact, {
+      radioSettingsBlocked: Object.values(radioSettingsBlocked.current).some(Boolean),
+      readingRadio: readingRadio.current || !!readOperation.current,
+      working: busyRef.current || logbookWorkingRef.current || layoutChanging.current || mutation.busy,
+      pendingMutation: !!mutation.pending, bufferedInput: editorBufferPending.current, dirty: draftSession.dirty,
+    });
   }, [draftSession, contactSession, logbookMutations]);
   const normalTransitionBlocked = useCallback(() => !!normalTransitionBlockReason(), [normalTransitionBlockReason]);
   useEffect(() => prepareOperatingModuleTransition(() => normalModuleTransitionController(

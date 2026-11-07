@@ -49,7 +49,19 @@ it("maps an explicit antenna target once using its captured offset and observes 
   fireEvent.click(screen.getByText("Turn antenna to bearing")); expect(onGoto).toHaveBeenCalledExactlyOnceWith(350);
   view.rerender(<AntennaDraftSelector settings={{ ...settings, stationEquipment: { ...settings.stationEquipment, profiles: [{ ...profile, name: "Renamed and archived", archived: true, azimuthOffsetDegrees: -45 }] } }} draft={draft} txBand="20m" fresh onApply={onApply} rotor={rotor} onGoto={onGoto} />);
   expect(onGoto).toHaveBeenCalledOnce(); expect(screen.getByText(/Antenna observed: 10°/)).toBeTruthy();
-  expect(screen.getByText(/Captured for current draft: Beam/)).toBeTruthy(); expect(screen.getByText("Beam (retained snapshot)")).toBeTruthy();
+  expect(screen.queryByText(/Captured for current draft/)).toBeNull(); expect(screen.getByText("Beam (retained snapshot)")).toBeTruthy();
+});
+it("omits the redundant antenna row when the draft already uses the only profile", () => {
+  const onApply = vi.fn();
+  const draft = { call: "K1ABC", extraFields: { APP_OM0RXXLOG_ANTENNA_ID: "a", APP_OM0RXXLOG_ANTENNA_NAME: "Beam", APP_OM0RXXLOG_ANTENNA_REVISION: "1" } };
+  const view = render(<AntennaDraftSelector settings={settings} draft={draft} txBand={null} fresh={false} onApply={onApply} />);
+  expect(view.container.textContent).toBe(""); expect(onApply).not.toHaveBeenCalled();
+  view.rerender(<AntennaDraftSelector settings={{ ...settings, stationEquipment: { ...settings.stationEquipment,
+    profiles: [profile, { ...profile, id: "b", name: "Dipole" }] } }} draft={draft} txBand={null} fresh={false} onApply={onApply} />);
+  expect(screen.getByLabelText("Current draft antenna profile")).toBeTruthy();
+  expect(screen.queryByText(/revision|transmit band not applied|proposed/)).toBeNull();
+  fireEvent.change(screen.getByLabelText("Current draft antenna profile"), { target: { value: "b" } });
+  expect(onApply.mock.calls[0][0].extraFields).toMatchObject({ APP_OM0RXXLOG_ANTENNA_ID: "b", APP_OM0RXXLOG_ANTENNA_REVISION: "1" });
 });
 it("starts a preset with canonical whole-second wire time and a copied snapshot", () => {
   const onChange = vi.fn(), preset = settings.portableOperating.activeContext.preset;

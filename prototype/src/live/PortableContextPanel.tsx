@@ -1,7 +1,5 @@
-import { useEffect, useState } from "react";
-import { invoke, isTauri } from "@tauri-apps/api/core";
-import { bandForRadio } from "./band";
-import { antennaCollection, antennaChoice, antennaHeading, rotorTarget, type AntennaProfile } from "./equipmentPreferences";
+import { useState } from "react";
+import { antennaCollection, antennaHeading, rotorTarget, type AntennaProfile } from "./equipmentPreferences";
 import { rotorProjection, type RotorSnapshot } from "./rotorControl";
 
 type Data = Record<string, any>;
@@ -63,20 +61,8 @@ export function PortableContextBanner({ settings, draft, onApply, onEnd, disable
     {active && <button type="button" disabled={disabled} onClick={onEnd}>End portable context</button>}
   </section>;
 }
-export function AntennaDraftSelector({ settings, draft, txBand, fresh, onApply, disabled = false, rotor, onGoto }: { settings: Data; draft: Data; txBand: string | null; fresh: boolean; onApply: (qso: Data) => void; disabled?: boolean; rotor?: RotorSnapshot | null; onGoto?: (rotorBearing: number) => void }) {
+export function AntennaDraftSelector({ settings, draft, onApply, disabled = false, rotor, onGoto }: { settings: Data; draft: Data; txBand: string | null; fresh: boolean; onApply: (qso: Data) => void; disabled?: boolean; rotor?: RotorSnapshot | null; onGoto?: (rotorBearing: number) => void }) {
   const [bearing, setBearing] = useState("");
-  const [transmit, setTransmit] = useState<{ band: string | null; fresh: boolean } | null>(null);
-  useEffect(() => {
-    if (!settings.stationEquipment?.automaticSelection || !isTauri()) { setTransmit(null); return; }
-    let active = true, reading = false;
-    const read = async () => { if (reading) return; reading = true; try {
-      const value = await invoke<Data>("antenna_transmit_context");
-      if (active) setTransmit({ band: value.fresh === true ? bandForRadio(value.transmitFrequencyHz) : null, fresh: value.fresh === true });
-    } catch { if (active) setTransmit({ band: null, fresh: false }); } finally { reading = false; } };
-    void read(); const timer = window.setInterval(() => void read(), 1500);
-    return () => { active = false; clearInterval(timer); };
-  }, [settings.stationEquipment?.automaticSelection]);
-  const choice = antennaChoice(settings.stationEquipment, transmit?.band ?? txBand, transmit?.fresh ?? fresh, draft.extraFields?.APP_OM0RXXLOG_ANTENNA_MANUAL === "Y");
   const profiles = antennaCollection(settings.stationEquipment).profiles.filter(p => !p.archived);
   // Use captured draft offset, never today's edited profile, for the explicitly
   // selected antenna. The raw provider heading remains independently visible.
@@ -84,8 +70,8 @@ export function AntennaDraftSelector({ settings, draft, txBand, fresh, onApply, 
   const offset = Number(draft.extraFields?.APP_OM0RXXLOG_ANTENNA_OFFSET ?? 0), observed = rotorProjection(rotor ?? null);
   const capturedID = draft.extraFields?.APP_OM0RXXLOG_ANTENNA_ID;
   if (!profiles.length && !capturedID) return null;
-  return <section><label>Antenna software profile<select aria-label="Current draft antenna profile" disabled={disabled} value={capturedID ?? ""} onChange={e => { const p = profiles.find(p => p.id === e.target.value); if (p) { const next = antennaSnapshot(draft, p); next.extraFields.APP_OM0RXXLOG_ANTENNA_MANUAL = "Y"; onApply(next); } }}><option value="">Unknown / choose explicitly</option>{capturedID && !profiles.some(p => p.id === capturedID) && <option value={capturedID} disabled>{draft.extraFields.APP_OM0RXXLOG_ANTENNA_NAME || capturedID} (retained snapshot)</option>}{profiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select><small>{choice.reason}{choice.selected ? ` · proposed ${choice.selected.name}` : ""}. Selection applies only to this draft.</small></label>
-    {capturedID && <p>Captured for current draft: {draft.extraFields.APP_OM0RXXLOG_ANTENNA_NAME || capturedID} · revision {draft.extraFields.APP_OM0RXXLOG_ANTENNA_REVISION ?? "unknown"}</p>}
+  if (profiles.length === 1 && capturedID === profiles[0].id && !associated) return null;
+  return <section><label>Antenna<select aria-label="Current draft antenna profile" disabled={disabled} value={capturedID ?? ""} onChange={e => { const p = profiles.find(p => p.id === e.target.value); if (p) { const next = antennaSnapshot(draft, p); next.extraFields.APP_OM0RXXLOG_ANTENNA_MANUAL = "Y"; onApply(next); } }}><option value="">Choose antenna</option>{capturedID && !profiles.some(p => p.id === capturedID) && <option value={capturedID} disabled>{draft.extraFields.APP_OM0RXXLOG_ANTENNA_NAME || capturedID} (retained snapshot)</option>}{profiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
     {associated && Number.isFinite(offset) && <div><p>Rotor observed: {typeof observed.azimuth === "number" ? `${observed.azimuth}°` : "unknown"} · Antenna observed: {typeof observed.azimuth === "number" ? `${antennaHeading(observed.azimuth, offset)}°` : "unknown"} · captured offset {offset}°</p>
       <label>Desired antenna bearing °<input aria-label="Desired antenna bearing" type="number" min={0} max={360} value={bearing} onChange={e => setBearing(e.target.value)} /></label>
       <button type="button" disabled={disabled || !onGoto || !observed.connected || !bearing.trim() || !Number.isFinite(Number(bearing)) || Number(bearing) < 0 || Number(bearing) > 360} onClick={() => onGoto?.(rotorTarget(Number(bearing), offset))}>Turn antenna to bearing</button><small>Explicit target maps to rotor bearing {bearing.trim() && Number.isFinite(Number(bearing)) ? rotorTarget(Number(bearing), offset) : "—"}°. Profile edits and selection send no movement.</small></div>}
