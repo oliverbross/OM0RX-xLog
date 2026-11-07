@@ -6,6 +6,12 @@ import Foundation
 import FoundationNetworking
 #endif
 
+/// Shared transport bound retained from the pre-retirement socket. Decoding
+/// binary samples is gone; unrelated radio controls keep their existing limit.
+public enum TCIWebSocketLimits {
+    public static let maximumMessageBytes = 131_136
+}
+
 public enum TCIWebSocketMessage: Equatable, Sendable {
     case text(String)
     case binary(Data)
@@ -27,7 +33,7 @@ public final class NativeTCIWebSocketConnector: TCIWebSocketConnecting, @uncheck
     private let session: URLSession
     private let maximumMessageBytes: Int
 
-    public init(session: URLSession = .shared, maximumMessageBytes: Int = 4 * 1024 * 1024) {
+    public init(session: URLSession = .shared, maximumMessageBytes: Int = TCIWebSocketLimits.maximumMessageBytes) {
         self.session = session
         self.maximumMessageBytes = max(1, maximumMessageBytes)
     }
@@ -270,7 +276,7 @@ public actor TCIReadOnlyWebSocketSession {
         configuredAddress: TCIReceiverAddress,
         connector: any TCIWebSocketConnecting = NativeTCIWebSocketConnector(),
         limits: TCIProtocolLimits = .default,
-        maximumBinaryMessageBytes: Int = 4 * 1024 * 1024,
+        maximumBinaryMessageBytes: Int = TCIWebSocketLimits.maximumMessageBytes,
         clock: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.endpoint = endpoint

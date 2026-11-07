@@ -1580,6 +1580,21 @@ final class TCIWebSocketSessionTests: XCTestCase {
         await session.disconnect()
     }
 
+    func testDefaultBinaryBoundDoesNotExpandWhenDecoderIsRetired() async throws {
+        let connection = FakeTCIWebSocketConnection()
+        let session = TCIReadOnlyWebSocketSession(endpoint: endpoint, configuredAddress: address,
+            connector: FakeTCIWebSocketConnector(connections: [connection]))
+        try await session.connect()
+        await connection.enqueue(.text(Self.discoveryAndState + "ready;"))
+        let ready = try await waitForObservation(session) { $0.availability == .available }
+        await connection.enqueue(.binary(Data(repeating: 0, count: 131_137)))
+        let stopped = try await waitForObservation(session, after: ready.sequence) {
+            $0.availability == .unavailable && $0.failure == .binaryMessageTooLarge
+        }
+        XCTAssertNil(stopped.snapshot)
+        await session.disconnect()
+    }
+
     func testFatalProtocolFrameAndOversizedBinaryFailClosed() async throws {
         let oversizedConnection = FakeTCIWebSocketConnection()
         let binaryConnection = FakeTCIWebSocketConnection()

@@ -12,7 +12,7 @@ and physical evidence remain separate.
 
 ## Current checkpoint — 7 November 2026, Darwin
 
-### Focused 1.5.27 continuation
+### Focused retirement continuation — final candidate 1.5.28
 
 The user authorized retirement of the unfinished embedded CW decoder and local
 installation over daily 1.5.15 after a **new** verified app/data/voice backup.
@@ -32,7 +32,13 @@ commits or uncommitted source; its sole untracked entry was a verified symlink
 to canonical node_modules. It was removed normally without force. Historical
 decoder evidence remains in Git and the existing CW records.
 
-Focused Rust: 1,086 shell + 34 Hamlib tests pass. Focused Swift and frontend
+The [1.5.27 build](../../releases/v1.5.27-macos-quality-candidate.md) is retained
+but rejected before any launch/installation: source review found an unintended
+TCI message-bound increase, and native CI discovery caught removal of a shared
+passive-read policy regression. Restore the original 131,136-byte limit and
+shared test; use the next unused version 1.5.28 for the corrected candidate.
+
+Focused Rust before these final corrections: 1,086 shell + 34 Hamlib tests pass. Focused Swift and frontend
 build/window budgets pass. Two local contest voice tests originally timed out
 at their existing five-second bounds; each later passed unchanged in a focused
 recheck. Final frontend recheck/source gates, signed build, attributed desktop

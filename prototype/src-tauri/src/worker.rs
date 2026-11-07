@@ -2557,6 +2557,41 @@ mod tests {
 
 
     #[test]
+    fn passive_reads_use_bounded_timeout_without_widening_mutation_policy() {
+        for method in [
+            "station_snapshot", "station_rotor_snapshot", "rotor_snapshot",
+            "workspace_map_context", "hm_control_logbook", "lookup_call", "logbook_previous", "logbook_duplicate",
+            "logbook_matrix", "cluster_history", "cluster_snapshot",
+            "opportunities_snapshot", "opportunities_refresh",
+            "opportunities_dxpedition_snapshot", "opportunities_dxpedition_refresh",
+            "wsjtx_snapshot", "reference_resolve", "contest_export_prepare",
+            "contest_export_read", "contest_export_release",
+            "contest_spot_points_preview",
+            "contest_scp_status", "contest_scp_query", "contest_scp_cancel", "contest_scp_select",
+            "contest_history_status", "contest_history_preview_page", "contest_history_preview_cancel",
+            "contest_history_query", "contest_history_query_cancel", "contest_history_select",
+            "contest_log_page", "contest_analytics", "spot_history_status", "spot_history_query", "spot_history_detail",
+        ] {
+            assert!(request_is_non_retiring_read(&json!({"method":method})), "{method}");
+            assert_eq!(request_timeout(&json!({"method":method})),
+                if matches!(method, "lookup_call" | "opportunities_refresh" | "opportunities_dxpedition_refresh") { RESPONSE_TIMEOUT } else { PASSIVE_READ_TIMEOUT }, "{method}");
+        }
+        for method in [
+            "station_connect", "station_tune", "station_action", "station_radio_control",
+            "station_rotor_goto", "station_rotor_stop", "rotor_connect", "rotor_disconnect",
+            "rotor_goto", "rotor_stop", "rotor_park", "logbook_operator_draft_apply",
+            "logbook_contact_apply", "logbook_save", "logbook_delete", "logbook_undo",
+            "logbook_import_adif", "workspace_create", "settings_save", "reference_refresh",
+            "cluster_resume", "contest_qso_correct", "contest_qso_delete",
+            "contest_scp_import_private",
+            "contest_history_preview_private", "contest_history_preview_commit", "contest_history_apply",
+        ] {
+            assert!(!request_is_non_retiring_read(&json!({"method":method})), "{method}");
+            assert_eq!(request_timeout(&json!({"method":method})), RESPONSE_TIMEOUT, "{method}");
+        }
+    }
+
+    #[test]
     fn review_reads_do_not_block_module_transitions_or_retire_on_timeout() {
         for method in ["contest_log_page", "contest_analytics", "contest_recorder_changes", "contest_rtc_status", "contest_n1mm_delivery", "wsjtx_snapshot", "fldigi_snapshot", "spot_history_status", "spot_history_query", "spot_history_detail", "reference_log_review"] {
             let request = json!({"method":method});
