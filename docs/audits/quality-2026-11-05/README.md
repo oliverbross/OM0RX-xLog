@@ -4,7 +4,9 @@ Owner: Oliver / OM0RX. Execution starts from clean canonical `main`
 `da6fefb394944b28be9533ab861be9026306fa8d`; fetch/fast-forward verified.
 The supplied handoff ZIP SHA-256 is
 `ab9beab930aff7e8c3646aa9795052e93bfd272594a17631e8bcda0a3586b143`.
-The installed daily logger bytes and public release remain unchanged during this phase.
+The opening checkpoint kept the installed daily logger and public release unchanged.
+The explicitly authorized 7 November local replacement is recorded below;
+public-release qualification remains open.
 
 This is the single phase tracker. Focused reports are supporting evidence,
 not separate release decisions. Source, component, packaged, ordinary-account
@@ -18,6 +20,8 @@ The user authorized retirement of the unfinished embedded CW decoder and local
 installation over daily 1.5.15 after a **new** verified app/data/voice backup.
 The missing historical backup is not a recovery source. No public release is
 authorized. UTM and the separate OM0RX-Skimmer project remain untouched.
+This continuation began from clean canonical `main` at supplied `6ad81050`;
+fetch/fast-forward and unrelated-work preservation were verified.
 
 The embedded UI, settings switch, RPCs, polling, native compute/model/runtime,
 IQ subscriptions/capture, local generated-spot server and packaging are removed.
@@ -35,25 +39,65 @@ decoder evidence remains in Git and the existing CW records.
 The [1.5.27 build](../../releases/v1.5.27-macos-quality-candidate.md) is retained
 but rejected before any launch/installation: source review found an unintended
 TCI message-bound increase, and native CI discovery caught removal of a shared
-passive-read policy regression. Restore the original 131,136-byte limit and
-shared test; use the next unused version 1.5.28 for the corrected candidate.
+passive-read policy regression. Correction `153fc6c3` restores the original
+131,136-byte limit and shared test; signed 1.5.28 uses frozen `19a23751`.
 
 Focused Rust before these final corrections: 1,086 shell + 34 Hamlib tests pass. Focused Swift and frontend
 build/window budgets pass. Two local contest voice tests originally timed out
 at their existing five-second bounds; each later passed unchanged in a focused
-recheck. Final frontend recheck/source gates, signed build, attributed desktop
-interval, fresh backup and installation evidence follow in the candidate record.
+recheck. Final frontend 311/311, production/window budgets and retained TCI/CWX
+66/66 pass. The [candidate record](../../releases/v1.5.28-macos-quality-candidate.md)
+contains build pins, original failed attempts and the new backup/data gates.
+Developer ID arm64 signing, 9/9 signed-worker checks and payload privacy
+(3,534 files, zero findings) pass.
+
+Foreground activation now passes the unchanged observer predicate. The next
+visibility check rejects computer-use Software Cursor, full-display Dock
+surface and Window-sharing badge above the candidate. No visibility exclusion,
+ownership, heartbeat or deadline rule was relaxed: **no valid 30-minute
+interval or final-ten-minute CPU result** exists. A separately labelled
+60.55-second generated-100k diagnostic accounts for all five owners:
+**321.145 → 344.379 MiB** shared-accounted footprint and **4.069% of one core**.
+WebContent contributes 2.746% CPU and the footprint rise; the worker remains
+83.735 MiB. This does not attribute the historical ~7 GB incident or establish
+a leak/improvement. Ordinary candidate Quit, full-family absence and all-12-
+column QSO/settings preservation pass. The next useful optimization work is
+WebContent idle allocation/timer/render correlation on the Desk/map, followed
+by a valid interval; speculative SQL caching was not added.
+
+The NEW backup `before-1.5.28-20261107T105022+0930` is verified: signed 1.5.15,
+69,740 live QSOs, settings and all 662 managed audio files; consistent standalone
+SQLite plus exact profile/media manifests and restoration instructions exist.
+The earlier new attempt's standalone WAL-header read failure is retained;
+source/profile-copy integrity passed, and a fresh finalized standalone snapshot
+resolved the backup gate without changing production data. Disposable signed-
+worker migration, search, three distinct pages and restart preserve all stored
+QSO columns/settings on both runs.
+
+**Signed 1.5.28 is now installed for authorized local evaluation**, built from
+clean frozen `19a23751`; all exact-source CI, seven portability jobs and full
+Mac source/build pass. Installed strict signature/executable/manifest pins
+match the archive. Normal Desk, 69,740-contact Logbook, paging 1–40 → 41–80,
+existing-call search, cleared search, ordinary Quit and normal restart pass.
+All 12 stored QSO columns/settings, 24 saved preference keys, six native
+configuration/selection records and all 662 audio files/file set are preserved.
+Expected acknowledged startup-connect journals are checked separately from
+configuration against the owning bounded-retirement rule. The app is left
+running on the normal Desk; no live test contacts or equipment commands were
+used. Previous app and verified full backup remain available. UTM stays running.
+**Public release, valid long desktop interval, original incident attribution,
+unresolved hardware/platform work and notarization remain OPEN.**
 
 | ID | Current scope / status | Evidence and next step |
 |---|---|---|
-| Q00 | Canonical integration advanced; installed bytes unchanged; historical data backup absent | Paging `f53ab0ed` and exact reviewed ADIF `e7fce13b` are committed/pushed. Installed Mac 1.5.15 host/worker hashes still match; the user reopened it and the exact installed pair is process-verified. UTM is started. The 1.5.9 application rollback ZIP was rehashed, but the original pre-1.5.15 data-backup directory is absent; these are distinct preservation results. Public release and protected worktrees remain unchanged. S25 package source is separately frozen at `ff8a8e38`. |
-| Q01 | Current daily ownership established; desktop budget and original incident OPEN | [Five-owner daily 1.5.15 sample](memory-current-instance-2026-11-06.md): shared-accounted footprint **3467.149 MiB / 3.386 GiB**, worker **2920.441 MiB / 2.852 GiB** at 18:11:46 UTC on 6 November. This old installed version predates retention repairs. Same-pair growth **1513.610 MiB** is uncontrolled; no rate/cause inferred. Original ~7 GB htop report remains unattributed. Next: corrected signed candidate, positive complete ownership and one valid foreground interval. |
+| Q00 | Signed 1.5.28 installed; NEW full backup verified | [S28 record](../../releases/v1.5.28-macos-quality-candidate.md): frozen clean `19a23751`, signed bytes/provenance, installed Desk/search/paging/Quit/restart and data preservation pass. NEW verified pre-S28 backup includes signed 1.5.15, consistent database, settings and all managed media; original historical backup remains absent. Old decoder worktree is retired normally after pushed archival branch; unrelated worktrees remain. Public release is unchanged. |
+| Q01 | S28 diagnostic measured; valid desktop interval and incident attribution OPEN | Complete five-owner generated-100k diagnostic: shared-accounted **321.145 → 344.379 MiB** over **60.55 s**; no long-term or paired improvement claim. Foreground passes; unchanged visibility guard rejects cursor/Dock/sharing surfaces, so no valid 30-minute interval. Ordinary Quit/100k preservation pass. [Older daily 1.5.15 sample](memory-current-instance-2026-11-06.md) remains historical evidence (3.386 GiB family, 2.852 GiB worker), not a controlled comparison. Original ~7 GB report remains unattributed. |
 | Q02 | AU24 editor/fallback and AU25 Settings restart PASS within bounds; broader desktop OPEN | [AU24](../../releases/v1.5.24-windows-quality-candidate.md) qualifies readable full-editor create/edit/restart at 1024×768 and readable map fallback; WebGL2 stayed unavailable. [AU25](windows-ordinary-1.5.25.md) adds acknowledged Settings save/restart/restoration with 16/16 data/settings checks. Fresh onboarding, native-x64/true Standard desktop and equipment remain open. Earlier AU21/AU22 blank-Desk failures remain recorded. |
 | Q03 | S25 hosted scopes and ordinary nonempty all-users upgrade PASS within bounds | [S25 package audit](ci-1.5.25-windows-packaged-qualification.md): both hosted scopes pass, 3,271 actual files checked, zero privacy findings. [Ordinary AU24→AU25](windows-ordinary-1.5.25.md): default Program Files/HKLM64, unelevated medium launches, two QSOs/all 12 columns preserved, two bounded normal closes and verified 454-file profile archive. ARM64/x64 emulation, filtered administrator; not full restore/media or ordinary native-x64/Standard qualification. |
-| Q04 | Redundant notifications repaired; measured idle CPU improvement OPEN | [Development comparison](idle-work-native-correlation.md): React commits 809→646, host CPU 1.439770137→1.501382175% of one core. Fewer renders did not demonstrate CPU saving. Preserve Stop/lease/reconnect guarantees and measure the corrected signed desktop before selecting more work. |
-| Q05 | Paging correctness integrated; ADIF boundary correction integrated; package qualification OPEN | [Paging](logbook-page-cancellation-2026-11-06.md): 9/9 nonempty signed-baseline trials fail, corrected development 12/12 framed trials and 8 controls pass, 100k/all-12-column hash retained; f53 CI/native selection passes. Original full f53 Mac gate FAIL is retained. [ADIF](adif-fractional-second-2026-11-07.md): exact reviewed patch at `e7fce13b`; retained targeted 21/21 pass, fresh corrected-source gates recorded separately. Existing lifetime/expiry and signed tiny-transfer evidence below remains bounded; SQL count-cache optimization, full native draining and visible-save latency remain open. |
-| Q06 | S25 Windows source/package/ordinary scopes PASS; older Linux evidence unchanged | [S25 source gates](ci-1.5.25-source-gates.json): CI, full Mac source/build and seven portability jobs pass on ff8; [Windows run 42286159030](ci-1.5.25-windows-packaged-qualification.md) passes both hosted scopes. Eight error-1412 stderr lines remain; no universal orphan cleanup inferred. S25 Windows-only dispatch skipped Linux runtime. Original S24 hosted failures and original S22 Linux failure remain failures; later [same-byte S22 Linux pass](linux-runtime-1.5.22-audit.md) keeps its exact package. |
-| Q07 | Candidates HELD; signed S26 built; quality phase OPEN | S25 excludes later paging/ADIF corrections. S26 `8acc236c` signed build/extraction, CI and seven portability jobs pass; [all exact-source S26 gates](ci-1.5.26-source-gates.md), including full Mac 42310555428, now pass. First fixture setup stopped before RPC/GUI and closed normally; new corrected-adapter setup/ownership/Quit/preservation passed, but foreground readiness failed with zero samples; foreground preflight and an attributed interval remain next. Original incident, full desktop memory, demonstrated CPU saving, native-x64/Standard/fresh onboarding, media/full restore, real Linux desktop, physical equipment and notarization remain open. No daily-app replacement or public publication follows from these bounded passes. |
+| Q04 | S28 short idle diagnostic 4.069% of one core; improvement OPEN | All five attributed owners: WebContent 2.746%, host 1.000%, GPU 0.225%, worker 0.099%, Networking 0.000% over 60.55 s, diagnostic overhead not subtracted. No valid final-ten-minute result or before/after CPU saving. Profile WebContent idle allocations and Desk/map timers/rendering next; keep Stop/lease/reconnect bounds. [Earlier comparison](idle-work-native-correlation.md) remains unchanged. |
+| Q05 | Paging/ADIF corrections integrated; signed S28 search/paging/restart PASS within bounds | [Paging](logbook-page-cancellation-2026-11-06.md) and [ADIF](adif-fractional-second-2026-11-07.md) retain original failure and focused source evidence. Installed S28 adds successful visible paging/search and restart with 69,740 real contacts and all stored columns unchanged; disposable migration/restart each check three distinct pages. Broader ADIF UI/preview lifetime, full native draining and visible-save latency remain bounded/open; no SQL caching added. |
+| Q06 | S28 cross-platform source gates PASS; packaged platform evidence unchanged | [S28 record and exact runs](../../releases/v1.5.28-macos-quality-candidate.md): CI, all seven Mac/Linux/Windows portability jobs and full Mac source/build pass on `19a23751`. CI package steps and separate packaged-runtime jobs were skipped/not repeated; local signed Mac acceptance is separate. Earlier [S25 Windows scopes](ci-1.5.25-windows-packaged-qualification.md), eight retained error-1412 lines, original S24/S22 failures and later [same-byte S22 Linux pass](linux-runtime-1.5.22-audit.md) keep their original scope. |
+| Q07 | S28 installed for local evaluation; public-release quality phase OPEN | Source/signing/privacy and bounded installed startup/data/search/paging/restart pass; fresh full backup and application rollback verified. S27 rejected before use; S26 foreground failure and all earlier evidence retained. Valid long desktop performance, original incident attribution, demonstrated CPU improvement, outstanding native-x64/Standard/onboarding/full restore/real Linux desktop, physical equipment and notarization remain open. No public GitHub release. |
 
 ### Final exact-source S26 gates
 
@@ -73,7 +117,7 @@ At the user's temporary stop, priorities are: (1) retain the final exact-source 
 
 ### Current preservation check
 
-The 7 November continuation initially observed no xLog processes. The user then explicitly reopened the daily application; process-only inspection verified the exact installed host and worker. Installed **1.5.15** executable hashes still match the historical baseline below. This establishes the currently running pair, not continuity with the earlier memory sample or fresh WebKit attribution. UTM remains started; this task did not stop, reboot or sign out of the VM.
+At the completed S26 checkpoint, the 7 November continuation initially observed no xLog processes. The user then explicitly reopened the daily application; process-only inspection verified the exact installed host and worker. Installed **1.5.15** executable hashes matched the historical baseline below. This established that then-running pair, not continuity with the earlier memory sample or fresh WebKit attribution. The separately authorized S28 replacement above supersedes that installed state. UTM remains started; this task did not stop, reboot or sign out of the VM.
 
 The original pre-1.5.15 backup directory is **absent** at its recorded location. Its historical verification remains valid as a historical record; current availability and recovery of that data backup are not established. No cause is inferred, and this continuation did not delete it. The retained **1.5.9 application rollback ZIP** was independently rehashed as `d089b249f738f3791c56de1aee27abfdf4434dbab77b26216f1b9a8f13fc680b`. That archive supplies application rollback bytes; it does not recover or replace the missing data backup. Private locations and process identifiers remain outside this summary.
 
