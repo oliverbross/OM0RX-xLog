@@ -14,6 +14,29 @@ and physical evidence remain separate.
 
 ## Current checkpoint — 7 November 2026, Darwin
 
+### S29 untouched-desktop retry — foreground passes, tooling overlays block
+
+The [authorized retry](idle-signed-1.5.29-retry-2026-11-07.md) retained the signed
+S29 build/source/100k profile and working Standard WebGL settings. A setup guard
+initially required a running daily app although it was closed; that failed
+launch stopped before GUI binding and was retired normally with preservation.
+A narrow retained helper patch accepts absent or complete daily pairs, keeps
+UTM required and preserves positive candidate ownership/disjointness checks.
+A separate corrected launch passed before marked Desk binding.
+
+The first quiet preflight still saw ChatGPT foreground. The retained guarded
+native activation helper established the same existing candidate PID, without
+relaunch. After another 60.0051-second warm-up with no interactive observation,
+the actual predicate **passed foreground** but rejected Computer Use Software
+Cursor **126×126**, full-display Dock metadata **3840×2160**, and candidate
+sharing badge **66×20** above the main window. No classification defect or
+whitelist change was justified. **No interval or scheduled memory/final-ten-minute
+CPU result exists.** Ordinary Quit/full-family absence, all 100k stored QSO
+columns, integrity and settings pass. UTM stays running; daily remains closed
+as found, installed/available. No app build/install, public release or Skimmer
+change. Next condition: local preparation without capture/cursor/sharing
+overlays, then unchanged preflight; an untouched desktop alone was insufficient.
+
 ### Signed 1.5.29 idle interval — single readiness attempt blocked
 
 [Bounded signed-app attempt](idle-signed-1.5.29-2026-11-07.md): retained signed
@@ -156,10 +179,10 @@ unresolved hardware/platform work and notarization remain OPEN.**
 | ID | Current scope / status | Evidence and next step |
 |---|---|---|
 | Q00 | Signed 1.5.29 installed; NEW S28/full-profile backup verified | [S29 record](../../releases/v1.5.29-macos-quality-candidate.md): frozen clean `78681662`, signed-byte pins, startup/search/paging/Quit/restart and bounded preservation pass. Fresh backup retains signed S28, 69,741 live QSOs, settings/all 662 audio; earlier backup/rollback preserved. One normal automatic remote merge and follow-radio band transition explicitly dispositioned. Public release unchanged. |
-| Q01 | S29 signed readiness BLOCKED; strict interval/incident attribution OPEN | [One signed-app preflight](idle-signed-1.5.29-2026-11-07.md) after 60.0119s quiet warm-up rejected AetherSDR foreground; no interval/scheduled samples. Historical cursor/Dock/sharing occlusion was not reached or relaxed. Complete candidate Quit/100k/settings preservation passes; daily/UTM remain running. Earlier development diagnostics retain their scope. Next: uninterrupted foreground desktop and fresh unchanged preflight. |
+| Q01 | S29 foreground passes; tooling occlusion BLOCKED; interval/incident OPEN | [Untouched-desktop retry](idle-signed-1.5.29-retry-2026-11-07.md): verified native activation + 60s quiet warm-up reaches unchanged occlusion predicate; Software Cursor/Dock/sharing surfaces rejected. No interval/samples. Candidate Quit/100k/settings pass; UTM running, daily closed as found. Earlier foreground failures retained. Next: remove capture/cursor/sharing overlays through local preparation, then unchanged preflight. |
 | Q02 | AU24 editor/fallback and AU25 Settings restart PASS within bounds; broader desktop OPEN | [AU24](../../releases/v1.5.24-windows-quality-candidate.md) qualifies readable full-editor create/edit/restart at 1024×768 and readable map fallback; WebGL2 stayed unavailable. [AU25](windows-ordinary-1.5.25.md) adds acknowledged Settings save/restart/restoration with 16/16 data/settings checks. Fresh onboarding, native-x64/true Standard desktop and equipment remain open. Earlier AU21/AU22 blank-Desk failures remain recorded. |
 | Q03 | S25 hosted scopes and ordinary nonempty all-users upgrade PASS within bounds | [S25 package audit](ci-1.5.25-windows-packaged-qualification.md): both hosted scopes pass, 3,271 actual files checked, zero privacy findings. [Ordinary AU24→AU25](windows-ordinary-1.5.25.md): default Program Files/HKLM64, unelevated medium launches, two QSOs/all 12 columns preserved, two bounded normal closes and verified 454-file profile archive. ARM64/x64 emulation, filtered administrator; not full restore/media or ordinary native-x64/Standard qualification. |
-| Q04 | Development CPU saving retained; signed-app CPU UNMEASURED | [Development pair](idle-desk-2026-11-07.md): WebContent **4.680→3.556%**, family **6.571→5.547%** of one core; final footprint unchanged. [Signed S29 readiness](idle-signed-1.5.29-2026-11-07.md) blocked before interval on AetherSDR foreground. No final-ten-minute CPU or signed before/after baseline. Reserve quiet foreground desktop before next preflight. |
+| Q04 | Development saving retained; signed-app CPU UNMEASURED | [Development pair](idle-desk-2026-11-07.md) remains separate. [Latest signed retry](idle-signed-1.5.29-retry-2026-11-07.md) establishes foreground but fails tooling-overlay occlusion. No final-ten-minute CPU, 30-minute footprint series or signed before/after baseline. Remove capture/cursor/sharing surfaces before next unchanged preflight. |
 | Q05 | Signed S29 search/paging/Quit/restart PASS within recorded bounds | 69,741 contacts, visible paging 1–40→41–80 and five-result search; initial aggregate-generation guard recovered through explicit Retry. Disposable migration/restart preserve all 12 columns/settings. Production one-row automatic remote pull and band-follow preference transition explicitly reviewed; other rows/settings/audio/configuration match. Earlier paging/ADIF failures and broader lifetime/latency gaps remain recorded. |
 | Q06 | S29 exact-source gates PASS; packaged platform evidence unchanged | [S29 exact runs](../../releases/v1.5.29-macos-quality-candidate.md): CI, all seven portability jobs and full Mac source/build pass on `78681662`. Linux/Windows packaged-runtime jobs SKIPPED. Local signed Mac checks separate; prior S25 Windows and S22 Linux acceptance/failures retain their original scope. |
 | Q07 | S29 installed for local evaluation; public quality phase OPEN | One signed package/install, fresh verified full backup, prior rollback and bounded installed acceptance complete. Measured development CPU saving does not qualify signed-app long performance. Original incident, native-x64/Standard/onboarding/full restore/real Linux desktop, physical equipment and notarization remain open. Historical rejected candidates/visibility failures retained; no public release. |

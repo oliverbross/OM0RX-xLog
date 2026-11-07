@@ -1,0 +1,21 @@
+--- a/collect-s29-budget.py
++++ b/collect-s29-budget.py
+@@ -103,10 +103,14 @@
+   roles.setdefault(match[1],[]).append(helper["pid"])
+  need(set(roles)=={"GPU","WebContent","Networking"},"Incomplete live WebKit family")
+  ambient=[r for r in rows.values() if r["path"] in (DAILY,DAILY_WORKER,UTM)]
+- need({r["path"] for r in ambient}=={DAILY,DAILY_WORKER,UTM},"Required daily app/worker/UTM preservation context unavailable")
+- daily=next(r["pid"] for r in ambient if r["path"]==DAILY)
+- dd=domain(daily)
+- need(helper_pids.isdisjoint({h["pid"] for h in dd["liveWebKit"]}) and all(hd["coalitions"][label]["id"]!=dd["coalitions"][label]["id"] for label in hd["coalitions"]),"Candidate shares daily WebKit/domain ownership")
++ need(len([r for r in ambient if r["path"]==UTM])==1,"Required running UTM preservation context unavailable")
++ daily_hosts=[r for r in ambient if r["path"]==DAILY]
++ daily_workers=[r for r in ambient if r["path"]==DAILY_WORKER]
++ need((len(daily_hosts),len(daily_workers)) in ((0,0),(1,1)),"Partial/ambiguous daily app process family")
++ if daily_hosts:
++  need(daily_workers[0]["ppid"]==daily_hosts[0]["pid"],"Daily worker parent differs")
++  dd=domain(daily_hosts[0]["pid"])
++  need(helper_pids.isdisjoint({h["pid"] for h in dd["liveWebKit"]}) and all(hd["coalitions"][label]["id"]!=dd["coalitions"][label]["id"] for label in hd["coalitions"]),"Candidate shares daily WebKit/domain ownership")
+  ids={hp,wp}|helper_pids;before=native(ids);usage=counters(ids);associations={str(hp):hd}
+  for pid in sorted(ids):
+   current=next(i for i in before if i["pid"]==pid)

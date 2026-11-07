@@ -1,0 +1,228 @@
+{
+  "status": "BLOCKED: foreground passes, geometric occlusion refused; no interval",
+  "version": "1.5.29",
+  "source": "78681662f9104264d0903329996d15962c395711",
+  "repositoryStart": "2a88ec0aa435e77f056bcb21c88b06eaab53065f",
+  "userConfirmedDesktopUntouched": true,
+  "setupFailure": {
+    "manifest": "runs/1.5.29-0854e1d12e/manifest.json",
+    "reason": "Old helper required running daily pair, but daily app was already closed; UTM running",
+    "GUIBinding": false,
+    "ordinaryShutdownAllFiveOwnersAbsent": true,
+    "generatedQSOsPreserved": 100000,
+    "settingsPreserved": true
+  },
+  "helperCorrection": {
+    "patch": "idle-signed-1.5.29-daily-absence.patch",
+    "patchSHA256": "a02b2422b80dfbd5e95ebe7357c8ef179edf3cb06b2b29c838d8f20525f4fdac",
+    "scope": "Accept fully absent daily pair, reject partial/ambiguous pairs, retain running UTM requirement and present-daily disjointness. Positive candidate ownership and stable ambient identity checks unchanged.",
+    "collectorBeforeSHA256": "2877caa7445b59912e94e00e45f3f4ca9c9282e1a86ce81b41dac9b742ad38ce",
+    "collectorAfterSHA256": "7721229a3af85040dd789f67fb21386b5f41e4f56dd2082494e1e09687ecb872",
+    "visibilityPredicateChanged": false
+  },
+  "initialPreflight": {
+    "exitCode": 2,
+    "stdout": "{\"targetPID\":84454,\"frontmostPID\":79485,\"reason\":\"Candidate is not the visible foreground application\",\"type\":\"blocked\",\"targetHidden\":false,\"targetTerminated\":false}\n",
+    "stderr": "",
+    "samePredicateAsWatcher": true
+  },
+  "initialForegroundProcess": "/Applications/ChatGPT.app/Contents/MacOS/ChatGPT",
+  "activation": {
+    "exitCode": 0,
+    "stdout": "{\"requiresSamePredicatePreflight\":true,\"noLaunch\":true,\"activationRequested\":true,\"pid\":84454,\"markedWindowRaised\":true}\n",
+    "stderr": "",
+    "noLaunch": true
+  },
+  "activationHelperSourceSHA256": "a16c066113fd8eff1de45c63b28b656f4f357ceb76aef5dfeaf1461e07952bb6",
+  "activationHelperSHA256": "b948ea9eba4ada5493d23aefe35babe885b896097be6cf0986f37eadf875c5e1",
+  "postActivationWarmup": {
+    "warmupActualSeconds": 60.005132083,
+    "warmupAfterVerifiedOSActivation": true,
+    "atUTC": "2026-11-07T05:21:37.122281+00:00"
+  },
+  "finalPreflight": {
+    "exitCode": 2,
+    "stdout": "{\"match\":{\"kCGWindowName\":\"OM0RX-xLog \u2014 disposable offline acceptance 1272f675-6247-44bc-a1ce-bc2664d46d55\",\"kCGWindowLayer\":0,\"kCGWindowMemoryUsage\":2432,\"kCGWindowIsOnscreen\":true,\"kCGWindowSharingState\":1,\"kCGWindowOwnerPID\":84454,\"kCGWindowOwnerName\":\"OM0RX-xLog\",\"kCGWindowNumber\":7010,\"kCGWindowStoreType\":1,\"kCGWindowBounds\":{\"X\":1200,\"Height\":940,\"Y\":311,\"Width\":1440},\"kCGWindowAlpha\":1},\"matches\":1,\"type\":\"occlusion-diagnostic\",\"above\":[{\"kCGWindowName\":\"Software Cursor\",\"kCGWindowLayer\":102,\"kCGWindowMemoryUsage\":2432,\"kCGWindowIsOnscreen\":true,\"kCGWindowSharingState\":1,\"kCGWindowOwnerPID\":79847,\"kCGWindowOwnerName\":\"ChatGPT Computer Use\",\"kCGWindowNumber\":7017,\"kCGWindowStoreType\":1,\"kCGWindowBounds\":{\"X\":1937,\"Height\":126,\"Y\":264,\"Width\":126},\"kCGWindowAlpha\":1},{\"kCGWindowName\":\"Dock\",\"kCGWindowLayer\":20,\"kCGWindowMemoryUsage\":2432,\"kCGWindowIsOnscreen\":true,\"kCGWindowSharingState\":1,\"kCGWindowOwnerPID\":907,\"kCGWindowOwnerName\":\"Dock\",\"kCGWindowNumber\":42,\"kCGWindowStoreType\":1,\"kCGWindowBounds\":{\"X\":0,\"Height\":2160,\"Y\":0,\"Width\":3840},\"kCGWindowAlpha\":1},{\"kCGWindowName\":\"Window\",\"kCGWindowLayer\":0,\"kCGWindowMemoryUsage\":2432,\"kCGWindowIsOnscreen\":true,\"kCGWindowSharingState\":1,\"kCGWindowOwnerPID\":84454,\"kCGWindowOwnerName\":\"OM0RX-xLog\",\"kCGWindowNumber\":7014,\"kCGWindowStoreType\":1,\"kCGWindowBounds\":{\"X\":1206,\"Height\":20,\"Y\":317,\"Width\":66},\"kCGWindowAlpha\":1}],\"AXTarget\":{\"Width\":1440,\"Height\":940,\"Y\":311,\"X\":1200}}\n{\"targetPID\":84454,\"frontmostPID\":84454,\"reason\":\"Candidate window visibility\\/occlusion is not established\",\"type\":\"blocked\",\"targetHidden\":false,\"targetTerminated\":false}\n",
+    "stderr": "",
+    "samePredicateAsWatcher": true
+  },
+  "occlusionDiagnostic": {
+    "match": {
+      "kCGWindowName": "OM0RX-xLog \u2014 disposable offline acceptance 1272f675-6247-44bc-a1ce-bc2664d46d55",
+      "kCGWindowLayer": 0,
+      "kCGWindowMemoryUsage": 2432,
+      "kCGWindowIsOnscreen": true,
+      "kCGWindowSharingState": 1,
+      "kCGWindowOwnerPID": 84454,
+      "kCGWindowOwnerName": "OM0RX-xLog",
+      "kCGWindowNumber": 7010,
+      "kCGWindowStoreType": 1,
+      "kCGWindowBounds": {
+        "X": 1200,
+        "Height": 940,
+        "Y": 311,
+        "Width": 1440
+      },
+      "kCGWindowAlpha": 1
+    },
+    "matches": 1,
+    "type": "occlusion-diagnostic",
+    "above": [
+      {
+        "kCGWindowName": "Software Cursor",
+        "kCGWindowLayer": 102,
+        "kCGWindowMemoryUsage": 2432,
+        "kCGWindowIsOnscreen": true,
+        "kCGWindowSharingState": 1,
+        "kCGWindowOwnerPID": 79847,
+        "kCGWindowOwnerName": "ChatGPT Computer Use",
+        "kCGWindowNumber": 7017,
+        "kCGWindowStoreType": 1,
+        "kCGWindowBounds": {
+          "X": 1937,
+          "Height": 126,
+          "Y": 264,
+          "Width": 126
+        },
+        "kCGWindowAlpha": 1
+      },
+      {
+        "kCGWindowName": "Dock",
+        "kCGWindowLayer": 20,
+        "kCGWindowMemoryUsage": 2432,
+        "kCGWindowIsOnscreen": true,
+        "kCGWindowSharingState": 1,
+        "kCGWindowOwnerPID": 907,
+        "kCGWindowOwnerName": "Dock",
+        "kCGWindowNumber": 42,
+        "kCGWindowStoreType": 1,
+        "kCGWindowBounds": {
+          "X": 0,
+          "Height": 2160,
+          "Y": 0,
+          "Width": 3840
+        },
+        "kCGWindowAlpha": 1
+      },
+      {
+        "kCGWindowName": "Window",
+        "kCGWindowLayer": 0,
+        "kCGWindowMemoryUsage": 2432,
+        "kCGWindowIsOnscreen": true,
+        "kCGWindowSharingState": 1,
+        "kCGWindowOwnerPID": 84454,
+        "kCGWindowOwnerName": "OM0RX-xLog",
+        "kCGWindowNumber": 7014,
+        "kCGWindowStoreType": 1,
+        "kCGWindowBounds": {
+          "X": 1206,
+          "Height": 20,
+          "Y": 317,
+          "Width": 66
+        },
+        "kCGWindowAlpha": 1
+      }
+    ],
+    "AXTarget": {
+      "Width": 1440,
+      "Height": 940,
+      "Y": 311,
+      "X": 1200
+    }
+  },
+  "finalPredicate": {
+    "targetPID": 84454,
+    "frontmostPID": 84454,
+    "reason": "Candidate window visibility/occlusion is not established",
+    "type": "blocked",
+    "targetHidden": false,
+    "targetTerminated": false
+  },
+  "finalProcessProofUnixSeconds": 1794028898.236415,
+  "ownerIdentities": [
+    {
+      "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.29/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+      "birthMicroseconds": 390305,
+      "ppid": 1,
+      "uid": 501,
+      "pid": 84454,
+      "birthSeconds": 1794028608
+    },
+    {
+      "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU",
+      "birthMicroseconds": 130032,
+      "ppid": 1,
+      "uid": 501,
+      "pid": 84480,
+      "birthSeconds": 1794028609
+    },
+    {
+      "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent",
+      "birthMicroseconds": 188078,
+      "ppid": 1,
+      "uid": 501,
+      "pid": 84482,
+      "birthSeconds": 1794028609
+    },
+    {
+      "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking",
+      "birthMicroseconds": 276186,
+      "ppid": 1,
+      "uid": 501,
+      "pid": 84484,
+      "birthSeconds": 1794028609
+    },
+    {
+      "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.29/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+      "birthMicroseconds": 953504,
+      "ppid": 84454,
+      "uid": 501,
+      "pid": 84507,
+      "birthSeconds": 1794028609
+    }
+  ],
+  "ambientIdentities": [
+    {
+      "nativePath": "/Applications/UTM.app/Contents/MacOS/UTM",
+      "birthMicroseconds": 847450,
+      "ppid": 1,
+      "uid": 501,
+      "pid": 81684,
+      "birthSeconds": 1793912594
+    }
+  ],
+  "dailyAppState": "Already closed before launch, remained closed; installed signed app still available",
+  "fixtureSettings": "Traditional / Map view / 58% map-tools / Standard bundled working WebGL / Detailed / Both / Sun and Greyline on / Heard me off / blank call / 20m Band maps / station and external I/O disabled",
+  "plannedSamplesMinutes": [
+    0,
+    5,
+    15,
+    20,
+    30
+  ],
+  "samples": [],
+  "finalTenMinuteCPU": null,
+  "units": {
+    "memory": "MiB = bytes / 1048576",
+    "CPU": "Percent of one CPU core"
+  },
+  "continuousVisibilityVerified": false,
+  "originalFailureRecordsRetained": true,
+  "ordinaryQuit": {
+    "allAttributedProcessesAndCoalitionsAbsent": true,
+    "integrity": "ok",
+    "generatedQSOsPreserved": 100000,
+    "all12StoredColumnsPreserved": true,
+    "settingsPreserved": true,
+    "QSOHash": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2"
+  },
+  "noApplicationBuildPackageInstallOrVersionChange": true,
+  "UTMRunning": true,
+  "nextAction": "Prepare and run without Computer Use software-cursor/window-sharing capture overlays, with pointer outside candidate and quiet Dock; require unchanged predicate to pass before timing. No broad exclusions or classification defect claimed.",
+  "rawEvidence": ".build/quality-mac-s29-observation-20261107",
+  "limits": [
+    "No valid memory/CPU interval or performance-target disposition",
+    "CGWindow metadata establishes surfaces classified above candidate; pixel coverage of full Dock bounds was not independently proved",
+    "No causal attribution to user input, JS retention, earlier development saving or historical 7 GB incident"
+  ]
+}
