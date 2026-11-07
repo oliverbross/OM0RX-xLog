@@ -1,0 +1,4004 @@
+{
+  "schema": 1,
+  "recordedUTC": "2026-11-07T10:22:24.717442+00:00",
+  "version": "1.5.31",
+  "source": "84d38f7e9cf6b63a5c9d07b610f9fcf0dab42639",
+  "protocol": "Absolute 30-minute background observation after user chose to keep using the computer",
+  "foregroundQualification": false,
+  "candidateApp": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app",
+  "signedArtifactPins": {
+    "host": "df6e236d4fe4985542c3156b6cba3c607bb2082dbf8d000dd01cbfc7dbefc72e",
+    "worker": "17e78fc0a54c08e3c126dfb75ec86c123bbf57f60949fb08090c11f807d5b7a8",
+    "manifest": "e77a4bc52814b0b639f788365e702ae77affe14b989a4bd6f8c218dbcf95bf67",
+    "zip": "3c09148c6f0bc5d2fa38649246ee43d7933b079b0767a9e3609c662a2b1eb3a9",
+    "source": "84d38f7e9cf6b63a5c9d07b610f9fcf0dab42639",
+    "version": "1.5.31"
+  },
+  "referenceHost": {
+    "model": "MacBookPro17,1",
+    "logicalCPUs": 8,
+    "RAMBytes": 17179869184,
+    "macOS": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B123"
+  },
+  "singleFreshSupported100kPreparation": true,
+  "fixtureManifest": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/quit-fix-20261107/runs/1.5.31-0efbf9b63f/manifest.json",
+  "setup": {
+    "foregroundLaunchServicesWithoutBackgroundFlag": true,
+    "exactPrivateRoot": "/private/tmp/xlog-wave1-quality-ui-idle-1.5.31-8vr8isyx",
+    "marker": "55f14a1b-ab72-491d-88f9-1555b307fb06",
+    "blankTraditionalDeskWorkingStandardWebGLPrepared": true,
+    "stationCredentialsClusterNetworkAndSyncDisabled": true,
+    "firstTwoForegroundPreflightsRejectedWithoutSamples": true,
+    "failedForegroundPreflights": [
+      {
+        "exitCode": 2,
+        "stdout": "{\"targetPID\":46897,\"frontmostPID\":45797,\"reason\":\"Candidate is not the visible foreground application\",\"type\":\"blocked\",\"targetHidden\":false,\"targetTerminated\":false}\n",
+        "stderr": "",
+        "samePredicateAsWatcher": true
+      },
+      {
+        "exitCode": 2,
+        "stdout": "{\"targetPID\":46897,\"frontmostPID\":7308,\"reason\":\"Candidate is not the visible foreground application\",\"type\":\"blocked\",\"targetHidden\":false,\"targetTerminated\":false}\n",
+        "stderr": "",
+        "samePredicateAsWatcher": true
+      }
+    ],
+    "revisedWorkloadExplainedToUser": true,
+    "backgroundWarmupActualSeconds": 60.005548624999996,
+    "hostAgeAtFirstMemorySampleSeconds": 1472.380579996704,
+    "observerMode": "JXA read-only AppKit/window-server metadata; no foreground veto, AX event subscription or capture",
+    "strictForegroundObserverUnchangedAndNotUsedForThisBackgroundInterval": true
+  },
+  "samples": [
+    {
+      "scheduledMinutes": 0.0,
+      "actualToolStartUTC": "2026-11-07T09:49:50.546381+00:00",
+      "actualToolEndUTC": "2026-11-07T09:49:50.656906+00:00",
+      "actualElapsedFromFirstToolStartSeconds": 0.0,
+      "sharedAccountedFamilyFootprintBytes": 374460472,
+      "sharedAccountedFamilyFootprintMiB": 357.1133346557617,
+      "compressedSwappedSubsetMiB": 308.0625,
+      "perOwnerFootprintMiB": {
+        "WebContent": 205.2198944091797,
+        "Worker": 82.34441375732422,
+        "Host": 42.4073486328125,
+        "GPU": 20.82878875732422,
+        "Networking": 6.641014099121094
+      },
+      "perOwnerRSSMiB": {
+        "Host": 38.234375,
+        "GPU": 10.109375,
+        "WebContent": 37.5625,
+        "Networking": 1.328125,
+        "Worker": 11.046875
+      },
+      "beforeOwnership": {
+        "preUIIdentityProven": true,
+        "capturedUnixSeconds": 1794044990.54027,
+        "source": "84d38f7e9cf6b63a5c9d07b610f9fcf0dab42639",
+        "hostPID": 46897,
+        "workerPID": 46958,
+        "marker": "55f14a1b-ab72-491d-88f9-1555b307fb06",
+        "root": "/private/tmp/xlog-wave1-quality-ui-idle-1.5.31-8vr8isyx",
+        "ownerIdentities": [
+          {
+            "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+            "birthMicroseconds": 165801,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46897,
+            "birthSeconds": 1794043518
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU",
+            "birthMicroseconds": 113977,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46926,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent",
+            "birthMicroseconds": 191628,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46929,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking",
+            "birthMicroseconds": 281227,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46934,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+            "birthMicroseconds": 120191,
+            "ppid": 46897,
+            "uid": 501,
+            "pid": 46958,
+            "birthSeconds": 1794043520
+          }
+        ],
+        "ambientIdentities": [
+          {
+            "nativePath": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+            "birthMicroseconds": 499670,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 45797,
+            "birthSeconds": 1794042853
+          },
+          {
+            "nativePath": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+            "birthMicroseconds": 490399,
+            "ppid": 45797,
+            "uid": 501,
+            "pid": 45811,
+            "birthSeconds": 1794042854
+          },
+          {
+            "nativePath": "/Applications/UTM.app/Contents/MacOS/UTM",
+            "birthMicroseconds": 847450,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 81684,
+            "birthSeconds": 1793912594
+          }
+        ],
+        "associations": {
+          "46897": {
+            "pid": 46897,
+            "handle": 46897,
+            "originator": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app",
+            "creator": "xlog-prototype[46897]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [
+              {
+                "pid": 46926,
+                "label": "com.apple.WebKit.GPU.43D028E6-534B-4DA6-B60A-74379749767E"
+              },
+              {
+                "pid": 46929,
+                "label": "com.apple.WebKit.WebContent.99F9C5D5-ABCA-434D-B960-ADAA171D51C4"
+              },
+              {
+                "pid": 46934,
+                "label": "com.apple.WebKit.Networking.F5DC5E66-4926-4DA1-B69D-19C849B99511"
+              }
+            ],
+            "rawMetadataSHA256": "c818ef3f4891388f8b74934e5f52c8cc52e1c051fea4754dbc9e8e142f1584cb"
+          },
+          "46926": {
+            "pid": 46926,
+            "handle": 46926,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc",
+            "creator": "com.apple.WebKi[46926]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "a95c82e4bd09d076f3a366c41d3f10172c4e1938b47202bdc29fa23bbab32eb3"
+          },
+          "46929": {
+            "pid": 46929,
+            "handle": 46929,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc",
+            "creator": "com.apple.WebKi[46929]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "5f945a45bc9acce4877212a8afcba2b77254d75a0744897977878a99f77b6578"
+          },
+          "46934": {
+            "pid": 46934,
+            "handle": 46934,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc",
+            "creator": "com.apple.WebKi[46934]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "7947c5f317771bc581e7862f0169515b3ac790bd5d701b6f226f574179bb491d"
+          },
+          "46958": {
+            "pid": 46958,
+            "handle": 46958,
+            "originator": null,
+            "creator": "launchctl[46974]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "655fe567b15e21edf958c6f00491559387a34ef93471f5ee0288f0c1908caa31"
+          }
+        },
+        "counters": {
+          "schema": 1,
+          "machTimebaseStatus": 0,
+          "machTimebaseNumer": 125,
+          "machTimebaseDenom": 3,
+          "rows": [
+            {
+              "pid": 46897,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 40091648,
+              "physicalFootprintBytes": 44467328,
+              "processStartAbsoluteTime": 8408212222875,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 256123611,
+              "cpuSystemMachTicks": 132684597,
+              "packageIdleWakeups": 394,
+              "interruptWakeups": 50898,
+              "pageins": 7588,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 127754240,
+              "diskWrittenBytes": 28672,
+              "sampleMachAbsoluteTime": 8443548613816
+            },
+            {
+              "pid": 46926,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 10600448,
+              "physicalFootprintBytes": 21840568,
+              "processStartAbsoluteTime": 8408234978398,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 75542484,
+              "cpuSystemMachTicks": 100583750,
+              "packageIdleWakeups": 158,
+              "interruptWakeups": 13697,
+              "pageins": 1053,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 22052864,
+              "diskWrittenBytes": 0,
+              "sampleMachAbsoluteTime": 8443548614030
+            },
+            {
+              "pid": 46929,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 39387136,
+              "physicalFootprintBytes": 215188656,
+              "processStartAbsoluteTime": 8408236841978,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 383441361,
+              "cpuSystemMachTicks": 151265290,
+              "packageIdleWakeups": 245,
+              "interruptWakeups": 26358,
+              "pageins": 2454,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 110612480,
+              "diskWrittenBytes": 0,
+              "sampleMachAbsoluteTime": 8443548614212
+            },
+            {
+              "pid": 46934,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 1392640,
+              "physicalFootprintBytes": 6963608,
+              "processStartAbsoluteTime": 8408238992300,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 962032,
+              "cpuSystemMachTicks": 1806808,
+              "packageIdleWakeups": 1,
+              "interruptWakeups": 410,
+              "pageins": 128,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 4288512,
+              "diskWrittenBytes": 53248,
+              "sampleMachAbsoluteTime": 8443548614384
+            },
+            {
+              "pid": 46958,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 11583488,
+              "physicalFootprintBytes": 86344376,
+              "processStartAbsoluteTime": 8408259126842,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 103043317,
+              "cpuSystemMachTicks": 43323122,
+              "packageIdleWakeups": 0,
+              "interruptWakeups": 20,
+              "pageins": 651,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 316485632,
+              "diskWrittenBytes": 143360,
+              "sampleMachAbsoluteTime": 8443548614559
+            }
+          ]
+        }
+      },
+      "afterOwnership": {
+        "preUIIdentityProven": true,
+        "capturedUnixSeconds": 1794044990.813476,
+        "source": "84d38f7e9cf6b63a5c9d07b610f9fcf0dab42639",
+        "hostPID": 46897,
+        "workerPID": 46958,
+        "marker": "55f14a1b-ab72-491d-88f9-1555b307fb06",
+        "root": "/private/tmp/xlog-wave1-quality-ui-idle-1.5.31-8vr8isyx",
+        "ownerIdentities": [
+          {
+            "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+            "birthMicroseconds": 165801,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46897,
+            "birthSeconds": 1794043518
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU",
+            "birthMicroseconds": 113977,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46926,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent",
+            "birthMicroseconds": 191628,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46929,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking",
+            "birthMicroseconds": 281227,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46934,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+            "birthMicroseconds": 120191,
+            "ppid": 46897,
+            "uid": 501,
+            "pid": 46958,
+            "birthSeconds": 1794043520
+          }
+        ],
+        "ambientIdentities": [
+          {
+            "nativePath": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+            "birthMicroseconds": 499670,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 45797,
+            "birthSeconds": 1794042853
+          },
+          {
+            "nativePath": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+            "birthMicroseconds": 490399,
+            "ppid": 45797,
+            "uid": 501,
+            "pid": 45811,
+            "birthSeconds": 1794042854
+          },
+          {
+            "nativePath": "/Applications/UTM.app/Contents/MacOS/UTM",
+            "birthMicroseconds": 847450,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 81684,
+            "birthSeconds": 1793912594
+          }
+        ],
+        "associations": {
+          "46897": {
+            "pid": 46897,
+            "handle": 46897,
+            "originator": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app",
+            "creator": "xlog-prototype[46897]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [
+              {
+                "pid": 46926,
+                "label": "com.apple.WebKit.GPU.43D028E6-534B-4DA6-B60A-74379749767E"
+              },
+              {
+                "pid": 46929,
+                "label": "com.apple.WebKit.WebContent.99F9C5D5-ABCA-434D-B960-ADAA171D51C4"
+              },
+              {
+                "pid": 46934,
+                "label": "com.apple.WebKit.Networking.F5DC5E66-4926-4DA1-B69D-19C849B99511"
+              }
+            ],
+            "rawMetadataSHA256": "c818ef3f4891388f8b74934e5f52c8cc52e1c051fea4754dbc9e8e142f1584cb"
+          },
+          "46926": {
+            "pid": 46926,
+            "handle": 46926,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc",
+            "creator": "com.apple.WebKi[46926]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "a95c82e4bd09d076f3a366c41d3f10172c4e1938b47202bdc29fa23bbab32eb3"
+          },
+          "46929": {
+            "pid": 46929,
+            "handle": 46929,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc",
+            "creator": "com.apple.WebKi[46929]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "5f945a45bc9acce4877212a8afcba2b77254d75a0744897977878a99f77b6578"
+          },
+          "46934": {
+            "pid": 46934,
+            "handle": 46934,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc",
+            "creator": "com.apple.WebKi[46934]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "7947c5f317771bc581e7862f0169515b3ac790bd5d701b6f226f574179bb491d"
+          },
+          "46958": {
+            "pid": 46958,
+            "handle": 46958,
+            "originator": null,
+            "creator": "launchctl[46974]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "655fe567b15e21edf958c6f00491559387a34ef93471f5ee0288f0c1908caa31"
+          }
+        },
+        "counters": {
+          "schema": 1,
+          "machTimebaseStatus": 0,
+          "machTimebaseNumer": 125,
+          "machTimebaseDenom": 3,
+          "rows": [
+            {
+              "pid": 46897,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 40058880,
+              "physicalFootprintBytes": 44467328,
+              "processStartAbsoluteTime": 8408212222875,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 256126343,
+              "cpuSystemMachTicks": 132686778,
+              "packageIdleWakeups": 394,
+              "interruptWakeups": 50904,
+              "pageins": 7588,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 127754240,
+              "diskWrittenBytes": 28672,
+              "sampleMachAbsoluteTime": 8443555163560
+            },
+            {
+              "pid": 46926,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 10420224,
+              "physicalFootprintBytes": 21840568,
+              "processStartAbsoluteTime": 8408234978398,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 75546222,
+              "cpuSystemMachTicks": 100591559,
+              "packageIdleWakeups": 158,
+              "interruptWakeups": 13699,
+              "pageins": 1053,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 22052864,
+              "diskWrittenBytes": 0,
+              "sampleMachAbsoluteTime": 8443555163788
+            },
+            {
+              "pid": 46929,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 38322176,
+              "physicalFootprintBytes": 215188656,
+              "processStartAbsoluteTime": 8408236841978,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 383449355,
+              "cpuSystemMachTicks": 151268580,
+              "packageIdleWakeups": 245,
+              "interruptWakeups": 26361,
+              "pageins": 2454,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 110612480,
+              "diskWrittenBytes": 0,
+              "sampleMachAbsoluteTime": 8443555163994
+            },
+            {
+              "pid": 46934,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 1425408,
+              "physicalFootprintBytes": 6963608,
+              "processStartAbsoluteTime": 8408238992300,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 962032,
+              "cpuSystemMachTicks": 1806808,
+              "packageIdleWakeups": 1,
+              "interruptWakeups": 410,
+              "pageins": 128,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 4288512,
+              "diskWrittenBytes": 53248,
+              "sampleMachAbsoluteTime": 8443555164175
+            },
+            {
+              "pid": 46958,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 11616256,
+              "physicalFootprintBytes": 86344376,
+              "processStartAbsoluteTime": 8408259126842,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 103043317,
+              "cpuSystemMachTicks": 43323122,
+              "packageIdleWakeups": 0,
+              "interruptWakeups": 20,
+              "pageins": 651,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 316485632,
+              "diskWrittenBytes": 143360,
+              "sampleMachAbsoluteTime": 8443555164387
+            }
+          ]
+        }
+      }
+    },
+    {
+      "scheduledMinutes": 5.0,
+      "actualToolStartUTC": "2026-11-07T09:54:50.597099+00:00",
+      "actualToolEndUTC": "2026-11-07T09:54:50.733745+00:00",
+      "actualElapsedFromFirstToolStartSeconds": 300.05071806907654,
+      "sharedAccountedFamilyFootprintBytes": 387420216,
+      "sharedAccountedFamilyFootprintMiB": 369.4727096557617,
+      "compressedSwappedSubsetMiB": 266.53125,
+      "perOwnerFootprintMiB": {
+        "WebContent": 211.1730194091797,
+        "Worker": 82.34441375732422,
+        "Host": 42.4073486328125,
+        "GPU": 27.20378875732422,
+        "Networking": 6.672264099121094
+      },
+      "perOwnerRSSMiB": {
+        "Host": 40.359375,
+        "GPU": 8.953125,
+        "WebContent": 64.875,
+        "Networking": 1.328125,
+        "Worker": 14.28125
+      },
+      "beforeOwnership": {
+        "preUIIdentityProven": true,
+        "capturedUnixSeconds": 1794045290.587869,
+        "source": "84d38f7e9cf6b63a5c9d07b610f9fcf0dab42639",
+        "hostPID": 46897,
+        "workerPID": 46958,
+        "marker": "55f14a1b-ab72-491d-88f9-1555b307fb06",
+        "root": "/private/tmp/xlog-wave1-quality-ui-idle-1.5.31-8vr8isyx",
+        "ownerIdentities": [
+          {
+            "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+            "birthMicroseconds": 165801,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46897,
+            "birthSeconds": 1794043518
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU",
+            "birthMicroseconds": 113977,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46926,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent",
+            "birthMicroseconds": 191628,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46929,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking",
+            "birthMicroseconds": 281227,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46934,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+            "birthMicroseconds": 120191,
+            "ppid": 46897,
+            "uid": 501,
+            "pid": 46958,
+            "birthSeconds": 1794043520
+          }
+        ],
+        "ambientIdentities": [
+          {
+            "nativePath": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+            "birthMicroseconds": 499670,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 45797,
+            "birthSeconds": 1794042853
+          },
+          {
+            "nativePath": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+            "birthMicroseconds": 490399,
+            "ppid": 45797,
+            "uid": 501,
+            "pid": 45811,
+            "birthSeconds": 1794042854
+          },
+          {
+            "nativePath": "/Applications/UTM.app/Contents/MacOS/UTM",
+            "birthMicroseconds": 847450,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 81684,
+            "birthSeconds": 1793912594
+          }
+        ],
+        "associations": {
+          "46897": {
+            "pid": 46897,
+            "handle": 46897,
+            "originator": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app",
+            "creator": "xlog-prototype[46897]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [
+              {
+                "pid": 46926,
+                "label": "com.apple.WebKit.GPU.43D028E6-534B-4DA6-B60A-74379749767E"
+              },
+              {
+                "pid": 46929,
+                "label": "com.apple.WebKit.WebContent.99F9C5D5-ABCA-434D-B960-ADAA171D51C4"
+              },
+              {
+                "pid": 46934,
+                "label": "com.apple.WebKit.Networking.F5DC5E66-4926-4DA1-B69D-19C849B99511"
+              }
+            ],
+            "rawMetadataSHA256": "c818ef3f4891388f8b74934e5f52c8cc52e1c051fea4754dbc9e8e142f1584cb"
+          },
+          "46926": {
+            "pid": 46926,
+            "handle": 46926,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc",
+            "creator": "com.apple.WebKi[46926]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "a95c82e4bd09d076f3a366c41d3f10172c4e1938b47202bdc29fa23bbab32eb3"
+          },
+          "46929": {
+            "pid": 46929,
+            "handle": 46929,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc",
+            "creator": "com.apple.WebKi[46929]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "5f945a45bc9acce4877212a8afcba2b77254d75a0744897977878a99f77b6578"
+          },
+          "46934": {
+            "pid": 46934,
+            "handle": 46934,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc",
+            "creator": "com.apple.WebKi[46934]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "7947c5f317771bc581e7862f0169515b3ac790bd5d701b6f226f574179bb491d"
+          },
+          "46958": {
+            "pid": 46958,
+            "handle": 46958,
+            "originator": null,
+            "creator": "launchctl[46974]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "655fe567b15e21edf958c6f00491559387a34ef93471f5ee0288f0c1908caa31"
+          }
+        },
+        "counters": {
+          "schema": 1,
+          "machTimebaseStatus": 0,
+          "machTimebaseNumer": 125,
+          "machTimebaseDenom": 3,
+          "rows": [
+            {
+              "pid": 46897,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 42319872,
+              "physicalFootprintBytes": 44467328,
+              "processStartAbsoluteTime": 8408212222875,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 305805818,
+              "cpuSystemMachTicks": 155257966,
+              "packageIdleWakeups": 493,
+              "interruptWakeups": 61558,
+              "pageins": 7644,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 129470464,
+              "diskWrittenBytes": 28672,
+              "sampleMachAbsoluteTime": 8450749734228
+            },
+            {
+              "pid": 46926,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 9388032,
+              "physicalFootprintBytes": 28541624,
+              "processStartAbsoluteTime": 8408234978398,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 87645854,
+              "cpuSystemMachTicks": 118184453,
+              "packageIdleWakeups": 194,
+              "interruptWakeups": 16600,
+              "pageins": 1054,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 22085632,
+              "diskWrittenBytes": 0,
+              "sampleMachAbsoluteTime": 8450749734443
+            },
+            {
+              "pid": 46929,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 68026368,
+              "physicalFootprintBytes": 221430960,
+              "processStartAbsoluteTime": 8408236841978,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 454230182,
+              "cpuSystemMachTicks": 175809826,
+              "packageIdleWakeups": 310,
+              "interruptWakeups": 32394,
+              "pageins": 2472,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 113750016,
+              "diskWrittenBytes": 0,
+              "sampleMachAbsoluteTime": 8450749734628
+            },
+            {
+              "pid": 46934,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 1392640,
+              "physicalFootprintBytes": 6996376,
+              "processStartAbsoluteTime": 8408238992300,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 969693,
+              "cpuSystemMachTicks": 1830645,
+              "packageIdleWakeups": 1,
+              "interruptWakeups": 424,
+              "pageins": 128,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 4288512,
+              "diskWrittenBytes": 53248,
+              "sampleMachAbsoluteTime": 8450749734793
+            },
+            {
+              "pid": 46958,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 14974976,
+              "physicalFootprintBytes": 86344376,
+              "processStartAbsoluteTime": 8408259126842,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 111176650,
+              "cpuSystemMachTicks": 48444973,
+              "packageIdleWakeups": 0,
+              "interruptWakeups": 21,
+              "pageins": 666,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 334524416,
+              "diskWrittenBytes": 143360,
+              "sampleMachAbsoluteTime": 8450749734965
+            }
+          ]
+        }
+      },
+      "afterOwnership": {
+        "preUIIdentityProven": true,
+        "capturedUnixSeconds": 1794045290.879332,
+        "source": "84d38f7e9cf6b63a5c9d07b610f9fcf0dab42639",
+        "hostPID": 46897,
+        "workerPID": 46958,
+        "marker": "55f14a1b-ab72-491d-88f9-1555b307fb06",
+        "root": "/private/tmp/xlog-wave1-quality-ui-idle-1.5.31-8vr8isyx",
+        "ownerIdentities": [
+          {
+            "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+            "birthMicroseconds": 165801,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46897,
+            "birthSeconds": 1794043518
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU",
+            "birthMicroseconds": 113977,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46926,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent",
+            "birthMicroseconds": 191628,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46929,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking",
+            "birthMicroseconds": 281227,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46934,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+            "birthMicroseconds": 120191,
+            "ppid": 46897,
+            "uid": 501,
+            "pid": 46958,
+            "birthSeconds": 1794043520
+          }
+        ],
+        "ambientIdentities": [
+          {
+            "nativePath": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+            "birthMicroseconds": 499670,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 45797,
+            "birthSeconds": 1794042853
+          },
+          {
+            "nativePath": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+            "birthMicroseconds": 490399,
+            "ppid": 45797,
+            "uid": 501,
+            "pid": 45811,
+            "birthSeconds": 1794042854
+          },
+          {
+            "nativePath": "/Applications/UTM.app/Contents/MacOS/UTM",
+            "birthMicroseconds": 847450,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 81684,
+            "birthSeconds": 1793912594
+          }
+        ],
+        "associations": {
+          "46897": {
+            "pid": 46897,
+            "handle": 46897,
+            "originator": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app",
+            "creator": "xlog-prototype[46897]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [
+              {
+                "pid": 46926,
+                "label": "com.apple.WebKit.GPU.43D028E6-534B-4DA6-B60A-74379749767E"
+              },
+              {
+                "pid": 46929,
+                "label": "com.apple.WebKit.WebContent.99F9C5D5-ABCA-434D-B960-ADAA171D51C4"
+              },
+              {
+                "pid": 46934,
+                "label": "com.apple.WebKit.Networking.F5DC5E66-4926-4DA1-B69D-19C849B99511"
+              }
+            ],
+            "rawMetadataSHA256": "c818ef3f4891388f8b74934e5f52c8cc52e1c051fea4754dbc9e8e142f1584cb"
+          },
+          "46926": {
+            "pid": 46926,
+            "handle": 46926,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc",
+            "creator": "com.apple.WebKi[46926]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "a95c82e4bd09d076f3a366c41d3f10172c4e1938b47202bdc29fa23bbab32eb3"
+          },
+          "46929": {
+            "pid": 46929,
+            "handle": 46929,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc",
+            "creator": "com.apple.WebKi[46929]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "5f945a45bc9acce4877212a8afcba2b77254d75a0744897977878a99f77b6578"
+          },
+          "46934": {
+            "pid": 46934,
+            "handle": 46934,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc",
+            "creator": "com.apple.WebKi[46934]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "7947c5f317771bc581e7862f0169515b3ac790bd5d701b6f226f574179bb491d"
+          },
+          "46958": {
+            "pid": 46958,
+            "handle": 46958,
+            "originator": null,
+            "creator": "launchctl[46974]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "655fe567b15e21edf958c6f00491559387a34ef93471f5ee0288f0c1908caa31"
+          }
+        },
+        "counters": {
+          "schema": 1,
+          "machTimebaseStatus": 0,
+          "machTimebaseNumer": 125,
+          "machTimebaseDenom": 3,
+          "rows": [
+            {
+              "pid": 46897,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 42352640,
+              "physicalFootprintBytes": 44450944,
+              "processStartAbsoluteTime": 8408212222875,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 305895093,
+              "cpuSystemMachTicks": 155290008,
+              "packageIdleWakeups": 493,
+              "interruptWakeups": 61564,
+              "pageins": 7644,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 129470464,
+              "diskWrittenBytes": 28672,
+              "sampleMachAbsoluteTime": 8450756789906
+            },
+            {
+              "pid": 46926,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 9404416,
+              "physicalFootprintBytes": 28525240,
+              "processStartAbsoluteTime": 8408234978398,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 87652716,
+              "cpuSystemMachTicks": 118197987,
+              "packageIdleWakeups": 194,
+              "interruptWakeups": 16603,
+              "pageins": 1054,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 22085632,
+              "diskWrittenBytes": 0,
+              "sampleMachAbsoluteTime": 8450756790129
+            },
+            {
+              "pid": 46929,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 67043328,
+              "physicalFootprintBytes": 221430960,
+              "processStartAbsoluteTime": 8408236841978,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 454320398,
+              "cpuSystemMachTicks": 175836841,
+              "packageIdleWakeups": 310,
+              "interruptWakeups": 32400,
+              "pageins": 2472,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 113750016,
+              "diskWrittenBytes": 0,
+              "sampleMachAbsoluteTime": 8450756790339
+            },
+            {
+              "pid": 46934,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 1425408,
+              "physicalFootprintBytes": 6996376,
+              "processStartAbsoluteTime": 8408238992300,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 969693,
+              "cpuSystemMachTicks": 1830645,
+              "packageIdleWakeups": 1,
+              "interruptWakeups": 424,
+              "pageins": 128,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 4288512,
+              "diskWrittenBytes": 53248,
+              "sampleMachAbsoluteTime": 8450756791286
+            },
+            {
+              "pid": 46958,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 15089664,
+              "physicalFootprintBytes": 86344376,
+              "processStartAbsoluteTime": 8408259126842,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 111214717,
+              "cpuSystemMachTicks": 48465754,
+              "packageIdleWakeups": 0,
+              "interruptWakeups": 21,
+              "pageins": 666,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 334524416,
+              "diskWrittenBytes": 143360,
+              "sampleMachAbsoluteTime": 8450756791525
+            }
+          ]
+        }
+      }
+    },
+    {
+      "scheduledMinutes": 15.0,
+      "actualToolStartUTC": "2026-11-07T10:04:50.653798+00:00",
+      "actualToolEndUTC": "2026-11-07T10:04:50.792835+00:00",
+      "actualElapsedFromFirstToolStartSeconds": 900.1074168682098,
+      "sharedAccountedFamilyFootprintBytes": 394367056,
+      "sharedAccountedFamilyFootprintMiB": 376.0977325439453,
+      "compressedSwappedSubsetMiB": 277.3125,
+      "perOwnerFootprintMiB": {
+        "WebContent": 217.53241729736328,
+        "Worker": 82.34441375732422,
+        "Host": 42.4385986328125,
+        "GPU": 27.42253875732422,
+        "Networking": 6.672264099121094
+      },
+      "perOwnerRSSMiB": {
+        "Host": 39.359375,
+        "GPU": 9.578125,
+        "WebContent": 63.953125,
+        "Networking": 1.328125,
+        "Worker": 12.53125
+      },
+      "beforeOwnership": {
+        "preUIIdentityProven": true,
+        "capturedUnixSeconds": 1794045890.64149,
+        "source": "84d38f7e9cf6b63a5c9d07b610f9fcf0dab42639",
+        "hostPID": 46897,
+        "workerPID": 46958,
+        "marker": "55f14a1b-ab72-491d-88f9-1555b307fb06",
+        "root": "/private/tmp/xlog-wave1-quality-ui-idle-1.5.31-8vr8isyx",
+        "ownerIdentities": [
+          {
+            "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+            "birthMicroseconds": 165801,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46897,
+            "birthSeconds": 1794043518
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU",
+            "birthMicroseconds": 113977,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46926,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent",
+            "birthMicroseconds": 191628,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46929,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking",
+            "birthMicroseconds": 281227,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46934,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+            "birthMicroseconds": 120191,
+            "ppid": 46897,
+            "uid": 501,
+            "pid": 46958,
+            "birthSeconds": 1794043520
+          }
+        ],
+        "ambientIdentities": [
+          {
+            "nativePath": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+            "birthMicroseconds": 499670,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 45797,
+            "birthSeconds": 1794042853
+          },
+          {
+            "nativePath": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+            "birthMicroseconds": 490399,
+            "ppid": 45797,
+            "uid": 501,
+            "pid": 45811,
+            "birthSeconds": 1794042854
+          },
+          {
+            "nativePath": "/Applications/UTM.app/Contents/MacOS/UTM",
+            "birthMicroseconds": 847450,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 81684,
+            "birthSeconds": 1793912594
+          }
+        ],
+        "associations": {
+          "46897": {
+            "pid": 46897,
+            "handle": 46897,
+            "originator": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app",
+            "creator": "xlog-prototype[46897]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [
+              {
+                "pid": 46926,
+                "label": "com.apple.WebKit.GPU.43D028E6-534B-4DA6-B60A-74379749767E"
+              },
+              {
+                "pid": 46929,
+                "label": "com.apple.WebKit.WebContent.99F9C5D5-ABCA-434D-B960-ADAA171D51C4"
+              },
+              {
+                "pid": 46934,
+                "label": "com.apple.WebKit.Networking.F5DC5E66-4926-4DA1-B69D-19C849B99511"
+              }
+            ],
+            "rawMetadataSHA256": "8b907e8440c5e7cdf036fa069aa8a35e1bcf3c326bd16a7111acfb2f3297ac8d"
+          },
+          "46926": {
+            "pid": 46926,
+            "handle": 46926,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc",
+            "creator": "com.apple.WebKi[46926]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "a95c82e4bd09d076f3a366c41d3f10172c4e1938b47202bdc29fa23bbab32eb3"
+          },
+          "46929": {
+            "pid": 46929,
+            "handle": 46929,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc",
+            "creator": "com.apple.WebKi[46929]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "5f945a45bc9acce4877212a8afcba2b77254d75a0744897977878a99f77b6578"
+          },
+          "46934": {
+            "pid": 46934,
+            "handle": 46934,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc",
+            "creator": "com.apple.WebKi[46934]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "7947c5f317771bc581e7862f0169515b3ac790bd5d701b6f226f574179bb491d"
+          },
+          "46958": {
+            "pid": 46958,
+            "handle": 46958,
+            "originator": null,
+            "creator": "launchctl[46974]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "655fe567b15e21edf958c6f00491559387a34ef93471f5ee0288f0c1908caa31"
+          }
+        },
+        "counters": {
+          "schema": 1,
+          "machTimebaseStatus": 0,
+          "machTimebaseNumer": 125,
+          "machTimebaseDenom": 3,
+          "rows": [
+            {
+              "pid": 46897,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 41271296,
+              "physicalFootprintBytes": 44500096,
+              "processStartAbsoluteTime": 8408212222875,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 403253002,
+              "cpuSystemMachTicks": 199922410,
+              "packageIdleWakeups": 701,
+              "interruptWakeups": 84576,
+              "pageins": 7645,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 129863680,
+              "diskWrittenBytes": 28672,
+              "sampleMachAbsoluteTime": 8465150118566
+            },
+            {
+              "pid": 46926,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 10043392,
+              "physicalFootprintBytes": 28771000,
+              "processStartAbsoluteTime": 8408234978398,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 107807798,
+              "cpuSystemMachTicks": 150151306,
+              "packageIdleWakeups": 293,
+              "interruptWakeups": 23156,
+              "pageins": 1056,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 22380544,
+              "diskWrittenBytes": 0,
+              "sampleMachAbsoluteTime": 8465150118804
+            },
+            {
+              "pid": 46929,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 67059712,
+              "physicalFootprintBytes": 228000968,
+              "processStartAbsoluteTime": 8408236841978,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 601512337,
+              "cpuSystemMachTicks": 222274116,
+              "packageIdleWakeups": 449,
+              "interruptWakeups": 45763,
+              "pageins": 2476,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 119975936,
+              "diskWrittenBytes": 0,
+              "sampleMachAbsoluteTime": 8465150119037
+            },
+            {
+              "pid": 46934,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 1392640,
+              "physicalFootprintBytes": 6996376,
+              "processStartAbsoluteTime": 8408238992300,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 969693,
+              "cpuSystemMachTicks": 1830645,
+              "packageIdleWakeups": 1,
+              "interruptWakeups": 424,
+              "pageins": 128,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 4288512,
+              "diskWrittenBytes": 53248,
+              "sampleMachAbsoluteTime": 8465150119225
+            },
+            {
+              "pid": 46958,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 13139968,
+              "physicalFootprintBytes": 86344376,
+              "processStartAbsoluteTime": 8408259126842,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 125738372,
+              "cpuSystemMachTicks": 57427982,
+              "packageIdleWakeups": 0,
+              "interruptWakeups": 21,
+              "pageins": 666,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 334704640,
+              "diskWrittenBytes": 143360,
+              "sampleMachAbsoluteTime": 8465150119416
+            }
+          ]
+        }
+      },
+      "afterOwnership": {
+        "preUIIdentityProven": true,
+        "capturedUnixSeconds": 1794045890.9591339,
+        "source": "84d38f7e9cf6b63a5c9d07b610f9fcf0dab42639",
+        "hostPID": 46897,
+        "workerPID": 46958,
+        "marker": "55f14a1b-ab72-491d-88f9-1555b307fb06",
+        "root": "/private/tmp/xlog-wave1-quality-ui-idle-1.5.31-8vr8isyx",
+        "ownerIdentities": [
+          {
+            "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+            "birthMicroseconds": 165801,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46897,
+            "birthSeconds": 1794043518
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU",
+            "birthMicroseconds": 113977,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46926,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent",
+            "birthMicroseconds": 191628,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46929,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking",
+            "birthMicroseconds": 281227,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46934,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+            "birthMicroseconds": 120191,
+            "ppid": 46897,
+            "uid": 501,
+            "pid": 46958,
+            "birthSeconds": 1794043520
+          }
+        ],
+        "ambientIdentities": [
+          {
+            "nativePath": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+            "birthMicroseconds": 499670,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 45797,
+            "birthSeconds": 1794042853
+          },
+          {
+            "nativePath": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+            "birthMicroseconds": 490399,
+            "ppid": 45797,
+            "uid": 501,
+            "pid": 45811,
+            "birthSeconds": 1794042854
+          },
+          {
+            "nativePath": "/Applications/UTM.app/Contents/MacOS/UTM",
+            "birthMicroseconds": 847450,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 81684,
+            "birthSeconds": 1793912594
+          }
+        ],
+        "associations": {
+          "46897": {
+            "pid": 46897,
+            "handle": 46897,
+            "originator": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app",
+            "creator": "xlog-prototype[46897]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [
+              {
+                "pid": 46926,
+                "label": "com.apple.WebKit.GPU.43D028E6-534B-4DA6-B60A-74379749767E"
+              },
+              {
+                "pid": 46929,
+                "label": "com.apple.WebKit.WebContent.99F9C5D5-ABCA-434D-B960-ADAA171D51C4"
+              },
+              {
+                "pid": 46934,
+                "label": "com.apple.WebKit.Networking.F5DC5E66-4926-4DA1-B69D-19C849B99511"
+              }
+            ],
+            "rawMetadataSHA256": "8b907e8440c5e7cdf036fa069aa8a35e1bcf3c326bd16a7111acfb2f3297ac8d"
+          },
+          "46926": {
+            "pid": 46926,
+            "handle": 46926,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc",
+            "creator": "com.apple.WebKi[46926]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "a95c82e4bd09d076f3a366c41d3f10172c4e1938b47202bdc29fa23bbab32eb3"
+          },
+          "46929": {
+            "pid": 46929,
+            "handle": 46929,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc",
+            "creator": "com.apple.WebKi[46929]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "5f945a45bc9acce4877212a8afcba2b77254d75a0744897977878a99f77b6578"
+          },
+          "46934": {
+            "pid": 46934,
+            "handle": 46934,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc",
+            "creator": "com.apple.WebKi[46934]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "7947c5f317771bc581e7862f0169515b3ac790bd5d701b6f226f574179bb491d"
+          },
+          "46958": {
+            "pid": 46958,
+            "handle": 46958,
+            "originator": null,
+            "creator": "launchctl[46974]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "655fe567b15e21edf958c6f00491559387a34ef93471f5ee0288f0c1908caa31"
+          }
+        },
+        "counters": {
+          "schema": 1,
+          "machTimebaseStatus": 0,
+          "machTimebaseNumer": 125,
+          "machTimebaseDenom": 3,
+          "rows": [
+            {
+              "pid": 46897,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 41320448,
+              "physicalFootprintBytes": 44500096,
+              "processStartAbsoluteTime": 8408212222875,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 403369091,
+              "cpuSystemMachTicks": 199967277,
+              "packageIdleWakeups": 701,
+              "interruptWakeups": 84587,
+              "pageins": 7645,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 129863680,
+              "diskWrittenBytes": 28672,
+              "sampleMachAbsoluteTime": 8465158108149
+            },
+            {
+              "pid": 46926,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 9338880,
+              "physicalFootprintBytes": 28754616,
+              "processStartAbsoluteTime": 8408234978398,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 107813760,
+              "cpuSystemMachTicks": 150159692,
+              "packageIdleWakeups": 293,
+              "interruptWakeups": 23161,
+              "pageins": 1056,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 22380544,
+              "diskWrittenBytes": 0,
+              "sampleMachAbsoluteTime": 8465158108388
+            },
+            {
+              "pid": 46929,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 56328192,
+              "physicalFootprintBytes": 228295880,
+              "processStartAbsoluteTime": 8408236841978,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 601631834,
+              "cpuSystemMachTicks": 222305962,
+              "packageIdleWakeups": 449,
+              "interruptWakeups": 45770,
+              "pageins": 2476,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 119975936,
+              "diskWrittenBytes": 0,
+              "sampleMachAbsoluteTime": 8465158108635
+            },
+            {
+              "pid": 46934,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 1425408,
+              "physicalFootprintBytes": 6996376,
+              "processStartAbsoluteTime": 8408238992300,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 969693,
+              "cpuSystemMachTicks": 1830645,
+              "packageIdleWakeups": 1,
+              "interruptWakeups": 424,
+              "pageins": 128,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 4288512,
+              "diskWrittenBytes": 53248,
+              "sampleMachAbsoluteTime": 8465158108823
+            },
+            {
+              "pid": 46958,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 13254656,
+              "physicalFootprintBytes": 86344376,
+              "processStartAbsoluteTime": 8408259126842,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 125776775,
+              "cpuSystemMachTicks": 57457682,
+              "packageIdleWakeups": 0,
+              "interruptWakeups": 21,
+              "pageins": 666,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 334741504,
+              "diskWrittenBytes": 143360,
+              "sampleMachAbsoluteTime": 8465158109011
+            }
+          ]
+        }
+      }
+    },
+    {
+      "scheduledMinutes": 20.0,
+      "actualToolStartUTC": "2026-11-07T10:09:50.662739+00:00",
+      "actualToolEndUTC": "2026-11-07T10:09:50.787117+00:00",
+      "actualElapsedFromFirstToolStartSeconds": 1200.1163580417633,
+      "sharedAccountedFamilyFootprintBytes": 395628624,
+      "sharedAccountedFamilyFootprintMiB": 377.3008575439453,
+      "compressedSwappedSubsetMiB": 250.546875,
+      "perOwnerFootprintMiB": {
+        "WebContent": 219.07929229736328,
+        "Worker": 82.34441375732422,
+        "Host": 42.4854736328125,
+        "GPU": 27.03191375732422,
+        "Networking": 6.672264099121094
+      },
+      "perOwnerRSSMiB": {
+        "Host": 39.421875,
+        "GPU": 10.375,
+        "WebContent": 85.515625,
+        "Networking": 1.3125,
+        "Worker": 12.828125
+      },
+      "beforeOwnership": {
+        "preUIIdentityProven": true,
+        "capturedUnixSeconds": 1794046190.656428,
+        "source": "84d38f7e9cf6b63a5c9d07b610f9fcf0dab42639",
+        "hostPID": 46897,
+        "workerPID": 46958,
+        "marker": "55f14a1b-ab72-491d-88f9-1555b307fb06",
+        "root": "/private/tmp/xlog-wave1-quality-ui-idle-1.5.31-8vr8isyx",
+        "ownerIdentities": [
+          {
+            "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+            "birthMicroseconds": 165801,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46897,
+            "birthSeconds": 1794043518
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU",
+            "birthMicroseconds": 113977,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46926,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent",
+            "birthMicroseconds": 191628,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46929,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking",
+            "birthMicroseconds": 281227,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46934,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+            "birthMicroseconds": 120191,
+            "ppid": 46897,
+            "uid": 501,
+            "pid": 46958,
+            "birthSeconds": 1794043520
+          }
+        ],
+        "ambientIdentities": [
+          {
+            "nativePath": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+            "birthMicroseconds": 499670,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 45797,
+            "birthSeconds": 1794042853
+          },
+          {
+            "nativePath": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+            "birthMicroseconds": 490399,
+            "ppid": 45797,
+            "uid": 501,
+            "pid": 45811,
+            "birthSeconds": 1794042854
+          },
+          {
+            "nativePath": "/Applications/UTM.app/Contents/MacOS/UTM",
+            "birthMicroseconds": 847450,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 81684,
+            "birthSeconds": 1793912594
+          }
+        ],
+        "associations": {
+          "46897": {
+            "pid": 46897,
+            "handle": 46897,
+            "originator": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app",
+            "creator": "xlog-prototype[46897]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [
+              {
+                "pid": 46926,
+                "label": "com.apple.WebKit.GPU.43D028E6-534B-4DA6-B60A-74379749767E"
+              },
+              {
+                "pid": 46929,
+                "label": "com.apple.WebKit.WebContent.99F9C5D5-ABCA-434D-B960-ADAA171D51C4"
+              },
+              {
+                "pid": 46934,
+                "label": "com.apple.WebKit.Networking.F5DC5E66-4926-4DA1-B69D-19C849B99511"
+              }
+            ],
+            "rawMetadataSHA256": "c818ef3f4891388f8b74934e5f52c8cc52e1c051fea4754dbc9e8e142f1584cb"
+          },
+          "46926": {
+            "pid": 46926,
+            "handle": 46926,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc",
+            "creator": "com.apple.WebKi[46926]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "a95c82e4bd09d076f3a366c41d3f10172c4e1938b47202bdc29fa23bbab32eb3"
+          },
+          "46929": {
+            "pid": 46929,
+            "handle": 46929,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc",
+            "creator": "com.apple.WebKi[46929]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "5f945a45bc9acce4877212a8afcba2b77254d75a0744897977878a99f77b6578"
+          },
+          "46934": {
+            "pid": 46934,
+            "handle": 46934,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc",
+            "creator": "com.apple.WebKi[46934]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "7947c5f317771bc581e7862f0169515b3ac790bd5d701b6f226f574179bb491d"
+          },
+          "46958": {
+            "pid": 46958,
+            "handle": 46958,
+            "originator": null,
+            "creator": "launchctl[46974]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "655fe567b15e21edf958c6f00491559387a34ef93471f5ee0288f0c1908caa31"
+          }
+        },
+        "counters": {
+          "schema": 1,
+          "machTimebaseStatus": 0,
+          "machTimebaseNumer": 125,
+          "machTimebaseDenom": 3,
+          "rows": [
+            {
+              "pid": 46897,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 41336832,
+              "physicalFootprintBytes": 44483712,
+              "processStartAbsoluteTime": 8408212222875,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 451787511,
+              "cpuSystemMachTicks": 221781740,
+              "packageIdleWakeups": 794,
+              "interruptWakeups": 96033,
+              "pageins": 7645,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 129863680,
+              "diskWrittenBytes": 28672,
+              "sampleMachAbsoluteTime": 8472350494531
+            },
+            {
+              "pid": 46926,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 10878976,
+              "physicalFootprintBytes": 28345016,
+              "processStartAbsoluteTime": 8408234978398,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 117792208,
+              "cpuSystemMachTicks": 166012621,
+              "packageIdleWakeups": 336,
+              "interruptWakeups": 26512,
+              "pageins": 1058,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 22384640,
+              "diskWrittenBytes": 0,
+              "sampleMachAbsoluteTime": 8472350494824
+            },
+            {
+              "pid": 46929,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 89669632,
+              "physicalFootprintBytes": 229721288,
+              "processStartAbsoluteTime": 8408236841978,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 674487189,
+              "cpuSystemMachTicks": 245822368,
+              "packageIdleWakeups": 512,
+              "interruptWakeups": 52288,
+              "pageins": 2477,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 120356864,
+              "diskWrittenBytes": 0,
+              "sampleMachAbsoluteTime": 8472350495085
+            },
+            {
+              "pid": 46934,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 1376256,
+              "physicalFootprintBytes": 6996376,
+              "processStartAbsoluteTime": 8408238992300,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 969693,
+              "cpuSystemMachTicks": 1830645,
+              "packageIdleWakeups": 1,
+              "interruptWakeups": 424,
+              "pageins": 128,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 4288512,
+              "diskWrittenBytes": 53248,
+              "sampleMachAbsoluteTime": 8472350495290
+            },
+            {
+              "pid": 46958,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 13451264,
+              "physicalFootprintBytes": 86344376,
+              "processStartAbsoluteTime": 8408259126842,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 132999070,
+              "cpuSystemMachTicks": 61795568,
+              "packageIdleWakeups": 0,
+              "interruptWakeups": 21,
+              "pageins": 666,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 334815232,
+              "diskWrittenBytes": 143360,
+              "sampleMachAbsoluteTime": 8472350495522
+            }
+          ]
+        }
+      },
+      "afterOwnership": {
+        "preUIIdentityProven": true,
+        "capturedUnixSeconds": 1794046190.9528499,
+        "source": "84d38f7e9cf6b63a5c9d07b610f9fcf0dab42639",
+        "hostPID": 46897,
+        "workerPID": 46958,
+        "marker": "55f14a1b-ab72-491d-88f9-1555b307fb06",
+        "root": "/private/tmp/xlog-wave1-quality-ui-idle-1.5.31-8vr8isyx",
+        "ownerIdentities": [
+          {
+            "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+            "birthMicroseconds": 165801,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46897,
+            "birthSeconds": 1794043518
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU",
+            "birthMicroseconds": 113977,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46926,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent",
+            "birthMicroseconds": 191628,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46929,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking",
+            "birthMicroseconds": 281227,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46934,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+            "birthMicroseconds": 120191,
+            "ppid": 46897,
+            "uid": 501,
+            "pid": 46958,
+            "birthSeconds": 1794043520
+          }
+        ],
+        "ambientIdentities": [
+          {
+            "nativePath": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+            "birthMicroseconds": 499670,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 45797,
+            "birthSeconds": 1794042853
+          },
+          {
+            "nativePath": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+            "birthMicroseconds": 490399,
+            "ppid": 45797,
+            "uid": 501,
+            "pid": 45811,
+            "birthSeconds": 1794042854
+          },
+          {
+            "nativePath": "/Applications/UTM.app/Contents/MacOS/UTM",
+            "birthMicroseconds": 847450,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 81684,
+            "birthSeconds": 1793912594
+          }
+        ],
+        "associations": {
+          "46897": {
+            "pid": 46897,
+            "handle": 46897,
+            "originator": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app",
+            "creator": "xlog-prototype[46897]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [
+              {
+                "pid": 46926,
+                "label": "com.apple.WebKit.GPU.43D028E6-534B-4DA6-B60A-74379749767E"
+              },
+              {
+                "pid": 46929,
+                "label": "com.apple.WebKit.WebContent.99F9C5D5-ABCA-434D-B960-ADAA171D51C4"
+              },
+              {
+                "pid": 46934,
+                "label": "com.apple.WebKit.Networking.F5DC5E66-4926-4DA1-B69D-19C849B99511"
+              }
+            ],
+            "rawMetadataSHA256": "c818ef3f4891388f8b74934e5f52c8cc52e1c051fea4754dbc9e8e142f1584cb"
+          },
+          "46926": {
+            "pid": 46926,
+            "handle": 46926,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc",
+            "creator": "com.apple.WebKi[46926]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "a95c82e4bd09d076f3a366c41d3f10172c4e1938b47202bdc29fa23bbab32eb3"
+          },
+          "46929": {
+            "pid": 46929,
+            "handle": 46929,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc",
+            "creator": "com.apple.WebKi[46929]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "5f945a45bc9acce4877212a8afcba2b77254d75a0744897977878a99f77b6578"
+          },
+          "46934": {
+            "pid": 46934,
+            "handle": 46934,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc",
+            "creator": "com.apple.WebKi[46934]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "7947c5f317771bc581e7862f0169515b3ac790bd5d701b6f226f574179bb491d"
+          },
+          "46958": {
+            "pid": 46958,
+            "handle": 46958,
+            "originator": null,
+            "creator": "launchctl[46974]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "655fe567b15e21edf958c6f00491559387a34ef93471f5ee0288f0c1908caa31"
+          }
+        },
+        "counters": {
+          "schema": 1,
+          "machTimebaseStatus": 0,
+          "machTimebaseNumer": 125,
+          "machTimebaseDenom": 3,
+          "rows": [
+            {
+              "pid": 46897,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 41320448,
+              "physicalFootprintBytes": 44532864,
+              "processStartAbsoluteTime": 8408212222875,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 451798395,
+              "cpuSystemMachTicks": 221789809,
+              "packageIdleWakeups": 794,
+              "interruptWakeups": 96056,
+              "pageins": 7645,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 129863680,
+              "diskWrittenBytes": 28672,
+              "sampleMachAbsoluteTime": 8472357878390
+            },
+            {
+              "pid": 46926,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 10895360,
+              "physicalFootprintBytes": 28345016,
+              "processStartAbsoluteTime": 8408234978398,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 117797801,
+              "cpuSystemMachTicks": 166021026,
+              "packageIdleWakeups": 336,
+              "interruptWakeups": 26516,
+              "pageins": 1058,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 22384640,
+              "diskWrittenBytes": 0,
+              "sampleMachAbsoluteTime": 8472357878617
+            },
+            {
+              "pid": 46929,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 89030656,
+              "physicalFootprintBytes": 229835976,
+              "processStartAbsoluteTime": 8408236841978,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 674500003,
+              "cpuSystemMachTicks": 245827780,
+              "packageIdleWakeups": 512,
+              "interruptWakeups": 52294,
+              "pageins": 2477,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 120356864,
+              "diskWrittenBytes": 0,
+              "sampleMachAbsoluteTime": 8472357878830
+            },
+            {
+              "pid": 46934,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 1409024,
+              "physicalFootprintBytes": 6996376,
+              "processStartAbsoluteTime": 8408238992300,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 969693,
+              "cpuSystemMachTicks": 1830645,
+              "packageIdleWakeups": 1,
+              "interruptWakeups": 424,
+              "pageins": 128,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 4288512,
+              "diskWrittenBytes": 53248,
+              "sampleMachAbsoluteTime": 8472357879015
+            },
+            {
+              "pid": 46958,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 13254656,
+              "physicalFootprintBytes": 86344376,
+              "processStartAbsoluteTime": 8408259126842,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 132999070,
+              "cpuSystemMachTicks": 61795568,
+              "packageIdleWakeups": 0,
+              "interruptWakeups": 21,
+              "pageins": 666,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 334815232,
+              "diskWrittenBytes": 143360,
+              "sampleMachAbsoluteTime": 8472357879200
+            }
+          ]
+        }
+      }
+    },
+    {
+      "scheduledMinutes": 30.0,
+      "actualToolStartUTC": "2026-11-07T10:19:50.659583+00:00",
+      "actualToolEndUTC": "2026-11-07T10:19:50.749235+00:00",
+      "actualElapsedFromFirstToolStartSeconds": 1800.1132020950317,
+      "sharedAccountedFamilyFootprintBytes": 393678952,
+      "sharedAccountedFamilyFootprintMiB": 375.4415054321289,
+      "compressedSwappedSubsetMiB": 279.125,
+      "perOwnerFootprintMiB": {
+        "WebContent": 223.51679229736328,
+        "Worker": 82.34441375732422,
+        "Host": 42.5010986328125,
+        "GPU": 20.719436645507812,
+        "Networking": 6.656639099121094
+      },
+      "perOwnerRSSMiB": {
+        "Host": 35.703125,
+        "GPU": 12.21875,
+        "WebContent": 78.65625,
+        "Networking": 1.28125,
+        "Worker": 12.421875
+      },
+      "beforeOwnership": {
+        "preUIIdentityProven": true,
+        "capturedUnixSeconds": 1794046790.649767,
+        "source": "84d38f7e9cf6b63a5c9d07b610f9fcf0dab42639",
+        "hostPID": 46897,
+        "workerPID": 46958,
+        "marker": "55f14a1b-ab72-491d-88f9-1555b307fb06",
+        "root": "/private/tmp/xlog-wave1-quality-ui-idle-1.5.31-8vr8isyx",
+        "ownerIdentities": [
+          {
+            "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+            "birthMicroseconds": 165801,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46897,
+            "birthSeconds": 1794043518
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU",
+            "birthMicroseconds": 113977,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46926,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent",
+            "birthMicroseconds": 191628,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46929,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking",
+            "birthMicroseconds": 281227,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46934,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+            "birthMicroseconds": 120191,
+            "ppid": 46897,
+            "uid": 501,
+            "pid": 46958,
+            "birthSeconds": 1794043520
+          }
+        ],
+        "ambientIdentities": [
+          {
+            "nativePath": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+            "birthMicroseconds": 499670,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 45797,
+            "birthSeconds": 1794042853
+          },
+          {
+            "nativePath": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+            "birthMicroseconds": 490399,
+            "ppid": 45797,
+            "uid": 501,
+            "pid": 45811,
+            "birthSeconds": 1794042854
+          },
+          {
+            "nativePath": "/Applications/UTM.app/Contents/MacOS/UTM",
+            "birthMicroseconds": 847450,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 81684,
+            "birthSeconds": 1793912594
+          }
+        ],
+        "associations": {
+          "46897": {
+            "pid": 46897,
+            "handle": 46897,
+            "originator": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app",
+            "creator": "xlog-prototype[46897]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [
+              {
+                "pid": 46926,
+                "label": "com.apple.WebKit.GPU.43D028E6-534B-4DA6-B60A-74379749767E"
+              },
+              {
+                "pid": 46929,
+                "label": "com.apple.WebKit.WebContent.99F9C5D5-ABCA-434D-B960-ADAA171D51C4"
+              },
+              {
+                "pid": 46934,
+                "label": "com.apple.WebKit.Networking.F5DC5E66-4926-4DA1-B69D-19C849B99511"
+              }
+            ],
+            "rawMetadataSHA256": "4b2701dde3a21e6efcbfc79cd4501a1af96fe6e85f613b146db2a4c604da7c89"
+          },
+          "46926": {
+            "pid": 46926,
+            "handle": 46926,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc",
+            "creator": "com.apple.WebKi[46926]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "1eccd80940c3f1cea52ca7d8b0c33dbecbd3961f3c07a5822902a56fead15301"
+          },
+          "46929": {
+            "pid": 46929,
+            "handle": 46929,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc",
+            "creator": "com.apple.WebKi[46929]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "048b18c0c28b701ce4015b58a8ec15ec800aa14722df0d57506f020e8ae5079b"
+          },
+          "46934": {
+            "pid": 46934,
+            "handle": 46934,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc",
+            "creator": "com.apple.WebKi[46934]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "9772195423435c46d10e37c1458c83626cf4ce456142582ec3f94d719db96e38"
+          },
+          "46958": {
+            "pid": 46958,
+            "handle": 46958,
+            "originator": null,
+            "creator": "launchctl[46974]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "655fe567b15e21edf958c6f00491559387a34ef93471f5ee0288f0c1908caa31"
+          }
+        },
+        "counters": {
+          "schema": 1,
+          "machTimebaseStatus": 0,
+          "machTimebaseNumer": 125,
+          "machTimebaseDenom": 3,
+          "rows": [
+            {
+              "pid": 46897,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 37437440,
+              "physicalFootprintBytes": 44565632,
+              "processStartAbsoluteTime": 8408212222875,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 519316261,
+              "cpuSystemMachTicks": 253108195,
+              "packageIdleWakeups": 920,
+              "interruptWakeups": 111170,
+              "pageins": 7667,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 131534848,
+              "diskWrittenBytes": 28672,
+              "sampleMachAbsoluteTime": 8486750315105
+            },
+            {
+              "pid": 46926,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 12812288,
+              "physicalFootprintBytes": 21725904,
+              "processStartAbsoluteTime": 8408234978398,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 139527013,
+              "cpuSystemMachTicks": 201990014,
+              "packageIdleWakeups": 387,
+              "interruptWakeups": 30985,
+              "pageins": 1417,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 28991488,
+              "diskWrittenBytes": 0,
+              "sampleMachAbsoluteTime": 8486750315352
+            },
+            {
+              "pid": 46929,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 82477056,
+              "physicalFootprintBytes": 234374344,
+              "processStartAbsoluteTime": 8408236841978,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 777568413,
+              "cpuSystemMachTicks": 291868545,
+              "packageIdleWakeups": 602,
+              "interruptWakeups": 59520,
+              "pageins": 2550,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 131084288,
+              "diskWrittenBytes": 0,
+              "sampleMachAbsoluteTime": 8486750315577
+            },
+            {
+              "pid": 46934,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 1343488,
+              "physicalFootprintBytes": 6979992,
+              "processStartAbsoluteTime": 8408238992300,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 1012267,
+              "cpuSystemMachTicks": 1960970,
+              "packageIdleWakeups": 1,
+              "interruptWakeups": 451,
+              "pageins": 129,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 4698112,
+              "diskWrittenBytes": 53248,
+              "sampleMachAbsoluteTime": 8486750315754
+            },
+            {
+              "pid": 46958,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 13025280,
+              "physicalFootprintBytes": 86344376,
+              "processStartAbsoluteTime": 8408259126842,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 145872866,
+              "cpuSystemMachTicks": 70302781,
+              "packageIdleWakeups": 0,
+              "interruptWakeups": 23,
+              "pageins": 666,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 335196160,
+              "diskWrittenBytes": 143360,
+              "sampleMachAbsoluteTime": 8486750315935
+            }
+          ]
+        }
+      },
+      "afterOwnership": {
+        "preUIIdentityProven": true,
+        "capturedUnixSeconds": 1794046790.912225,
+        "source": "84d38f7e9cf6b63a5c9d07b610f9fcf0dab42639",
+        "hostPID": 46897,
+        "workerPID": 46958,
+        "marker": "55f14a1b-ab72-491d-88f9-1555b307fb06",
+        "root": "/private/tmp/xlog-wave1-quality-ui-idle-1.5.31-8vr8isyx",
+        "ownerIdentities": [
+          {
+            "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+            "birthMicroseconds": 165801,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46897,
+            "birthSeconds": 1794043518
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU",
+            "birthMicroseconds": 113977,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46926,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent",
+            "birthMicroseconds": 191628,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46929,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking",
+            "birthMicroseconds": 281227,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 46934,
+            "birthSeconds": 1794043519
+          },
+          {
+            "nativePath": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+            "birthMicroseconds": 120191,
+            "ppid": 46897,
+            "uid": 501,
+            "pid": 46958,
+            "birthSeconds": 1794043520
+          }
+        ],
+        "ambientIdentities": [
+          {
+            "nativePath": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+            "birthMicroseconds": 499670,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 45797,
+            "birthSeconds": 1794042853
+          },
+          {
+            "nativePath": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+            "birthMicroseconds": 490399,
+            "ppid": 45797,
+            "uid": 501,
+            "pid": 45811,
+            "birthSeconds": 1794042854
+          },
+          {
+            "nativePath": "/Applications/UTM.app/Contents/MacOS/UTM",
+            "birthMicroseconds": 847450,
+            "ppid": 1,
+            "uid": 501,
+            "pid": 81684,
+            "birthSeconds": 1793912594
+          }
+        ],
+        "associations": {
+          "46897": {
+            "pid": 46897,
+            "handle": 46897,
+            "originator": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/releases/1.5.31/native-candidate/OM0RX-xLog.app",
+            "creator": "xlog-prototype[46897]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [
+              {
+                "pid": 46926,
+                "label": "com.apple.WebKit.GPU.43D028E6-534B-4DA6-B60A-74379749767E"
+              },
+              {
+                "pid": 46929,
+                "label": "com.apple.WebKit.WebContent.99F9C5D5-ABCA-434D-B960-ADAA171D51C4"
+              },
+              {
+                "pid": 46934,
+                "label": "com.apple.WebKit.Networking.F5DC5E66-4926-4DA1-B69D-19C849B99511"
+              }
+            ],
+            "rawMetadataSHA256": "4b2701dde3a21e6efcbfc79cd4501a1af96fe6e85f613b146db2a4c604da7c89"
+          },
+          "46926": {
+            "pid": 46926,
+            "handle": 46926,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc",
+            "creator": "com.apple.WebKi[46926]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "1eccd80940c3f1cea52ca7d8b0c33dbecbd3961f3c07a5822902a56fead15301"
+          },
+          "46929": {
+            "pid": 46929,
+            "handle": 46929,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc",
+            "creator": "com.apple.WebKi[46929]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "048b18c0c28b701ce4015b58a8ec15ec800aa14722df0d57506f020e8ae5079b"
+          },
+          "46934": {
+            "pid": 46934,
+            "handle": 46934,
+            "originator": "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc",
+            "creator": "com.apple.WebKi[46934]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "9772195423435c46d10e37c1458c83626cf4ce456142582ec3f94d719db96e38"
+          },
+          "46958": {
+            "pid": 46958,
+            "handle": 46958,
+            "originator": null,
+            "creator": "launchctl[46974]",
+            "coalitions": {
+              "resource coalition": {
+                "id": 63655,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              },
+              "jetsam coalition": {
+                "id": 63656,
+                "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+                "bundleID": "com.oliverbross.xlog.integration"
+              }
+            },
+            "liveWebKit": [],
+            "rawMetadataSHA256": "655fe567b15e21edf958c6f00491559387a34ef93471f5ee0288f0c1908caa31"
+          }
+        },
+        "counters": {
+          "schema": 1,
+          "machTimebaseStatus": 0,
+          "machTimebaseNumer": 125,
+          "machTimebaseDenom": 3,
+          "rows": [
+            {
+              "pid": 46897,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 37453824,
+              "physicalFootprintBytes": 44565632,
+              "processStartAbsoluteTime": 8408212222875,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 519318889,
+              "cpuSystemMachTicks": 253110230,
+              "packageIdleWakeups": 920,
+              "interruptWakeups": 111174,
+              "pageins": 7667,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 131534848,
+              "diskWrittenBytes": 28672,
+              "sampleMachAbsoluteTime": 8486756680562
+            },
+            {
+              "pid": 46926,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 12828672,
+              "physicalFootprintBytes": 21742288,
+              "processStartAbsoluteTime": 8408234978398,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 139527811,
+              "cpuSystemMachTicks": 201990224,
+              "packageIdleWakeups": 387,
+              "interruptWakeups": 30986,
+              "pageins": 1417,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 28991488,
+              "diskWrittenBytes": 0,
+              "sampleMachAbsoluteTime": 8486756680839
+            },
+            {
+              "pid": 46929,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 82116608,
+              "physicalFootprintBytes": 234374344,
+              "processStartAbsoluteTime": 8408236841978,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 777568413,
+              "cpuSystemMachTicks": 291868545,
+              "packageIdleWakeups": 602,
+              "interruptWakeups": 59520,
+              "pageins": 2550,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 131084288,
+              "diskWrittenBytes": 0,
+              "sampleMachAbsoluteTime": 8486756681100
+            },
+            {
+              "pid": 46934,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 1376256,
+              "physicalFootprintBytes": 6979992,
+              "processStartAbsoluteTime": 8408238992300,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 1012267,
+              "cpuSystemMachTicks": 1960970,
+              "packageIdleWakeups": 1,
+              "interruptWakeups": 451,
+              "pageins": 129,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 4698112,
+              "diskWrittenBytes": 53248,
+              "sampleMachAbsoluteTime": 8486756681305
+            },
+            {
+              "pid": 46958,
+              "rusageAvailable": true,
+              "rusageErrno": 0,
+              "residentBytes": 13041664,
+              "physicalFootprintBytes": 86344376,
+              "processStartAbsoluteTime": 8408259126842,
+              "responsibilitySymbolAvailable": true,
+              "responsiblePID": 46897,
+              "responsibilityErrno": 0,
+              "coalitionAvailable": true,
+              "coalitionResultBytes": 40,
+              "coalitionErrno": 0,
+              "resourceCoalitionID": 63655,
+              "jetsamCoalitionID": 63656,
+              "secondRusageErrno": 0,
+              "stableAcrossRead": true,
+              "cpuUserMachTicks": 145872866,
+              "cpuSystemMachTicks": 70302781,
+              "packageIdleWakeups": 0,
+              "interruptWakeups": 23,
+              "pageins": 666,
+              "diskRusageV2Available": true,
+              "diskRusageV2Errno": 0,
+              "diskReadBytes": 335196160,
+              "diskWrittenBytes": 143360,
+              "sampleMachAbsoluteTime": 8486756681503
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "finalTenMinuteCPU": {
+    "owners": [
+      {
+        "pid": 46897,
+        "actualIntervalSeconds": 599.9925239166666,
+        "userSeconds": 2.8136979166666665,
+        "systemSeconds": 1.3052689583333332,
+        "percentOfOneCore": 0.6865030330898066,
+        "role": "Host"
+      },
+      {
+        "pid": 46926,
+        "actualIntervalSeconds": 599.9925219999999,
+        "userSeconds": 0.9056168749999999,
+        "systemSeconds": 1.4990580416666666,
+        "percentOfOneCore": 0.4007841478842076,
+        "role": "GPU"
+      },
+      {
+        "pid": 46929,
+        "actualIntervalSeconds": 599.9925205,
+        "userSeconds": 4.295051,
+        "systemSeconds": 1.9185907083333331,
+        "percentOfOneCore": 1.035619861253476,
+        "role": "WebContent"
+      },
+      {
+        "pid": 46934,
+        "actualIntervalSeconds": 599.9925193333332,
+        "userSeconds": 0.0017739166666666665,
+        "systemSeconds": 0.005430208333333333,
+        "percentOfOneCore": 0.0012007024700915743,
+        "role": "Networking"
+      },
+      {
+        "pid": 46958,
+        "actualIntervalSeconds": 599.9925172083333,
+        "userSeconds": 0.5364081666666666,
+        "systemSeconds": 0.3544672083333333,
+        "percentOfOneCore": 0.1484810809216583,
+        "role": "Worker"
+      }
+    ],
+    "sumOwnerPercentOfOneCore": 2.2725888256192404,
+    "scope": "Stable attributed owners at actual per-owner times; no lifetime-peak or shared-memory sum"
+  },
+  "memoryTrajectory": {
+    "familyMiB": [
+      357.1133346557617,
+      369.4727096557617,
+      376.0977325439453,
+      377.3008575439453,
+      375.4415054321289
+    ],
+    "wholeIntervalChangeMiB": 18.328170776367188,
+    "finalTenMinuteChangeMiB": -1.8593521118164062,
+    "observedMaximumMiB": 377.3008575439453,
+    "interpretation": "The shared-accounted family total forms a late 375\u2013377 MiB plateau, but WebContent rises at every sample (205.220\u2192223.517 MiB). Its final-ten-minute rise is partly offset by a GPU footprint drop. Do not infer complete per-owner settlement or a long-term leak from this bounded background record.",
+    "notLongTermLeakOrHistoricalIncidentAttribution": true,
+    "WebContentFootprintMiB": [
+      205.2198944091797,
+      211.1730194091797,
+      217.53241729736328,
+      219.07929229736328,
+      223.51679229736328
+    ],
+    "WebContentWholeIntervalChangeMiB": 18.296897888183594,
+    "WebContentFinalTenMinuteChangeMiB": 4.4375,
+    "GPUFinalTenMinuteChangeMiB": -6.312477111816406,
+    "allOwnersSettledDemonstrated": false
+  },
+  "visibility": {
+    "finish": {
+      "type": "finished",
+      "success": true,
+      "reason": "Completed requested background observation",
+      "elapsedSeconds": 1800.7676198750269,
+      "stateSamples": 1755,
+      "hiddenStateSamples": 1755,
+      "activeStateSamples": 0,
+      "observedForegroundTransitions": 0,
+      "maximumHeartbeatGapSeconds": 0.4381297083455138,
+      "metadataNominalIntervalSeconds": 1,
+      "heartbeatIntervalSeconds": 0.25,
+      "foregroundRequired": false,
+      "continuousAXOrWorkspaceEventSubscription": false,
+      "pixelOcclusionProof": false
+    },
+    "maximumMetadataStateGapSeconds": 1.214140750002116,
+    "recordedForegroundPIDCounts": {
+      "45797": 1755
+    },
+    "recordedMainWindowOnscreenStateCounts": {
+      "False": 61,
+      "True": 1694
+    },
+    "AppKitHiddenAndWindowServerOnscreenMetadataDidNotAlwaysAgree": true,
+    "notContinuousPixelOcclusionProof": true,
+    "noFixedForegroundOrVisibilityClaim": true
+  },
+  "validity": {
+    "independentlyValidatedBackgroundCollection": true,
+    "allFiveSamplesAndTenBeforeAfterOwnershipProofsVerified": true,
+    "originalControllerSuccess": false,
+    "originalControllerError": "Expecting value: line 1 column 1 (char 0)",
+    "reportingFailureDisposition": "Observer exited zero with successful 1800.7676-second receipt and all five valid samples. The shared JSONL reader rejected osascript final empty result line. Original failed result is preserved; this separate post-run export ignores only that final blank line and independently verifies all numeric/ownership records. No running helper or app was patched.",
+    "ignoredTrailingEmptyLines": [
+      1758
+    ],
+    "helperHashesStillMatchPreRunSeals": true,
+    "actualCPUOwnerIntervalsSeconds": [
+      599.9925239166666,
+      599.9925219999999,
+      599.9925205,
+      599.9925193333332,
+      599.9925172083333
+    ],
+    "observerOverheadNotSubtracted": true,
+    "ambientWorkloadCachesAndCompressionUncontrolled": true,
+    "RSSAndLifetimePeaksNotSummed": true,
+    "compressedSwappedIsSubsetNotAdditionalMemoryOrDiskSwapAlone": true
+  },
+  "preservation": {
+    "allCandidateOwnersAbsent": true,
+    "fixtureIntegrityPassed": true,
+    "QSO": {
+      "physicalRows": 100000,
+      "liveQSOs": 100000,
+      "generatedCommentRows": 100000,
+      "hashRows": 100000,
+      "orderedStoredQSOHash": "c890ab242dca96dd196217168a1f05dcc299b1ba6a2e877149abbddeaea59af2",
+      "hashColumns": [
+        "local_id",
+        "wavelog_id",
+        "call",
+        "qso_start",
+        "band",
+        "mode",
+        "frequency_hz",
+        "is_dirty",
+        "deleted_at",
+        "updated_at",
+        "record_json",
+        "baseline_json"
+      ],
+      "readMode": "readonly-WAL-honored",
+      "databaseSHA256": "4c7001c7e4663d82f35e69212c19ae764acdbee7548875bcea04fd0ee3ef026c",
+      "databaseBytes": 196788224,
+      "walBytes": 0
+    },
+    "settingsAndRevisionPreserved": true,
+    "initialAndFinalContextEqual": true,
+    "finalContext": {
+      "ambient": [
+        {
+          "nativePath": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype",
+          "birthMicroseconds": 499670,
+          "ppid": 1,
+          "uid": 501,
+          "pid": 45797,
+          "birthSeconds": 1794042853
+        },
+        {
+          "nativePath": "/Applications/OM0RX-xLog.app/Contents/MacOS/xlog-prototype-worker",
+          "birthMicroseconds": 490399,
+          "ppid": 45797,
+          "uid": 501,
+          "pid": 45811,
+          "birthSeconds": 1794042854
+        },
+        {
+          "nativePath": "/Applications/UTM.app/Contents/MacOS/UTM",
+          "birthMicroseconds": 847450,
+          "ppid": 1,
+          "uid": 501,
+          "pid": 81684,
+          "birthSeconds": 1793912594
+        }
+      ],
+      "installedBundlePins": {
+        "host": "df6e236d4fe4985542c3156b6cba3c607bb2082dbf8d000dd01cbfc7dbefc72e",
+        "worker": "17e78fc0a54c08e3c126dfb75ec86c123bbf57f60949fb08090c11f807d5b7a8",
+        "manifest": "e77a4bc52814b0b639f788365e702ae77affe14b989a4bd6f8c218dbcf95bf67"
+      },
+      "DockAutoHide": false,
+      "productionDataOpened": false,
+      "productionUIBound": false
+    },
+    "productionDataOpened": false,
+    "productionUIBound": false,
+    "UTMAndDailyIdentityPreserved": true
+  },
+  "familyAbsence": {
+    "atUTC": "2026-11-07T10:21:07.099881+00:00",
+    "allCandidateOwnersAbsent": true,
+    "scans": [
+      {
+        "at": "2026-11-07T10:21:06.984554+00:00",
+        "scope": "All current-user process metadata; own transient ps observer excluded; no global argv",
+        "inventoriedBefore": 462,
+        "inventoriedAfter": 462,
+        "candidateCoalitions": {
+          "resource coalition": {
+            "id": 63655,
+            "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+            "bundleID": "com.oliverbross.xlog.integration"
+          },
+          "jetsam coalition": {
+            "id": 63656,
+            "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+            "bundleID": "com.oliverbross.xlog.integration"
+          }
+        },
+        "survivors": [],
+        "unresolved": [
+          {
+            "pid": 79847,
+            "reason": "New, changed, or unreadable same-user process coalition"
+          }
+        ]
+      },
+      {
+        "at": "2026-11-07T10:21:07.096148+00:00",
+        "scope": "All current-user process metadata; own transient ps observer excluded; no global argv",
+        "inventoriedBefore": 462,
+        "inventoriedAfter": 462,
+        "candidateCoalitions": {
+          "resource coalition": {
+            "id": 63655,
+            "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+            "bundleID": "com.oliverbross.xlog.integration"
+          },
+          "jetsam coalition": {
+            "id": 63656,
+            "name": "application.com.oliverbross.xlog.integration.624160460.624160478.1F641A94-8870-4248-B188-5492E16EBD0D",
+            "bundleID": "com.oliverbross.xlog.integration"
+          }
+        },
+        "survivors": [],
+        "unresolved": [
+          {
+            "pid": 79847,
+            "reason": "New, changed, or unreadable same-user process coalition"
+          }
+        ]
+      }
+    ],
+    "exactPreviouslyExitedZombieDisposition": {
+      "pid": 79847,
+      "ppid": 79485,
+      "uid": 501,
+      "sysctlResult": 0,
+      "kernelBytes": 648,
+      "kernelStatus": 5,
+      "SZOMB": 5,
+      "pathBytes": 0,
+      "pathErrno": 3,
+      "birthSeconds": 1794001942,
+      "birthMicroseconds": 888405,
+      "zombieVerified": true
+    }
+  },
+  "installedAppAndLiveData": {
+    "installedVersion": "1.5.31",
+    "installedHostWorkerUTMIdentitiesPreserved": true,
+    "installedBundlePinsUnchanged": true,
+    "installedAppNotBoundActivatedHiddenQuitRestartedOrReinstalledByThisRun": true,
+    "productionDatabaseSettingsAudioNotOpened": true,
+    "liveDataByteIdentityNotAssertedBecauseUserContinuedNormalUse": true,
+    "DockAutoHideInitialAndFinal": false,
+    "separateSkimmerUntouched": true
+  },
+  "budgets": {
+    "idleCPUGoalPercentOneCore": 1,
+    "goalStrictlyLessThan": true,
+    "backgroundObservedFamilyPercentOneCore": 2.2725888256192404,
+    "backgroundValueBelowGoal": false,
+    "foregroundIdleGoalQualifiedByThisRun": false,
+    "representative70kForegroundMemoryGoalNotQualifiedByHiddenGenerated100kRun": true,
+    "noMatchedPercentageSavingClaim": true
+  },
+  "noProductChangesBuildsTestsProfilersCIOrPublicRelease": true,
+  "originalHelperSeal": {
+    "source": "84d38f7e9cf6b63a5c9d07b610f9fcf0dab42639",
+    "version": "1.5.31",
+    "pinnedUTC": "2026-11-07T09:24:41.338979+00:00",
+    "observerSeconds": 1800,
+    "observerBoundSeconds": 1815,
+    "warmupSeconds": 60,
+    "sampleOffsetsSeconds": [
+      0,
+      300,
+      900,
+      1200,
+      1800
+    ],
+    "manifest": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/quit-fix-20261107/runs/1.5.31-0efbf9b63f/manifest.json",
+    "preparedManifestSHA256": "2d4988c2035b2daf8da5d2da2be2ce474eb5916d0c92e88a88423d18c0d50c55",
+    "preflightOutput": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/quit-fix-20261107/stability31-preflight-38ed11b4",
+    "intervalOutput": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/quit-fix-20261107/stability31-interval-38ed11b4",
+    "unchangedExistingBinaries": true,
+    "SHA256": {
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/quit-fix-20261107/fixture-s31.py": "405cd404b151c8bf283ab17a4cc252db15632ceaf1cfeb62e2498a37f01f37e9",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/quit-fix-20261107/artifact31.py": "d400e0b1cbd06e0bb0acc49624bc6ea8eb8ad6c2ab8b626968cff5f6c1b217e7",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/quit-fix-20261107/collect-s31-budget.py": "20f03e475c73ab605e2674219a4013463079a19a5ec9a90c815d86bf216c32c1",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/quit-fix-20261107/visibility-observer.m": "96f9d812e75fa09a85ad13cad8b9cc1ecaeab39226f5ff7118ade141bc117ebd",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/quit-fix-20261107/visibility-observer": "8e6b2fe9c0c99521ab40e3b481dfa38890cec7bafe5625356a7d74fb5e08ec01",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/quit-fix-20261107/local.m": "69a31af3db5db95656d915002948cc055438b223545ab059530f86c11ab870d4",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/quit-fix-20261107/local": "09a23e8cadfff4cca01598c163d4a052988e41bfe2fa2e4babdf41f4cab71cd1",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/quit-fix-20261107/tooling-pins.json": "d75469bcdbdbdf5776054eac8b6dabe918c9022ccf6018cd65bd5e72e8307f8a",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/quit-fix-20261107/cpu-unit-provenance.json": "6132297b87a45403eb8ebcc54e527df2cf9ef41f0215e118fa011e45287b03a9",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/quality-ui-idle/attribution/proc-attribution": "178f80e05b78d2555103ba46a5f2cf75d6ed374446a9d4794e53bb7793a46da8",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/signed-s31-stability-20261107/control.py": "faa02e7ee2b7d3d69154fc81182867f859fc12f5fb2fdd4822d9289bfaf4ac5b",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/signed-s31-stability-20261107/run-interval.py": "f84a49c13d12969926c5e162265af01bbf86c46f7940c235b5777aa65a5b842c",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/quality-mac-s29-observation-20261107/exited-capture": "ccf2fa5c058f285b8df892f383fddd908aa46b34e7c03cc38dd0f5121e7f00c1",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/quality-mac-s29-observation-20261107/exited-capture.c": "c71d7594cd864fb843ff4ce0ef6eadeab59ed987722e0d7638cc084b02cc7a39"
+    }
+  },
+  "backgroundHelperSeal": {
+    "source": "84d38f7e9cf6b63a5c9d07b610f9fcf0dab42639",
+    "version": "1.5.31",
+    "pinnedUTC": "2026-11-07T09:48:49.537297+00:00",
+    "protocol": "Real-world hidden-background observation; user may use other applications",
+    "strictForegroundProtocol": false,
+    "seconds": 1800,
+    "boundSeconds": 1815,
+    "warmupSeconds": 60,
+    "sampleOffsetsSeconds": [
+      0,
+      300,
+      900,
+      1200,
+      1800
+    ],
+    "manifest": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/quit-fix-20261107/runs/1.5.31-0efbf9b63f/manifest.json",
+    "sameFreshPreparedFixture": true,
+    "originalHelperSealSHA256": "818cb36fa619506de0ade86b1f58f9e04e13902c2b288ee3dfd9d5b65cbc402a",
+    "candidateInitialHiddenState": {
+      "hostPID": 46897,
+      "hidden": true,
+      "active": false,
+      "frontmostPID": 45797,
+      "candidateWindows": [
+        {
+          "id": 7391,
+          "onscreen": false,
+          "layer": 0,
+          "bounds": {
+            "X": 6,
+            "Height": 940,
+            "Y": 108,
+            "Width": 1440
+          }
+        },
+        {
+          "id": 7390,
+          "onscreen": false,
+          "layer": 1000,
+          "bounds": {
+            "X": 0,
+            "Height": 30,
+            "Y": 0,
+            "Width": 1004
+          }
+        },
+        {
+          "id": 7389,
+          "onscreen": false,
+          "layer": 0,
+          "bounds": {
+            "X": 0,
+            "Height": 30,
+            "Y": 0,
+            "Width": 3840
+          }
+        },
+        {
+          "id": 7388,
+          "onscreen": false,
+          "layer": 0,
+          "bounds": {
+            "X": 0,
+            "Height": 30,
+            "Y": 0,
+            "Width": 3840
+          }
+        },
+        {
+          "id": 7387,
+          "onscreen": false,
+          "layer": 0,
+          "bounds": {
+            "X": 0,
+            "Height": 30,
+            "Y": 0,
+            "Width": 3840
+          }
+        },
+        {
+          "id": 7386,
+          "onscreen": false,
+          "layer": 0,
+          "bounds": {
+            "X": 0,
+            "Height": 30,
+            "Y": 0,
+            "Width": 3840
+          }
+        },
+        {
+          "id": 7392,
+          "onscreen": false,
+          "layer": 0,
+          "bounds": {
+            "X": 0,
+            "Height": 500,
+            "Y": 1660,
+            "Width": 500
+          }
+        }
+      ],
+      "metadataOnly": true,
+      "noCapture": true
+    },
+    "SHA256": {
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/signed-s31-stability-20261107/background.py": "0ae30d0e8c8a0c734d5867ecc575ae6925f21876fdbaa23570be96f7042a2af9",
+      "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/signed-s31-stability-20261107/background-metadata.js": "aa87f5826f0c9848ed702ac61ecb69e6523ead8432d7356ea7009d6361d95c10"
+    }
+  },
+  "rawEvidenceDirectory": "/Users/oliver/Documents/Projects/OM0RX-xLog/.build/signed-s31-stability-20261107",
+  "nextTask": "Longer unchanged-signed-app background soak focused on whether WebContent eventually plateaus; foreground under-1% CPU qualification remains a separate open task.",
+  "archivedRuntimeSources": {
+    "docs/audits/quality-2026-11-05/idle-background-signed-1.5.31-2026-11-07-controller.py": "0ae30d0e8c8a0c734d5867ecc575ae6925f21876fdbaa23570be96f7042a2af9",
+    "docs/audits/quality-2026-11-05/idle-background-signed-1.5.31-2026-11-07-metadata.js": "aa87f5826f0c9848ed702ac61ecb69e6523ead8432d7356ea7009d6361d95c10"
+  }
+}

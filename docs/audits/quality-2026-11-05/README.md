@@ -14,6 +14,52 @@ and physical evidence remain separate.
 
 ## Current checkpoint — 7 November 2026, Darwin
 
+### Signed S31 background observation — memory plateau; idle CPU goal unmet
+
+The user chose normal computer use after two strict foreground preflights stopped
+before sampling (installed xLog foreground, then RustDesk). The [completed S31
+background observation](idle-background-signed-1.5.31-2026-11-07.md) is explicitly
+a different workload; the original foreground observer remains unchanged and
+neither failed preflight is relabelled as passed.
+
+Same signed S31/source `84d38f7e`, one fresh supported private S31-worker generated
+100k fixture, working Traditional/Standard WebGL preparation, 60-second background
+warm-up and 1800.767620-second metadata interval. Shared-accounted family footprint
+at **0/5/15/20/30 minutes: 357.113 / 369.473 / 376.098 / 377.301 / 375.442 MiB**.
+The final fifteen-minute family samples form a roughly **375–377 MiB plateau**;
+the final ten minutes end **1.859 MiB lower**. **WebContent still rises at every
+sample: 205.220 → 223.517 MiB**, including +4.438 MiB in the final ten minutes,
+while GPU falls 6.312 MiB. Full per-owner settlement is not demonstrated and no
+long-term leak is inferred. The host was already 1472.381 seconds old
+after setup/readiness work at the first sample; this is not startup qualification.
+
+Final-ten-minute native CPU, percent of one core: host **0.686503**, worker
+**0.148481**, WebContent **1.035620**, GPU **0.400784**, Networking **0.001201**;
+complete family **2.272589%** over actual ~599.9925-second intervals. This exceeds
+the unchanged under-1% goal and does not qualify foreground idle operation.
+RSS, per-owner footprint, compressed subsets, all ten ownership proofs and sampled
+visibility/heartbeat limits are retained in the [numeric receipt](idle-background-signed-1.5.31-2026-11-07.json).
+Native hidden and window-server onscreen metadata did not always agree; fixed
+visibility and continuous pixel occlusion are not claimed.
+
+All five samples and the observer's successful finish were saved, but the original
+controller's report step failed on an extra final blank line from `osascript`.
+That failed result is preserved. A separate post-run export admits only this final
+blank line and independently validates every sample, owner, unit, counter delta,
+duration and helper seal. The background data checks pass; the original controller
+is **not** described as successful.
+
+Only the isolated candidate quit, normally. Complete family absence, SQLite
+integrity, all **100,000 QSOs / 12 columns** and settings/revision preservation pass.
+Installed S31 stayed running with unchanged host/worker identities and bundle pins;
+no production UI binding/input or live database/settings/audio access occurred.
+UTM identity and original Dock state are preserved; Skimmer is untouched. No app
+source change, build/rebuild, test, profiler, install, CI repeat or public release.
+**Next:** a longer unchanged-signed-app background soak focused on whether
+WebContent eventually plateaus. Foreground idle CPU qualification, long-term leak
+claims, the old ~7 GB incident, representative/connected workloads and wider
+release qualification remain separate.
+
 ### Installed S31 — authority-only Quit veto and antenna clutter corrected
 
 The user superseded the pending S30 observation before sampling, explicitly
@@ -43,9 +89,9 @@ and the active band-map preference change rather than claiming all bytes identic
 Only signed **1.5.31** remains in `/Applications`; the old 1.5.15/1.5.28/1.5.29
 copies are verified outside it in the backup directory. S31 is reopened for use.
 UTM, Dock state and separate Skimmer work are preserved. No force Quit or capture.
-No new memory/CPU result exists; the unchanged under-1% idle CPU goal remains
-undemonstrated. **Next:** one valid 30-minute observation of this signed S31.
-Wider qualification, long-term leak claims and the old ~7 GB incident remain open
+The installation smoke check itself produced no memory/CPU result; the subsequent
+background observation is recorded above. Foreground under-1% CPU qualification,
+wider qualification, long-term leak claims and the old ~7 GB incident remain open
 and separate. The following sections retain the earlier historical checkpoints.
 
 ### Signed S29 → S30 passive CW comparison — CPU lower; no memory benefit
